@@ -56,7 +56,15 @@
         var amount = 0;
         var seconds = 0;
         var startedTyping = false;
+        var canSave = false;
         document.getElementById("hiragana_box").checked = true;
+        if (typeof(Storage) !== "undefined") {
+            canSave = true;
+            score = localStorage.getItem("score");
+            // Code for localStorage/sessionStorage.
+        } else {
+            // Sorry! No Web Storage support.. damn thats tough
+        }
         function wheel(event) {
             
             //print(event)
@@ -393,6 +401,9 @@
             pressed3.splice(-word3.length - 1, pressed3.length - word3.length)
             if(pressed.join("").includes(textToType)) {
                 score++;
+                if(canSave) {
+                    localStorage.setItem("score",score);
+                }
                 document.getElementById("score").innerHTML = "Score: " + score
                 start();
             }else
