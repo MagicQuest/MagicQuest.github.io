@@ -60,7 +60,8 @@
         document.getElementById("hiragana_box").checked = true;
         if (typeof(Storage) !== "undefined") {
             canSave = true;
-            score = localStorage.getItem("score");
+            score = parseInt(localStorage.getItem("score"));
+            document.getElementById("score").innerHTML = "Score: " + score
             // Code for localStorage/sessionStorage.
         } else {
             // Sorry! No Web Storage support.. damn thats tough
