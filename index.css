@@ -1,0 +1,26 @@
+body {
+    background-image: url("original_pic.png");
+    background-size: cover;
+    background-repeat: no-repeat;
+}
+h2 {
+    color: royalblue;
+}
+h1 {
+    font-size: 50px;
+    color: red;
+}
+a {
+    transition: font-size .5s;
+}
+a:hover {
+    font-size: 20px;
+    color:rgb(255, 255, 0)
+}
+
+a:visited {
+    color:rgb(200, 200, 0)
+}
+*{
+    font-family: 'Chilanka', cursive;
+}

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <style>
+            canvas {
+                top: 0%;
+                left: 0%;
+                position:fixed;
+                border:1px solid red;
+                z-index: -1;
+            }
+            body {
+                margin: 0;
+            }
+            *{
+                font-family: 'Chilanka', cursive;
+            }
+            h1 {
+                color: deepskyblue;
+            }
+        </style>
+        <meta property="og:title" content="Crab Game" />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="http://24.224.47.100/box2d/crab.html" />
+        <meta property="og:image" content="http://24.224.47.100/original_pic.png" />
+        <meta property="og:description" content="one of my various box2d things lol" />
+        <meta charset='utf-8'>
+        <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+        <title>Crab Game</title>
+        <meta name='viewport' content='width=device-width, initial-scale=1'>
+       
+        <link href="https://fonts.googleapis.com/css?family=Chilanka&display=swap" rel="stylesheet">
+        <script src='../oof.js'></script>
+        <script src = "box2dweb/Box2D.js"></script>
+        <script src = "box2dweb/Box2d.min.js"></script>
+        <script src = "https://code.createjs.com/1.0.0/easeljs.min.js"></script>
+        <script src="crab.js"></script>
+    </head>
+    <body onload="init()">
+        <canvas id="canvas" width="800" height="600"oncontextmenu="return false"></canvas>
+        <script>
+            var canvas = document.getElementById("canvas");
+            canvas.width = innerWidth - 5
+            canvas.height = innerHeight - 5
+            addEventListener("resize",function(event) {
+                canvas.width = innerWidth - 5
+                canvas.height = innerHeight - 5
+                init();
+            })
+                     
+            var box2d = {
+                b2Vec2 : Box2D.Common.Math.b2Vec2,
+                b2BodyDef : Box2D.Dynamics.b2BodyDef,
+                b2Body : Box2D.Dynamics.b2Body,
+                b2FixtureDef : Box2D.Dynamics.b2FixtureDef,
+                b2Fixture : Box2D.Dynamics.b2Fixture,
+                b2World : Box2D.Dynamics.b2World,
+                b2MassData : Box2D.Collision.Shapes.b2MassData,
+                b2PolygonShape : Box2D.Collision.Shapes.b2PolygonShape,
+                b2CircleShape : Box2D.Collision.Shapes.b2CircleShape,
+                b2DebugDraw : Box2D.Dynamics.b2DebugDraw
+            };
+            
+            var SCALE = 30;
+            var stage, world;
+            var bounce = .5;
+            var size = 20;
+            var shapes = [];
+            var walls = [];
+            var grav = 1;
+            var mouse = {
+                x:0,
+                y:0
+            }
+            
+            function clearing() {
+                for (let index = 0; index < shapes.length; index++) {
+                    const element = shapes[index];
+                    world.DestroyBody(element.GetBody());
+                }
+                shapes = [];
+            }
+            
+            addEventListener("keydown",function(event) {
+                print(event)
+                if(event.key == "w" || event.key == "Space") {
+                    
+                }
+            })   
+            var crab;
+            function init() {
+                stage = new createjs.Stage(canvas);
+
+                setupPhysics();
+
+                crab = new crab();
+                stage.addChild(crab.view);
+
+                createjs.Ticker.addEventListener("tick",tick);
+                createjs.Ticker.setFPS(60);
+                createjs.Ticker.useRAF = true;
+            }
+            function setupPhysics() {
+                world = new box2d.b2World(new box2d.b2Vec2(0,grav), true);
+
+                var fixDef = new box2d.b2FixtureDef();
+                fixDef.density = 1;
+                fixDef.friction = 0.5;
+                var bodyDef = new box2d.b2BodyDef();
+                bodyDef.type = box2d.b2Body.b2_staticBody;
+                bodyDef.position.x = (canvas.width/2)/SCALE;
+                bodyDef.position.y = canvas.height/SCALE;
+                fixDef.shape = new box2d.b2PolygonShape();
+                fixDef.shape.SetAsBox((canvas.width/2)/SCALE,20/SCALE);
+                walls.push(world.CreateBody(bodyDef).CreateFixture(fixDef));
+
+                var debugDraw = new box2d.b2DebugDraw();
+                debugDraw.SetSprite(stage.canvas.getContext("2d"));
+                debugDraw.SetDrawScale(SCALE);
+                debugDraw.SetFlags(box2d.b2DebugDraw.e_shapeBit | box2d.b2DebugDraw.e_jointBit);
+                world.SetDebugDraw(debugDraw);
+            }
+            function tick() {
+                stage.update();
+                //world.DrawDebugData();
+                world.SetGravity(new box2d.b2Vec2(0,grav*50));
+                world.Step(1/60, 10, 10);
+                world.ClearForces();
+            }
+        </script>
+    </body>
+</html>

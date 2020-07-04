@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html>
+  <style>
+    *{
+      font-family: 'Chilanka', cursive;
+    }
+    body {
+      margin: 0;
+    }
+    canvas {
+      top: 0%;
+      left: 0%;
+      position:fixed;
+    }
+    /*input,button {
+    position:absolute;
+    right:0;
+
+    /*float:right;*/
+    /*
+    border-radius: 5px;
+    border: rgb(42, 120, 165) solid 2px;
+    }*/
+    input,button {
+      border-radius: 5px;
+      border: rgb(0, 100, 255) solid 2px;
+      background-color: black;
+      color:darkorange
+    }
+    button {
+      cursor: pointer;
+    }
+    input::placeholder {
+      color:rgb(0, 200, 255);
+    }
+    ul {
+      position:absolute;
+
+      right:0;
+
+      /*float:right;*/
+      color:white;
+
+      background-color: black;
+
+      border-radius: 5px;
+      border: rgb(42, 120, 165) solid 2px;
+    }
+
+    /*li {
+    display: none;
+    list-style: none;
+    }*/
+    button:active {
+      background-color: rgb(200,0,100);
+      color:rgb(0, 200, 255);
+    }
+    .listopener {
+      cursor: pointer;
+
+    }
+    /* .listopener:active ~ li {
+    display:initial;
+    }*/
+  </style>
+  <head>
+    <meta property="og:title" content="Card thing" />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="http://24.224.47.100/awesome_card.html" />
+        <meta property="og:image" content="http://24.224.47.100/original_pic.png" />
+        <meta property="og:description" content="one of my various html projects" />
+    <title>
+      fnausifb!
+    </title>
+    <link href="https://fonts.googleapis.com/css?family=Chilanka&display=swap" rel="stylesheet">
+
+  </head>
+  <body style="background-color: forestgreen">
+    <img style="display:none;" id="boom" src="https://clipart.info/images/ccovers/1495818555huge-fireball-explosion-png-transparent.png"></img>
+  <img style="display:none;" id="card" src="https://cdn.shopify.com/s/files/1/0901/8716/products/playing-cards-noc-deck-v3s-kingwide_2048x.png?v=1497136264"></img>
+<h1 id="clicktocard" style="z-index: 5;color:cyan">click to add cards</h1>
+<canvas id="canvas" style="z-index: -1;border:1px solid red">
+
+</canvas><br>
+
+<ul style="top:0%;">
+  <p onclick = "showthing()" class="listopener">click here to open/close this menu</p>
+  <div style="display: none;" id="hiddendiv">
+    <li>
+      <input title="you expected a title on this one? WELL IT WAS I DIO!" id="input" placeholder="put in the image url here"></input>
+  </li>
+<!--br-->
+<li>
+  <input title="default is 100" id="input2" placeholder="put in the size of the image here"></input>
+<!--br-->
+</li>
+<li>
+  <input title="default is .8" id="input3" placeholder="put in the bouncyness here"></input>
+</li>
+<!--br-->
+<li>
+  <input title="default is 1" id="input4" placeholder="put in the gravity here"></input>
+</li>
+<li>
+  <input title="default is 1" id="input5" placeholder="put the amount of cards that spawn">
+</li>
+<!--br-->
+<li>
+  <button onclick="boomsettings()">explosion settings</button>
+  <div id="bruhsettings" style="display:none;position: absolute;bottom: 0;right: 0;">
+    <ul>
+      <li><input title="default is 1" id="bruhinput" placeholder="put the force of the explosion here"></li>
+      <li><input title="default is 100" id="bruhinput2" placeholder="put the size of the explosion here"></li>
+      <li><input title="default is 100 (1000 = 1 second)" id="bruhinput3" placeholder="explosion duration in milliseconds"></li>
+
+    </ul>
+  </div>
+</li>
+<li>
+  <button onclick="showmore();">wall interaction settings</button>
+  <div id="wallsetting" style="display: none;position:absolute;bottom: 0;right: 150px;">
+    <ul>
+      <li><button onclick="changewallmode(1)">bounce off of walls</button></li>
+      <li><button onclick="changewallmode(2)">go through walls and disappear (default)</button></li>
+      <li><button onclick="changewallmode(3)">loop around and teleport to the other side</button></li>
+    </ul>
+  </div>
+</li>
+<li>
+  <button onclick="changeimg();">click here to apply your changes</button>
+</li>
+<!--br-->
+<li>
+  <button onclick="hrtrt()">click here to disable/enable the trails</button>
+</li>
+
+<li>
+  <button onclick="changemode()">click here to enable/disable the ability to grab them</button>
+</li>
+</div>
+</ul>
+<ul style="bottom: 0">
+  <p class="listopener" onclick="showcontrols()">click here to see the controls</p>
+  <div id="hiddencontrols" style="display: none;">
+    <li><button onclick = "//changecontrols(this,1)">Enter: apply changes</button></li>
+    <li><button onclick = "//changecontrols(this,2)">Space: change mouse mode</button></li>
+    <li><button onclick = "//changecontrols(this,3)">F: freezes the object you're holding</button></li>
+    <li><button onclick = "//changecontrols(this,4)">E: Explosion!</button></li>
+  </div>
+</ul>
+<h3 id="h3h3" style="position:absolute;color:black;bottom: 0;">Cards: </h3>
+</body>
+<script>
+  function random(min, max) {
+    //labels are your friend!
+    return Math.floor(Math.random() * (max - min + 1) ) + min;
+  }
+
+  function print(str) {
+    console.log(str);
+  }
+  function not(thing) {
+    if(thing == true) {
+      return false;
+    }
+    if(thing == false) {
+      return true
+    } 
+  }
+
+  //console.log(random(1))
+  var canvas = document.getElementById('canvas')
+  var card = document.getElementById("card")
+  var explosionPNG = document.getElementById("boom")
+  let brueh = document.getElementById("clicktocard")
+  canvas.width = innerWidth - 5
+  canvas.height = innerHeight - 5
+  var bounce = .8;
+  var grav = 1;
+  var bounds = 100;
+  var c = canvas.getContext('2d');
+  var holding = false;
+  var lol = false;
+  var foorce = 1;
+  var amountofcards = 1;
+  var draggable = false;
+  var wallbounce = false;
+  var siize = 100
+  var wallLoop = false; 
+  var duration = 100
+  var boom = {
+    x:0,
+    y:0,
+    force:0,
+    size:0
+  }
+  // var waitingForKey = false;
+  const confirmKey = "Enter"
+  var modechangeKey = " "
+  var explosionKey = "E"
+  var freezeKey = "F"
+  var Key = undefined;
+  var cards = [];
+  var clr=false
+  var mouse = {
+    x:0,
+    y:0
+  }
+  //var dimension = [document.documentElement.clientWidth, document.documentElement.clientHeight];
+  //var c = document.getElementById("canvas");
+  //canvas.width = dimension[0];
+  // canvas.height = dimension[1];
+  addEventListener("mousemove",function(event) {
+    mouse.x = event.x;
+    mouse.y = event.y;
+    // console.log(mouse);
+  })
+  
+  addEventListener("touchmove",function(e){
+    var touchobj = e.changedTouches[0]; // reference first touch point (ie: first finger)
+    
+    startx = parseInt(touchobj.clientX);
+    mouse.x = startx;
+    mouse.y = parseInt(touchobj.clientY);
+  });
+  addEventListener("keydown",function(event) {
+    print(event.key)
+    if(event.key == modechangeKey) {
+      draggable = not(draggable)
+    }
+    if(event.key == confirmKey) {
+      changeimg();
+    }
+    if(event.key == "e") {
+      boom.force = foorce;
+      boom.size = siize;
+      boom.x = mouse.x - boom.size;
+      boom.y = mouse.y - boom.size;
+      setTimeout(function() {
+        boom.x = undefined
+        boom.y = undefined
+      },duration)
+    }
+    Key = event.key
+    setTimeout(function() {
+      Key = undefined
+    },100)
+    // if(waitingForKey == true) {
+    //     Key = event.key;
+    // }
+  })
+  addEventListener("touchstart",function(e){
+    holding = true
+    var touchobj = e.changedTouches[0]; // reference first touch point (ie: first finger)
+    
+    startx = parseInt(touchobj.clientX);
+    mouse.x = startx;
+    mouse.y = parseInt(touchobj.clientY);
+  });
+  addEventListener("touchend",function(event){
+    holding = false
+  });
+  addEventListener("mousedown", function(event) {
+    holding = true
+  })
+  addEventListener("mouseup",function(event) {
+    holding = false
+  })
+  addEventListener("resize",function(event) {
+    canvas.width = innerWidth - 5
+    canvas.height = innerHeight - 5
+  })
+  /*addEventListener("click",function(event) {
+    console.log("bruh",event)
+    var bruh = random(0,1)
+    var bruh2 = random(0,1)
+
+    var vel = {
+      x:random(1,5),
+      y:-10
+    }
+
+    //random(1,5)
+    //var cirble = new Circle(mouse.x,mouse.y,1,1,random(10,100),1.2)
+    //cirble.x = random(cirble.size,canvas.width-cirble.size)
+    if(bruh == 1) {
+      vel.x = -vel.x
+      //  cirble.xv = -cirble.xv 
+    }
+
+    var imig = new Img(card,mouse.x - 50,mouse.y - 50,100,100,.9,vel)
+    // balls.push(cirble)
+    cards.push(imig);
+  })*/
+  function showthing() {
+    let diiv = document.getElementById("hiddendiv");
+    if(diiv.style.display=="none") {
+      diiv.style.display = "";
+    }else {
+      diiv.style.display = "none";
+    }
+
+  }
+  function showmore() {
+    let dib = document.getElementById("wallsetting")
+    if(dib.style.display=="none") {
+      dib.style.display = "";
+    }else {
+      dib.style.display = "none";
+    }
+    //dib.style.display = ""
+  }
+  function changemode() {
+
+    draggable = not(draggable);
+  }
+  function showcontrols() {
+    let bruh = document.getElementById("hiddencontrols")
+    if(bruh.style.display=="none") {
+      bruh.style.display = "";
+    }else {
+      bruh.style.display = "none";
+    }
+  }
+  /*  function changecontrols(button,value) {
+    button.innerHTML = "press any key"
+    if(value == 1) {
+        Key = undefined;
+        waitingForKey = true;
+        while (Key == undefined) {
+
+        }
+       /*  for (let i = 0; i < 1e+7; i++) {
+            if(Key!=undefined) {
+                prompt("birj")
+                waitingForKey = false;
+                break;
+            }//else {A
+                //console.log(i)
+           // }
+
+        } *///bruh im having a plethera of difficuly right now 
+  /*
+        button.innerHTML = Key+": apply changes"
+        confirmKey = Key
+        waitingForKey = false;
+        Key = undefined;
+        console.log(Key)
+    }
+  } */
+  function changewallmode(mode) {
+    showmore();
+    //bounce off of walls go through walls and disappear (default) loop around and teleport to the other side
+    if(mode == 1) {
+      wallbounce = true;
+      wallLoop = false;
+    }
+    if(mode == 2) {
+      wallbounce = false;
+      wallLoop = false;
+    }
+    if(mode == 3) {
+      wallbounce = false;
+      wallLoop = true;
+    }
+  }
+  function hrtrt() {
+    clr = not(clr);
+    //c.clearRect(0,0,canvas.width,canvas.height)
+  }
+  function changeimg() {
+    if(document.getElementById("bruhinput3").value != "") {
+      duration = document.getElementById("bruhinput3").value
+    }
+    if(document.getElementById("bruhinput").value != "") {
+      foorce = document.getElementById("bruhinput").value
+    }
+    if(document.getElementById("bruhinput2").value != "" && !isNaN(parseInt(document.getElementById("bruhinput2").value))) {
+      siize = parseInt(document.getElementById("bruhinput2").value)
+    }
+    //print(document.getElementById("input").value)
+    if(document.getElementById("input").value == "") {
+
+    }else {
+      document.getElementById("card").setAttribute("src",document.getElementById("input").value)
+    }
+
+    if(document.getElementById("input2").value == "") {
+
+    }else{
+      if(!isNaN(parseInt(document.getElementById("input2").value))) {
+        bounds = parseInt(document.getElementById("input2").value)
+      }else if(document.getElementById("input2").value.startsWith(".")) {
+        let value = "0" + document.getElementById("input2").value
+        bounds = parseFloat(value)
+      }
+
+    }
+
+    if(document.getElementById("input3").value == "") {
+
+    }else {
+      if(!isNaN(parseInt(document.getElementById("input3").value))) {
+        bounce = parseInt(document.getElementById("input3").value)
+      }else if(document.getElementById("input3").value.startsWith(".")) {
+        let value = "0" + document.getElementById("input3").value
+        bounce = parseFloat(value)
+      }
+
+    }
+
+    if(document.getElementById("input4").value == "") {
+
+    }else {
+      if(!isNaN(parseInt(document.getElementById("input4").value))) {
+        grav = parseInt(document.getElementById("input4").value)
+      }else if(document.getElementById("input4").value.startsWith(".")) {
+        //console.log(document.getElementById("input4").value)
+        let value = "0" + document.getElementById("input4").value
+        //console.log(value)
+        grav = parseFloat(value)
+      }
+
+    }
+    if(document.getElementById("input5").value != "") {
+      if(!isNaN(parseInt(document.getElementById("input5").value))) {
+        amountofcards = parseInt(document.getElementById("input5").value)
+      }
+    }
+
+  }
+  function boomsettings() {
+    let bruhs = document.getElementById("bruhsettings")
+    if(bruhs.style.display=="none") {
+      bruhs.style.display = "";
+    }else {
+      bruhs.style.display = "none";
+    }
+
+  }
+  function Img(img,x,y,width,height,vel) {
+    this.width = width;
+    this.height = height;
+    this.stop = false;
+    this.dragged = false;
+    this.selected = false;
+    this.frozen = false;
+    // this.drag = random(1,50)/100
+    //this.bounce = bounce
+    //this.gravity = 1;
+    this.velocity = {
+      x: vel.x,
+      y: vel.y
+    }
+    this.x = x;
+    this.y = y;
+    this.img = img;
+
+    this.draw = function() {
+      c.drawImage(this.img,this.x,this.y,this.width,this.height); 
+    }
+
+    this.update = function() {
+      this.draw()
+
+      if(boom.x + boom.size*1.5 > this.x - boom.size && boom.x + boom.size*1.5 < this.x + this.width + boom.size*2 && boom.y + boom.size*1.5 < this.y + this.height + boom.size*2 && boom.y + boom.size*1.5 > this.y - boom.size*2) {
+        //this.y = 1000
+        this.velocity.x = (this.x - boom.x - this.width/2) * boom.force/5 
+        this.velocity.y = (this.y - boom.y - this.height/2) * boom.force/5;
+        //say if this pos = vec(0,0) and boom pos = vec(10,10) it would be 0,0 - 10,10 - 100
+        //(0 - 10 * 10 - 100/2)/5  = -30
+      }
+
+
+      if(draggable == true) {
+        if(mouse.x > this.x && mouse.x < this.x + this.width && mouse.y < this.y + this.height && mouse.y > this.y) {
+          // console.log("hey you are over me! :)))")
+          //KTHXBAI
+          //canvas.style.cursor = "pointer"
+          this.dragged = true;
+          //console.log(this.dragged,this.selected)
+          /*if(mouse.y > this.y && mouse.y < this.y + this.height) {
+
+            }else {
+                canvas.style.cursor = ""
+            }*/
+        }else {
+          if(this.selected != true) {
+            this.dragged = false;
+          }
+          //きゃり kyari
+
+          // canvas.style.cursor = ""
+        }
+      }
+
+      if(this.dragged == true && holding == true) {
+        //this to mouse
+        this.selected = true
+
+      }
+      if(this.selected == true && holding == false) {
+        this.selected = false;
+
+      }
+      //if(this.dragged == false || holding == false) {
+      //  this.selected = false;
+      //}
+      if(this.selected == true) {
+        if(Key == "f") {
+          //prompt("F for respect")
+          Key=""
+          if(this.frozen == false) {
+            this.frozen = true
+          }else {
+            this.frozen = false
+          }
+          print(this.frozen)
+          //this.frozen = not(this.frozen);
+        }
+        this.velocity.x = (mouse.x - this.x - this.width/2)/2 
+        this.velocity.y = (mouse.y - this.y - this.height/2)/2;
+        this.stop = false;
+
+        // lets say this.x = 20 and mouse.x = 50
+        //  50 - 20 = 30 yes
+        // lets also say this.y = 100 and mouse.y = 50
+        //50 - 100 = -50 also yes i think its going too fast
+      }
+      if(this.x > canvas.width + this.width || this.x < 0 - this.width) {
+        if(wallbounce == true) {
+          this.velocity.x=-this.velocity.x
+        }
+        if(wallLoop == true) {
+          if(this.x < 0 - this.width) {
+            this.x = canvas.width + this.width/2
+          }
+          if(this.x > canvas.width + this.width) {
+            this.x = 0 - this.width/2
+          }
+        }
+        //this.velocity.x=-this.velocity.x
+        //this.velocity.x=-this.velocity.x*bounce 
+      }
+      //if(this.y > canvas.height - this.height) {
+      //if(this.velocity.y < 1) {
+      if(this.y + this.width + this.velocity.y > canvas.height) {
+        this.velocity.y=-this.velocity.y*bounce
+        //this.stop = true
+      }else {
+        if(this.frozen) {
+          this.velocity.x = 0
+          this.velocity.y = 0
+        }else if(this.selected == false) {
+          this.velocity.y+=grav;
+        }
+      }
+      // this.y = canvas.height - this.height
+      // this.velocity.y = 0;
+      // this.gravity = 0;
+      //this.stop = true;
+      // }else {
+
+
+      //}
+
+      //}else {
+
+      //}
+
+      this.x+=this.velocity.x//*this.drag
+      this.y+= this.velocity.y//*this.drag
+      if(this.stop!=true) {
+        //if(holding == false && dragged == true) {
+        //if(this.dragged == false) {
+        //this.velocity.y+=grav;
+        //}else if(holding==false) {
+
+
+
+
+        //  
+        //}
+
+        //}
+
+      }
+
+    }
+  }
+
+
+  //var curvlwd = new Circle(300,300,10,10,20,1.2)
+  //var bruh = new Img(card,canvas.width/2,canvas.height/2,300,300,.9,)
+
+  function animate() {
+
+    let hovering = false;
+    if(clr == true) {
+      c.clearRect(0,0,canvas.width,canvas.height)
+    }
+    // console.log(bounce,bounds,grav)
+    //c.clearRect(0,0,canvas.width,canvas.height)
+    //curvlwd.update();
+    //bruh.update();
+    //let bounds = 100;
+    //print(`lol misspelled the fuck word lol damnm kaojmsdnigds uuuuuuuuuuuuhhhhhh ${boom.x,boom.y}`)
+    c.drawImage(explosionPNG,boom.x,boom.y,boom.size*2,boom.size*2); 
+    document.getElementById("h3h3").innerHTML = `Cards: ${cards.length}`
+    if(holding && draggable == false) {
+      for(var i=0;i < amountofcards;i++) {
+        var bruh = random(0,1)
+        var bruh2 = random(0,1)
+
+        var vel = {
+          x:random(1,5),
+          y:-10
+        }
+
+
+
+        //random(1,5)
+        //var cirble = new Circle(mouse.x,mouse.y,1,1,random(10,100),1.2)
+        //cirble.x = random(cirble.size,canvas.width-cirble.size)
+        if(bruh == 1) {
+          vel.x = -vel.x
+          //  cirble.xv = -cirble.xv 
+        }
+
+        var imig = new Img(card,mouse.x - bounds/2,mouse.y - bounds/2,bounds,bounds,vel)
+        // balls.push(cirble)
+        cards.push(imig);
+      }
+    }
+    for (let i = 0; i < cards.length; i++) {
+      //console.log(i)
+      let card = cards[i]
+      if(card.dragged == true) {
+        hovering = true;
+      }
+      if(wallLoop == true || wallbounce == true) {
+        card.update();
+      }else {
+        if(card.x > canvas.width || card.x < 0 - card.width) {
+          console.log("splicing")
+          cards.splice(i,1)
+        }else {
+          card.update();
+        }
+      }
+
+
+
+    }
+    if(hovering == true) {
+      canvas.style.cursor = "pointer"
+    }else {
+      canvas.style.cursor = ""
+    }
+    /*for (let i = 0; i < balls.length; i++) {
+      var ball = balls[i]
+      //console.log("look how many balls there is")
+      ball.update();
+      //if(ball.y > canvas.height + ball.size) {
+
+      //}else {
+       // ball.update();
+      //}
+      */
+
+    requestAnimationFrame(animate);
+  }
+  animate();
+</script>
+</html>

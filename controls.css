@@ -1,0 +1,50 @@
+    /*input,button {
+    position:absolute;
+    right:0;
+
+    /*float:right;*/
+    /*
+    border-radius: 5px;
+    border: rgb(42, 120, 165) solid 2px;
+    }*/
+    input,button {
+        border-radius: 5px;
+        border: rgb(0, 100, 255) solid 2px;
+        background-color: black;
+        color:darkorange
+      }
+      button {
+        cursor: pointer;
+      }
+      input::placeholder {
+        color:rgb(0, 200, 255);
+      }
+      ul {
+        position:absolute;
+  
+        right:0;
+  
+        /*float:right;*/
+        color:white;
+  
+        background-color: black;
+  
+        border-radius: 5px;
+        border: rgb(42, 120, 165) solid 2px;
+      }
+  
+      /*li {
+      display: none;
+      list-style: none;
+      }*/
+      button:active {
+        background-color: rgb(200,0,100);
+        color:rgb(0, 200, 255);
+      }
+      .listopener {
+        cursor: pointer;
+  
+      }
+      /* .listopener:active ~ li {
+      display:initial;
+      }*/
