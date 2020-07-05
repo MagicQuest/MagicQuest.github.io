@@ -49,6 +49,9 @@ function not(thing) {
 function random(min, max) {
 	return Math.floor(Math.random() * (max - min + 1) ) + min;
 }
+function choice(bruh) {
+	return bruh[random(0,bruh.length-1)];
+}
 function get(doc) {
 	return document.getElementById(doc);
 }

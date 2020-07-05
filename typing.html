@@ -38,12 +38,19 @@
     <input type="checkbox" id="handkun_box"><bruhh>handakuon? (ぱ)</bruhh></input>
     <br>
     <input type="checkbox" id="yoon"><bruhh>yōon?</bruhh></input>
+    <br>
+    <h1 style="display: none;font-size: 50px;" id="activatemove">
+        <center>
+        brujk
+        </center>
+    </h1>
     <script src = "./oof.js"></script>
     
     <script>
         //add small characters (combo hiragana)
         var timing = document.getElementById("timer")
         var text = document.getElementById("text");
+        var achievement = document.getElementById("activatemove");
         var textToType = ""
         var fontsize = 100;
         var word1;
@@ -409,8 +416,24 @@
                 if(canSave) {
                     localStorage.setItem("score",score);
                 }
+                
+                
                 document.getElementById("score").innerHTML = "Score: " + score
                 start();
+                if(score % 50 == 0) {
+                    achievement.id = "move"
+                    achievement.style.display = "inline";
+                    const randomEmoji = ["😂","🙌","🎉","👍"];
+                    const randomWord = ["Great","Good","Awesome","Epic","Nice"];
+                    const bruhText = choice(randomWord) + " job at getting " + score + "!";
+                    achievement.innerHTML = `<center>${randomEmoji[random(0,randomEmoji.length-1)]+bruhText+randomEmoji[random(0,randomEmoji.length-1)]}</center>`
+                    
+                    setTimeout(() => {
+                        achievement.id = "activatemove"
+                        achievement.style.display = "none";
+                        achievement.innerHTML = "<center>bruh why tf are you seeing this 😂</center>"
+                    }, 5000);
+                }
             }else
             if(pressed1.join("").includes(word1)) {
                 text.innerHTML = "<bruh style='color:green'>" + sym1 + "</bruh>" + sym2 + sym3

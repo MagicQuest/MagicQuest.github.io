@@ -4,3 +4,19 @@ bruhh {
 bruhh:hover {
     font-size: 20px;
 }
+
+#move {
+    position: relative;
+    -webkit-animation: moving 5s;
+    animation: moving 5s;
+}
+		
+@-webkit-keyframes moving {
+    from {top: 200px;color: black;}
+    to {top: 0px;color: rgba(0, 0, 0, 0)}
+}
+
+@keyframes moving {
+    from {top: 200px;color: black;}
+    to {top: 0px;color: rgba(0, 0, 0, 0)}
+}
