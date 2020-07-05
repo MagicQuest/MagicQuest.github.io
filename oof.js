@@ -49,6 +49,11 @@ function not(thing) {
 function random(min, max) {
 	return Math.floor(Math.random() * (max - min + 1) ) + min;
 }
+/**
+ * @summary this is just a copy of the python function lol
+ * @since 9:03PM JULY4
+ * @param {*} bruh 
+ */
 function choice(bruh) {
 	return bruh[random(0,bruh.length-1)];
 }
