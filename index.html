@@ -15,6 +15,34 @@
         <script src='oof.js'></script>
     </head>
     <body>
+        <canvas id="canvas" style="position:absolute;z-index: -1;">
+
+        </canvas>
+        <script>
+            var canvas = document.getElementById("canvas");
+            canvas.width = innerWidth - 100
+            canvas.height = innerHeight - 100
+            var context = canvas.getContext("2d");
+            var mouse = {
+                x:0,
+                y:0
+            }
+            var lastMouse = {
+                x:0,
+                y:0
+            }
+            addEventListener("mousemove",function(event) {
+                mouse.x = event.x;
+                mouse.y = event.y;
+                
+                context.beginPath();
+                context.moveTo(lastMouse.x,lastMouse.y);
+                context.lineTo(mouse.x,mouse.y);
+                context.stroke();
+                lastMouse = mouse;
+            });
+
+        </script>
         <h1>
             <center>Questofmagicfarts</center>
         </h1>
@@ -69,7 +97,7 @@
                             </h3>
                         </a>
                     </li>
-                    <li>
+                    <!--li>
                         <a href="gravity">
                             <h3>
                                 Gravity sim (most of it not made by me except gravity part)
@@ -84,7 +112,7 @@
                             </h3>
                         </a>
 
-                    </li>
+                    </li-->
 
                     <li>
                         <a href="https://bit.ly/2Aq5osu">
