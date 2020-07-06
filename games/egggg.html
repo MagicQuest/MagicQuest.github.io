@@ -8,7 +8,7 @@
         <meta property="og:description" content="one of my dumb games" />
         <meta charset='utf-8'>
         <meta http-equiv='X-UA-Compatible' content='IE=edge'>
-        <title>Egg Clicker</title>
+        <title id="title">Egg Clicker</title>
         <meta name='viewport' content='width=device-width, initial-scale=1'>
         <link rel='stylesheet' type='text/css' media='screen' href='../font.css'>
         <link rel='stylesheet' type='text/css' media='screen' href='../typing.css'>
@@ -43,7 +43,7 @@
             }
         </style>
     </head>
-    <body>
+    <body style="background-color: sandybrown;">
         <!--canvas id="canvas">
 
         </canvas-->
@@ -51,6 +51,9 @@
             
             <h1 id="eggs">
                 0 Eggs
+            </h1>
+            <h1 id="yolks">
+                0 Yolk
             </h1>
             <h3 id="eps">
                 per second: 0
@@ -73,12 +76,14 @@
             </h2-->
         </center>
         
-        <div id="birdHidden" style="display: none;position: fixed;bottom: 110px;background-color: sandybrown;border:outset saddlebrown;">
+        <div id="birdHidden" style="display: none;position: fixed;bottom: 110px;background-color: sienna;border:outset saddlebrown;">
             <h4>
                 You can buy these birds to have them peck the egg for you every 10 seconds!
             </h4>
+            <img src="https://www.cosywoodpeckercottage.com/wordpress/wp-content/uploads/2012/02/Pileated-woodpecker-Dryocopus-pileatus.jpg" width="100" height="100" alt="insert bird image here">
         </div>
-        <button onmouseover="ButtonOver('bird')" onmouseout="ButtonOut('bird')" class="clickable" id="birdBuy" onclick="Buy('birds')" style="background-color: sandybrown;border:outset saddlebrown;position: fixed;bottom: 0;">
+        
+        <button onmouseover="ButtonOver('bird')" onmouseout="ButtonOut('bird')" class="clickable" id="birdBuy" onclick="Buy('birds')" style="background-color:sienna;border:outset saddlebrown;position: fixed;bottom: 0;">
             <h1>Birds - 0
             <br>
             <money>$15</money>
@@ -92,18 +97,30 @@
                 //return "You have attempted to leave this page. Are you sure?";
             }
             var over = "";
+            
             var clickNumber = document.getElementById("clickNumber");
             var saveTxt = document.getElementById("saveTxt");
             var birdBuy = document.getElementById("birdBuy");
+            var eggHealthElement = document.getElementById("eggHealth");
+            var eggElement = document.getElementById("egg");
+
             var eggs = 0;
+            var yolk = 0;
+            var eggHealth = 100;
+            var maxEggHealth = 100;
             var eggsPerClick = 1;
-            var canSave = false;
             var BirdPrice = 15;
             var Birds = 0;
+
             var mouse = {
                 x:0,
                 y:0
             }
+
+            var cs = new sound("click.mp3");
+            var crackSound = new sound("crack.mp3");
+            
+            var canSave = false;
             addEventListener("mousemove",function(event) {
                 mouse.x = event.x;
                 mouse.y = event.y;
@@ -114,6 +131,8 @@
                 eggsPerClick = parseInt(localStorage.getItem("epc"));
                 BirdPrice = parseInt(localStorage.getItem("bp"));
                 Birds = parseInt(localStorage.getItem("birds"));
+                yolk = parseInt(localStorage.getItem("yolk"));
+                maxEggHealth = parseInt(localStorage.getItem("meh"));
                 if(isNaN(eggs)) {
                     eggs = 0;
                 }
@@ -126,34 +145,83 @@
                 if(isNaN(Birds)) {
                     Birds = 0;
                 }
+                if(isNaN(yolk)) {
+                    yolk = 0;
+                }
+                if(isNaN(maxEggHealth)) {
+                    maxEggHealth = 100;
+                }
+                eggHealth = maxEggHealth;
 
                 changeEggs(eggs);
+                changeYolk(yolk);
                 birdBuy.innerHTML = `<h1>Birds - ${Birds}
                                     <br>
                                     <money>$${BirdPrice}</money>
                                     </h1>`
+                                    const cBirds = Birds;
+                                    setInterval(() => {
+                                        for (let index = 0; index < cBirds; index++) {
+                                            clickEgg();
+                                        }
+                                    },10*1000)
                 // Code for localStorage/sessionStorage.
             } else {
                 // Sorry! No Web Storage support.. damn thats tough
             }
             function clickEgg() {
                 changeEggs(eggs+eggsPerClick);
+                
+                cs.play();
+                eggHealth--;
+                if(eggHealth <= 0) {
+                    crackEgg();
+                    eggHealth = maxEggHealth;
+                }
+            }
+            function crackEgg() {
+                changeYolk(yolk+1);
+                crackSound.play();
+                maxEggHealth *= 1.3
+                maxEggHealth = Math.ceil(maxEggHealth);
+                eggElement.src = "cracked.png";
+                eggElement.id = "crackedEgg";
+                eggElement.setAttribute("onclick","");
+                eggElement.style.width = 300;
+                eggElement.style.height = 274;
+                setTimeout(() => {
+                    eggElement.src = "egggg.png";
+                    eggElement.id = "egg";
+                    eggElement.setAttribute("onclick","clickEgg()");
+                    eggElement.style.width = 228;
+                    eggElement.style.height = 300;
+                }, 1000);
             }
             function addBird() {
                 if(eggs >= BirdPrice) {
                     changeEggs(eggs - BirdPrice);
                     Birds++;
-                    BirdPrice = Math.ceil(BirdPrice*1.1);
+                    BirdPrice = Math.ceil(BirdPrice**1.1);
                 birdBuy.innerHTML = `<h1>Birds - ${Birds}
                                     <br>
                                     <money>$${BirdPrice}</money>
                                     </h1>`
+                                    setInterval(() => {
+                                        //for (let index = 0; index < Birds; index++) {
+                                            clickEgg();
+                                        //}
+                                    },10*1000)
                 }
                 
             }
             function changeEggs(value) {
                 eggs = value;
+                get("title").innerHTML = eggs + " Eggs - Egg Clicker";
                 document.getElementById("eggs").innerHTML = eggs + " Eggs";
+            }
+            function changeYolk(value) {
+                yolk = value;
+                document.getElementById("yolks").innerHTML = yolk + " Yolk";
             }
             function ButtonOver(what) {
                 over = what;
@@ -175,7 +243,8 @@
                     localStorage.setItem("epc",eggsPerClick);
                     localStorage.setItem("bp",BirdPrice);
                     localStorage.setItem("birds",Birds);
-                    
+                    localStorage.setItem("yolk",yolk);
+                    localStorage.setItem("meh",maxEggHealth);
                 }
             }
             setInterval(() => {
@@ -186,18 +255,19 @@
                     addBird();
                 }
             }
-            setInterval(() => {
-                for (let index = 0; index < Birds; index++) {
-                    clickEgg();
-                }
-            },10*1000)
+            
             var bruh = 0;
             function tick() {
                 requestAnimationFrame(tick);
-                document.getElementById("eps").innerHTML = "per second: " + (Birds/10)
+                document.getElementById("eps").innerHTML = "per second: " + (Birds/10);
+                eggHealthElement.innerHTML = `${eggHealth}/${maxEggHealth}`;
             }
             tick();
-
+            //setInterval(() => {
+           //     for (let index = 0; index < Birds; index++) {
+            //        clickEgg();
+           //     }
+            //},10*1000)
             /*var canvas = document.getElementById("canvas");
             canvas.width = innerWidth - 5
             canvas.height = innerHeight - 5
