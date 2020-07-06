@@ -25,12 +25,21 @@
     <h1 onwheel="wheel(event)" style="text-align: center;font-size: 100px;"  id="text">
             
     </h1>
-    <h1 style="text-align: left;" id="score">
-        Score:0
-    </h1>
+    <h2 style="text-align: left;" id="rscore">
+        Score with regular hiragana: 0
+    </h2>
+    <h2 style="text-align: left;" id="rdscore">
+        Score with regular hiragana and dakuon: 0
+    </h2>
+    <h2 style="text-align: left;" id="rdhscore">
+        Score with regular hiragana,dakuon and handakuon: 0
+    </h2>
+    <h2 style="text-align: left;" id="score">
+        TotalScore: 0
+    </h2>
     <h1 style="text-align: center;" id="timer">
         Time:0
-    </h2>
+    </h1>
     <input type="checkbox" id="hiragana_box"><bruhh>regular hiragana? (は)</bruhh></input>
     <br>
     <input type="checkbox" id="dakuon_box"><bruhh>dakuon? (ば)</bruhh></input>
@@ -51,28 +60,55 @@
         var timing = document.getElementById("timer")
         var text = document.getElementById("text");
         var achievement = document.getElementById("activatemove");
+
         var textToType = ""
-        var fontsize = 100;
+        
         var word1;
         var word2;
         var word3;
         var sym1;
         var sym2;
         var sym3;
+
+        var fontsize = 100;
+        var amount = 100;
         var score = 0;
+        var rscore = 0;
+        var rdscore = 0;
+        var rdhscore = 0;
+        var seconds = 0;
+
         var dakuon = false;
         var handkun = false;
         var yoon = false;
         var regular = true;
-        var amount = 100;
-        var seconds = 0;
         var startedTyping = false;
         var canSave = false;
+        
         document.getElementById("hiragana_box").checked = true;
         if (typeof(Storage) !== "undefined") {
             canSave = true;
+            rscore = parseInt(localStorage.getItem("rscore"));
+            rdscore = parseInt(localStorage.getItem("rdscore"));
+            rdhscore = parseInt(localStorage.getItem("rdhscore"));
             score = parseInt(localStorage.getItem("score"));
-            document.getElementById("score").innerHTML = "Score: " + score
+            if(isNaN(rscore)) {
+                rscore = 0;
+            }
+            if(isNaN(score)) {
+                score = 0;
+            }
+            if(isNaN(rdhscore)) {
+                rdhscore = 0;
+            }
+            if(isNaN(rdscore)) {
+                rdscore = 0;
+            }
+
+            document.getElementById("score").innerHTML = "TotalScore: " + score
+            document.getElementById("rscore").innerHTML = "Score with regular hiragana: " + rscore
+            document.getElementById("rdscore").innerHTML = "Score with regular hiragana and dakuon: " + rdscore
+            document.getElementById("rdhscore").innerHTML = "Score with regular hiragana,dakuon and handakuon: " + rdhscore           
             // Code for localStorage/sessionStorage.
         } else {
             // Sorry! No Web Storage support.. damn thats tough
@@ -413,12 +449,25 @@
             pressed3.splice(-word3.length - 1, pressed3.length - word3.length)
             if(pressed.join("").includes(textToType)) {
                 score++;
+                
+                if(regular && dakuon && handkun) {
+                    rdhscore++;
+                    document.getElementById("rdhscore").innerHTML = "Score with regular hiragana,dakuon and handakuon: " + rdhscore;
+                }else if(regular && dakuon) {
+                    rdscore++;
+                    document.getElementById("rdscore").innerHTML = "Score with regular hiragana and dakuon: " + rdscore;
+                }else if(regular) {
+                    //print("why are you phat");
+                    rscore++;
+                    document.getElementById("rscore").innerHTML = "Score with regular hiragana: " + rscore;
+                }
                 if(canSave) {
                     localStorage.setItem("score",score);
+                    localStorage.setItem("rscore",rscore);
+                    localStorage.setItem("rdscore",rdscore);
+                    localStorage.setItem("rdhscore",rdhscore);
                 }
-                
-                
-                document.getElementById("score").innerHTML = "Score: " + score
+                document.getElementById("score").innerHTML = "TotalScore: " + score
                 start();
                 if(score % 50 == 0) {
                     achievement.id = "move"

@@ -1,7 +1,8 @@
 (function(window) {
     function crab() {
         this.view = new createjs.Bitmap("crab.png");
-        this.view.regX = this.view.regY = 50;
+        this.view.regX = 250;
+        this.view.regY = 169;
 
         var fixDef = new box2d.b2FixtureDef();
                     fixDef.density = 1;
@@ -15,7 +16,7 @@
                     fixDef.shape.SetAsBox(100/SCALE,50/SCALE);
                     this.view.body = world.CreateBody(bodyDef);
                     this.view.body.CreateFixture(fixDef);
-                    this.view.onTick = tick;
+                    this.view.on("tick", tick, this.view);
     }
 
     function tick(e) {
