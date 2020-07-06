@@ -20,9 +20,10 @@
         </canvas>
         <script>
             var canvas = document.getElementById("canvas");
-            canvas.width = innerWidth - 100
-            canvas.height = innerHeight - 100
+            canvas.width = innerWidth - 50
+            canvas.height = innerHeight - 50
             var context = canvas.getContext("2d");
+            var started = false;
             var mouse = {
                 x:0,
                 y:0
@@ -32,15 +33,30 @@
                 y:0
             }
             addEventListener("mousemove",function(event) {
-                mouse.x = event.x;
-                mouse.y = event.y;
                 
+                mouse.x = event.x;
+                mouse.y = event.y - 25;
+                if(!started) {
+                    lastMouse.x = mouse.x;
+                    lastMouse.y = mouse.y;
+                }
+                context.strokeStyle = "rgba(255,255,255,100)";
                 context.beginPath();
+                //console.log("mouse: " + mouse.x + " last mouse: " + lastMouse.x);
                 context.moveTo(lastMouse.x,lastMouse.y);
                 context.lineTo(mouse.x,mouse.y);
                 context.stroke();
-                lastMouse = mouse;
+                lastMouse.x = mouse.x;
+                lastMouse.y = mouse.y;
+                //started = true;
+                
             });
+            function animate() {
+                requestAnimationFrame(animate);
+                context.fillStyle = "rgba(0,0,0,0.01)";
+                context.fillRect(0,0,canvas.width,canvas.height)
+            }
+            //animate();
 
         </script>
         <h1>
