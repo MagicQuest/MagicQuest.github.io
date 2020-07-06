@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta property="og:title" content="Egg Clicker" />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://magicquest.github.io/games/egggg.html" />
+        <meta property="og:image" content="https://magicquest.github.io/original_pic.png" />
+        <meta property="og:description" content="one of my dumb games" />
+        <meta charset='utf-8'>
+        <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+        <title>Egg Clicker</title>
+        <meta name='viewport' content='width=device-width, initial-scale=1'>
+        <link rel='stylesheet' type='text/css' media='screen' href='../font.css'>
+        <link rel='stylesheet' type='text/css' media='screen' href='../typing.css'>
+        <link href="https://fonts.googleapis.com/css?family=Chilanka&display=swap" rel="stylesheet">
+        <script src='../oof.js'></script>
+        <style>
+            #egg {
+                cursor: pointer;
+                position: relative;
+                top:100px;
+                width:228px;height:300px;
+
+
+            }
+            
+            #egg:hover {
+                height: 330px;
+                width: 258px;
+            }
+            #egg:active {
+                width:228px;height:300px;
+            }
+            #clickNumber {
+                position: absolute;
+            }
+            money {
+                color:green;
+                font-weight: bold;
+            }
+            .clickable {
+                cursor: pointer;
+            }
+        </style>
+    </head>
+    <body>
+        <!--canvas id="canvas">
+
+        </canvas-->
+        <center>
+            
+            <h1 id="eggs">
+                0 Eggs
+            </h1>
+            <h3 id="eps">
+                per second: 0
+            </h3>
+            <h2 id="eggHealth">
+                100/100
+            </h2>
+            <img onclick="clickEgg()" id="egg" src="egggg.png" alt="eg">
+            
+            <br>
+            
+            <h3 id="clickNumber" style = "display: none;">
+                +1 egg
+            </h3>
+            <h3 id="saveTxt" style = "display: none;">
+                Saved!
+            </h3>
+            <!--h2 style="bottom:300px;position: fixed;text-align: center;left: 48%;">
+                100/100
+            </h2-->
+        </center>
+        
+        <div id="birdHidden" style="display: none;position: fixed;bottom: 110px;background-color: sandybrown;border:outset saddlebrown;">
+            <h4>
+                You can buy these birds to have them peck the egg for you every 10 seconds!
+            </h4>
+        </div>
+        <button onmouseover="ButtonOver('bird')" onmouseout="ButtonOut('bird')" class="clickable" id="birdBuy" onclick="Buy('birds')" style="background-color: sandybrown;border:outset saddlebrown;position: fixed;bottom: 0;">
+            <h1>Birds - 0
+            <br>
+            <money>$15</money>
+            </h1>
+            
+        </button>
+        <script>
+            window.onbeforeunload = confirmExit;
+            function confirmExit() {
+                save();
+                //return "You have attempted to leave this page. Are you sure?";
+            }
+            var over = "";
+            var clickNumber = document.getElementById("clickNumber");
+            var saveTxt = document.getElementById("saveTxt");
+            var birdBuy = document.getElementById("birdBuy");
+            var eggs = 0;
+            var eggsPerClick = 1;
+            var canSave = false;
+            var BirdPrice = 15;
+            var Birds = 0;
+            var mouse = {
+                x:0,
+                y:0
+            }
+            addEventListener("mousemove",function(event) {
+                mouse.x = event.x;
+                mouse.y = event.y;
+            });
+            if (typeof(Storage) !== "undefined") {
+                canSave = true;
+                eggs = parseInt(localStorage.getItem("eggs"));
+                eggsPerClick = parseInt(localStorage.getItem("epc"));
+                BirdPrice = parseInt(localStorage.getItem("bp"));
+                Birds = parseInt(localStorage.getItem("birds"));
+                if(isNaN(eggs)) {
+                    eggs = 0;
+                }
+                if(isNaN(eggsPerClick)) {
+                    eggsPerClick = 1;
+                }
+                if(isNaN(BirdPrice)) {
+                    BirdPrice = 15;
+                }
+                if(isNaN(Birds)) {
+                    Birds = 0;
+                }
+
+                changeEggs(eggs);
+                birdBuy.innerHTML = `<h1>Birds - ${Birds}
+                                    <br>
+                                    <money>$${BirdPrice}</money>
+                                    </h1>`
+                // Code for localStorage/sessionStorage.
+            } else {
+                // Sorry! No Web Storage support.. damn thats tough
+            }
+            function clickEgg() {
+                changeEggs(eggs+eggsPerClick);
+            }
+            function addBird() {
+                if(eggs >= BirdPrice) {
+                    changeEggs(eggs - BirdPrice);
+                    Birds++;
+                    BirdPrice = Math.ceil(BirdPrice*1.1);
+                birdBuy.innerHTML = `<h1>Birds - ${Birds}
+                                    <br>
+                                    <money>$${BirdPrice}</money>
+                                    </h1>`
+                }
+                
+            }
+            function changeEggs(value) {
+                eggs = value;
+                document.getElementById("eggs").innerHTML = eggs + " Eggs";
+            }
+            function ButtonOver(what) {
+                over = what;
+                document.getElementById(what+"Hidden").style.display = "inline";
+            }
+            function ButtonOut(what) {
+                over = "";
+                document.getElementById(what+"Hidden").style.display = "none";
+            }
+            function save() {
+                if(canSave) {
+                    saveTxt.id = "move";
+                    saveTxt.style.display = "inline";
+                    setTimeout(() => {
+                            saveTxt.id = "saveTxt"
+                            saveTxt.style.display = "none";
+                    }, 5000);
+                    localStorage.setItem("eggs",eggs);
+                    localStorage.setItem("epc",eggsPerClick);
+                    localStorage.setItem("bp",BirdPrice);
+                    localStorage.setItem("birds",Birds);
+                    
+                }
+            }
+            setInterval(() => {
+                save();
+            }, 30*1000);
+            function Buy(what) {
+                if(what == "birds") {
+                    addBird();
+                }
+            }
+            setInterval(() => {
+                for (let index = 0; index < Birds; index++) {
+                    clickEgg();
+                }
+            },10*1000)
+            var bruh = 0;
+            function tick() {
+                requestAnimationFrame(tick);
+                document.getElementById("eps").innerHTML = "per second: " + (Birds/10)
+            }
+            tick();
+
+            /*var canvas = document.getElementById("canvas");
+            canvas.width = innerWidth - 5
+            canvas.height = innerHeight - 5
+            var context = canvas.getContext("2d");
+            
+            
+            function animate() {
+                requestAnimationFrame(animate);
+                context.fillStyle = "rgba(0,0,0,0.01)";
+                context.fillRect(0,0,canvas.width,canvas.height)
+            }*/
+            //animate();
+            
+
+        </script>
+    </body>
+</html>
