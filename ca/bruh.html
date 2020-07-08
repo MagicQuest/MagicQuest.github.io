@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title>cellauto.js</title>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://sanojian.github.io/cellauto/style.css">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+    <!--script src="//cdnjs.cloudflare.com/ajax/libs/pixi.js/3.0.7/pixi.min.js"></script-->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/1.5.3/pixi.js"></script>
+    <script src="https://cdn.rawgit.com/google/code-prettify/master/loader/run_prettify.js?skin=desert"></script>
+
+    <script src="cellauto.js"></script>
+    <script src="https://sanojian.github.io/cellauto/dist/examples.js"></script>
+
+    <script>
+
+var g_nextExample = '';
+var g_currentExample = '';
+window.onload = function() {
+    $('.exampleLink').on('click', function (evt) {
+        loadExample($(this).attr('data-example'));
+    });
+    $('#btnReloadExample').on('click', function (evt) {
+        loadExample(g_currentExample);
+    });
+    $('#btnApplyChanges').on('click', function (evt) {
+        applyCodeChanges();
+    });
+    $('#numFrames').on('change', function (evt) {
+        changeStepFrames();
+    });
+
+    loadExample('cavesWithWater');
+    //g_nextExample = 'example_lava';
+    //loadExample('lava');
+
+    var myCanvas, ctx, renderer, stage, meter, textures, pixels;
+
+    var frames = 0;
+    var world;
+    function loop() {
+
+        if (g_nextExample !== null) {
+            try {
+                world = window[g_nextExample]();
+
+                myCanvas = document.getElementById('myCanvas');
+                myCanvas.width = world.cellSize * world.width;
+                myCanvas.height = world.cellSize * world.height;
+
+                //renderer = PIXI.autoDetectRenderer(myCanvas.width, myCanvas.height, { view: myCanvas });
+                renderer = renderer || new PIXI.autoDetectRenderer(myCanvas.width, myCanvas.height, myCanvas, null, true);
+
+                // create the root of the scene graph
+                //stage = new PIXI.Container();
+                stage = stage || new PIXI.Stage(0xFFFFFF);
+
+                textures = [];
+                pixels = [];
+
+                var textureCanvas = document.createElement('canvas');
+                textureCanvas.width = world.cellSize * world.palette.length;
+                textureCanvas.height = world.cellSize;
+                var textureCtx = textureCanvas.getContext('2d');
+                for (var i=0; i<world.palette.length; i++) {
+                    textureCtx.fillStyle = 'rgba(' + world.palette[i] + ')';
+                    textureCtx.fillRect(i*world.cellSize, 0, world.cellSize, world.cellSize);
+                }
+                var baseTexture = new PIXI.BaseTexture.fromCanvas(textureCanvas);
+                for (var i=0; i<world.palette.length; i++) {
+                    textures.push(new PIXI.Texture(baseTexture, new PIXI.Rectangle(i*world.cellSize, 0, world.cellSize, world.cellSize)));
+                }
+
+
+                drawGrid(pixels, world, stage, textures);
+
+                $('#btnApplyChanges').removeClass('btn-danger');
+                $('#btnApplyChanges').addClass('btn-success');
+            } catch (ex) {
+                console.log(ex);
+                $('#btnApplyChanges').removeClass('btn-success');
+                $('#btnApplyChanges').addClass('btn-danger');
+            }
+            g_nextExample = null;
+        }
+        // limit speed of simulation
+        if(frames % g_stepFrames === 0) {
+            world.step();
+            updateGrid(pixels, world, textures);
+            renderer.render(stage);
+        }
+
+        requestAnimationFrame(loop);
+
+        frames++;
+    };
+
+    changeStepFrames();
+    requestAnimationFrame(loop);
+}
+
+var g_stepFrames = 1;
+function changeStepFrames() {
+    g_stepFrames = parseInt($('#numFrames').val(), 10);
+}
+
+function loadExample(example) {
+    g_currentExample = example;
+    g_nextExample = 'example_' + example;
+    $('#exampleCode').removeClass("prettyprinted").text(window[g_nextExample].toString());
+    $('#exampleName').text(example);
+    PR.prettyPrint();
+
+    // turn off spell check
+    var exampleDiv = $('#exampleCode')[0];
+    exampleDiv.spellcheck = false;
+    exampleDiv.focus();
+    exampleDiv.blur();
+}
+
+function applyCodeChanges() {
+    var exampleText = $('#exampleCode').text();
+    var lines = exampleText.split('\n');
+    lines.pop();
+    lines.shift();
+    window.example_userCreated = new Function(lines.join('\n'));
+    loadExample('userCreated');
+}
+
+function updateGrid(pixels, world, textures) {
+
+    for (var y=0; y<world.height; y++) {
+        for (var x = 0; x < world.width; x++) {
+            var newColor = world.grid[y][x].getColor();
+            if (newColor !== world.grid[y][x].oldColor) {
+                pixels[x + y*world.width].setTexture(textures[newColor]);
+                world.grid[y][x].oldColor = newColor;
+            }
+        }
+    }
+}
+
+function drawGrid(pixels, world, stage, textures) {
+    try {
+        stage.removeChildren();
+    } catch (ex) { console.log(ex); }
+    for (var y=0; y<world.height; y++) {
+        for (var x=0; x<world.width; x++) {
+            var sprite = new PIXI.Sprite(textures[0]);
+            pixels[x + y*world.width] = sprite;
+            sprite.x = x*world.cellSize;
+            sprite.y = y*world.cellSize;
+            stage.addChild(sprite);
+        }
+    }
+}
+
+    </script>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header clearfix">
+            <nav>
+                <ul class="nav nav-pills pull-right">
+                    <li role="presentation"><a href="#about">About</a></li>
+                    <li role="presentation"><a href="#usage">Usage</a></li>
+                    <li role="presentation"><a href="./dist/cellauto.js">Download</a></li>
+                    <li role="presentation"><a href="https://github.com/sanojian/cellauto">GitHub</a></li>
+                </ul>
+            </nav>
+            <h3 class="text-muted">cellauto.js</h3>
+        </div>
+
+        <div class="jumbotron">
+            <div class="row">
+                <div class="col-md-2">
+                </div>
+                <div class="col-md-8" style="text-align: center">
+                    <canvas id="myCanvas"></canvas>
+                </div>
+                <div class="col-md-2" style="text-align: center">
+                    <div class="dropdown">
+                        <button class="btn btn-default dropdown-toggle" type="button" id="dropdownMenu1" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
+                            <span id="exampleName">Dropdown</span>
+                            <span class="caret"></span>
+                        </button>
+                        <ul class="dropdown-menu" aria-labelledby="dropdownMenu1">
+                            <li><a class="exampleLink" data-example="caves">caves</a></li>
+                            <!--li><a class="exampleLink" data-example="islands">islands</a></li-->
+                            <li><a class="exampleLink" data-example="cavesWithWater">cavesWithWater</a></li>
+                            <li><a class="exampleLink" data-example="rain">rain</a></li>
+                            <li><a class="exampleLink" data-example="splashes">splashes</a></li>
+                            <li><a class="exampleLink" data-example="lava">lava</a></li>
+                            <!--li><a class="exampleLink" data-example="paradise">paradise</a></li-->
+                            <!--li><a class="exampleLink" data-example="trees">trees</a></li-->
+                            <!--li><a class="exampleLink" data-example="fallingWater">fallingWater</a></li-->
+                            <li><a class="exampleLink" data-example="gameOfLife">gameOfLife</a></li>
+                            <li><a class="exampleLink" data-example="maze">maze</a></li>
+                            <li><a class="exampleLink" data-example="forestFire">forestFire</a></li>
+                            <li><a class="exampleLink" data-example="cyclic">cyclic</a></li>
+                            <!--li><a class="exampleLink" data-example="explosion">explosion</a></li-->
+                        </ul>
+                    </div>
+                    <br>
+                    <div title="Animation frames per step">
+                        <span class="glyphicon glyphicon-time"></span>&nbsp;<input id="numFrames" type="number" value="3" min="1" style="width: 48px" />
+                    </div>
+                    <br>
+                    <button id="btnReloadExample" class="btn btn-default">Reload</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-8"></div>
+            <div class="col-md-4">
+                <button id="btnApplyChanges" class="btn btn-default">Apply Changes</button>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-2">
+            </div>
+            <div class="col-md-8" contentEditable>
+                <pre id="exampleCode" class="prettyprint lang-js"></pre>
+            </div>
+        </div>
+
+
+        <div class="row marketing">
+            <div class="col-md-2"></div>
+            <div class="col-md-8">
+                <a id="about"><h2>About</h2></a>
+                cellauto.js is a library for creating cellular automata simulations in Javascript.  The library is tiny and
+                is pure Javascript, requiring no third party code to run in your browser. The project is open-source and licensed under MIT.
+                Some of the API ideas were inspired by the excellent project, <a target="_blank" href="http://rileyjshaw.com/terra/">terra</a>.
+            </div>
+        </div>
+
+        <div class="row marketing">
+            <div class="col-md-2"></div>
+            <div class="col-md-8">
+                <a id="usage"><h2>Usage</h2></a>
+                <h3>Getting Started</h3>
+                Creating the world to run your simulation is simple.
+                <pre class="prettyprint lang-js">
+var world = new CAWorld({
+    width: 96,
+    height: 64
+});
+                </pre>
+
+                <h3>Defining a cell</h3>
+                Now you need to define a cell that will live in your world.  Lets start with the classic cellular automata
+                example, Conway's Game of Life.
+                <pre class="prettyprint lang-js">
+world.registerCellType('living', {
+    getColor: function () {
+        return this.alive ? '68, 36, 52, 1' : '255, 255, 255, 1';
+    },
+    process: function (neighbors) {
+        var surrounding = this.countSurroundingCellsWithValue(neighbors, 'wasAlive');
+        this.alive = surrounding === 3 || surrounding === 2 && this.alive;
+    },
+    reset: function () {
+        this.wasAlive = this.alive;
+    }
+}, function () {
+    //init
+    this.alive = Math.random() &gt; 0.5;
+});
+                </pre>
+
+                In the above example, a cell that has 2 living cells surrounding it will survive.  If 3 living cells surround
+                surround the cell, it can come back from the dead.<br>
+                <br>
+                Here are some interesting functions from the above example:
+
+                <ul>
+                    <li>
+                        <h4><span class="token keyword">process</span></h4>
+                        <p>This function is called every step of the simulation and is passed an array of neighbors to this cell.</p>
+                    </li>
+                </ul>
+                <ul>
+                    <li>
+                        <h4><span class="token keyword">reset</span></h4>
+                        <p>This function is called at the beginning of each step of the simulation to prepare the cell for the upcoming step. </p>
+                    </li>
+                </ul>
+                <ul>
+                    <li>
+                        <h4><span class="token keyword">getColor</span></h4>
+                        <p>This is our own function for determining what color the cell will be. It will be used in our display loop, which
+                        is not part of the engine.</p>
+                    </li>
+                </ul>
+                <br>
+                You can also see an init function was passed at the end of the definition.  It is used to initialize the cell when the
+                simulation starts.  In this case it determines if each cell is alive or dead to start the simulation.
+
+                <h3>Adding cells to the world</h3>
+                Cells are added to the world in the initialization step.
+                <pre class="prettyprint lang-js">
+world.initialize([
+    { name: 'living', distribution: 100 }
+]);
+
+                </pre>
+
+                In this example, cells of the type "living" will be added to the world and assigned 100% of the cells.  If we wanted
+                the world to begin with more types of cells, we could initialize like this.
+                <pre class="prettyprint lang-js">
+world.initialize([
+    { name: 'water', distribution: 40 },
+    { name: 'rock', distribution: 60 }
+]);
+                </pre>
+
+                <h3>Other interesting functions</h3>
+                <ul>
+                    <li>
+                        <h4><span class="token keyword">step</span></h4>
+                        <p>This is used to make the simulation run one loop.  Typically you would run step
+                            from setInterval or requestAnimationFrame.</p>
+                    </li>
+                </ul>
+                 <ul>
+                    <li>
+                        <h4><span class="token keyword">countSurroundingCellsWithValue</span></h4>
+                        <p>Returns a count of members of the given cell array that contain the given
+                            propery.  This is useful in many cellular automata simulations.</p>
+                    </li>
+                </ul>
+                <pre class="prettyprint lang-js">
+process: function (neighbors) {
+    var surrounding = this.countSurroundingCellsWithValue(neighbors, 'wasOpen');
+    this.open = (this.wasOpen && surrounding &gt;= 4) || surrounding &gt;= 6;
+}
+                </pre>
+                 <ul>
+                    <li>
+                        <h4><span class="token keyword">delay</span></h4>
+                        <p>Pass a number of steps and a callback function.  The callback will be called after
+                        the given number of steps with the cell passed as an argugment.  See the "trees" example.</p>
+                    </li>
+                </ul>
+                <pre class="prettyprint lang-js">
+process: function (neighbors) {
+    this.delay(10, function(cell) {
+        cell.doSomething();
+    });
+}
+                </pre>
+                <ul>
+                    <li>
+                        <h4><span class="token keyword">createGridFromValues</span></h4>
+                        <p>Creates a grid of values which can be used as input for a new world.  In this way, we
+                            can build our simulated world in several iterations.  See the "cavesWithWater" example.</p>
+                    </li>
+                </ul>
+                <pre class="prettyprint lang-js">
+var grid = world.createGridFromValues([
+        { cellType: 'wall', hasProperty: 'open', value: 0 }
+    ], 1);
+                </pre>
+                 <ul>
+                    <li>
+                        <h4><span class="token keyword">initializeFromGrid</span></h4>
+                        <p>Accepts a grid generated with "createGridFromValues" and a list of what values mean
+                            which cellTypes in this new simulated world.</p>
+                    </li>
+                </ul>
+                <pre class="prettyprint lang-js">
+world.initializeFromGrid([
+    { name: 'rock', gridValue: 1 },
+    { name: 'water', gridValue: 0 }
+], grid);
+</pre>
+
+                <h3>Display</h3>
+                There is no display code included in the library.  How you display each cell is up to you.  You can iterate
+                the value of each cell in a simple loop.
+                <pre class="prettyprint lang-js">
+for (var y=0; y&lt;world.height; y++) {
+    for (var x=0; x&lt;world.width; x++) {
+        var cell = world.grid[y][x];
+        // TODO: awesome rendering of the cell
+    }
+}
+                </pre>
+
+            </div>
+        </div>
+
+        <br>
+        <footer class="footer">
+            <p class="pull-right">&copy; Jonas Olmstead 2015  <a href="http://twitter.com/sanojian">@sanojian</a></p>
+        </footer>
+
+    </div> <!-- /container -->
+
+
+
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+</body>
+</html>

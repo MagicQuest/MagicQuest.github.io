@@ -1,3 +1,14 @@
+var color = {
+	red : [255,0,0],
+	darkRed : [200,0,0],
+	darkestRed : [100,0,0],
+	green : [0,255,0],
+	darkGreen : [0,200,0],
+	darkestGreen : [0,100,0],
+	blue : [0,0,255],
+	darkBlue : [0,0,200],
+	darkestBlue : [0,0,100]
+}
 function print(string) {
 	console.log(string);
 }
@@ -74,4 +85,20 @@ function sound(src) {
 	this.stop = function(){
 	  this.sound.pause();
 	}
+}
+function lmaolmaolmaolmao() {
+		let lmao = localStorage.getItem("epicGifs").split(" ");
+		print(lmao);
+		lmao.forEach(gif => {
+			var newVideo = create("video");
+			newVideo.setAttribute("autoplay","");
+			newVideo.name = "media";
+			newVideo.setAttribute("loop","");
+			newVideo.innerHTML = `<source src=${gif} type="video/mp4">`
+			//var newFrame = create("iframe");
+			//newFrame.src= gif;
+			//newFrame.width = 500;
+			//newFrame.height = 500;
+			place(newVideo);
+		});
 }
