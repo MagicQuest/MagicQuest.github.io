@@ -22,7 +22,7 @@
     </head>
     <body>
         <button style="background-color:saddlebrown;border:outset sienna;position: absolute;" id="pause" onclick="pause()">
-            
+            <h3>click here <br> to pause</h3>
         </button>
         <script>
             print(`width: ${innerWidth/12} height: ${innerHeight/12}`);
@@ -36,7 +36,7 @@
                 type: 'plant',
                 color: [0, 120, 0],
                 size: 10,
-                initialEnergy: ,
+                initialEnergy: 5,
                 maxEnergy: 20,
                 wait: function() {
                     // photosynthesis :)
@@ -58,7 +58,6 @@
             addEventListener("mousedown",function(event) {
                 click();
             });
-            unpause();
             function unpause() {
                 bbTerrarium.animate();
                 pauseButton.innerHTML ="<h3>click here <br> to pause</h3>";
@@ -107,7 +106,7 @@
 
                 }
                 print(bbTerrarium.grid[150][10].__proto__);
-                //bbTerrarium.animate();
+                bbTerrarium.animate();
             }
         </script>
     </body>

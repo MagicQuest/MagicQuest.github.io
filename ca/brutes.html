@@ -21,11 +21,20 @@
         </style>
     </head>
     <body>
+        <button style="background-color:sandybrown;border:outset sienna;position: absolute;left:90px" id="reset" onclick="reset()">
+            <h3>click here <br> to reset</h3>
+        </button>
+        <button style="background-color:sandybrown;border:outset sienna;position: absolute;" id="pause" onclick="pause()">
+            <h3>click here <br> to pause</h3>
+        </button>
+        
         <script>
             
             // the demo running at the top of this page
+            var pauseButton = document.getElementById("pause");
             var bbTerrarium = new terra.Terrarium(innerWidth/11, innerHeight/11, {
-                id:"terrarium"
+                id:"terrarium",
+                insertAfter: pauseButton
             });
             //var canvas = document.getElementById("terrarium");
            //canvas.setAttribute("onclick","click()");
@@ -56,6 +65,16 @@
 
             bbTerrarium.grid = bbTerrarium.makeGrid('plant');
             bbTerrarium.animate();
+            function unpause() {
+                bbTerrarium.animate();
+                pauseButton.innerHTML ="<h3>click here <br> to pause</h3>";
+                pauseButton.setAttribute("onclick","pause()");
+            }
+            function pause() {
+                bbTerrarium.stop();
+                pauseButton.innerHTML ="<h3>click here <br> to unpause</h3>";
+                pauseButton.setAttribute("onclick","unpause()");
+            }
             addEventListener("mousedown",click);
             function click(event) {
                 print("clicked");
@@ -74,6 +93,9 @@
                     return bbTerrarium.grid[x][y].__proto__.type;
                 });
                 bbTerrarium.animate();
+            }
+            function reset() {
+                bbTerrarium.grid = bbTerrarium.makeGrid('plant');
             }
         </script>
     </body>
