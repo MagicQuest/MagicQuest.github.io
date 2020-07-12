@@ -25,9 +25,14 @@ function componentToHex(c) {
 	var hex = c.toString(16);
 	return hex.length == 1 ? "0" + hex : hex;
 }
-function circle(ctx,x,y,r,endAngle = 360) {
+function circle(ctx,x,y,r,endAngle = 360,fillColor = "0") {
 	ctx.beginPath();
+	
 	ctx.arc(x, y, r, 0, (endAngle/180) * Math.PI);
+	if(fillColor != "0") {
+		ctx.fillStyle = fillColor;
+		ctx.fill();
+	}
 	ctx.stroke();
 }
 function rgbToHex(r, g, b) {
