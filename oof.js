@@ -25,6 +25,11 @@ function componentToHex(c) {
 	var hex = c.toString(16);
 	return hex.length == 1 ? "0" + hex : hex;
 }
+function circle(ctx,x,y,r,endAngle = 360) {
+	ctx.beginPath();
+	ctx.arc(x, y, r, 0, (endAngle/180) * Math.PI);
+	ctx.stroke();
+}
 function rgbToHex(r, g, b) {
 	return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
 }
