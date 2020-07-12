@@ -35,6 +35,20 @@ function circle(ctx,x,y,r,endAngle = 360,fillColor = "0") {
 	}
 	ctx.stroke();
 }
+function checkCollide(pointX, pointY, objectx, objecty, objectw, objecth) { // pointX, pointY belong to one rectangle, while the object variables belong to another rectangle
+	var oTop = objecty;
+	var oLeft = objectx; 
+	var oRight = objectx+objectw;
+	var oBottom = objecty+objecth; 
+
+	if(pointX > oLeft && pointX < oRight){
+		 if(pointY > oTop && pointY < oBottom ){
+			  return 1;
+		 }
+	}
+	else
+		 return 0;
+};
 function rgbToHex(r, g, b) {
 	return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
 }
