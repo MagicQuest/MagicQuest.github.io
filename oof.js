@@ -110,19 +110,3 @@ function sound(src) {
 	  this.sound.pause();
 	}
 }
-function lmaolmaolmaolmao() {
-		let lmao = localStorage.getItem("epicGifs").split(" ");
-		print(lmao);
-		lmao.forEach(gif => {
-			var newVideo = create("video");
-			newVideo.setAttribute("autoplay","");
-			newVideo.name = "media";
-			newVideo.setAttribute("loop","");
-			newVideo.innerHTML = `<source src=${gif} type="video/mp4">`
-			//var newFrame = create("iframe");
-			//newFrame.src= gif;
-			//newFrame.width = 500;
-			//newFrame.height = 500;
-			place(newVideo);
-		});
-}

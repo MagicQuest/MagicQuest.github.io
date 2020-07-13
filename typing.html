@@ -10,11 +10,16 @@
         <meta property="og:description" content="one of my dumb games" />
         <link rel='stylesheet' type='text/css' media='screen' href='font.css'>
         <link rel='stylesheet' type='text/css' media='screen' href='typing.css'>
+        <link rel='stylesheet' href='clickable.css'>
         <link href="https://fonts.googleapis.com/css?family=Chilanka&display=swap" rel="stylesheet">
     <style>
         input {
             
             cursor: pointer;
+        }
+        div {
+            background-color: rgb(220,220,220);
+            
         }
     </style>
 	<title>epic japanese hiragana typing game</title>
@@ -25,15 +30,23 @@
     <h1 onwheel="wheel(event)" style="text-align: center;font-size: 100px;"  id="text">
             
     </h1>
-    <h2 style="text-align: left;" id="rscore">
-        Score with regular hiragana: 0
-    </h2>
-    <h2 style="text-align: left;" id="rdscore">
-        Score with regular hiragana and dakuon: 0
-    </h2>
-    <h2 style="text-align: left;" id="rdhscore">
-        Score with regular hiragana,dakuon and handakuon: 0
-    </h2>
+    <button id='dropdownb' style="display: block;" onclick="openClose()">
+        <h4>
+            Click here to open this dropdown
+        </h4>
+    </button>
+    <div id="dropdown" style="display: none;">
+        
+        <h2 style="text-align: left;" id="rscore">
+            Score with regular hiragana: 0
+        </h2>
+        <h2 style="text-align: left;" id="rdscore">
+            Score with regular hiragana and dakuon: 0
+        </h2>
+        <h2 style="text-align: left;" id="rdhscore">
+            Score with regular hiragana,dakuon and handakuon: 0
+        </h2>
+    </div>
     <h2 style="text-align: left;" id="score">
         TotalScore: 0
     </h2>
@@ -57,6 +70,7 @@
     
     <script>
         //TODO YOU'VE GOT TO ADD SMALL TSU WITH YOOYNOYNNNNNN!!!!! BECAUSE A LONGM TIME AGO YOU DID AND ITS NOT IN THIAS VERSION!!
+        //finally im going to add small tus probably tomarower sunday 12 jul also im pretty excited for dr stone!
         //add small characters (combo hiragana)
         var timing = document.getElementById("timer")
         var text = document.getElementById("text");
@@ -113,6 +127,16 @@
             // Code for localStorage/sessionStorage.
         } else {
             // Sorry! No Web Storage support.. damn thats tough
+        }
+        function openClose() {
+            if(get('dropdown').style.display == "none") {
+                get('dropdown').style.display = "inline-block";
+                get('dropdownb').innerHTML = "Click here to close this dropdown"
+            }else {
+                get('dropdown').style.display = "none";
+                get('dropdownb').innerHTML = "Click here to open this dropdown";
+            }
+            
         }
         function wheel(event) {
             
@@ -187,6 +211,7 @@
                     //if(rand < 3) {
                     //    sym1 = sym1.substring(0,1)
                     //} 
+                    var rand = 3
                     if(rand == 0) {
                         sym2 = "ゃ";
                     }
@@ -195,6 +220,9 @@
                     }
                     if(rand == 2) { 
                         sym2 = "ょ";
+                    }
+                    if(rand == 3) {
+                        sym2 = "っ";
                     }
                 }
                 if(sym2 == "き") {
@@ -217,6 +245,7 @@
                     //if(rand < 3) {
                     //    sym1 = sym1.substring(0,1)
                     //} 
+                    var rand = 3
                     if(rand == 0) {
                         sym2 = "ゃ";
                     }
@@ -225,6 +254,9 @@
                     }
                     if(rand == 2) { 
                         sym2 = "ょ";
+                    }
+                    if(rand == 3) {
+                        sym2 = "っ";
                     }
                 }
                 if(sym2 == "し") {
@@ -247,6 +279,7 @@
                     //if(rand < 3) {
                     //    sym1 = sym1.substring(0,1)
                     //} 
+                    var rand = 3
                     if(rand == 0) {
                         sym2 = "ゃ";
                     }
@@ -255,6 +288,9 @@
                     }
                     if(rand == 2) { 
                         sym2 = "ょ";
+                    }
+                    if(rand == 3) {
+                        sym2 = "っ";
                     }
                 }
                 if(sym2 == "ち") {
@@ -277,6 +313,7 @@
                     //if(rand < 3) {
                     //    sym1 = sym1.substring(0,1)
                     //} 
+                    var rand = 3
                     if(rand == 0) {
                         sym2 = "ゃ";
                     }
@@ -285,6 +322,9 @@
                     }
                     if(rand == 2) { 
                         sym2 = "ょ";
+                    }
+                    if(rand == 3) {
+                        sym2 = "っ";
                     }
                 }
                 if(sym2 == "に") {
@@ -307,6 +347,7 @@
                     //if(rand < 3) {
                     //    sym1 = sym1.substring(0,1)
                     //} 
+                    var rand = 3
                     if(rand == 0) {
                         sym2 = "ゃ";
                     }
@@ -315,6 +356,9 @@
                     }
                     if(rand == 2) { 
                         sym2 = "ょ";
+                    }
+                    if(rand == 3) {
+                        sym2 = "っ";
                     }
                 }
                 if(sym2 == "ひ") {
@@ -337,6 +381,7 @@
                     //if(rand < 3) {
                     //    sym1 = sym1.substring(0,1)
                     //} 
+                    var rand = 3
                     if(rand == 0) {
                         sym2 = "ゃ";
                     }
@@ -345,6 +390,9 @@
                     }
                     if(rand == 2) { 
                         sym2 = "ょ";
+                    }
+                    if(rand == 3) {
+                        sym2 = "っ";
                     }
                 }
                 if(sym2 == "み") {
@@ -367,6 +415,7 @@
                     //if(rand < 3) {
                     //    sym1 = sym1.substring(0,1)
                     //} 
+                    var rand = 3
                     if(rand == 0) {
                         sym2 = "ゃ";
                     }
@@ -375,6 +424,9 @@
                     }
                     if(rand == 2) { 
                         sym2 = "ょ";
+                    }
+                    if(rand == 3) {
+                        sym2 = "っ";
                     }
                 }
                 if(sym2 == "り") {
@@ -393,14 +445,28 @@
                     }
                 }
              }
-             
-            if(rand < 3 && yoon) {
+            var wordtsu;
+            if(/*rand < 3 && */yoon) {
                 if(sym1 == "き" || sym1 == "に" || sym1 == "ひ" || sym1 == "み" || sym1 == "り") {
-                    textToType = convert(sym1).substring(0,1) + convert(sym2) + convert(sym3);
+                    //console.log(sym2);
+                    if(sym2 == "っ") {
+                        textToType = convert(sym1) + convert(sym3).substring(-1,1) + convert(sym3);
+                        wordtsu = convert(sym3).substring(-1,1);
+                        //console.log(convert(sym3));
+                    }else {
+                        textToType = convert(sym1).substring(0,1) + convert(sym2) + convert(sym3);
+                    }
                 }else if(sym2 == "き" || sym2 == "に" || sym2 == "ひ"|| sym2 == "み" || sym2 == "り") {
                     textToType = convert(sym1) + convert(sym2).substring(0,1) + convert(sym3);
                 }else if(sym1 == "し" || sym1 == "ち") {
-                    textToType = convert(sym1).substring(0,2) + convert(sym2).substring(1,2) + convert(sym3);
+                    if(sym2 == "っ") {
+                        textToType = convert(sym1) + convert(sym3).substring(-1,1) + convert(sym3);
+                        wordtsu = convert(sym3).substring(-1,1);
+                        //console.log(convert(sym3));
+                    }else {
+                        textToType = convert(sym1).substring(0,2) + convert(sym2).substring(1,2) + convert(sym3);
+                    }
+                    
                 }else if(sym2 == "し" || sym2 == "ち") {
                     textToType = convert(sym1) + convert(sym2).substring(0,2) + convert(sym3).substring(1,2);
                 }
@@ -415,7 +481,7 @@
             
             text.innerHTML = sym1 + sym2 + sym3
             word1 = convert(sym1);
-            word2 = convert(sym2);
+            word2 = convert(sym2) || wordtsu;
             word3 = convert(sym3);
             startedTyping = false;
             seconds = 0;
