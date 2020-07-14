@@ -18,3 +18,6 @@ with open('selfupdating.py','r+') as this:
         print('hey no need to update!!!')
     this.close()
 f.close()
+#if this test works you shouldn't see this anymore
+#burh burhubhrubhr
+#if this gets deleted you are gay!!!!!

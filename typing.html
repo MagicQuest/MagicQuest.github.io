@@ -1578,7 +1578,15 @@
                     return "ぽ"
                 }
             }
-            
+            if(kanji) {
+                bruh = random(0,0);
+                if(bruh == 0) {
+                    return "何"
+                }
+                if(bruh == 1) {
+                    return ""
+                }
+            }
         }
         function convert(symbol) {
             if(symbol == "ゃ") {
@@ -1803,6 +1811,11 @@
             if(symbol == "ぽ") {
                 return "po"
             }
+            //kanji
+            if(symbol == "何") {
+                return "nani"
+            }
+           
 
             
             //dakuon
