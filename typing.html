@@ -59,8 +59,10 @@
     <br>
     <input type="checkbox" id="handkun_box"><bruhh>handakuon? (ぱ)</bruhh></input>
     <br>
-    <input type="checkbox" id="yoon"><bruhh>yōon?</bruhh></input>
+    <input type="checkbox" id="yoon"><bruhh>yōon? (っ)</bruhh></input>
     <br>
+    <input type="checkbox" id="kanji" onclick="kanjiClick()"><bruhh>kanji? (何)</bruhh></input>
+    <!--input type="checkbox" id=""-->
     <h1 style="display: none;font-size: 50px;" id="activatemove">
         <center>
         brujk
@@ -69,9 +71,10 @@
     <script src = "oof.js"></script>
     
     <script>
-        //TODO YOU'VE GOT TO ADD SMALL TSU WITH YOOYNOYNNNNNN!!!!! BECAUSE A LONGM TIME AGO YOU DID AND ITS NOT IN THIAS VERSION!!
+        //DONE YOU'VE GOT TO ADD SMALL TSU WITH YOOYNOYNNNNNN!!!!! BECAUSE A LONGM TIME AGO YOU DID AND ITS NOT IN THIAS VERSION!!
         //finally im going to add small tus probably tomarower sunday 12 jul also im pretty excited for dr stone!
-        //add small characters (combo hiragana)
+        //lmao jk i did it on the 13th today its 7:35 and im tired as fuckewek
+        //DONE add small characters (combo hiragana) DONE A LONG TIME AGO
         var timing = document.getElementById("timer")
         var text = document.getElementById("text");
         var achievement = document.getElementById("activatemove");
@@ -99,6 +102,7 @@
         var regular = true;
         var startedTyping = false;
         var canSave = false;
+        var kanji = false;
         
         document.getElementById("hiragana_box").checked = true;
         if (typeof(Storage) !== "undefined") {
@@ -149,28 +153,74 @@
             text.style.fontSize = amount + "px"
            // print(amount)
         }
+        var lastValues = [];
         window.addEventListener("click", (event) => {
-            if(document.getElementById("dakuon_box").checked) {
+            var wasntthing = false;
+            if(document.getElementById("dakuon_box").checked && document.getElementById("dakuon_box").disabled == false) {
                 dakuon = true;
             }else {
                 dakuon = false;
             }
-            if(document.getElementById("handkun_box").checked) {
+            if(document.getElementById("handkun_box").checked && document.getElementById("handkun_box").disabled == false) {
                 handkun = true;
             }else {
                 handkun = false;
             }
-            if(document.getElementById("hiragana_box").checked) {
+            if(document.getElementById("hiragana_box").checked && document.getElementById("hiragana_box").disabled == false) {
                 regular = true;
             }else {
                 regular = false;
             }
-            if(document.getElementById("yoon").checked) {
+            if(document.getElementById("yoon").checked && document.getElementById("yoon").disabled == false) {
                 yoon = true;
             }else {
                 yoon = false;
             }
+            
         })
+        function kanjiClick() {
+            if(get('kanji').checked) {
+                kanji = true;
+                lastValues = [];
+                lastValues.push(dakuon);
+                var db = document.getElementById('dakuon_box');
+                db.disabled = true;
+                dakuon = false;
+                lastValues.push(handkun);
+                var db = document.getElementById('handkun_box');
+                db.disabled = true;
+                handkun = false;
+                lastValues.push(regular);
+                var db = document.getElementById('hiragana_box');
+                db.disabled = true;
+                regular = false;
+                lastValues.push(yoon);
+                var db = document.getElementById('yoon');
+                db.disabled = true;
+                yoon = false;
+
+            }else {
+                kanji = false;
+                
+                var db = document.getElementById('dakuon_box');
+                db.disabled = false;
+                console.log(lastValues);
+                db.checked = lastValues[0];
+                dakuon = lastValues[0];
+                var db = document.getElementById('handkun_box');
+                db.disabled = false;
+                db.checked = lastValues[1];
+                handkun = lastValues[1];
+                var db = document.getElementById('hiragana_box');
+                db.disabled = false;
+                db.checked = lastValues[2];
+                regular = lastValues[2];
+                var db = document.getElementById('yoon');
+                db.disabled = false;
+                db.checked = lastValues[3];
+                yoon = lastValues[3];
+            }
+        }
         //const charList = 'abcdefghijklmnopqrstuvwxyz';
         //var keySequence = [];
       //  var userInput;
@@ -211,7 +261,7 @@
                     //if(rand < 3) {
                     //    sym1 = sym1.substring(0,1)
                     //} 
-                    var rand = 3
+                    var rand = random(0,3)
                     if(rand == 0) {
                         sym2 = "ゃ";
                     }
@@ -245,7 +295,7 @@
                     //if(rand < 3) {
                     //    sym1 = sym1.substring(0,1)
                     //} 
-                    var rand = 3
+                    var rand = random(0,3)
                     if(rand == 0) {
                         sym2 = "ゃ";
                     }
@@ -279,7 +329,7 @@
                     //if(rand < 3) {
                     //    sym1 = sym1.substring(0,1)
                     //} 
-                    var rand = 3
+                    var rand = random(0,3)
                     if(rand == 0) {
                         sym2 = "ゃ";
                     }
@@ -313,7 +363,7 @@
                     //if(rand < 3) {
                     //    sym1 = sym1.substring(0,1)
                     //} 
-                    var rand = 3
+                    var rand = random(0,3)
                     if(rand == 0) {
                         sym2 = "ゃ";
                     }
@@ -347,7 +397,7 @@
                     //if(rand < 3) {
                     //    sym1 = sym1.substring(0,1)
                     //} 
-                    var rand = 3
+                    var rand = random(0,3)
                     if(rand == 0) {
                         sym2 = "ゃ";
                     }
@@ -381,7 +431,7 @@
                     //if(rand < 3) {
                     //    sym1 = sym1.substring(0,1)
                     //} 
-                    var rand = 3
+                    var rand = random(0,3)
                     if(rand == 0) {
                         sym2 = "ゃ";
                     }
@@ -415,7 +465,7 @@
                     //if(rand < 3) {
                     //    sym1 = sym1.substring(0,1)
                     //} 
-                    var rand = 3
+                    var rand = random(0,3)
                     if(rand == 0) {
                         sym2 = "ゃ";
                     }
