@@ -1,6 +1,6 @@
 from urllib.request import urlopen
 
-link = "https://magicquest.github.io/selfupdating.js"
+link = "https://magicquest.github.io/selfupdating.py"
 
 f = urlopen(link)
 myfile = f.read()
