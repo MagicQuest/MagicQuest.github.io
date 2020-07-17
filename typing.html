@@ -21,6 +21,9 @@
             background-color: rgb(220,220,220);
             
         }
+        #text {
+            text-shadow: 5px 5px rgb(220,220,220);
+        }
     </style>
 	<title>epic japanese hiragana typing game</title>
 </head >
@@ -63,6 +66,7 @@
     <br>
     <input type="checkbox" id="kanji" onclick="kanjiClick()"><bruhh>kanji? (何)</bruhh></input>
     <!--input type="checkbox" id=""-->
+    <br>
     <h1 style="display: none;font-size: 50px;" id="activatemove">
         <center>
         brujk
@@ -75,6 +79,7 @@
         //finally im going to add small tus probably tomarower sunday 12 jul also im pretty excited for dr stone!
         //lmao jk i did it on the 13th today its 7:35 and im tired as fuckewek
         //DONE add small characters (combo hiragana) DONE A LONG TIME AGO
+        //TODO GO ON DUOLINGO AND PRRACTIVE (and learn more kanji) BUT STILL
         var timing = document.getElementById("timer")
         var text = document.getElementById("text");
         var achievement = document.getElementById("activatemove");
@@ -246,10 +251,17 @@
         requestAnimationFrame(updateTime);
         //var secretCode = ""
         //set random hiragana text just get all of the dakuten or hankudencaen and just regular stuff and make a converter script this gon be hard doe
+        //bruh when did i write this lmao
         function start() {  
              sym1 = getRandomSymbol();
-             sym2 = getRandomSymbol();
-             sym3 = getRandomSymbol();
+             if(!kanji) {
+                sym2 = getRandomSymbol();
+                sym3 = getRandomSymbol();
+             }else {
+                sym2 = "";
+                sym3 = "";
+             }
+             
              var rand = random(0,2)
              //var randki = random(0,2)
             // var randshi = random(0,2)
@@ -531,8 +543,14 @@
             
             text.innerHTML = sym1 + sym2 + sym3
             word1 = convert(sym1);
-            word2 = convert(sym2) || wordtsu;
-            word3 = convert(sym3);
+            if(!kanji) {
+                word2 = convert(sym2) || wordtsu;
+                word3 = convert(sym3);
+            }else {
+                word2 = "";
+                word3 = "";
+            }
+            
             startedTyping = false;
             seconds = 0;
 
@@ -564,6 +582,38 @@
             pressed2.splice(-word2.length - 1, pressed2.length - word2.length)
             pressed3.push(e.key)
             pressed3.splice(-word3.length - 1, pressed3.length - word3.length)
+            if(kanji) {
+                var word = "";
+                pressed1.forEach(letter => {
+                    word = word+letter;
+                })
+                //print(word + convert(sym1));
+                if(word == convert(sym1)) {
+                    score++;
+                    if(canSave) {
+                        localStorage.setItem("score",score);
+                        localStorage.setItem("rscore",rscore);
+                        localStorage.setItem("rdscore",rdscore);
+                        localStorage.setItem("rdhscore",rdhscore);
+                    }
+                    document.getElementById("score").innerHTML = "TotalScore: " + score
+                    start();
+                    if(score % 50 == 0) {
+                        achievement.id = "move"
+                        achievement.style.display = "inline";
+                        const randomEmoji = ["😂","🙌","🎉","👍"];
+                        const randomWord = ["Great","Good","Awesome","Epic","Nice"];
+                        const bruhText = choice(randomWord) + " job at getting " + score + "!";
+                        achievement.innerHTML = `<center>${randomEmoji[random(0,randomEmoji.length-1)]+bruhText+randomEmoji[random(0,randomEmoji.length-1)]}</center>`
+                        
+                        setTimeout(() => {
+                            achievement.id = "activatemove"
+                            achievement.style.display = "none";
+                            achievement.innerHTML = "<center>bruh why tf are you seeing this 😂</center>"
+                        }, 5000);
+                    }
+                }
+            }
             if(pressed.join("").includes(textToType)) {
                 score++;
                 
