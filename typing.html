@@ -24,15 +24,27 @@
         #text {
             text-shadow: 5px 5px rgb(220,220,220);
         }
+        h1 {
+            margin-block-start: 0.67em;
+            margin-block-end: 0.67em;
+            margin-top: 0.67em;
+        }
+        h3 {
+            margin-top: 0em;
+            margin-bottom: 2.67em;
+        }
     </style>
 	<title>epic japanese hiragana typing game</title>
 </head >
 
 <body>
     
-    <h1 onwheel="wheel(event)" style="text-align: center;font-size: 100px;"  id="text">
+    <h1 onwheel="wheel(event)" style="margin-bottom: 0.67em;text-align: center;font-size: 100px;"  id="text">
             
     </h1>
+    <h3 style="display:none;text-align: center;">
+        meaning in english: what
+    </h3>
     <button id='dropdownb' style="display: block;" onclick="openClose()">
         <h4>
             Click here to open this dropdown
@@ -82,7 +94,7 @@
         //lmao jk i did it on the 13th today its 7:35 and im tired as fuckewek
         //DONE add small characters (combo hiragana) DONE A LONG TIME AGO
         //TODO GO ON DUOLINGO AND PRRACTIVE (and learn more kanji) BUT STILL
-        //TODO KATAKANA FUCAOKLSGING HURRY YOU HSVE TO LEARN IT
+        //DONE KATAKANA FUCAOKLSGING HURRY YOU HSVE TO LEARN IT
         var timing = document.getElementById("timer")
         var text = document.getElementById("text");
         var achievement = document.getElementById("activatemove");
@@ -200,6 +212,7 @@
                 document.getElementById("rdhscore").innerHTML = "Score with regular hiragana,   dakuon and handakuon: " + rdhscore;
                 document.getElementById("rdscore").innerHTML = "Score with regular hiragana and dakuon: " + rdscore;
                 document.getElementById("rscore").innerHTML = "Score with regular hiragana: " + rscore;
+                
             }else {
                 regular = false;
             }
@@ -302,6 +315,7 @@
              if(!kanji) {
                 sym2 = getRandomSymbol();
                 sym3 = getRandomSymbol();
+                //console.log(sym2);
              }else {
                 sym2 = "";
                 sym3 = "";
@@ -314,6 +328,7 @@
              //var randni = random(0,2)
              if(yoon) {
                 if(katakana) {
+                    //console.log(sym1);
                     if(sym1 == "キ") {
                         
                         //if(rand < 3) {
@@ -339,13 +354,13 @@
                         //    sym1 = sym1.substring(0,1)
                         //} 
                         if(rand == 0) {
-                            sym2 = "ャ";
+                            sym3 = "ャ";
                         }
                         if(rand == 1) {
-                            sym2 = "ュ";
+                            sym3 = "ュ";
                         }
                         if(rand == 2) { 
-                            sym2 = "ョ";
+                            sym3 = "ョ";
                         }
                     }
                     if(sym1 == "シ") {
@@ -373,13 +388,13 @@
                         //    sym1 = sym1.substring(0,1)
                         //} 
                         if(rand == 0) {
-                            sym2 = "ャ";
+                            sym3 = "ャ";
                         }
                         if(rand == 1) {
-                            sym2 = "ュ";
+                            sym3 = "ュ";
                         }
                         if(rand == 2) { 
-                            sym2 = "ョ";
+                            sym3 = "ョ";
                         }
                     }
                     if(sym1 == "チ") {
@@ -407,13 +422,13 @@
                         //    sym1 = sym1.substring(0,1)
                         //} 
                         if(rand == 0) {
-                            sym2 = "ャ";
+                            sym3 = "ャ";
                         }
                         if(rand == 1) {
-                            sym2 = "ュ";
+                            sym3 = "ュ";
                         }
                         if(rand == 2) { 
-                            sym2 = "ョ";
+                            sym3 = "ョ";
                         }
                     }
                     if(sym1 == "ニ") {
@@ -441,13 +456,13 @@
                         //    sym1 = sym1.substring(0,1)
                         //} 
                         if(rand == 0) {
-                            sym2 = "ャ";
+                            sym3 = "ャ";
                         }
                         if(rand == 1) {
-                            sym2 = "ュ";
+                            sym3 = "ュ";
                         }
                         if(rand == 2) { 
-                            sym2 = "ョ";
+                            sym3 = "ョ";
                         }
                     }
                     if(sym1 == "ヒ") {
@@ -475,13 +490,13 @@
                         //    sym1 = sym1.substring(0,1)
                         //} 
                         if(rand == 0) {
-                            sym2 = "ャ";
+                            sym3 = "ャ";
                         }
                         if(rand == 1) {
-                            sym2 = "ュ";
+                            sym3 = "ュ";
                         }
                         if(rand == 2) { 
-                            sym2 = "ョ";
+                            sym3 = "ョ";
                         }
                     }
                     if(sym1 == "ミ") {
@@ -509,13 +524,13 @@
                         //    sym1 = sym1.substring(0,1)
                         //} 
                         if(rand == 0) {
-                            sym2 = "ャ";
+                            sym3 = "ャ";
                         }
                         if(rand == 1) {
-                            sym2 = "ュ";
+                            sym3 = "ュ";
                         }
                         if(rand == 2) { 
-                            sym2 = "ョ";
+                            sym3 = "ョ";
                         }
                     }
                     if(sym1 == "リ") {
@@ -543,13 +558,13 @@
                         //    sym1 = sym1.substring(0,1)
                         //} 
                         if(rand == 0) {
-                            sym2 = "ャ";
+                            sym3 = "ャ";
                         }
                         if(rand == 1) {
-                            sym2 = "ュ";
+                            sym3 = "ュ";
                         }
                         if(rand == 2) { 
-                            sym2 = "ョ";
+                            sym3 = "ョ";
                         }
                     }
                 }
@@ -2650,6 +2665,7 @@
             
             if(kanji) {
                 bruh = random(0,0);
+                
                 if(bruh == 0) {
                     return "何"
                 }
