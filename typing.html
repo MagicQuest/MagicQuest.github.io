@@ -61,6 +61,10 @@
         <h2 style="text-align: left;" id="rdhscore">
             Score with regular hiragana,dakuon and handakuon: 0
         </h2>
+        <h2 style="text-align: left;" id="rtscore">
+            Total Hiragana Score: 0
+        </h2>
+
     </div>
     <h2 style="text-align: left;" id="score">
         TotalScore: 0
@@ -114,15 +118,18 @@
         var rscore = 0;
         var rdscore = 0;
         var rdhscore = 0;
+        var rtscore = 0;
         var krscore = 0;
         var krdscore = 0;
         var krdhscore = 0;
+        var krtscore = 0;
         var seconds = 0;
+
+        var regular = true;
 
         var dakuon = false;
         var handkun = false;
         var yoon = false;
-        var regular = true;
         var startedTyping = false;
         var canSave = false;
         var kanji = false;
@@ -134,10 +141,12 @@
             rscore = parseInt(localStorage.getItem("rscore"));
             rdscore = parseInt(localStorage.getItem("rdscore"));
             rdhscore = parseInt(localStorage.getItem("rdhscore"));
+            rtscore = parseInt(localStorage.getItem('rtscore'));
 
             krscore = parseInt(localStorage.getItem("krscore"));
             krdscore = parseInt(localStorage.getItem("krdscore"));
             krdhscore = parseInt(localStorage.getItem("krdhscore"));
+            krtscore = parseInt(localStorage.getItem('krtscore'));
             score = parseInt(localStorage.getItem("score"));
             if(isNaN(rscore)) {
                 rscore = 0;
@@ -151,6 +160,9 @@
             if(isNaN(rdscore)) {
                 rdscore = 0;
             }
+            if(isNaN(rtscore)) {
+                rtscore = score;
+            }
             
             if(isNaN(krscore)) {
                 krscore = 0;
@@ -161,11 +173,15 @@
             if(isNaN(krdscore)) {
                 krdscore = 0;
             }
+            if(isNaN(krtscore)) {
+                krtscore = 0;
+            }
             
             document.getElementById("score").innerHTML = "TotalScore: " + score
             document.getElementById("rscore").innerHTML = "Score with regular hiragana: " + rscore
             document.getElementById("rdscore").innerHTML = "Score with regular hiragana and dakuon: " + rdscore
-            document.getElementById("rdhscore").innerHTML = "Score with regular hiragana,dakuon and handakuon: " + rdhscore           
+            document.getElementById("rdhscore").innerHTML = "Score with regular hiragana,dakuon and handakuon: " + rdhscore
+            document.getElementById("rtscore").innerHTML = "Total Hiragana Score: " + rtscore
             // Code for localStorage/sessionStorage.
         } else {
             // Sorry! No Web Storage support.. damn thats tough
@@ -212,7 +228,8 @@
                 document.getElementById("rdhscore").innerHTML = "Score with regular hiragana,   dakuon and handakuon: " + rdhscore;
                 document.getElementById("rdscore").innerHTML = "Score with regular hiragana and dakuon: " + rdscore;
                 document.getElementById("rscore").innerHTML = "Score with regular hiragana: " + rscore;
-                
+                document.getElementById("rtscore").innerHTML = "Total Hiragana Score: " + rtscore
+
             }else {
                 regular = false;
             }
@@ -239,6 +256,8 @@
                 //print("why are you phat");
                 
                 document.getElementById("rscore").innerHTML = "Score with regular katakana: " + krscore;
+
+                document.getElementById("rtscore").innerHTML = "Total Katakana Score: " + krtscore
             
         }
         function kanjiClick() {
@@ -287,9 +306,9 @@
         //const charList = 'abcdefghijklmnopqrstuvwxyz';
         //var keySequence = [];
       //  var userInput;
-        const pressed1 = []
-        const pressed2 = []
-        const pressed3 = []  
+        const pressed1 = [];
+        const pressed2 = [];
+        const pressed3 = [];
         const pressed = [];
 
         function updateTime() {
@@ -297,7 +316,7 @@
                 let date = new Date()
 
                 timing.innerHTML = "Time:"+seconds+"."+date.getUTCMilliseconds();
-                if(date.getUTCMilliseconds() > 990) {
+                if(date.getUTCMilliseconds() > 950) {
                     seconds++;
                 }
                 //print(date.getUTCMilliseconds());
@@ -927,6 +946,7 @@
                         localStorage.setItem("rscore",rscore);
                         localStorage.setItem("rdscore",rdscore);
                         localStorage.setItem("rdhscore",rdhscore);
+                        localStorage.setItem('rtscore',rtscore);
                     }
                     document.getElementById("score").innerHTML = "TotalScore: " + score
                     start();
@@ -948,7 +968,16 @@
             }
             if(pressed.join("").includes(textToType)) {
                 score++;
+                if(katakana) {
+                    krtscore++;
+                    document.getElementById("rtscore").innerHTML = "Total Katakana Score: " + krtscore
+                }
+                if(regular) {
+                    rtscore++;
+                    document.getElementById("rtscore").innerHTML = "Total Hiragana Score: " + rtscore
                 
+                    
+                }
                 if(regular && dakuon && handkun) {
                     rdhscore++;
                     document.getElementById("rdhscore").innerHTML = "Score with regular hiragana,dakuon and handakuon: " + rdhscore;
@@ -978,11 +1007,13 @@
                         localStorage.setItem("krscore",krscore);
                     localStorage.setItem("krdscore",krdscore);
                     localStorage.setItem("krdhscore",krdhscore);
+                    localStorage.setItem('krtscore',krtscore);
                     }else {
                         localStorage.setItem("rscore",rscore);
                     localStorage.setItem("rdscore",rdscore);
                     localStorage.setItem("rdhscore",rdhscore);
                     }
+                    localStorage.setItem('rtscore',rtscore);
                     localStorage.setItem("score",score);
                     
                 }
