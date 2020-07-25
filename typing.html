@@ -11,16 +11,14 @@
         <link rel='stylesheet' type='text/css' media='screen' href='font.css'>
         <link rel='stylesheet' type='text/css' media='screen' href='typing.css'>
         <link rel='stylesheet' href='clickable.css'>
-        <link href="https://fonts.googleapis.com/css?family=Chilanka&display=swap" rel="stylesheet">
+        <link rel='stylesheet' href="ctooltip.css">
+        <!--link href="https://fonts.googleapis.com/css?family=Chilanka&display=swap" rel="stylesheet"-->
     <style>
         input {
             
             cursor: pointer;
         }
-        div {
-            background-color: rgb(220,220,220);
-            
-        }
+        
         #text {
             text-shadow: 5px 5px rgb(220,220,220);
         }
@@ -33,6 +31,32 @@
             margin-top: 0em;
             margin-bottom: 2.67em;
         }
+        
+        .a:before {
+            content:"";
+            left:-6px;
+            top:-6px;
+            width:60px;
+            height:60px;
+            display:block;
+            background-position: 120px 0px;
+            z-index:10;
+            background-image: url(http://orteil.dashnet.org/cookieclicker/img/upgradeFrame.png?v=2);
+        }
+        .a {
+            /*background-position: 0px,-336px;
+            background-image: url(http://orteil.dashnet.org/cookieclicker/img/icons.png?v=2);*/
+            cursor: pointer;
+        }
+        .unlocked:before {
+            background-position: 0px 0px;
+        }
+        .div {
+            background-color: rgb(220,220,220);
+            
+        }
+        
+        
     </style>
 	<title>epic japanese hiragana typing game</title>
 </head >
@@ -50,7 +74,7 @@
             Click here to open this dropdown
         </h4>
     </button>
-    <div id="dropdown" style="display: none;">
+    <div class="div" id="dropdown" style="display: none;">
         
         <h2 style="text-align: left;" id="rscore">
             Score with regular hiragana: 0
@@ -90,15 +114,133 @@
         brujk
         </center>
     </h1>
+
+<!-- The Modal -->
+<div id="Modal" class="modal">
+
+  <!-- Modal content -->
+  <div class="modal-content">
+    <div class="modal-header">
+      <span class="close">&times;</span>
+    </div>
+    <div class="modal-body">
+      <h2>Achievements</h2>
+      <div id="a0" class="a" style="background-image: url(img/shi.png);width:60px;height:60px" onmousemove="if(this.classList.contains('unlocked')) {omo(event,'shi','Nice job!','Get 500 points while doing katakana')} else {omo(event)};" onmouseout="ns()"></div>
+    </div>
+    <div class="modal-footer">
+    </div>
+  </div>
+
+</div>
+<div id="tooltipAnchor" style="left: 1040px; right: auto; top: 87px; bottom: auto; display: block; opacity: 1; visibility: visible;">
+    <div id="tooltip" class="framed" onmouseout="Game.tooltip.hide();" style="left: auto; top: auto; right: auto; bottom: auto;">
+        <div style="padding:8px 4px;min-width:350px;">
+            <div class="icon" style="float:left;margin-left:-8px;margin-top:-8px;background-position:0px -336px;"></div>
+            <div class="name">???</div><div class="tag" style="color:#fff;">[Achievement]</div>
+            <div class="tag" style="color:#fff;">[Locked]</div>
+            <div class="line"></div>
+            <div class="description">???</div>
+        </div>
+    </div>
+</div>
+<button id="modalBtn" style="position: fixed;bottom: 0;">
+    <p style="font-size: 20px;"><strong>View achievements</strong></p>
+</button>
+<!--div class="a unlocked" style="position:absolute;left: 50%;top: 50%;background-image: url(img/shi.png);width:60px;height:60px;"></div-->
+<div id="notes">
+    
+</div>
     <script src = "oof.js"></script>
     
     <script>
+        var achievements;
+        achievements = [false];
+        function award(achievement) {
+            if(achievement == "nj") {
+                var notes = document.getElementById("notes");
+                var a = document.getElementById("a0");
+                a.setAttribute("class",'a unlocked');
+                //console.log(achievements)
+                achievements[0] = true;
+                var newDiv = create("div");
+                newDiv.setAttribute("class","fadingin")
+                newDiv.innerHTML = "<h2>You just earned the 'Nice job' Achievement</h2>";
+                place(newDiv,notes);
+                setTimeout(function() {
+                    newDiv.setAttribute("class","fading")
+                    setTimeout(function(){
+                        del(newDiv,notes);
+                    },2000) 
+                },5000)
+                
+                //give achivement!
+                //(lmao i actually chose not to do so) im also stealing this part from cookie clicker https://www.getdigital.eu/web/getdigital/gfx/products/__generated__resized/1100x1100/Aufkleber_Trollface.jpg
+            }
+        } 
+        function omo(event,img,title,desc) {
+            var ta = document.getElementById('tooltipAnchor');
+            var icon = document.getElementsByClassName('icon')[0];
+            var tag = document.getElementsByClassName('tag')[1];
+            var name = document.getElementsByClassName('name')[0];
+            var description = document.getElementsByClassName('description')[0];
+            //console.log(event.x);
+            if(img != undefined) {
+                icon.style.backgroundPosition = "0px 0px";
+                icon.style.backgroundImage = `url(img/${img}.png)`
+                name.innerHTML = title;
+                description.innerHTML = desc;
+                tag.innerHTML = "[Unlocked]"
+            }else {
+                icon.style.backgroundImage = "url(https://orteil.dashnet.org/cookieclicker/img/icons.png?v=2.022)"
+                name.innerHTML = "???";
+                description.innerHTML = "???";
+                tag.innerHTML = "[Locked]";
+                icon.style.backgroundPosition = "0px -336px";
+            }
+            
+            ta.style.left = event.x + "px";
+            ta.style.top = event.y + "px";
+            ta.style.visibility="visible";
+        }
+        function ns() {
+            var ta = document.getElementById('tooltipAnchor');
+            ta.style.visibility="hidden";
+        }
+        ns()
         //DONE YOU'VE GOT TO ADD SMALL TSU WITH YOOYNOYNNNNNN!!!!! BECAUSE A LONGM TIME AGO YOU DID AND ITS NOT IN THIAS VERSION!!
-        //finally im going to add small tus probably tomarower sunday 12 jul also im pretty excited for dr stone!
+        //finally im going to add small tus probably tomarower sunday 12 jul also im pretty excited for dr stone! ok so dr stone is a no 😔
         //lmao jk i did it on the 13th today its 7:35 and im tired as fuckewek
         //DONE add small characters (combo hiragana) DONE A LONG TIME AGO
         //TODO GO ON DUOLINGO AND PRRACTIVE (and learn more kanji) BUT STILL
         //DONE KATAKANA FUCAOKLSGING HURRY YOU HSVE TO LEARN IT
+        //DONE 1/?? POSSIBLY MAKE SOME SORT OF ACHIEVEMNT SYSTEM BECAUSE THATS FUN (like if you got 1000 total score you got some sort of achievment and there would be a modal menu thingy that popped up and would show the things you go llo)
+        
+                // Get the modal
+        var modal = document.getElementById("Modal");
+
+        // Get the button that opens the modal
+        var btn = document.getElementById("modalBtn");
+
+        // Get the <span> element that closes the modal
+        var span = document.getElementsByClassName("close")[0];
+
+        // When the user clicks the button, open the modal 
+        btn.onclick = function() {
+            modal.style.display = "block";
+        }
+
+        // When the user clicks on <span> (x), close the modal
+        span.onclick = function() {
+            modal.style.display = "none";
+        }
+
+        // When the user clicks anywhere outside of the modal, close it
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+        
         var timing = document.getElementById("timer")
         var text = document.getElementById("text");
         var achievement = document.getElementById("activatemove");
@@ -134,8 +276,11 @@
         var canSave = false;
         var kanji = false;
         var katakana = false;
+
+        
         
         document.getElementById("hiragana_box").checked = true;
+        
         if (typeof(Storage) !== "undefined") {
             canSave = true;
             rscore = parseInt(localStorage.getItem("rscore"));
@@ -148,6 +293,19 @@
             krdhscore = parseInt(localStorage.getItem("krdhscore"));
             krtscore = parseInt(localStorage.getItem('krtscore'));
             score = parseInt(localStorage.getItem("score"));
+            
+            achievements = JSON.parse(localStorage.getItem("a"));
+            //console.log(achievements);
+            if(achievements == null) {
+                //console.log("its null or just nan")
+                achievements = [false];
+                //console.log(achievements)
+            }
+            if(achievements[0] == true) {
+                var a = document.getElementById("a0");
+                a.setAttribute("class",'a unlocked');
+            }
+            //console.log(achievements)
             if(isNaN(rscore)) {
                 rscore = 0;
             }
@@ -310,14 +468,19 @@
         const pressed2 = [];
         const pressed3 = [];
         const pressed = [];
-
+        var did = false;
         function updateTime() {
             if(startedTyping) {
                 let date = new Date()
 
                 timing.innerHTML = "Time:"+seconds+"."+date.getUTCMilliseconds();
                 if(date.getUTCMilliseconds() > 950) {
-                    seconds++;
+                    if(!did) {
+                        seconds++;
+                        did = true;
+                    }
+                }else {
+                    did = false;
                 }
                 //print(date.getUTCMilliseconds());
                 
@@ -968,8 +1131,14 @@
             }
             if(pressed.join("").includes(textToType)) {
                 score++;
+                
+                localStorage.setItem("a",JSON.stringify(achievements));
+                console.log(JSON.parse(localStorage.getItem("a")));
                 if(katakana) {
                     krtscore++;
+                    if(krtscore >= 500) {
+                        award('nj');
+                    }
                     document.getElementById("rtscore").innerHTML = "Total Katakana Score: " + krtscore
                 }
                 if(regular) {

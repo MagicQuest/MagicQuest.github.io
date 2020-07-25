@@ -60,11 +60,17 @@ function SetAt(thing,func) {
 }
 function del(thing) {                      
 	document.body.removeChild(thing);                      
-}                      
+}
+function del(thing,parent) {
+	parent.removeChild(thing);
+}
 function place(thing) {                      
 	//setInterval(place(thing),1000)                      
 	document.body.appendChild(thing);                      
-}                      
+}
+function place(thing,parent) {
+	parent.appendChild(thing);
+}
 function create(thing) {                      
 	return document.createElement(thing);                      
 }   

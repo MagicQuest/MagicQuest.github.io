@@ -1,0 +1,110 @@
+#tooltipAnchor {
+    position: absolute;
+    z-index: 1000000000;
+    display: none;
+}
+#tooltip {
+    position: absolute;
+    -webkit-transition: none;
+    -moz-transition: none;
+    -ms-transition: none;
+    -o-transition: none;
+    transition: none;
+    pointer-events: none;
+    opacity: 1;
+}
+.framed, a.option.framed {
+    padding: 4px 8px;
+    margin: 4px;
+    border: 3px solid transparent;
+    border-image: url(https://orteil.dashnet.org/cookieclicker/img/frameBorder.png) 3 round;
+    border-radius: 2px;
+    box-shadow: 0px 0px 1px 2px rgba(0,0,0,0.5), 0px 2px 4px rgba(0,0,0,0.25), 0px 0px 6px 1px rgba(0,0,0,0.5) inset;
+    -webkit-transition: opacity 0.1s ease-out;
+    -moz-transition: opacity 0.1s ease-out;
+    -ms-transition: opacity 0.1s ease-out;
+    -o-transition: opacity 0.1s ease-out;
+    transition: opacity 0.1s ease-out;
+}
+.framed, a.option, a.option.framed, a.option.framed:hover, .smallFramed {
+    /* border-color: #dac56e #c07a36 #a44e36 #c07a36; */
+    /* border: 1px solid #e2dd48; */
+    border-color: #ece2b6 #875526 #733726 #dfbc9a;
+}
+.framed, a.option, .sliderBox, .smallFramed {
+    border: 1px solid #e2dd48;
+    background: #000 url(https://orteil.dashnet.org/cookieclicker/img/darkNoise.jpg);
+    background-image: url(https://orteil.dashnet.org/cookieclicker/img/shadedBordersSoft.png),url(https://orteil.dashnet.org/cookieclicker/img/darkNoise.jpg);
+    background-size: 100% 100%,auto;
+    background-color: #000;
+    border-radius: 2px;
+    box-shadow: 0px 0px 1px 2px rgba(0,0,0,0.5), 0px 2px 4px rgba(0,0,0,0.25), 0px 0px 2px 2px #000 inset, 0px 1px 0px 1px rgba(255,255,255,0.5) inset;
+    text-shadow: 0px 1px 1px #000;
+    color: #ccc;
+    line-height: 100%;
+}
+
+.framed .name {
+    font-weight: bold;
+    font-size: 110%;
+    color: #fff;
+    margin: 2px 0px;
+    text-shadow: 0px 0px 2px rgba(255,255,255,0.3);
+}
+.line {
+    background: linear-gradient(to right,rgba(255,255,255,0),rgba(255,255,255,0.25),rgba(255,255,255,0));
+    height: 1px;
+    width: 90%;
+    margin: 6px auto;
+    position: relative;
+}
+.line:before, .line:after {
+    content: '';
+    display: block;
+    background: linear-gradient(to right,rgba(0,0,0,0),rgba(0,0,0,0.25),rgba(0,0,0,0));
+    height: 1px;
+    width: 90%;
+    position: absolute;
+    left: 0px;
+    bottom: 1px;
+}
+.line:after {
+    bottom: -1px;
+}
+.line:before, .line:after {
+    content: '';
+    display: block;
+    background: linear-gradient(to right,rgba(0,0,0,0),rgba(0,0,0,0.25),rgba(0,0,0,0));
+    height: 1px;
+    width: 90%;
+    position: absolute;
+    left: 0px;
+    bottom: 1px;
+}
+.description {
+    /* border-top: 1px solid rgba(255,255,255,0.25); */
+    margin: 4px 0px;
+}
+.icon {
+    background-image: url(https://orteil.dashnet.org/cookieclicker/img/icons.png?v=2.022);
+    float: left;
+    margin-left: -8px;
+    margin-top: -8px;
+    background-position: 0px -336px;
+    width: 48px;
+    height: 48px;
+    display: inline-block;
+    margin: 0px 4px;
+}
+.tag {
+    display: inline-block;
+    font-family: Arial;
+    font-size: 10px;
+}
+#notes {
+    position: absolute;
+    left: 50%;
+    margin-left: -125px;
+    bottom: 0px;
+    z-index: 100000000;
+}
