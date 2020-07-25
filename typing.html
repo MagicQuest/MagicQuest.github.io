@@ -176,6 +176,7 @@
                 //give achivement!
                 //(lmao i actually chose not to do so) im also stealing this part from cookie clicker https://www.getdigital.eu/web/getdigital/gfx/products/__generated__resized/1100x1100/Aufkleber_Trollface.jpg
             }
+            localStorage.setItem("a",JSON.stringify(achievements));
         } 
         function omo(event,img,title,desc) {
             var ta = document.getElementById('tooltipAnchor');
@@ -1136,7 +1137,7 @@
                 console.log(JSON.parse(localStorage.getItem("a")));
                 if(katakana) {
                     krtscore++;
-                    if(krtscore >= 500) {
+                    if(krtscore >= 500 && !achievements[0]) {
                         award('nj');
                     }
                     document.getElementById("rtscore").innerHTML = "Total Katakana Score: " + krtscore
