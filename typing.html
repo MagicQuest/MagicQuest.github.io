@@ -127,7 +127,10 @@
     </div>
     <div class="modal-body">
       <h2>Achievements</h2>
-      <div id="a0" class="a" style="background-image: url(img/shi.png);width:60px;height:60px" onmousemove="if(this.classList.contains('unlocked')) {omo(event,'shi','Nice job!','Get 500 points while doing katakana')} else {omo(event)};" onmouseout="ns()"></div>
+      <div id="a0" class="a" style="background-image: url(img/shi.png);width:60px;height:60px" onmousemove="if(this.classList.contains('unlocked')) {omo(event,'shi','Nice job!','Get <strong>500 points</strong> while doing katakana')} else {omo(event)};" onmouseout="ns()"></div>
+      <div id="a1" class="a" style="background-image: url(img/a.png);width:60px;height:60px" onmousemove="if(this.classList.contains('unlocked')) {omo(event,'a','New beginnings','Score <strong>one point</strong>')} else {omo(event)};" onmouseout="ns()"></div>
+      <div id="a2" class="a" style="background-image: url(img/t1.png);width:60px;height:60px" onmousemove="if(this.classList.contains('unlocked')) {omo(event,'t1','Thinking','Spend <strong>30 seconds</strong> on one thing')} else {omo(event)};" onmouseout="ns()"></div>
+      <div id="a3" class="a" style="background-image: url(img/t2.png);width:60px;height:60px" onmousemove="if(this.classList.contains('unlocked')) {omo(event,'t2','Thinking 2','Spend <strong>60 seconds</strong> on one thing')} else {omo(event)};" onmouseout="ns()"></div>
     </div>
     <div class="modal-footer">
     </div>
@@ -140,6 +143,7 @@
             <div class="icon" style="float:left;margin-left:-8px;margin-top:-8px;background-position:0px -336px;"></div>
             <div class="name">???</div><div class="tag" style="color:#fff;">[Achievement]</div>
             <div class="tag" style="color:#fff;">[Locked]</div>
+            <!--hr-->
             <div class="line"></div>
             <div class="description">???</div>
         </div>
@@ -155,28 +159,56 @@
     <script src = "oof.js"></script>
     
     <script>
+        window.onbeforeunload = confirmExit;
+            function confirmExit() {
+                save();
+                //return "You have attempted to leave this page. Are you sure?";
+            }
         var achievements;
-        achievements = [false];
+        achievements = [false,false,false,false];
+        var createAchievementMessage = function(name) {
+            var notes = document.getElementById("notes");
+            var newDiv = create("div");
+            newDiv.setAttribute("class","fadingin")
+            newDiv.innerHTML = `<h2>You just earned the '${name}' Achievement!</h2>`;
+            place(newDiv,notes);
+            setTimeout(function() {
+                newDiv.setAttribute("class","fading")
+                setTimeout(function(){
+                    del(newDiv,notes);
+                },2000)
+            },5000)
+        };
         function award(achievement) {
+            if(achievement == 't1') {
+                var a = document.getElementById("a2");
+                a.setAttribute("class",'a unlocked');
+                //console.log(achievements)
+                achievements[2] = true;
+                createAchievementMessage('Thinking')
+            }
+            if(achievement == "t2") {
+                var a = document.getElementById('a3');
+                a.setAttribute('class','a unlocked');
+                achievements[3] = true;
+                createAchievementMessage('Thinking 2')
+            }
+            if(achievement == "nb") {
+                var a = document.getElementById("a1");
+                a.setAttribute("class",'a unlocked');
+                //console.log(achievements)
+                achievements[1] = true;
+                createAchievementMessage('New beginnings');
+            }
             if(achievement == "nj") {
-                var notes = document.getElementById("notes");
                 var a = document.getElementById("a0");
                 a.setAttribute("class",'a unlocked');
                 //console.log(achievements)
                 achievements[0] = true;
-                var newDiv = create("div");
-                newDiv.setAttribute("class","fadingin")
-                newDiv.innerHTML = "<h2>You just earned the 'Nice job' Achievement</h2>";
-                place(newDiv,notes);
-                setTimeout(function() {
-                    newDiv.setAttribute("class","fading")
-                    setTimeout(function(){
-                        del(newDiv,notes);
-                    },2000) 
-                },5000)
-                
+                createAchievementMessage('Nice job!');
                 //give achivement!
                 //(lmao i actually chose not to do so) im also stealing this part from cookie clicker https://www.getdigital.eu/web/getdigital/gfx/products/__generated__resized/1100x1100/Aufkleber_Trollface.jpg
+            
             }
             localStorage.setItem("a",JSON.stringify(achievements));
         } 
@@ -301,12 +333,24 @@
             //console.log(achievements);
             if(achievements == null) {
                 //console.log("its null or just nan")
-                achievements = [false];
+                achievements = [false,false,false,false];
                 //console.log(achievements)
             }
             if(achievements[0] == true) {
                 var a = document.getElementById("a0");
                 a.setAttribute("class",'a unlocked');
+            }
+            if(achievements[1] == true) {
+                var a = document.getElementById("a1");
+                a.setAttribute("class",'a unlocked');
+            }
+            if(achievements[2] == true) {
+                var a = document.getElementById('a2');
+                a.setAttribute('class','a unlocked');
+            }
+            if(achievements[3] == true){
+                var a = document.getElementById('a3');
+                a.setAttribute('class','a unlocked');
             }
             //console.log(achievements)
             if(isNaN(rscore)) {
@@ -357,6 +401,22 @@
             }
             
         }
+        function save() {
+            if(canSave) {
+                localStorage.setItem("a",JSON.stringify(achievements));
+                localStorage.setItem("krscore",krscore);
+                localStorage.setItem("krdscore",krdscore);
+                localStorage.setItem("krdhscore",krdhscore);
+                localStorage.setItem('krtscore',krtscore);
+                localStorage.setItem("rscore",rscore);
+                localStorage.setItem("rdscore",rdscore);
+                localStorage.setItem("rdhscore",rdhscore);
+                localStorage.setItem('rtscore',rtscore);
+                localStorage.setItem("score",score);
+            }
+        }
+        
+        
         function wheel(event) {
             
             //print(event)
@@ -477,6 +537,12 @@
                 let date = new Date()
 
                 timing.innerHTML = "Time:"+seconds+"."+date.getUTCMilliseconds();
+                if(seconds >= 30 && !achievements[2]) {
+                    award('t1');
+                }
+                if(seconds >= 60 && !achievements[3]) {
+                    award('t2');
+                }
                 if(date.getUTCMilliseconds() > 950) {
                     if(!did) {
                         seconds++;
@@ -1134,7 +1200,9 @@
             }
             if(pressed.join("").includes(textToType)) {
                 score++;
-                
+                if(!achievements[1]) {
+                    award('nb');
+                }
                 localStorage.setItem("a",JSON.stringify(achievements));
                 console.log(JSON.parse(localStorage.getItem("a")));
                 if(katakana) {
