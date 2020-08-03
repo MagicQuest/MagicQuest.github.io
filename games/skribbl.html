@@ -1,0 +1,29 @@
+
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta property="og:title" content="Skribble.io remake" />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://magicquest.github.io/games/skribbl.html" />
+        <meta property="og:image" content="https://magicquest.github.io/original_pic.png" />
+        <meta property="og:description" content="one of my multiplayer games" />
+        <meta charset='utf-8'>
+        <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+        <title>Skribbl.io remake</title>
+        <meta name='viewport' content='width=device-width, initial-scale=1'>
+        <link rel='stylesheet' type='text/css' media='screen' href='../font.css'>
+        <link href="https://fonts.googleapis.com/css?family=Chilanka&display=swap" rel="stylesheet">
+        <script src='../oof.js'></script>
+    </head>
+    <body style="overflow: hidden;">
+        <iframe src="https://skribbleio.herokuapp.com/" style="border: none;" title="this is the game" id="game"></iframe>
+        <script>
+            get("game").height = innerHeight;
+            get("game").width = innerWidth;
+            addEventListener("resize",function(event) {
+                get("game").width = innerWidth - 5
+                get("game").height = innerHeight - 5
+            });
+        </script>
+    </body>
+</html>
