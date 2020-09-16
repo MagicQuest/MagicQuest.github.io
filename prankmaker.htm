@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel='stylesheet' type='text/css' media='screen' href='font.css'>
+    <title>trolld</title>
+</head>
+<body>
+  <center>
+    <h1>
+      prenk makerrz
+    </h1>
+    <form id="form">
+      <input id="input" type="text" style="font-size: large;">
+      <br>
+      <br>
+      <button style="width: 250px;font-size: larger;">
+        Make prenk!
+      </button>
+    </form>
+
+    <h1>
+      <a id = "link">
+        your link will appear here
+      </a>
+    </h1>
+  </center>
+    <script>
+        function compress(string) {
+  string = unescape(encodeURIComponent(string));
+  var newString = '',
+    char, nextChar, combinedCharCode;
+
+  for (var i = 0; i < string.length; i += 2) {
+    char = string.charCodeAt(i);
+
+    if ((i + 1) < string.length) {
+
+      // You need to make sure that you don't have 3 digits second character else you  might go over 65536. 
+      // But in UTF-16 the 32 characters aren't in your basic character set. But it's a limitation, anything
+      // under charCode 32 will cause an error
+      nextChar = string.charCodeAt(i + 1) - 31;
+
+      // this is to pad the result, because you could have a code that is single digit, which would make 
+      // decompression a bit harder
+      combinedCharCode = char + "" + nextChar.toLocaleString('en', {
+        minimumIntegerDigits: 2
+      });
+
+      // You take the concanated code string and convert it back to a number, then a character
+      newString += String.fromCharCode(parseInt(combinedCharCode, 10));
+
+    } else {
+
+      // Here because you won't always have pair number length
+      newString += string.charAt(i);
+    }
+  }
+  return newString;
+}
+    let form = document.getElementById("form");
+    let link = document.getElementById("link");
+    let input = document.getElementById("input");
+    form.onsubmit = function(e) {
+      e.preventDefault();
+      link.innerHTML = "https://magicquest.github.io/prank2.htm?" + compress(input.value);
+      link.setAttribute("href","https://magicquest.github.io/prank2.htm?" + compress(input.value));
+    }
+    </script>
+</body>
+</html>
