@@ -14,8 +14,6 @@
         var pos;
         if(location.href.includes("?",10)) {
           pos = atob(location.href.slice(location.href.indexOf("?") + 1));
-          //alert(pos);
-          
         }
         location.href = pos;
       }
