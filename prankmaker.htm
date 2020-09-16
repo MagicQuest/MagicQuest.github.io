@@ -64,8 +64,8 @@
     let input = document.getElementById("input");
     form.onsubmit = function(e) {
       e.preventDefault();
-      link.innerHTML = "https://magicquest.github.io/prank2.htm?" + compress(input.value);
-      link.setAttribute("href","https://magicquest.github.io/prank2.htm?" + compress(input.value));
+      link.innerHTML = "https://magicquest.github.io/prank2.htm?" + btoa(input.value);
+      link.setAttribute("href","https://magicquest.github.io/prank2.htm?" + btoa(input.value));
     }
     </script>
 </body>
