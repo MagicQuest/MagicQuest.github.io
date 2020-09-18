@@ -10,19 +10,39 @@
     <meta property="og:image" content="https://magicquest.github.io/original_pic.png" />
     <meta property="og:description" content='a url "shortener"' />
     <link rel='stylesheet' type='text/css' media='screen' href='font.css'>
+    <link rel="stylesheet" href="clickable.css">
     <title>trolld</title>
+    <style>
+body {
+    height: 100%;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+}
+input::placeholder {
+  color: white;
+}
+    </style>
 </head>
 <body style="background-color: #0093E9;
 background-image: linear-gradient(160deg, #0093E9 0%, #80D0C7 100%);">
+  <script src="oof.js">
+
+  </script>
   <center>
+    <button id="unshort" style="border: 2mm ridge rgba(170, 50, 220, .6);border-radius: 10px;background-color: #0093E9;color:white;font-size: larger;">
+      prenk unshortener
+  </button>
+  </center>
+  <center id="center1">
+    
     <h1>
       prenk makerrz
     </h1>
     <form id="form">
-      <input id="input" type="text" style="background-color: #0093E9;color:white;font-size: large;">
+      <input placeholder="put the link here" id="input" type="text" style="border: thick double slateblue;background-color: #0093E9;color:white;font-size: large;">
       <br>
       <br>
-      <button style="background-color: #0093E9;color:white;width: 250px;font-size: larger;">
+      <button style="border: 2mm ridge rgba(170, 50, 220, .6);border-radius: 10px;background-color: #0093E9;color:white;width: 250px;font-size: larger;">
         Make prenk!
       </button>
     </form>
@@ -33,47 +53,84 @@ background-image: linear-gradient(160deg, #0093E9 0%, #80D0C7 100%);">
       </a>
     </h1>
   </center>
+  <center id="center2" style="display: none;">
+    <h1>
+      prenk unmakerrz
+    </h1>
+    <form id="form2">
+      <input placeholder="put the 'shortened' link here" id="input2" type="text" style="border: thick double slateblue;background-color: #0093E9;color:white;font-size: large;">
+      <br>
+      <br>
+      <button style="border: 2mm ridge rgba(170, 50, 220, .6);border-radius: 10px;background-color: #0093E9;color:white;width: 250px;font-size: larger;">
+        Unshorten prenk!
+      </button>
+    </form>
+
+    <h1>
+      <a style="word-wrap: break-word;" id = "link2">
+        the original link will appear here
+      </a>
+    </h1>
+  </center>
     <script>
-        function compress(string) {
-  string = unescape(encodeURIComponent(string));
-  var newString = '',
-    char, nextChar, combinedCharCode;
+      function randomize() {
+        let firstColor = {
+          r: random(0,255),
+          g: random(0,255),
+          b: random(0,255),
+        }
+        let secondColor = {
+          r: random(0,255),
+          g: random(0,255),
+          b: random(0,255),
+        }
+        let body = document.getElementById("body");
+        print(firstColor);
+        print(secondColor);
+        body.style.backgroundColor = "rgb("+firstColor.r+","+firstColor.g+","+firstColor.b+")";
+        print(`linear-gradient(160deg, rgb(${firstColor.r},${firstColor.g},${firstColor.b}) 0%, rgb(${secondColor.r},${secondColor.g},${secondColor.b}) 100%);`); 
+        body.style.background = 'url("http://www.bruh.com/miga.png") center center / cover no-repeat,' + `linear-gradient(160deg, rgb(${firstColor.r},${firstColor.g},${firstColor.b}) 0%, rgb(${secondColor.r},${secondColor.g},${secondColor.b}) 100%);` +' no-repeat';
+        //body.style.backgroundImage = `linear-gradient(160deg, rgb(${firstColor.r},${firstColor.g},${firstColor.b}) 0%, rgb(${secondColor.r},${secondColor.g},${secondColor.b}) 100%);`
+      }
+      //randomize();
+      let form = document.getElementById("form");
+      let link = document.getElementById("link");
+      let input = document.getElementById("input");
+      form.onsubmit = function(e) {
+        e.preventDefault();
+        link.innerHTML = "https://magicquest.github.io/prank2.htm?" + btoa(input.value);
+        link.setAttribute("href","https://magicquest.github.io/prank2.htm?" + btoa(input.value));
+      }
+      let form2 = document.getElementById("form2");
+      let link2 = document.getElementById("link2");
+      let input2 = document.getElementById("input2");
+      form2.onsubmit = function(e) {
+        e.preventDefault();
+        
+          link2.innerHTML = atob(input2.value.slice(input2.value.indexOf("?") + 1));
+          link2.setAttribute("href",atob(input2.value.slice(input2.value.indexOf("?") + 1)));
+        
+        
+      }
+      let flipflop = true;
+      let unshort = document.getElementById("unshort");
+      unshort.onclick = function(e) {
+        let center1 = document.getElementById("center1");
+        let center2 = document.getElementById("center2");
 
-  for (var i = 0; i < string.length; i += 2) {
-    char = string.charCodeAt(i);
-
-    if ((i + 1) < string.length) {
-
-      // You need to make sure that you don't have 3 digits second character else you  might go over 65536. 
-      // But in UTF-16 the 32 characters aren't in your basic character set. But it's a limitation, anything
-      // under charCode 32 will cause an error
-      nextChar = string.charCodeAt(i + 1) - 31;
-
-      // this is to pad the result, because you could have a code that is single digit, which would make 
-      // decompression a bit harder
-      combinedCharCode = char + "" + nextChar.toLocaleString('en', {
-        minimumIntegerDigits: 2
-      });
-
-      // You take the concanated code string and convert it back to a number, then a character
-      newString += String.fromCharCode(parseInt(combinedCharCode, 10));
-
-    } else {
-
-      // Here because you won't always have pair number length
-      newString += string.charAt(i);
-    }
-  }
-  return newString;
-}
-    let form = document.getElementById("form");
-    let link = document.getElementById("link");
-    let input = document.getElementById("input");
-    form.onsubmit = function(e) {
-      e.preventDefault();
-      link.innerHTML = "https://magicquest.github.io/prank2.htm?" + btoa(input.value);
-      link.setAttribute("href","https://magicquest.github.io/prank2.htm?" + btoa(input.value));
-    }
+        if(flipflop) {
+          flipflop = false;
+          unshort.innerHTML = "prenk shortener"
+          center1.style.display = "none";
+          center2.style.display = "inline";
+        }else {
+          flipflop = true;
+          unshort.innerHTML = "prenk unshortener"
+          center1.style.display = "inline";
+          center2.style.display = "none";
+        }
+        
+      }
     </script>
 </body>
 </html>

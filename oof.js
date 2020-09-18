@@ -52,6 +52,12 @@ function checkCollide(pointX, pointY, objectx, objecty, objectw, objecth) { // p
 function rgbToHex(r, g, b) {
 	return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
 }
+function rgbToHex(rgb) {
+	r = rgb.r;
+	g = rgb.g;
+	b = rgb.b;
+	return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
+}
 function clone(thing) {
 	thing.cloneNode(true);
 }
