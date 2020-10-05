@@ -97,15 +97,43 @@
     <h1 style="text-align: center;" id="timer">
         Time:0
     </h1>
-    <input type="checkbox" id="hiragana_box"><bruhh>regular hiragana? (は)</bruhh></input>
+    <bruhh>Symbols</bruhh>
+    <select onchange="letters = this.value;start();">
+        <option value="3">
+            3
+        </option>
+        <option value="4">
+            4
+        </option>
+        <option value="5">
+            5
+        </option>
+        <option value="6">
+            6
+        </option>
+        <option value="7">
+            7
+        </option>
+        <option value="8">
+            8
+        </option>
+        <option value="9">
+            9
+        </option>
+        <option value="10">
+            10
+        </option>
+    </select>
+    <br>
+    <input type="checkbox" id="hiragana_box" onclick="hiraClick()"><bruhh>regular hiragana? (は)</bruhh></input>
     <br>
     <input type="checkbox" id="katakana_box" onclick="kataClick()"><bruhh>katakana? (キ)</bruhh></input>
     <br>
-    <input type="checkbox" id="dakuon_box"><bruhh>dakuon? (ば)</bruhh></input>
+    <input type="checkbox" id="dakuon_box" onclick="dakClick()"><bruhh>dakuon? (ば)</bruhh></input>
     <br>
-    <input type="checkbox" id="handkun_box"><bruhh>handakuon? (ぱ)</bruhh></input>
+    <input type="checkbox" id="handkun_box" onclick = "handkClick()"><bruhh>handakuon? (ぱ)</bruhh></input>
     <br>
-    <input type="checkbox" id="yoon"><bruhh>yōon? (っ)</bruhh></input>
+    <input type="checkbox" id="yoon" onclick = "yoonClick()"><bruhh>yōon? (っ)</bruhh></input>
     <br>
     <input type="checkbox" id="kanji" onclick="kanjiClick()"><bruhh>kanji? (何)</bruhh></input>
     <br>
@@ -290,8 +318,9 @@
         //var word[2];
         //var sym[0];
         //var sym[1];
-        //  var sym[2];
-
+        //  var sym[2]
+        
+        var letters = 3;
         var fontsize = 100;
         var amount = 100;
         var score = 0;
@@ -336,7 +365,7 @@
             achievements = JSON.parse(localStorage.getItem("a"));
             //console.log(achievements);
             if(achievements == null) {
-                //console.log("its null or just nan")
+                //console.log("its null or just nan") :cringe:
                 achievements = [false,false,false,false];
                 //console.log(achievements)
             }
@@ -395,6 +424,29 @@
         } else {
             // Sorry! No Web Storage support.. damn thats tough
         }
+
+        function change(number,i) {
+            //print("checking " + number);
+            if(sym[number] == sym[number -1]) {
+                //print("change number");
+                sym[number] = getRandomSymbol();
+                        
+                change(number);
+                    
+            }    
+            for (let j = 0; j < i; j++) {
+                print(`sym[${number}] == sym[${j}] || ${sym[number]} == ${sym[j]}`)
+                if(sym[number] == sym[j]) {
+                    print(`aye ayte change this shit sym[${number}] == sym[${j}] || ${sym[number]} == ${sym[j]}`)
+                    sym[j] = getRandomSymbol();
+                    sym[number] = getRandomSymbol();
+                    change(number);
+                    //change(j);
+                }
+            }
+            // print(`${sym[number]} == ${sym[0]}`)
+            //print("bruh the " + number + " is equal to the first one")
+        }  
         function openClose() {
             if(get('dropdown').style.display == "none") {
                 get('dropdown').style.display = "inline-block";
@@ -432,40 +484,60 @@
             text.style.fontSize = amount + "px"
            // print(amount)
         }
+        function checkArray() {
+                if(true) {
+                    let strArray = sym;
+                    let findDuplicates = arr => arr.filter((item, index) => arr.indexOf(item) != index)
+                    let repeats = findDuplicates(strArray);
+                    //print(repeats);
+                    for (let i = 0; i < sym.length; i++) {
+                        
+                        //console.log(sym[i])
+                        for (let j = 0; j < repeats.length; j++) {
+                            element2 = repeats[j];
+                            if(sym[i] ==  repeats[j]) {
+                               // console.log("FUCKING CVAHNGE")
+                                sym[i] = getRandomSymbol();
+                              //  console.log(sym[i]);
+                                
+                            }
+                        }
+                        
+                    }
+                }
+                
+                let strArray = sym;
+                let findDuplicates = arr => arr.filter((item, index) => arr.indexOf(item) != index)
+                let repeats = findDuplicates(strArray);
+                //print(repeats)
+                if(repeats.length != 0) {
+                    checkArray();
+                }
+            }
         var lastValues = [];
-        window.addEventListener("click", (event) => {
-            var wasntthing = false;
-            if(document.getElementById("dakuon_box").checked && document.getElementById("dakuon_box").disabled == false) {
-                dakuon = true;
-            }else {
-                dakuon = false;
-            }
-            if(document.getElementById("handkun_box").checked && document.getElementById("handkun_box").disabled == false) {
-                handkun = true;
-            }else {
-                handkun = false;
-            }
-            if(document.getElementById("hiragana_box").checked && document.getElementById("hiragana_box").disabled == false) {
-                regular = true;
-                katakana = false;
-                var db = document.getElementById('katakana_box');
-                db.checked = false;
-                document.getElementById("rdhscore").innerHTML = "Score with regular hiragana,   dakuon and handakuon: " + rdhscore;
-                document.getElementById("rdscore").innerHTML = "Score with regular hiragana and dakuon: " + rdscore;
-                document.getElementById("rscore").innerHTML = "Score with regular hiragana: " + rscore;
-                document.getElementById("rtscore").innerHTML = "Total Hiragana Score: " + rtscore
-
-            }else {
-                regular = false;
-            }
-            if(document.getElementById("yoon").checked && document.getElementById("yoon").disabled == false) {
-                yoon = true;
-            }else {
-                yoon = false;
-            }
-            
-            
-        })
+        function dakClick() {
+            dakuon = document.getElementById("dakuon_box").checked;
+            start();
+        }
+        function handkClick() {
+            handkun = document.getElementById("handkun_box").checked;
+            start();
+        }
+        function yoonClick() {
+            yoon = document.getElementById("yoon").checked;
+            start();
+        }
+        function hiraClick() {
+            regular = true;
+            katakana = false;
+            var db = document.getElementById('katakana_box');
+            db.checked = false;
+            document.getElementById("rdhscore").innerHTML = "Score with regular hiragana,   dakuon and handakuon: " + rdhscore;
+            document.getElementById("rdscore").innerHTML = "Score with regular hiragana and dakuon: " + rdscore;
+            document.getElementById("rscore").innerHTML = "Score with regular hiragana: " + rscore;
+            document.getElementById("rtscore").innerHTML = "Total Hiragana Score: " + rtscore
+            start();
+        }
         function wordClick() {
             words = get("words").checked;
         }
@@ -486,7 +558,7 @@
                 document.getElementById("rscore").innerHTML = "Score with regular katakana: " + krscore;
 
                 document.getElementById("rtscore").innerHTML = "Total Katakana Score: " + krtscore
-            
+            start();
         }
         function kanjiClick() {
             if(get('kanji').checked) {
@@ -534,11 +606,7 @@
         //const charList = 'abcdefghijklmnopqrstuvwxyz';
         //var keySequence = [];
       //  var userInput;
-        var pressedA = [[],[],[]];
-        //var pressedA[0] = [];
-        //var pressedA[1] = [];
-        //var pressedA[2] = [];
-        var pressed = [];
+        
         var did = false;
         function updateTime() {
             if(startedTyping) {
@@ -570,606 +638,53 @@
         //set random hiragana text just get all of the dakuten or hankudencaen and just regular stuff and make a converter script this gon be hard doe
         //bruh when did i write this lmao
         function start() {  
+            pressed = [];
+            text.innerHTML = "";
             var sub = 0;
-             sym[0] = getRandomSymbol();
-             if(!kanji) {
-                sym[1] = getRandomSymbol();
-                function change(number) {
-                    //print("checking " + number);
-                    if(sym[number] == sym[number -1]) {
-                        //print("change number");
-                        sym[number] = getRandomSymbol();
-                        
-                            change(number);
-                    
-                    }else if(sym[number] == sym[0]){
-                       // print(`${sym[number]} == ${sym[0]}`)
-                       //print("bruh the " + number + " is equal to the first one")
-                        sym[number] = getRandomSymbol();
-                        change(number);
-                    }
-                }   
-                change(1);
-                sym[2] = getRandomSymbol();
-                change(2)
-                //console.log(sym[1]);
-             }else {
-                sym[1] = "";
-                sym[2] = "";
-             }
-             
-             var rand = random(0,2)
-             //var randki = random(0,2)
-            // var randshi = random(0,2)
-             //var randchi = random(0,2)
-             //var randni = random(0,2)
-             if(yoon) {
-                if(katakana) {
-                    //console.log(sym[0]);
-                    if(sym[0] == "キ") {
-                        
-                        //if(rand < 3) {
-                        //    sym[0] = sym[0].substring(0,1)
-                        //} 
-                        var rand = random(0,3)
-                        if(rand == 0) {
-                            sym[1] = "ャ";
-                        }
-                        if(rand == 1) {
-                            sym[1] = "ュ";
-                        }
-                        if(rand == 2) { 
-                            sym[1] = "ョ";
-                        }
-                        if(rand == 3) {
-                            sym[1] = "ッ";
-                        }
-                    }
-                    if(sym[1] == "キ") {
-                        
-                        //if(rand < 3) {
-                        //    sym[0] = sym[0].substring(0,1)
-                        //} 
-                        if(rand == 0) {
-                            sym[2] = "ャ";
-                        }
-                        if(rand == 1) {
-                            sym[2] = "ュ";
-                        }
-                        if(rand == 2) { 
-                            sym[2] = "ョ";
-                        }
-                    }
-                    if(sym[0] == "シ") {
-                        
-                        //if(rand < 3) {
-                        //    sym[0] = sym[0].substring(0,1)
-                        //} 
-                        var rand = random(0,3)
-                        if(rand == 0) {
-                            sym[1] = "ャ";
-                        }
-                        if(rand == 1) {
-                            sym[1] = "ュ";
-                        }
-                        if(rand == 2) { 
-                            sym[1] = "ョ";
-                        }
-                        if(rand == 3) {
-                            sym[1] = "ッ";
-                        }
-                    }
-                    if(sym[1] == "シ") {
-                        
-                        //if(rand < 3) {
-                        //    sym[0] = sym[0].substring(0,1)
-                        //} 
-                        if(rand == 0) {
-                            sym[2] = "ャ";
-                        }
-                        if(rand == 1) {
-                            sym[2] = "ュ";
-                        }
-                        if(rand == 2) { 
-                            sym[2] = "ョ";
-                        }
-                    }
-                    if(sym[0] == "チ") {
-                        
-                        //if(rand < 3) {
-                        //    sym[0] = sym[0].substring(0,1)
-                        //} 
-                        var rand = random(0,3)
-                        if(rand == 0) {
-                            sym[1] = "ャ";
-                        }
-                        if(rand == 1) {
-                            sym[1] = "ュ";
-                        }
-                        if(rand == 2) { 
-                            sym[1] = "ョ";
-                        }
-                        if(rand == 3) {
-                            sym[1] = "ッ";
-                        }
-                    }
-                    if(sym[1] == "チ") {
-                        
-                        //if(rand < 3) {
-                        //    sym[0] = sym[0].substring(0,1)
-                        //} 
-                        if(rand == 0) {
-                            sym[2] = "ャ";
-                        }
-                        if(rand == 1) {
-                            sym[2] = "ュ";
-                        }
-                        if(rand == 2) { 
-                            sym[2] = "ョ";
-                        }
-                    }
-                    if(sym[0] == "ニ") {
-                        
-                        //if(rand < 3) {
-                        //    sym[0] = sym[0].substring(0,1)
-                        //} 
-                        var rand = random(0,3)
-                        if(rand == 0) {
-                            sym[1] = "ャ";
-                        }
-                        if(rand == 1) {
-                            sym[1] = "ュ";
-                        }
-                        if(rand == 2) { 
-                            sym[1] = "ョ";
-                        }
-                        if(rand == 3) {
-                            sym[1] = "ッ";
-                        }
-                    }
-                    if(sym[1] == "ニ") {
-                        
-                        //if(rand < 3) {
-                        //    sym[0] = sym[0].substring(0,1)
-                        //} 
-                        if(rand == 0) {
-                            sym[2] = "ャ";
-                        }
-                        if(rand == 1) {
-                            sym[2] = "ュ";
-                        }
-                        if(rand == 2) { 
-                            sym[2] = "ョ";
-                        }
-                    }
-                    if(sym[0] == "ヒ") {
-                        
-                        //if(rand < 3) {
-                        //    sym[0] = sym[0].substring(0,1)
-                        //} 
-                        var rand = random(0,3)
-                        if(rand == 0) {
-                            sym[1] = "ャ";
-                        }
-                        if(rand == 1) {
-                            sym[1] = "ュ";
-                        }
-                        if(rand == 2) { 
-                            sym[1] = "ョ";
-                        }
-                        if(rand == 3) {
-                            sym[1] = "ッ";
-                        }
-                    }
-                    if(sym[1] == "ヒ") {
-                        
-                        //if(rand < 3) {
-                        //    sym[0] = sym[0].substring(0,1)
-                        //} 
-                        if(rand == 0) {
-                            sym[2] = "ャ";
-                        }
-                        if(rand == 1) {
-                            sym[2] = "ュ";
-                        }
-                        if(rand == 2) { 
-                            sym[2] = "ョ";
-                        }
-                    }
-                    if(sym[0] == "ミ") {
-                        
-                        //if(rand < 3) {
-                        //    sym[0] = sym[0].substring(0,1)
-                        //} 
-                        var rand = random(0,3)
-                        if(rand == 0) {
-                            sym[1] = "ャ";
-                        }
-                        if(rand == 1) {
-                            sym[1] = "ュ";
-                        }
-                        if(rand == 2) { 
-                            sym[1] = "ョ";
-                        }
-                        if(rand == 3) {
-                            sym[1] = "ッ";
-                        }
-                    }
-                    if(sym[1] == "ミ") {
-                        
-                        //if(rand < 3) {
-                        //    sym[0] = sym[0].substring(0,1)
-                        //} 
-                        if(rand == 0) {
-                            sym[2] = "ャ";
-                        }
-                        if(rand == 1) {
-                            sym[2] = "ュ";
-                        }
-                        if(rand == 2) { 
-                            sym[2] = "ョ";
-                        }
-                    }
-                    if(sym[0] == "リ") {
-                        
-                        //if(rand < 3) {
-                        //    sym[0] = sym[0].substring(0,1)
-                        //} 
-                        var rand = random(0,3)
-                        if(rand == 0) {
-                            sym[1] = "ャ";
-                        }
-                        if(rand == 1) {
-                            sym[1] = "ュ";
-                        }
-                        if(rand == 2) { 
-                            sym[1] = "ョ";
-                        }
-                        if(rand == 3) {
-                            sym[1] = "ッ";
-                        }
-                    }
-                    if(sym[1] == "リ") {
-                        
-                        //if(rand < 3) {
-                        //    sym[0] = sym[0].substring(0,1)
-                        //} 
-                        if(rand == 0) {
-                            sym[2] = "ャ";
-                        }
-                        if(rand == 1) {
-                            sym[2] = "ュ";
-                        }
-                        if(rand == 2) { 
-                            sym[2] = "ョ";
-                        }
-                    }
-                }
-                if(regular) {
-                    if(sym[0] == "き") {
-                        
-                        //if(rand < 3) {
-                        //    sym[0] = sym[0].substring(0,1)
-                        //} 
-                        var rand = random(0,3)
-                        if(rand == 0) {
-                            sym[1] = "ゃ";
-                        }
-                        if(rand == 1) {
-                            sym[1] = "ゅ";
-                        }
-                        if(rand == 2) { 
-                            sym[1] = "ょ";
-                        }
-                        if(rand == 3) {
-                            sym[1] = "っ";
-                        }
-                    }
-                    if(sym[1] == "き") {
-                        
-                        //if(rand < 3) {
-                        //    sym[0] = sym[0].substring(0,1)
-                        //} 
-                        if(rand == 0) {
-                            sym[2] = "ゃ";
-                        }
-                        if(rand == 1) {
-                            sym[2] = "ゅ";
-                        }
-                        if(rand == 2) { 
-                            sym[2] = "ょ";
-                        }
-                    }
-                    if(sym[0] == "し") {
-                        
-                        //if(rand < 3) {
-                        //    sym[0] = sym[0].substring(0,1)
-                        //} 
-                        var rand = random(0,3)
-                        if(rand == 0) {
-                            sym[1] = "ゃ";
-                        }
-                        if(rand == 1) {
-                            sym[1] = "ゅ";
-                        }
-                        if(rand == 2) { 
-                            sym[1] = "ょ";
-                        }
-                        if(rand == 3) {
-                            sym[1] = "っ";
-                        }
-                    }
-                    if(sym[1] == "し") {
-                        
-                        //if(rand < 3) {
-                        //    sym[0] = sym[0].substring(0,1)
-                        //} 
-                        if(rand == 0) {
-                            sym[2] = "ゃ";
-                        }
-                        if(rand == 1) {
-                            sym[2] = "ゅ";
-                        }
-                        if(rand == 2) { 
-                            sym[2] = "ょ";
-                        }
-                    }
-                    if(sym[0] == "ち") {
-                        
-                        //if(rand < 3) {
-                        //    sym[0] = sym[0].substring(0,1)
-                        //} 
-                        var rand = random(0,3)
-                        if(rand == 0) {
-                            sym[1] = "ゃ";
-                        }
-                        if(rand == 1) {
-                            sym[1] = "ゅ";
-                        }
-                        if(rand == 2) { 
-                            sym[1] = "ょ";
-                        }
-                        if(rand == 3) {
-                            sym[1] = "っ";
-                        }
-                    }
-                    if(sym[1] == "ち") {
-                        
-                        //if(rand < 3) {
-                        //    sym[0] = sym[0].substring(0,1)
-                        //} 
-                        if(rand == 0) {
-                            sym[2] = "ゃ";
-                        }
-                        if(rand == 1) {
-                            sym[2] = "ゅ";
-                        }
-                        if(rand == 2) { 
-                            sym[2] = "ょ";
-                        }
-                    }
-                    if(sym[0] == "に") {
-                        
-                        //if(rand < 3) {
-                        //    sym[0] = sym[0].substring(0,1)
-                        //} 
-                        var rand = random(0,3)
-                        if(rand == 0) {
-                            sym[1] = "ゃ";
-                        }
-                        if(rand == 1) {
-                            sym[1] = "ゅ";
-                        }
-                        if(rand == 2) { 
-                            sym[1] = "ょ";
-                        }
-                        if(rand == 3) {
-                            sym[1] = "っ";
-                        }
-                    }
-                    if(sym[1] == "に") {
-                        
-                        //if(rand < 3) {
-                        //    sym[0] = sym[0].substring(0,1)
-                        //} 
-                        if(rand == 0) {
-                            sym[2] = "ゃ";
-                        }
-                        if(rand == 1) {
-                            sym[2] = "ゅ";
-                        }
-                        if(rand == 2) { 
-                            sym[2] = "ょ";
-                        }
-                    }
-                    if(sym[0] == "ひ") {
-                        
-                        //if(rand < 3) {
-                        //    sym[0] = sym[0].substring(0,1)
-                        //} 
-                        var rand = random(0,3)
-                        if(rand == 0) {
-                            sym[1] = "ゃ";
-                        }
-                        if(rand == 1) {
-                            sym[1] = "ゅ";
-                        }
-                        if(rand == 2) { 
-                            sym[1] = "ょ";
-                        }
-                        if(rand == 3) {
-                            sym[1] = "っ";
-                        }
-                    }
-                    if(sym[1] == "ひ") {
-                        
-                        //if(rand < 3) {
-                        //    sym[0] = sym[0].substring(0,1)
-                        //} 
-                        if(rand == 0) {
-                            sym[2] = "ゃ";
-                        }
-                        if(rand == 1) {
-                            sym[2] = "ゅ";
-                        }
-                        if(rand == 2) { 
-                            sym[2] = "ょ";
-                        }
-                    }
-                    if(sym[0] == "み") {
-                        
-                        //if(rand < 3) {
-                        //    sym[0] = sym[0].substring(0,1)
-                        //} 
-                        var rand = random(0,3)
-                        if(rand == 0) {
-                            sym[1] = "ゃ";
-                        }
-                        if(rand == 1) {
-                            sym[1] = "ゅ";
-                        }
-                        if(rand == 2) { 
-                            sym[1] = "ょ";
-                        }
-                        if(rand == 3) {
-                            sym[1] = "っ";
-                        }
-                    }
-                    if(sym[1] == "み") {
-                        
-                        //if(rand < 3) {
-                        //    sym[0] = sym[0].substring(0,1)
-                        //} 
-                        if(rand == 0) {
-                            sym[2] = "ゃ";
-                        }
-                        if(rand == 1) {
-                            sym[2] = "ゅ";
-                        }
-                        if(rand == 2) { 
-                            sym[2] = "ょ";
-                        }
-                    }
-                    if(sym[0] == "り") {
-                        
-                        //if(rand < 3) {
-                        //    sym[0] = sym[0].substring(0,1)
-                        //} 
-                        var rand = random(0,3)
-                        if(rand == 0) {
-                            sym[1] = "ゃ";
-                        }
-                        if(rand == 1) {
-                            sym[1] = "ゅ";
-                        }
-                        if(rand == 2) { 
-                            sym[1] = "ょ";
-                        }
-                        if(rand == 3) {
-                            sym[1] = "っ";
-                        }
-                    }
-                    if(sym[1] == "り") {
-                        
-                        //if(rand < 3) {
-                        //    sym[0] = sym[0].substring(0,1)
-                        //} 
-                        if(rand == 0) {
-                            sym[2] = "ゃ";
-                        }
-                        if(rand == 1) {
-                            sym[2] = "ゅ";
-                        }
-                        if(rand == 2) { 
-                            sym[2] = "ょ";
-                        }
-                    }
-                }
+            sym = [];
+            word = [];
+            for (let i = 0; i < letters; i++) {
                 
-             }
-            var wordtsu;
-            
-            if(/*rand < 3 && */yoon) {
-                if(katakana) {
-                    if(sym[0] == "キ" || sym[0] == "ニ" || sym[0] == "ヒ" || sym[0] == "ミ" || sym[0] == "リ") {
-                        //console.log(sym[1]);
-                        if(sym[1] == "ッ") {
-                            textToType = convert(sym[0]) + convert(sym[2]).substring(-1,1) + convert(sym[2]);
-                            wordtsu = convert(sym[2]).substring(-1,1);
-                            //console.log(convert(sym[2]));
-                        }else {
-                            sub = 1;
-                            textToType = convert(sym[0]).substring(0,1) + convert(sym[1]) + convert(sym[2]);
-                        }
-                    }else if(sym[1] == "キ" || sym[1] == "ニ" || sym[1] == "ヒ"|| sym[1] == "ミ" || sym[1] == "リ") {
-                        textToType = convert(sym[0]) + convert(sym[1]).substring(0,1) + convert(sym[2]);
-                    }else if(sym[0] == "シ" || sym[0] == "チ") {
-                        if(sym[1] == "ッ") {
-                            textToType = convert(sym[0]) + convert(sym[2]).substring(-1,1) + convert(sym[2]);
-                            wordtsu = convert(sym[2]).substring(-1,1);
-                            //console.log(convert(sym[2]));
-                        }else {
-                            sub = 2;
-                            textToType = convert(sym[0]).substring(0,2) + convert(sym[1]).substring(1,2) + convert(sym[2]);
-                        }
-                        
-                    }else if(sym[1] == "シ" || sym[1] == "チ") {
-                        textToType = convert(sym[0]) + convert(sym[1]).substring(0,2) + convert(sym[2]).substring(1,2);
-                    }
-                    else {
-                        textToType = convert(sym[0]) + convert(sym[1]) + convert(sym[2])
-                    }
-                }
-                if(regular) {
-                    if(sym[0] == "き" || sym[0] == "に" || sym[0] == "ひ" || sym[0] == "み" || sym[0] == "り") {
-                        //console.log(sym[1]);
-                        if(sym[1] == "っ") {
-                            textToType = convert(sym[0]) + convert(sym[2]).substring(-1,1) + convert(sym[2]);
-                            wordtsu = convert(sym[2]).substring(-1,1);
-                            //console.log(convert(sym[2]));
-                        }else {
-                            sub = 1;
-                            textToType = convert(sym[0]).substring(0,1) + convert(sym[1]) + convert(sym[2]);
-                        }
-                    }else if(sym[1] == "き" || sym[1] == "に" || sym[1] == "ひ"|| sym[1] == "み" || sym[1] == "り") {
-                        textToType = convert(sym[0]) + convert(sym[1]).substring(0,1) + convert(sym[2]);
-                    }else if(sym[0] == "し" || sym[0] == "ち") {
-                        if(sym[1] == "っ") {
-                            textToType = convert(sym[0]) + convert(sym[2]).substring(-1,1) + convert(sym[2]);
-                            wordtsu = convert(sym[2]).substring(-1,1);
-                            //console.log(convert(sym[2]));
-                        }else {
-                            sub = 2;
-                            textToType = convert(sym[0]).substring(0,2) + convert(sym[1]).substring(1,2) + convert(sym[2]);
-                        }
-                        
-                    }else if(sym[1] == "し" || sym[1] == "ち") {
-                        textToType = convert(sym[0]) + convert(sym[1]).substring(0,2) + convert(sym[2]).substring(1,2);
-                    }
-                    else {
-                        textToType = convert(sym[0]) + convert(sym[1]) + convert(sym[2])
-                    }
-                }
+                sym[i] = getRandomSymbol();
                 
-            }else {
-                textToType = convert(sym[0]) + convert(sym[1]) + convert(sym[2])
+                //change(i,i);
             }
-            console.log(`${word[0]}${word[1]}${word[2]}`);
-            text.innerHTML = sym[0] + sym[1] + sym[2]
-            word[0] = convert(sym[0]);
-            print(sub);
+            
+            checkArray();
+            var rand = random(0,2)
+            //var randki = random(0,2)
+            // var randshi = random(0,2)
+            //var randchi = random(0,2)
+            //var randni = random(0,2)
+            
+            //  textToType = convert(sym[0]) + convert(sym[1]) + convert(sym[2])
+            for (let letter = 0; letter < letters; letter++) {
+                text.innerHTML = text.innerHTML + sym[letter];
+            }
+            //textToType = "niga"
+            //word[0] = convert(sym[0]);
+            //print(sub);
             if(sub != 0) {
                 word[0] = convert(sym[0]).substring(0,sub);
                 sub = 0;    
             }
             if(!kanji) {
-                word[1] = convert(sym[1]) || wordtsu;
-                word[2] = convert(sym[2]);
+                for (let letter = 0; letter < letters; letter++) {
+                    word[letter] = convert(sym[letter]) || wordtsu;
+                    
+                }
+                
             }else {
                 word[1] = "";
                 word[2] = "";
             }
-            console.log(`${word[0]}${word[1]}${word[2]}`);
+
+            textToType = "";
+            word.forEach(element => {
+                textToType = textToType + element;
+            })
+            print(textToType);
+            //console.log(`${word[0]}${word[1]}${word[2]}`);
             startedTyping = false;
             seconds = 0;
 
@@ -1177,7 +692,7 @@
             //keySequence.push(convert(sym[1]))
            // keySequence.push(convert(sym[2]))
            // userInput = new Array( keySequence.length );
-           console.log(textToType);
+           //console.log(textToType);
             //print(keySequence);
         }
         /*document.addEventListener('keydown', checkKeys);
@@ -1190,17 +705,18 @@
             }
             
         }*/
-        
+        var pressedA = [[],[],[]];
+        //var pressedA[0] = [];
+        //var pressedA[1] = [];
+        //var pressedA[2] = [];
+        var pressed = [];
         window.addEventListener('keyup', (e) => {  
             startedTyping = true;
             pressed.push(e.key)
             pressed.splice(-textToType.length - 1, pressed.length - textToType.length)
             pressedA[0].push(e.key)
             pressedA[0].splice(-word[0].length - 1, pressedA[0].length - word[0].length)
-            pressedA[1].push(e.key)
-            pressedA[1].splice(-word[1].length - 1, pressedA[1].length - word[1].length)
-            pressedA[2].push(e.key)
-            pressedA[2].splice(-word[2].length - 1, pressedA[2].length - word[2].length)
+            
             if(kanji) {
                 let word = "";
                 pressedA[0].forEach(letter => {
@@ -1310,19 +826,248 @@
                     }, 5000);
                 }
             }else
-            if(pressedA[0].join("").includes(word[0])) {
-                text.innerHTML = "<bruh style='color:green'>" + sym[0] + "</bruh>" + sym[1] + sym[2]
-                
-            }else
-            if(pressedA[0].join('').includes(word[1])) {
-                text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + "</bruh>" + sym[2]
-            }else
-            if(pressedA[0].join('').includes(word[2])) {
-                text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + "</bruh>"
-            }else
-            {
-                text.innerHTML = "<bruh style='color:red'>" + sym[0] + sym[1] + sym[2] + "</bruh>"
+            //didall = [];
+            //word.forEach(element => {
+            //    if(pressedA[0].join("").includes(element)) {
+            //        didall.push("yeah");
+            //    }
+            //})
+            //print(didall);
+            //print(pressed);
+            //let green;
+            //correctNumb = 0;
+           // green = "";
+            //nogreen = "";
+            /*word.forEach((element, i) => {
+                if(pressed[i] == element)   
+            });*/
+            /*for (let index = 0; index < word.length; index++) {
+                if(pressed.join("").includes(word[index])) {
+                    correctNumb++;
+                    
+                    //text.innerHTML = "<bruh style='color:green'>" + sym[0] + "</bruh>" + sym[1] + sym[2]
+                }else {
+                    
+                }
             }
+            for (let bruh = 0; bruh < correctNumb; bruh++) {
+                green = green + sym[bruh];
+            }
+            for (let bruh = correctNumb; bruh < sym.length; bruh++) {
+                nogreen = nogreen + sym[bruh];                
+            }
+            if(nogreen == undefined) {
+                nogreen = "";
+            }
+            text.innerHTML = "<bruh style='color:green'>" + green + "</bruh>" + nogreen; */
+
+            /////////////      //              //   //////////////  //////////////  \\\\\\\\        \\\\\\\\\\\\\   \\\\\\\\\\\\\\\\        \\\\\\\\\\\\\\\    \\\\\\\\\\\\       \\    //  
+                ////           ////            //   //////////////  //////////////  //     \\           \\\\\       \\            \\        \\                      \\\            \\  //
+                ////           //  //          //   //              //              //      \\          \\\\\       \\            \\        \\                      \\\             \\//
+                ////           //    //        //   ///////////     ///////////     //       \\         \\\\\       \\            \\        \\\\\\\\\\\\            \\\             //\\
+                ////           //      //      //   //////////      //////////      //       //         \\\\\       \\            \\        \\                      \\\            //  \\
+                ////           //        //    //   //              //              //      //          \\\\\       \\            \\        \\                      \\\           //    \\
+                ////           //          //  //   //////////////  //////////////  //     //           \\\\\       \\            \\        \\                      \\\          //      \\
+            /////////////      //            ////   //////////////  //////////////  ////////            \\\\\       \\\\\\\\\\\\\\\\        \\                 \\\\\\\\\\\\     //        \\
+
+            if(letters == 3) {
+                if(pressedA[0].join("").includes(word[0])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + "</bruh>" + sym[1] + sym[2]
+                }else
+                if(pressedA[0].join('').includes(word[1])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + "</bruh>" + sym[2]
+                }else
+                if(pressedA[0].join('').includes(word[2])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + "</bruh>"
+                }else
+                {
+                    text.innerHTML = "<bruh style='color:red'>" + sym[0] + sym[1] + sym[2] + "</bruh>"
+                }
+            }else if(letters == 4) {
+                if(pressedA[0].join("").includes(word[0])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + "</bruh>" + sym[1] + sym[2] + sym[3];
+                }else
+                if(pressedA[0].join('').includes(word[1])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + "</bruh>" + sym[2] + sym[3];
+                }else
+                if(pressedA[0].join('').includes(word[2])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + "</bruh>" + sym[3];
+                }else 
+                if(pressedA[0].join('').includes(word[3])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + "</bruh>"
+                }    
+                else
+                {
+                    text.innerHTML = "<bruh style='color:red'>" + sym[0] + sym[1] + sym[2] + sym[3] + "</bruh>"
+                }
+            }else if(letters == 5) {
+                if(pressedA[0].join("").includes(word[0])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + "</bruh>" + sym[1] + sym[2] + sym[3] + sym[4];
+                }else
+                if(pressedA[0].join('').includes(word[1])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + "</bruh>" + sym[2] + sym[3] + sym[4];
+                }else
+                if(pressedA[0].join('').includes(word[2])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + "</bruh>" + sym[3] + sym[4];
+                }else 
+                if(pressedA[0].join('').includes(word[3])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + "</bruh>" + sym[4]
+                }else
+                if(pressedA[0].join('').includes(word[4])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + "</bruh>"
+                }
+                else
+                {
+                    text.innerHTML = "<bruh style='color:red'>" + sym[0] + sym[1] + sym[2] + sym[3]  + sym[4] + "</bruh>"
+                }
+            }else if(letters == 6) {
+                if(pressedA[0].join("").includes(word[0])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + "</bruh>" + sym[1] + sym[2] + sym[3] + sym[4] + sym[5];
+                }else
+                if(pressedA[0].join('').includes(word[1])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + "</bruh>" + sym[2] + sym[3] + sym[4] + sym[5];
+                }else
+                if(pressedA[0].join('').includes(word[2])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + "</bruh>" + sym[3] + sym[4] + sym[5];
+                }else 
+                if(pressedA[0].join('').includes(word[3])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + "</bruh>" + sym[4] + sym[5]
+                }else
+                if(pressedA[0].join('').includes(word[4])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + "</bruh>" + sym[5]
+                }else
+                if(pressedA[0].join('').includes(word[5])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] +"</bruh>"
+                }
+                else
+                {
+                    text.innerHTML = "<bruh style='color:red'>" + sym[0] + sym[1] + sym[2] + sym[3]  + sym[4] + sym[5] + "</bruh>"
+                }
+            }else if(letters == 7) {
+                if(pressedA[0].join("").includes(word[0])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + "</bruh>" + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6];
+                }else
+                if(pressedA[0].join('').includes(word[1])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + "</bruh>" + sym[2] + sym[3] + sym[4] + sym[5] + sym[6];
+                }else
+                if(pressedA[0].join('').includes(word[2])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + "</bruh>" + sym[3] + sym[4] + sym[5] + sym[6];
+                }else 
+                if(pressedA[0].join('').includes(word[3])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + "</bruh>" + sym[4] + sym[5] + sym[6]
+                }else
+                if(pressedA[0].join('').includes(word[4])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + "</bruh>" + sym[5] + sym[6]
+                }else
+                if(pressedA[0].join('').includes(word[5])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] +"</bruh>" + sym[6]
+                }else
+                if(pressedA[0].join('').includes(word[6])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] +"</bruh>"
+                }
+                else
+                {
+                    text.innerHTML = "<bruh style='color:red'>" + sym[0] + sym[1] + sym[2] + sym[3]  + sym[4] + sym[5] + sym[6] + "</bruh>"
+                }
+            }else if(letters == 8) {
+                if(pressedA[0].join("").includes(word[0])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + "</bruh>" + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7];
+                }else
+                if(pressedA[0].join('').includes(word[1])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + "</bruh>" + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7];
+                }else
+                if(pressedA[0].join('').includes(word[2])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + "</bruh>" + sym[3] + sym[4] + sym[5] + sym[6] + sym[7];
+                }else 
+                if(pressedA[0].join('').includes(word[3])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + "</bruh>" + sym[4] + sym[5] + sym[6] + sym[7]
+                }else
+                if(pressedA[0].join('').includes(word[4])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + "</bruh>" + sym[5] + sym[6] + sym[7]
+                }else
+                if(pressedA[0].join('').includes(word[5])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] +"</bruh>" + sym[6] + sym[7]
+                }else
+                if(pressedA[0].join('').includes(word[6])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] +"</bruh>" + sym[7]
+                }else
+                if(pressedA[0].join('').includes(word[7])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7] +"</bruh>"
+                }
+                else
+                {
+                    text.innerHTML = "<bruh style='color:red'>" + sym[0] + sym[1] + sym[2] + sym[3]  + sym[4] + sym[5] + sym[6] + sym[7] +"</bruh>"
+                }
+            }else if(letters == 9) {
+                if(pressedA[0].join("").includes(word[0])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + "</bruh>" + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]+ sym[8]
+                }else
+                if(pressedA[0].join('').includes(word[1])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + "</bruh>" + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]+ sym[8]
+                }else
+                if(pressedA[0].join('').includes(word[2])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + "</bruh>" + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]+ sym[8]
+                }else 
+                if(pressedA[0].join('').includes(word[3])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + "</bruh>" + sym[4] + sym[5] + sym[6] + sym[7]+ sym[8]
+                }else
+                if(pressedA[0].join('').includes(word[4])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + "</bruh>" + sym[5] + sym[6] + sym[7]+ sym[8]
+                }else
+                if(pressedA[0].join('').includes(word[5])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] +"</bruh>" + sym[6] + sym[7]+ sym[8]
+                }else
+                if(pressedA[0].join('').includes(word[6])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] +"</bruh>" + sym[7]+ sym[8]
+                }else
+                if(pressedA[0].join('').includes(word[7])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7] +"</bruh>" + sym[8]
+                }else
+                if(pressedA[0].join('').includes(word[8])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]  + sym[8] + "</bruh>"
+                }
+                else
+                {
+                    text.innerHTML = "<bruh style='color:red'>" + sym[0] + sym[1] + sym[2] + sym[3]  + sym[4] + sym[5] + sym[6] + sym[7] + sym[8] + "</bruh>"
+                }
+            }else if(letters == 10) {
+                if(pressedA[0].join("").includes(word[0])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + "</bruh>" + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]+ sym[8]+sym[9]
+                }else
+                if(pressedA[0].join('').includes(word[1])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + "</bruh>" + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]+ sym[8]+sym[9]
+                }else
+                if(pressedA[0].join('').includes(word[2])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + "</bruh>" + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]+ sym[8]+sym[9]
+                }else 
+                if(pressedA[0].join('').includes(word[3])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + "</bruh>" + sym[4] + sym[5] + sym[6] + sym[7]+ sym[8]+sym[9]
+                }else
+                if(pressedA[0].join('').includes(word[4])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + "</bruh>" + sym[5] + sym[6] + sym[7]+ sym[8]+sym[9]
+                }else
+                if(pressedA[0].join('').includes(word[5])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] +"</bruh>" + sym[6] + sym[7]+ sym[8]+sym[9]
+                }else
+                if(pressedA[0].join('').includes(word[6])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] +"</bruh>" + sym[7]+ sym[8]+sym[9]
+                }else
+                if(pressedA[0].join('').includes(word[7])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7] +"</bruh>" + sym[8]+sym[9]
+                }else
+                if(pressedA[0].join('').includes(word[8])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]  + sym[8] + "</bruh>"+sym[9]
+                }else
+                if(pressedA[0].join('').includes(word[9])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]  + sym[8] +sym[9] + "</bruh>"
+                }
+                else
+                {
+                    text.innerHTML = "<bruh style='color:red'>" + sym[0] + sym[1] + sym[2] + sym[3]  + sym[4] + sym[5] + sym[6] + sym[7] + sym[8] +sym[9] +"</bruh>"
+                }
+            }
+            
+            
             
         })
         function getRandomSymbol() {
