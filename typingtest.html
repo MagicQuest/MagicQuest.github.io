@@ -98,30 +98,9 @@
         Time:0
     </h1>
     <bruhh>Symbols</bruhh>
-    <select onchange="letters = this.value;start();">
+    <select id="selectd" onchange="letters = this.value;start();">
         <option value="3">
             3
-        </option>
-        <option value="4">
-            4
-        </option>
-        <option value="5">
-            5
-        </option>
-        <option value="6">
-            6
-        </option>
-        <option value="7">
-            7
-        </option>
-        <option value="8">
-            8
-        </option>
-        <option value="9">
-            9
-        </option>
-        <option value="10">
-            10
         </option>
     </select>
     <br>
@@ -321,6 +300,8 @@
         //  var sym[2]
         
         var letters = 3;
+        var maxLetters = 15;
+        maxLetters++;
         var fontsize = 100;
         var amount = 100;
         var score = 0;
@@ -345,7 +326,9 @@
         var katakana = false;
         var words = false;
 
-        
+        for (let i = 4; i < maxLetters; i++) {
+            get("selectd").innerHTML += `<option value="${i}">${i}</option>`
+        }
         
         document.getElementById("hiragana_box").checked = true;
         
@@ -1064,6 +1047,224 @@
                 else
                 {
                     text.innerHTML = "<bruh style='color:red'>" + sym[0] + sym[1] + sym[2] + sym[3]  + sym[4] + sym[5] + sym[6] + sym[7] + sym[8] +sym[9] +"</bruh>"
+                }
+            }else if(letters == 11) {
+                if(pressedA[0].join("").includes(word[0])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + "</bruh>" + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]+ sym[8]+sym[9]+sym[10]
+                }else
+                if(pressedA[0].join('').includes(word[1])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + "</bruh>" + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]+ sym[8]+sym[9]+sym[10]
+                }else
+                if(pressedA[0].join('').includes(word[2])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + "</bruh>" + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]+ sym[8]+sym[9]+sym[10]
+                }else 
+                if(pressedA[0].join('').includes(word[3])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + "</bruh>" + sym[4] + sym[5] + sym[6] + sym[7]+ sym[8]+sym[9]+sym[10]
+                }else
+                if(pressedA[0].join('').includes(word[4])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + "</bruh>" + sym[5] + sym[6] + sym[7]+ sym[8]+sym[9]+sym[10]
+                }else
+                if(pressedA[0].join('').includes(word[5])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] +"</bruh>" + sym[6] + sym[7]+ sym[8]+sym[9]+sym[10]
+                }else
+                if(pressedA[0].join('').includes(word[6])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] +"</bruh>" + sym[7]+ sym[8]+sym[9]+sym[10]
+                }else
+                if(pressedA[0].join('').includes(word[7])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7] +"</bruh>" + sym[8]+sym[9]+sym[10]
+                }else
+                if(pressedA[0].join('').includes(word[8])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]  + sym[8] + "</bruh>"+sym[9]+sym[10]
+                }else
+                if(pressedA[0].join('').includes(word[9])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]  + sym[8] +sym[9] + "</bruh>"+sym[10]
+                }
+                else
+                if(pressedA[0].join('').includes(word[10])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]  + sym[8] +sym[9]+sym[10] + "</bruh>"
+                }else
+                {
+                    text.innerHTML = "<bruh style='color:red'>" + sym[0] + sym[1] + sym[2] + sym[3]  + sym[4] + sym[5] + sym[6] + sym[7] + sym[8] +sym[9] +sym[10]+"</bruh>"
+                }
+            }else if(letters == 12) {
+                if(pressedA[0].join("").includes(word[0])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + "</bruh>" + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]+ sym[8]+sym[9]+sym[10] + sym[11]
+                }else
+                if(pressedA[0].join('').includes(word[1])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + "</bruh>" + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]+ sym[8]+sym[9]+sym[10] + sym[11]
+                }else
+                if(pressedA[0].join('').includes(word[2])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + "</bruh>" + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]+ sym[8]+sym[9]+sym[10] + sym[11]
+                }else 
+                if(pressedA[0].join('').includes(word[3])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + "</bruh>" + sym[4] + sym[5] + sym[6] + sym[7]+ sym[8]+sym[9]+sym[10] + sym[11]
+                }else
+                if(pressedA[0].join('').includes(word[4])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + "</bruh>" + sym[5] + sym[6] + sym[7]+ sym[8]+sym[9]+sym[10] + sym[11]
+                }else
+                if(pressedA[0].join('').includes(word[5])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] +"</bruh>" + sym[6] + sym[7]+ sym[8]+sym[9]+sym[10] + sym[11]
+                }else
+                if(pressedA[0].join('').includes(word[6])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] +"</bruh>" + sym[7]+ sym[8]+sym[9]+sym[10] + sym[11]
+                }else
+                if(pressedA[0].join('').includes(word[7])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7] +"</bruh>" + sym[8]+sym[9]+sym[10] + sym[11]
+                }else
+                if(pressedA[0].join('').includes(word[8])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]  + sym[8] + "</bruh>"+sym[9]+sym[10] + sym[11]
+                }else
+                if(pressedA[0].join('').includes(word[9])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]  + sym[8] +sym[9] + "</bruh>"+sym[10] + sym[11]
+                }
+                else
+                if(pressedA[0].join('').includes(word[10])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]  + sym[8] +sym[9]+sym[10] + "</bruh>" + sym[11]
+                }else
+                if(pressedA[0].join('').includes(word[11])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]  + sym[8] +sym[9]+sym[10] + sym[11] +"</bruh>"
+                }else
+                {
+                    text.innerHTML = "<bruh style='color:red'>" + sym[0] + sym[1] + sym[2] + sym[3]  + sym[4] + sym[5] + sym[6] + sym[7] + sym[8] +sym[9] +sym[10]+ sym[11]+"</bruh>"
+                }
+            }else if(letters == 13) {
+                if(pressedA[0].join("").includes(word[0])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + "</bruh>" + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]+ sym[8]+sym[9]+sym[10] + sym[11]+ sym[12]
+                }else
+                if(pressedA[0].join('').includes(word[1])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + "</bruh>" + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]+ sym[8]+sym[9]+sym[10] + sym[11]+ sym[12]
+                }else
+                if(pressedA[0].join('').includes(word[2])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + "</bruh>" + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]+ sym[8]+sym[9]+sym[10] + sym[11]+ sym[12]
+                }else 
+                if(pressedA[0].join('').includes(word[3])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + "</bruh>" + sym[4] + sym[5] + sym[6] + sym[7]+ sym[8]+sym[9]+sym[10] + sym[11]+ sym[12]
+                }else
+                if(pressedA[0].join('').includes(word[4])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + "</bruh>" + sym[5] + sym[6] + sym[7]+ sym[8]+sym[9]+sym[10] + sym[11]+ sym[12]
+                }else
+                if(pressedA[0].join('').includes(word[5])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] +"</bruh>" + sym[6] + sym[7]+ sym[8]+sym[9]+sym[10] + sym[11]+ sym[12]
+                }else
+                if(pressedA[0].join('').includes(word[6])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] +"</bruh>" + sym[7]+ sym[8]+sym[9]+sym[10] + sym[11]+ sym[12]
+                }else
+                if(pressedA[0].join('').includes(word[7])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7] +"</bruh>" + sym[8]+sym[9]+sym[10] + sym[11]+ sym[12]
+                }else
+                if(pressedA[0].join('').includes(word[8])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]  + sym[8] + "</bruh>"+sym[9]+sym[10] + sym[11]+ sym[12]
+                }else
+                if(pressedA[0].join('').includes(word[9])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]  + sym[8] +sym[9] + "</bruh>"+sym[10] + sym[11]+ sym[12]
+                }
+                else
+                if(pressedA[0].join('').includes(word[10])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]  + sym[8] +sym[9]+sym[10] + "</bruh>" + sym[11]+ sym[12]
+                }else
+                if(pressedA[0].join('').includes(word[11])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]  + sym[8] +sym[9]+sym[10] + sym[11] +"</bruh>"+ sym[12]
+                }else
+                if(pressedA[0].join('').includes(word[12])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]  + sym[8] +sym[9]+sym[10] + sym[11]+ sym[12] +"</bruh>"
+                }else
+                {
+                    text.innerHTML = "<bruh style='color:red'>" + sym[0] + sym[1] + sym[2] + sym[3]  + sym[4] + sym[5] + sym[6] + sym[7] + sym[8] +sym[9] +sym[10]+ sym[11]+ sym[12]+"</bruh>"
+                }
+            }else if(letters == 14) {
+                if(pressedA[0].join("").includes(word[0])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + "</bruh>" + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]+ sym[8]+sym[9]+sym[10] + sym[11]+ sym[12]+sym[13]
+                }else
+                if(pressedA[0].join('').includes(word[1])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + "</bruh>" + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]+ sym[8]+sym[9]+sym[10] + sym[11]+ sym[12]+sym[13]
+                }else
+                if(pressedA[0].join('').includes(word[2])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + "</bruh>" + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]+ sym[8]+sym[9]+sym[10] + sym[11]+ sym[12]+sym[13]
+                }else 
+                if(pressedA[0].join('').includes(word[3])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + "</bruh>" + sym[4] + sym[5] + sym[6] + sym[7]+ sym[8]+sym[9]+sym[10] + sym[11]+ sym[12]+sym[13]
+                }else
+                if(pressedA[0].join('').includes(word[4])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + "</bruh>" + sym[5] + sym[6] + sym[7]+ sym[8]+sym[9]+sym[10] + sym[11]+ sym[12]+sym[13]
+                }else
+                if(pressedA[0].join('').includes(word[5])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] +"</bruh>" + sym[6] + sym[7]+ sym[8]+sym[9]+sym[10] + sym[11]+ sym[12]+sym[13]
+                }else
+                if(pressedA[0].join('').includes(word[6])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] +"</bruh>" + sym[7]+ sym[8]+sym[9]+sym[10] + sym[11]+ sym[12]+sym[13]
+                }else
+                if(pressedA[0].join('').includes(word[7])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7] +"</bruh>" + sym[8]+sym[9]+sym[10] + sym[11]+ sym[12]+sym[13]
+                }else
+                if(pressedA[0].join('').includes(word[8])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]  + sym[8] + "</bruh>"+sym[9]+sym[10] + sym[11]+ sym[12]+sym[13]
+                }else
+                if(pressedA[0].join('').includes(word[9])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]  + sym[8] +sym[9] + "</bruh>"+sym[10] + sym[11]+ sym[12]+sym[13]
+                }else
+                if(pressedA[0].join('').includes(word[10])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]  + sym[8] +sym[9]+sym[10] + "</bruh>" + sym[11]+ sym[12]+sym[13]
+                }else
+                if(pressedA[0].join('').includes(word[11])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]  + sym[8] +sym[9]+sym[10] + sym[11] +"</bruh>"+ sym[12]+sym[13]
+                }else
+                if(pressedA[0].join('').includes(word[12])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]  + sym[8] +sym[9]+sym[10] + sym[11]+ sym[12] +"</bruh>"+sym[13]
+                }else
+                if(pressedA[0].join('').includes(word[13])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]  + sym[8] +sym[9]+sym[10] + sym[11]+ sym[12] +sym[13]+"</bruh>"
+                }else
+                {
+                    text.innerHTML = "<bruh style='color:red'>" + sym[0] + sym[1] + sym[2] + sym[3]  + sym[4] + sym[5] + sym[6] + sym[7] + sym[8] +sym[9] +sym[10]+ sym[11]+ sym[12]+sym[13]+"</bruh>"
+                }
+            }else if(letters == 15) {
+                if(pressedA[0].join("").includes(word[0])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + "</bruh>" + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]+ sym[8]+sym[9]+sym[10] + sym[11]+ sym[12]+sym[13]+sym[14]
+                }else
+                if(pressedA[0].join('').includes(word[1])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + "</bruh>" + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]+ sym[8]+sym[9]+sym[10] + sym[11]+ sym[12]+sym[13]+sym[14]
+                }else
+                if(pressedA[0].join('').includes(word[2])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + "</bruh>" + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]+ sym[8]+sym[9]+sym[10] + sym[11]+ sym[12]+sym[13]+sym[14]
+                }else 
+                if(pressedA[0].join('').includes(word[3])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + "</bruh>" + sym[4] + sym[5] + sym[6] + sym[7]+ sym[8]+sym[9]+sym[10] + sym[11]+ sym[12]+sym[13]+sym[14]
+                }else
+                if(pressedA[0].join('').includes(word[4])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + "</bruh>" + sym[5] + sym[6] + sym[7]+ sym[8]+sym[9]+sym[10] + sym[11]+ sym[12]+sym[13]+sym[14]
+                }else
+                if(pressedA[0].join('').includes(word[5])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] +"</bruh>" + sym[6] + sym[7]+ sym[8]+sym[9]+sym[10] + sym[11]+ sym[12]+sym[13]+sym[14]
+                }else
+                if(pressedA[0].join('').includes(word[6])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] +"</bruh>" + sym[7]+ sym[8]+sym[9]+sym[10] + sym[11]+ sym[12]+sym[13]+sym[14]
+                }else
+                if(pressedA[0].join('').includes(word[7])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7] +"</bruh>" + sym[8]+sym[9]+sym[10] + sym[11]+ sym[12]+sym[13]+sym[14]
+                }else
+                if(pressedA[0].join('').includes(word[8])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]  + sym[8] + "</bruh>"+sym[9]+sym[10] + sym[11]+ sym[12]+sym[13]+sym[14]
+                }else
+                if(pressedA[0].join('').includes(word[9])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]  + sym[8] +sym[9] + "</bruh>"+sym[10] + sym[11]+ sym[12]+sym[13]+sym[14]
+                }else
+                if(pressedA[0].join('').includes(word[10])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]  + sym[8] +sym[9]+sym[10] + "</bruh>" + sym[11]+ sym[12]+sym[13]+sym[14]
+                }else
+                if(pressedA[0].join('').includes(word[11])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]  + sym[8] +sym[9]+sym[10] + sym[11] +"</bruh>"+ sym[12]+sym[13]+sym[14]
+                }else
+                if(pressedA[0].join('').includes(word[12])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]  + sym[8] +sym[9]+sym[10] + sym[11]+ sym[12] +"</bruh>"+sym[13]+sym[14]
+                }else
+                if(pressedA[0].join('').includes(word[13])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]  + sym[8] +sym[9]+sym[10] + sym[11]+ sym[12] +sym[13]+"</bruh>"+sym[14]
+                }else
+                if(pressedA[0].join('').includes(word[14])) {
+                    text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + sym[2] + sym[3] + sym[4] + sym[5] + sym[6] + sym[7]  + sym[8] +sym[9]+sym[10] + sym[11]+ sym[12] +sym[13]+sym[14]+"</bruh>"
+                }else
+                {
+                    text.innerHTML = "<bruh style='color:red'>" + sym[0] + sym[1] + sym[2] + sym[3]  + sym[4] + sym[5] + sym[6] + sym[7] + sym[8] +sym[9] +sym[10]+ sym[11]+ sym[12]+sym[13]+sym[14]+"</bruh>"
                 }
             }
             
