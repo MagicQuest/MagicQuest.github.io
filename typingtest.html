@@ -642,7 +642,7 @@
             mean.innerHTML = text;
         }
         function selectWord() {
-            let bruh = random(0,6);
+            let bruh = random(0,43);
             if(katakana) {
                 if(bruh == 0) {
                     return convertWords("ka me ra","katakana");
@@ -659,6 +659,26 @@
                     return convertWords("i n do","katakana")
                 }else if(bruh == 6) {
                     return convertWords("a i ru ra n do","katakana")
+                }else if(bruh == 7) {
+                    return convertWords("ka na da","katakana");
+                }else if(bruh == 8) {
+                    return convertWords("e ji pu to","katakana")
+                }else if(bruh == 9) {
+                    return convertWords("po ru to ga ru","katakana")
+                }else if(bruh == 10) {
+                    return convertWords("be ru ri n","katakana")
+                }else if(bruh == 11) {
+                    return convertWords("pa ri","katakana")
+                }else if(bruh == 12) {
+                    return convertWords("bu ra ji ru","katakana")
+                }else if(bruh == 13) {
+                    return convertWords("i n do ne shi a","katakana");
+                }else if(bruh == 14) {
+                    return convertWords("ro n do n","katakana")
+                }else if(bruh == 15) {
+                    return convertWords("ha wa i","katakana");
+                }else if(bruh == 16) {
+                    return convertWords("","katakana")
                 }
             }
             if(regular) {
@@ -801,7 +821,47 @@
                     return convertWords("mi mi","regular");
                 }else if(bruh == 35) {
                     return convertWords("be n to u","regular");
+                }else if(bruh == 36) {
+                    return convertWords("te n pu ra","regular");
+                }else if(bruh == 37) {
+                    showMean("phone");
+
+                    return convertWords("de n wa","regular");
+                }else if(bruh == 38) {
+                    showMean("map");
+
+                    return convertWords("chi zu","regular");
+                }else if(bruh == 39) {
+                    return convertWords("ma n ga","regular");
+                }else if(bruh == 40) {
+                    showMean("wind");
+
+                    return convertWords("ka ze","regular");
+                }else if(bruh == 41) {
+                    showMean("bag");
+
+                    return convertWords("ka ba n","regular");
+                }else if(bruh == 42) {
+                    showMean("bank");
+
+                    return convertWords("gi n ko u","regular");
+                }else if(bruh == 43) {
+                    showMean("fruit");
+
+                    return convertWords("ku da mo no","regular");
+                }else if(bruh == 44) {
+
                 }
+                /*else if(bruh == 39) {
+                    showMean("ticket");
+
+                    return convertWords("ki ppu");
+                }*/
+                /*else if(bruh == 37) {
+                    showMean("green tea");
+
+                    return convertWords("o cha","regular");
+                }*/
             }
             
         }
@@ -1052,6 +1112,25 @@
                 ////           //          //  //   //////////////  //////////////  //     //           \\\\\       \\            \\        \\                      \\\          //      \\
             /////////////      //            ////   //////////////  //////////////  ////////            \\\\\       \\\\\\\\\\\\\\\\        \\                 \\\\\\\\\\\\     //        \\
             if(wletters) {
+                if(wletters == 1) {
+                    if(pressedA[0].join("").includes(word[0])) {
+                        text.innerHTML = "<bruh style='color:green'>" + sym[0] + "</bruh>"
+                    }else
+                    {
+                        text.innerHTML = "<bruh style='color:red'>" + sym[0] + "</bruh>"
+                    }
+                }
+                if(wletters == 2) {
+                    if(pressedA[0].join("").includes(word[0])) {
+                        text.innerHTML = "<bruh style='color:green'>" + sym[0] + "</bruh>" + sym[1]
+                    }else
+                    if(pressedA[0].join('').includes(word[1])) {
+                        text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + "</bruh>"
+                    }else
+                    {
+                        text.innerHTML = "<bruh style='color:red'>" + sym[0] + sym[1] + "</bruh>"
+                    }
+                }
                 if(wletters == 3) {
                     if(pressedA[0].join("").includes(word[0])) {
                         text.innerHTML = "<bruh style='color:green'>" + sym[0] + "</bruh>" + sym[1] + sym[2]
@@ -1467,6 +1546,25 @@
                     }
                 }
             }else {
+                if(letters == 1) {
+                    if(pressedA[0].join("").includes(word[0])) {
+                        text.innerHTML = "<bruh style='color:green'>" + sym[0] + "</bruh>"
+                    }else
+                    {
+                        text.innerHTML = "<bruh style='color:red'>" + sym[0] + "</bruh>"
+                    }
+                }
+                if(letters == 2) {
+                    if(pressedA[0].join("").includes(word[0])) {
+                        text.innerHTML = "<bruh style='color:green'>" + sym[0] + "</bruh>" + sym[1]
+                    }else
+                    if(pressedA[0].join('').includes(word[1])) {
+                        text.innerHTML = "<bruh style='color:green'>" + sym[0] + sym[1] + "</bruh>"
+                    }else
+                    {
+                        text.innerHTML = "<bruh style='color:red'>" + sym[0] + sym[1] + "</bruh>"
+                    }
+                }
                 if(letters == 3) {
                     if(pressedA[0].join("").includes(word[0])) {
                         text.innerHTML = "<bruh style='color:green'>" + sym[0] + "</bruh>" + sym[1] + sym[2]
@@ -4043,7 +4141,7 @@
             }else if(mode == "regular"){
                 regular = true;
             }
-            if(symbol == "ya") {
+            /*if(symbol == "ya") {
                 if(katakana) {
                     return "ヤ"
                 }else{
@@ -4067,7 +4165,7 @@
                     return "ょ"
                 }
                 
-            }
+            }*/
             //katakana
             if(regular) {
             
