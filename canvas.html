@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+  <style>
+    *{
+      font-family: 'Chilanka', cursive;
+     }
+     body {
+      margin: 0;
+    }
+    
+    </style>
+  <head>
+    <title>
+      bruh
+      </title>
+    <link href="https://fonts.googleapis.com/css?family=Chilanka&display=swap" rel="stylesheet">
+    <link rel='stylesheet' href='clickable.css'>
+  </head>
+  <body>
+    <h1 id="header">
+      canvas elements are cool
+      </h1>
+    <button style="font-size: large;" onclick="fullscreen()">
+        fullscreen
+    </button>
+    <br>
+    <canvas id="canvas" style="border:1px solid red">
+      
+      </canvas>
+    <br>
+    
+    <!--<pre>        change header</pre>
+    <input id="input">
+    
+    </input>
+  <button onmouseover="this.innerHTML = 'gunga ging gang'" onmouseout="this.innerHTML = 'change header'" onclick="changeHeader()">
+    change header
+  </button>-->
+  </body>
+<script>
+  function random(max) {
+    max++;
+    return Math.floor(Math.random() * max);
+  }
+  function fullscreen() {
+    canvas.width = 1920
+    canvas.height = 1080
+    canvas.style.top = "0%";
+    canvas.style.left = "0%";
+    canvas.style.position = "fixed";
+  }
+  let colors = 1;
+  //console.log(random(1))
+  var canvas = document.getElementById('canvas')
+  canvas.width = 1500
+  canvas.height = 800
+  var c = canvas.getContext('2d');
+  function Circle(x,y,xv,yv,size) {
+	this.x = x;
+	this.y = y
+	this.xv = xv;
+	this.yv = yv;
+	this.size = size;
+	//this.fillcolor = fillcolor
+
+	this.draw = function() {
+    c.fillStyle = `rgb(${colors},${this.y/4},${this.x/6})`;
+    c.strokeStyle = `rgb(${colors},${colors},${colors})`;
+    c.fillRect(this.x,this.y,this.size,this.size)
+		//c.beginPath();
+		//c.arc(this.x,this.y,this.size,0,Math.PI * 2,false)
+		//c.stroke();
+	}
+
+	this.update = function() {
+		this.draw();
+		if(this.x > canvas.width) {
+			this.xv = -this.xv;
+	  }
+	  if(this.x < 0) {
+		  this.xv = -this.xv;
+	  }
+	  if(this.y > canvas.height) {
+		this.yv = -this.yv;
+	  }
+	  if(this.y < 0) {
+		this.yv=-this.yv;
+	  }
+	  //if(ypos < canvas.height + size) {
+		//  yv = -yv;
+	  //}
+	  //if(this.x == 725 && this.y == 25) {
+		  
+			
+	  //}
+	  this.x += this.xv;
+	  this.y += this.yv;
+	}
+    //if(fillcolor != null) {
+    //  c.fillStyle = fillcolor
+    //}else {
+    // c.strokeStyle = "rgb(0,0,0)" 
+    //}
+    
+  }
+  function newRect(x,y,width,height,colorvalue) {
+    c.fillStyle = colorvalue
+    c.fillRect(x,y,width,height)
+  }
+  
+  //var xv = 5;
+  //var xpos = 250;
+  //var yv = 5;
+  //var ypos = 250;
+  var bruh = false;
+  var circles = [];
+
+  for(var i = 0;i < 1000; i++) {
+	  var xv = 2;
+	  var yv = 2;
+	if(random(1) == 1) {
+		xv = -xv;
+	}
+	if(random(1) == 1) {
+		yv = -yv
+	}
+	circles.push(new Circle(random(1250)+50,random(600) + 50,xv,yv,30));
+	//var bruh = 
+  }
+  let swtc = false;
+  function animate() {
+    requestAnimationFrame(animate);
+    if(swtc) {
+      colors-=.5;
+    }else {
+      colors+=.5;
+    }
+    if(colors >= 255) {
+      swtc = true;
+    }else if(colors <= 0){
+      swtc = false;
+    }
+	  //c.clearRect(0,0, canvas.width,canvas.height);
+	  //size = 30
+	  for(var i = 0;i < circles.length; i++) {
+		  circles[i].update();
+	  }
+	  //circle.update();
+	  //Circle(xpos,ypos,size,`rgb(0,${ypos},${xpos}`)
+	  
+	  //if(bruh) {
+	//	newRect(250,250,100,100,"rgba(255,0,255,.4)")
+	  //}
+	  //console.log(xpos,ypos);
+	  //circle(250,250,`rgb(${i},${i},${i})`)
+	  //console.log(document.getElementById("header").innerHTML);
+	  //xpos += xv;
+	 // ypos += yv;
+  }
+  newRect(random(500),random(500),100,100,"rgba(255,0,255,.4)")
+  newRect(random(500),random(500),100,100,"rgba(0,128,0,.4)")
+  //c.fillStyle = 'rgb(0,255,255)'
+  //c.fillRect(random(100),random(250),100,100)
+ // c.fillRect(150,350,100,100)
+ //c.fillRect(350,150,100,100)
+  //c.beginPath();
+  //c.moveTo(random(500),random(500));
+  //var fx = random(500)
+ //var fy = random(500)
+//
+  //c.lineTo(random(500),random(500))
+ // c.lineTo(random(500),random(500))
+ // c.lineTo(random(500),random(500))
+ // c.strokeStyle = "#43B0B7"
+ // c.stroke();
+  
+  //c.strokeStyle = "rgb(0,0,255)"
+  //c.beginPath();
+  //c.arc()
+ 
+  //c.arc(250,250,30,0,Math.PI * 2,false)
+ // c.stroke();
+  //<iframe src="https://discordapp.com/widget?id=504111739517009940&theme=light" width="350" height="500" allowtransparency="true" frameborder="0"></iframe>
+  //function changeHeader(text) {
+  //  text=document.getElementById("input").value
+  // document.getElementById("header").innerHTML = text 
+  //}
+  animate();
+  </script>
+</html>
