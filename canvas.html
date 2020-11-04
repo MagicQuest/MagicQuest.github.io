@@ -55,6 +55,10 @@
     canvas.style.position = "fixed";
   }
   let colors = 1;
+  var focusPos = {
+    x: 0,
+    y: 0,
+  };
   //console.log(random(1))
   var canvas = document.getElementById('canvas')
   canvas.width = 1500
@@ -78,7 +82,11 @@
 	}
 
 	this.update = function() {
-		this.draw();
+    this.draw();
+    if(focusPos.x != 0) {
+      this.xv = (this.x + focusPos.x * this.size/2) * 2;
+      this.yv = (this.y + focusPos.y * this.size/2) * 2;
+    }
 		if(this.x > canvas.width) {
 			this.xv = -this.xv;
 	  }
