@@ -103,6 +103,13 @@
             3
         </option>
     </select>
+
+    <!--select id="yoon" onchange="maxYoonAmount = this.value;start();">
+        <option value="1">
+            1
+        </option>
+    </select-->
+    
     <br>
     <input type="checkbox" id="hiragana_box" onclick="hiraClick()"><bruhh>regular hiragana? (は)</bruhh></input>
     <br>
@@ -294,6 +301,11 @@
         //var word[0];
         var word = [];
         var sym = [];
+        var yoonPositions = [];
+
+        const yoonHiragana = ["き", "し", "ち", "に", "ひ", "み", "り", "ぎ", "じ", "ぢ", "び", "ぴ"];
+        const yoonKatakana = ["キ", "シ", "チ", "ニ", "ヒ", "ミ", "リ", "ギ", "ジ", "ヂ", "ビ", "ピ","ヴ","ウ","フ","テ","ド"];
+        
         //var word[1];
         //var word[2];
         //var sym[0];
@@ -301,6 +313,9 @@
         //  var sym[2]
         
         var letters = 3;
+        var yoonAmount = 0;
+        
+        var maxYoonAmount = 1;
         var wletters;
         var maxLetters = 15;
         maxLetters++;
@@ -331,6 +346,9 @@
         for (let i = 4; i < maxLetters; i++) {
             get("selectd").innerHTML += `<option value="${i}">${i}</option>`
         }
+        //for (let i = 2; i < maxLetters; i++) {
+        //    get("selectd").innerHTML += `<option value="${i}">${i}</option>`
+        //}
         
         document.getElementById("hiragana_box").checked = true;
         
@@ -958,7 +976,23 @@
             }
             
         }
+        function getRandomYoon(type) {
+            let shit = [];
+            if(type == true) {
+                shit = ["ャ", "ュ", "ョ", "ッ"];
+            }else {
+                if(type == "vu") {
+                    shit = ["ァ", "ェ", "ィ", "ォ", "ゥ"];
+                }else {
+                    shit = ["ゃ", "ゅ", "ょ", "っ"];
+                }
+            }
+            return choice(shit);
+        }
         function start() {  
+            maxYoonAmount = Math.floor(letters/2);
+            yoonPositions = [];
+            yoonAmount = false;
             pressed = [];
             text.innerHTML = "";
             mean.style.display = "none";
@@ -976,17 +1010,26 @@
                     
                     //change(i,i);
                 }
+                function googas() {
+                    if(sym[sym.length-1] == "ヴ") {
+                        sym[sym.length-1] = getRandomSymbol();
+                        googas()
+                    }
+                }
+                googas();
+                
             }
             
             if(!wletters) {
                 checkArray();
             }
             
-            var rand = random(0,2)
+            //var rand = random(0,2)
             //var randki = random(0,2)
             // var randshi = random(0,2)
             //var randchi = random(0,2)
             //var randni = random(0,2)
+            
             
             //  textToType = convert(sym[0]) + convert(sym[1]) + convert(sym[2])
             if(!wletters) {
@@ -994,27 +1037,109 @@
                     text.innerHTML = text.innerHTML + sym[letter];
                 }
             }
+
+            if(yoon) {
+                sym.forEach((symbol,i) => {
+                    
+                    if(i != sym.length-2 && i != sym.length-1) {
+                        if(regular) {
+                            yoonHiragana.forEach(hiraganaSymbols => {
+                                if(symbol == hiraganaSymbols && yoonAmount != maxYoonAmount) {
+                                    yoonAmount++;
+                                    yoonPositions.push(i+1);
+                                    sym[i+1] = getRandomYoon(katakana);
+                                }
+                            });
+                        }else {
+                            yoonKatakana.forEach(katakanaSymbols => {
+                                if(symbol == katakanaSymbols) {
+                                    if(symbol == "ヴ") {
+                                        if(random(0,1) == 1) {
+                                            yoonPositions.push(i+1);
+                                            sym[i+1] = getRandomYoon("vu");
+                                        } 
+                                        
+                                    }else if(symbol == "ウ") {
+                                        if(random(0,1) == 1) {
+                                            yoonPositions.push(i+1);
+                                            sym[i+1] = "ェ";
+                                        }
+                                    }else if(symbol == "フ") {
+                                        if(random(0,4) > 2) {
+                                            if(random(0,1) == 1) {
+                                                yoonPositions.push(i+1);
+                                                sym[i+1] = "ォ";
+                                            }else {
+                                                yoonPositions.push(i+1);
+                                                sym[i+1] = "ァ";
+                                            }
+                                        }
+                                    }else if(symbol == "テ") {
+                                        if(random(0,1) == 1) {
+                                            yoonPositions.push(i+1);
+                                            sym[i+1] = "ィ";
+                                        }
+                                    }else if(symbol == "ド") {
+                                        if(random(0,1) == 1) {
+                                            yoonPositions.push(i+1);
+                                            sym[i+1] = "ゥ";
+                                        }
+                                    }
+                                    else {
+                                        if(yoonAmount != maxYoonAmount) {
+                                            yoonAmount++;
+                                            yoonPositions.push(i+1);
+                                            sym[i+1] = getRandomYoon(katakana);
+                                        }
+                                    }
+                                    
+                                    
+                                }
+                            });
+                        }    
+                    }
+                });
+            }
+            
             
             //textToType = "niga"
             //word[0] = convert(sym[0]);
             //print(sub);
-            if(sub != 0) {
-                word[0] = convert(sym[0]).substring(0,sub);
-                sub = 0;    
-            }
+            //if(sub != 0) {
+            //    word[0] = convert(sym[0]).substring(0,sub);
+            //      sub = 0;    
+            //}
             if(!kanji) {
                 if(!wletters) {
                     for (let letter = 0; letter < letters; letter++) {
                         word[letter] = convert(sym[letter]) || wordtsu;
-                        
                     }
                 }
-                
             }else {
                 word[1] = "";
                 word[2] = "";
             }
-
+            if(yoon) {
+                yoonPositions.forEach(googas => {
+                    if(convert(sym[googas]) == "tsu") {
+                        //textToType = convert(sym[0]) + convert(sym[1]).substring(0,1) + convert(sym[2]);
+                        word[googas] = convert(sym[googas+1]).substring(0,1);
+                    }else {
+                        if(convert(sym[googas-1]).length == 3 || convert(sym[googas-1]) == "ji") {
+                            word[googas-1] = word[googas-1].substring(0, word[googas-1].length - 1)
+                            word[googas] = convert(sym[googas]).substring(1);
+                        }else {
+                            if(sym[googas-1] == "ウ") {
+                                word[googas-1] = "w"
+                                word[googas] = convert(sym[googas]);
+                            }else {
+                                word[googas-1] = word[googas-1].substring(0, word[googas-1].length - 1)
+                                word[googas] = convert(sym[googas]);
+                            }
+                        }
+                    }
+                });
+            }
             textToType = word.join("");
             text.innerHTML = sym.join("");
             
@@ -2080,6 +2205,7 @@
         })
         function getRandomSymbol() {
             var bruh;
+            let choose = [];
             /*if(dakuon && !handkun) {
                 bruh = random(0,65)
             }
@@ -2097,1637 +2223,413 @@
             }else {
                 return "ら"
             }*/
-            
             if(regular) {
-                if(!dakuon && handkun) {
-                    bruh = random(0,50)
-                    if(bruh == 0) {
-                        return "ん"
-                    }
-                    if(bruh == 1) {
-                        return "わ"
-                    }
-                    if(bruh == 2) {
-                        return "ら"
-                    }
-                    if(bruh == 3) {
-                        return "や"
-                    }
-                    if(bruh == 4) {
-                        return "ま"
-                    }
-                    if(bruh ==  5) {
-                        return "は"
-                    }
-                    if(bruh ==  6) {
-                        return "な"
-                    }
-                    if(bruh ==  7) {
-                        return "た"
-                    }
-                    if(bruh ==  8) {
-                        return "さ"
-                    }
-                    if(bruh ==  9) {
-                        return "か"
-                    }
-                    if(bruh ==  10) {
-                        return "あ"
-                    }
-                    if(bruh ==  11) {
-                        return "り"
-                    }
-                    if(bruh ==  12) {
-                        return "み"
-                    }
-                    if(bruh ==  13) {
-                        return "ひ"
-                    }
-                    if(bruh ==  14) {
-                        return "に"
-                    }
-                    if(bruh ==  15) {
-                        return "ち"
-                    }
-                    if(bruh ==  16) {
-                        return "し"
-                    }
-                    if(bruh ==  17) {
-                        return "き"
-                    }
-                    if(bruh ==  18) {
-                        return "い"
-                    }
-                    if(bruh ==  19) {
-                        return "る"
-                    }
-                    if(bruh ==  20) {
-                        return "ゆ"
-                    }
-                    if(bruh ==  21) {
-                        return "む"
-                    }
-                    if(bruh ==  22) {
-                        return "ふ"
-                    }
-                    if(bruh ==  23) {
-                        return "ぬ"
-                    }
-                    if(bruh ==  24) {
-                        return "つ"
-                    }
-                    if(bruh ==  25) {
-                        return "す"
-                    }
-                    if(bruh ==  26) {
-                        return "く"
-                    }
-                    if(bruh ==  27) {
-                        return "う"
-                    }
-                    if(bruh ==  28) {
-                        return "れ"
-                    }
-                    if(bruh ==  29) {
-                        return "め"
-                    }
-                    if(bruh ==  30) {
-                        return "へ"
-                    }
-                    if(bruh ==  31) {
-                        return "ね"
-                    }
-                    if(bruh ==  32) {
-                        return "て"
-                    }
-                    if(bruh ==  33) {
-                        return "せ"
-                    }
-                    if(bruh ==  34) {
-                        return "け"
-                    }
-                    if(bruh ==  35) {
-                        return "え"
-                    }
-                    if(bruh ==  36) {
-                        return "を"
-                    }
-                    if(bruh ==  37) {
-                        return "ろ"
-                    }
-                    if(bruh ==  38) {
-                        return "よ"
-                    }
-                    if(bruh ==  39) {
-                        return "も"
-                    }
-                    if(bruh ==  40) {
-                        return "ほ"
-                    }
-                    if(bruh ==  41) {
-                        return "の"
-                    }
-                    if(bruh ==  42) {
-                        return "と"
-                    }
-                    if(bruh ==  43) {
-                        return "そ"
-                    }
-                    if(bruh ==  44) {
-                        return "こ"
-                    }
-                    if(bruh ==  45) {
-                        return "お"
-                    }
-
-
-
-
                     
-
-
-
-                    if(bruh == 46) {
-                        return "ぱ"
-                    }
-                    if(bruh == 47) {
-                        return "ぴ"
-                    }
-                    if(bruh == 48) {
-                        return "ぷ"
-                    }
-                    if(bruh == 49) {
-                        return "ペ"
-                    }
-                    if(bruh == 50) {
-                        return "ぽ"
-                    }
-                }
-                if(!dakuon && !handkun) {
-                    bruh = random(0,45)
-                    if(bruh == 0) {
-                        return "ん"
-                    }
-                    if(bruh == 1) {
-                        return "わ"
-                    }
-                    if(bruh == 2) {
-                        return "ら"
-                    }
-                    if(bruh == 3) {
-                        return "や"
-                    }
-                    if(bruh == 4) {
-                        return "ま"
-                    }
-                    if(bruh ==  5) {
-                        return "は"
-                    }
-                    if(bruh ==  6) {
-                        return "な"
-                    }
-                    if(bruh ==  7) {
-                        return "た"
-                    }
-                    if(bruh ==  8) {
-                        return "さ"
-                    }
-                    if(bruh ==  9) {
-                        return "か"
-                    }
-                    if(bruh ==  10) {
-                        return "あ"
-                    }
-                    if(bruh ==  11) {
-                        return "り"
-                    }
-                    if(bruh ==  12) {
-                        return "み"
-                    }
-                    if(bruh ==  13) {
-                        return "ひ"
-                    }
-                    if(bruh ==  14) {
-                        return "に"
-                    }
-                    if(bruh ==  15) {
-                        return "ち"
-                    }
-                    if(bruh ==  16) {
-                        return "し"
-                    }
-                    if(bruh ==  17) {
-                        return "き"
-                    }
-                    if(bruh ==  18) {
-                        return "い"
-                    }
-                    if(bruh ==  19) {
-                        return "る"
-                    }
-                    if(bruh ==  20) {
-                        return "ゆ"
-                    }
-                    if(bruh ==  21) {
-                        return "む"
-                    }
-                    if(bruh ==  22) {
-                        return "ふ"
-                    }
-                    if(bruh ==  23) {
-                        return "ぬ"
-                    }
-                    if(bruh ==  24) {
-                        return "つ"
-                    }
-                    if(bruh ==  25) {
-                        return "す"
-                    }
-                    if(bruh ==  26) {
-                        return "く"
-                    }
-                    if(bruh ==  27) {
-                        return "う"
-                    }
-                    if(bruh ==  28) {
-                        return "れ"
-                    }
-                    if(bruh ==  29) {
-                        return "め"
-                    }
-                    if(bruh ==  30) {
-                        return "へ"
-                    }
-                    if(bruh ==  31) {
-                        return "ね"
-                    }
-                    if(bruh ==  32) {
-                        return "て"
-                    }
-                    if(bruh ==  33) {
-                        return "せ"
-                    }
-                    if(bruh ==  34) {
-                        return "け"
-                    }
-                    if(bruh ==  35) {
-                        return "え"
-                    }
-                    if(bruh ==  36) {
-                        return "を"
-                    }
-                    if(bruh ==  37) {
-                        return "ろ"
-                    }
-                    if(bruh ==  38) {
-                        return "よ"
-                    }
-                    if(bruh ==  39) {
-                        return "も"
-                    }
-                    if(bruh ==  40) {
-                        return "ほ"
-                    }
-                    if(bruh ==  41) {
-                        return "の"
-                    }
-                    if(bruh ==  42) {
-                        return "と"
-                    }
-                    if(bruh ==  43) {
-                        return "そ"
-                    }
-                    if(bruh ==  44) {
-                        return "こ"
-                    }
-                    if(bruh ==  45) {
-                        return "お"
-                    }
-                }
-                if(dakuon && !handkun) {
-                    bruh = random(0,65)
-                    if(bruh == 0) {
-                        return "ん"
-                    }
-                    if(bruh == 1) {
-                        return "わ"
-                    }
-                    if(bruh == 2) {
-                        return "ら"
-                    }
-                    if(bruh == 3) {
-                        return "や"
-                    }
-                    if(bruh == 4) {
-                        return "ま"
-                    }
-                    if(bruh ==  5) {
-                        return "は"
-                    }
-                    if(bruh ==  6) {
-                        return "な"
-                    }
-                    if(bruh ==  7) {
-                        return "た"
-                    }
-                    if(bruh ==  8) {
-                        return "さ"
-                    }
-                    if(bruh ==  9) {
-                        return "か"
-                    }
-                    if(bruh ==  10) {
-                        return "あ"
-                    }
-                    if(bruh ==  11) {
-                        return "り"
-                    }
-                    if(bruh ==  12) {
-                        return "み"
-                    }
-                    if(bruh ==  13) {
-                        return "ひ"
-                    }
-                    if(bruh ==  14) {
-                        return "に"
-                    }
-                    if(bruh ==  15) {
-                        return "ち"
-                    }
-                    if(bruh ==  16) {
-                        return "し"
-                    }
-                    if(bruh ==  17) {
-                        return "き"
-                    }
-                    if(bruh ==  18) {
-                        return "い"
-                    }
-                    if(bruh ==  19) {
-                        return "る"
-                    }
-                    if(bruh ==  20) {
-                        return "ゆ"
-                    }
-                    if(bruh ==  21) {
-                        return "む"
-                    }
-                    if(bruh ==  22) {
-                        return "ふ"
-                    }
-                    if(bruh ==  23) {
-                        return "ぬ"
-                    }
-                    if(bruh ==  24) {
-                        return "つ"
-                    }
-                    if(bruh ==  25) {
-                        return "す"
-                    }
-                    if(bruh ==  26) {
-                        return "く"
-                    }
-                    if(bruh ==  27) {
-                        return "う"
-                    }
-                    if(bruh ==  28) {
-                        return "れ"
-                    }
-                    if(bruh ==  29) {
-                        return "め"
-                    }
-                    if(bruh ==  30) {
-                        return "へ"
-                    }
-                    if(bruh ==  31) {
-                        return "ね"
-                    }
-                    if(bruh ==  32) {
-                        return "て"
-                    }
-                    if(bruh ==  33) {
-                        return "せ"
-                    }
-                    if(bruh ==  34) {
-                        return "け"
-                    }
-                    if(bruh ==  35) {
-                        return "え"
-                    }
-                    if(bruh ==  36) {
-                        return "を"
-                    }
-                    if(bruh ==  37) {
-                        return "ろ"
-                    }
-                    if(bruh ==  38) {
-                        return "よ"
-                    }
-                    if(bruh ==  39) {
-                        return "も"
-                    }
-                    if(bruh ==  40) {
-                        return "ほ"
-                    }
-                    if(bruh ==  41) {
-                        return "の"
-                    }
-                    if(bruh ==  42) {
-                        return "と"
-                    }
-                    if(bruh ==  43) {
-                        return "そ"
-                    }
-                    if(bruh ==  44) {
-                        return "こ"
-                    }
-                    if(bruh ==  45) {
-                        return "お"
-                    }
-                    if(bruh == 46) {
-                        return "が"
-                    }
-                    if(bruh == 47) {
-                        return "ぎ"
-                    }
-                    if(bruh == 48) {
-                        return "ぐ"
-                    }
-                    if(bruh == 49) {
-                        return "げ"
-                    }
-                    if(bruh == 50) {
-                        return "ご"
-                    }
-                    if(bruh == 51) {
-                        return "ざ"
-                    }
-                    if(bruh == 52) {
-                        return "じ"
-                    }
-                    if(bruh == 53) {
-                        return "ず"
-                    }
-                    if(bruh == 54) {
-                        return "ぜ"
-                    }
-                    if(bruh == 55) {
-                        return "ぞ"
-                    }
-                    if(bruh == 56) {
-                        return "だ"
-                    }
-                    if(bruh == 57) {
-                        return "ぢ"
-                    }
-                    if(bruh == 58) {
-                        return "づ"
-                    }
-                    if(bruh == 59) {
-                        return "で"
-                    }
-                    if(bruh == 60) {
-                        return "ど"
-                    }
-                    if(bruh == 61) {
-                        return "ば"
-                    }
-                    if(bruh == 62) {
-                        return "び"
-                    }
-                    if(bruh == 63) {
-                        return "ぶ"
-                    }
-                    if(bruh == 64) {
-                        return "ベ"
-                    }
-                    if(bruh == 65) {
-                        return "ぼ"
-                    }
-                }
+                        choose.push( "ん")
+                    
+                        choose.push( "わ")
+                    
+                        choose.push( "ら")
+                    
+                        choose.push( "や")
+                    
+                        choose.push( "ま")
+                    
+                        choose.push( "は")
+                    
+                        choose.push( "な")
+                    
+                        choose.push( "た")
+                    
+                        choose.push( "さ")
+                    
+                        choose.push( "か")
+                    
+                        choose.push( "あ")
+                    
+                        choose.push( "り")
+                    
+                        choose.push( "み")
+                    
+                        choose.push( "ひ")
+                    
+                        choose.push( "に")
+                    
+                        choose.push( "ち")
+                    
+                        choose.push( "し")
+                    
+                        choose.push( "き")
+                    
+                        choose.push( "い")
+                    
+                        choose.push( "る")
+                    
+                        choose.push( "ゆ")
+                    
+                        choose.push( "む")
+                    
+                        choose.push( "ふ")
+                    
+                        choose.push( "ぬ")
+                    
+                        choose.push( "つ")
+                    
+                        choose.push( "す")
+                    
+                        choose.push( "く")
+                    
+                        choose.push( "う")
+                    
+                        choose.push( "れ")
+                    
+                        choose.push( "め")
+                    
+                        choose.push( "へ")
+                    
+                        choose.push( "ね")
+                    
+                        choose.push( "て")
+                    
+                        choose.push( "せ")
+                    
+                        choose.push( "け")
+                    
+                        choose.push( "え")
+                    
+                        choose.push( "を")
+                    
+                        choose.push( "ろ")
+                    
+                        choose.push( "よ")
+                    
+                        choose.push( "も")
+                    
+                        choose.push( "ほ")
+                    
+                        choose.push( "の")
+                    
+                        choose.push( "と")
+                    
+                        choose.push( "そ")
+                    
+                        choose.push( "こ")
+                    
+                        choose.push( "お")
+                    
+                
                 if(dakuon && handkun) {
-                    bruh = random(0,70)
-                    if(bruh == 0) {
-                        return "ん"
-                    }
-                    if(bruh == 1) {
-                        return "わ"
-                    }
-                    if(bruh == 2) {
-                        return "ら"
-                    }
-                    if(bruh == 3) {
-                        return "や"
-                    }
-                    if(bruh == 4) {
-                        return "ま"
-                    }
-                    if(bruh ==  5) {
-                        return "は"
-                    }
-                    if(bruh ==  6) {
-                        return "な"
-                    }
-                    if(bruh ==  7) {
-                        return "た"
-                    }
-                    if(bruh ==  8) {
-                        return "さ"
-                    }
-                    if(bruh ==  9) {
-                        return "か"
-                    }
-                    if(bruh ==  10) {
-                        return "あ"
-                    }
-                    if(bruh ==  11) {
-                        return "り"
-                    }
-                    if(bruh ==  12) {
-                        return "み"
-                    }
-                    if(bruh ==  13) {
-                        return "ひ"
-                    }
-                    if(bruh ==  14) {
-                        return "に"
-                    }
-                    if(bruh ==  15) {
-                        return "ち"
-                    }
-                    if(bruh ==  16) {
-                        return "し"
-                    }
-                    if(bruh ==  17) {
-                        return "き"
-                    }
-                    if(bruh ==  18) {
-                        return "い"
-                    }
-                    if(bruh ==  19) {
-                        return "る"
-                    }
-                    if(bruh ==  20) {
-                        return "ゆ"
-                    }
-                    if(bruh ==  21) {
-                        return "む"
-                    }
-                    if(bruh ==  22) {
-                        return "ふ"
-                    }
-                    if(bruh ==  23) {
-                        return "ぬ"
-                    }
-                    if(bruh ==  24) {
-                        return "つ"
-                    }
-                    if(bruh ==  25) {
-                        return "す"
-                    }
-                    if(bruh ==  26) {
-                        return "く"
-                    }
-                    if(bruh ==  27) {
-                        return "う"
-                    }
-                    if(bruh ==  28) {
-                        return "れ"
-                    }
-                    if(bruh ==  29) {
-                        return "め"
-                    }
-                    if(bruh ==  30) {
-                        return "へ"
-                    }
-                    if(bruh ==  31) {
-                        return "ね"
-                    }
-                    if(bruh ==  32) {
-                        return "て"
-                    }
-                    if(bruh ==  33) {
-                        return "せ"
-                    }
-                    if(bruh ==  34) {
-                        return "け"
-                    }
-                    if(bruh ==  35) {
-                        return "え"
-                    }
-                    if(bruh ==  36) {
-                        return "を"
-                    }
-                    if(bruh ==  37) {
-                        return "ろ"
-                    }
-                    if(bruh ==  38) {
-                        return "よ"
-                    }
-                    if(bruh ==  39) {
-                        return "も"
-                    }
-                    if(bruh ==  40) {
-                        return "ほ"
-                    }
-                    if(bruh ==  41) {
-                        return "の"
-                    }
-                    if(bruh ==  42) {
-                        return "と"
-                    }
-                    if(bruh ==  43) {
-                        return "そ"
-                    }
-                    if(bruh ==  44) {
-                        return "こ"
-                    }
-                    if(bruh ==  45) {
-                        return "お"
-                    }
-
-
-
-
+                    choose.push("が")
+                
+                    choose.push( "ぎ")
+                
+                    choose.push( "ぐ")
                     
-                    if(bruh == 46) {
-                        return "が"
-                    }
-                    if(bruh == 47) {
-                        return "ぎ"
-                    }
-                    if(bruh == 48) {
-                        return "ぐ"
-                    }
-                    if(bruh == 49) {
-                        return "げ"
-                    }
-                    if(bruh == 50) {
-                        return "ご"
-                    }
-                    if(bruh == 51) {
-                        return "ざ"
-                    }
-                    if(bruh == 52) {
-                        return "じ"
-                    }
-                    if(bruh == 53) {
-                        return "ず"
-                    }
-                    if(bruh == 54) {
-                        return "ぜ"
-                    }
-                    if(bruh == 55) {
-                        return "ぞ"
-                    }
-                    if(bruh == 56) {
-                        return "だ"
-                    }
-                    if(bruh == 57) {
-                        return "ぢ"
-                    }
-                    if(bruh == 58) {
-                        return "づ"
-                    }
-                    if(bruh == 59) {
-                        return "で"
-                    }
-                    if(bruh == 60) {
-                        return "ど"
-                    }
-                    if(bruh == 61) {
-                        return "ば"
-                    }
-                    if(bruh == 62) {
-                        return "び"
-                    }
-                    if(bruh == 63) {
-                        return "ぶ"
-                    }
-                    if(bruh == 64) {
-                        return "ベ"
-                    }
-                    if(bruh == 65) {
-                        return "ぼ"
-                    }
-
-
-
-
-                    if(bruh == 66) {
-                        return "ぱ"
-                    }
-                    if(bruh == 67) {
-                        return "ぴ"
-                    }
-                    if(bruh == 68) {
-                        return "ぷ"
-                    }
-                    if(bruh == 69) {
-                        return "ペ"
-                    }
-                    if(bruh == 70) {
-                        return "ぽ"
-                    }
-                }
-            }else if(katakana == false){
-                if(dakuon && handkun) {
-                    bruh = random(46,70)
-                    
-
-
-
-
-                    
-                    if(bruh == 46) {
-                        return "が"
-                    }
-                    if(bruh == 47) {
-                        return "ぎ"
-                    }
-                    if(bruh == 48) {
-                        return "ぐ"
-                    }
-                    if(bruh == 49) {
-                        return "げ"
-                    }
-                    if(bruh == 50) {
-                        return "ご"
-                    }
-                    if(bruh == 51) {
-                        return "ざ"
-                    }
-                    if(bruh == 52) {
-                        return "じ"
-                    }
-                    if(bruh == 53) {
-                        return "ず"
-                    }
-                    if(bruh == 54) {
-                        return "ぜ"
-                    }
-                    if(bruh == 55) {
-                        return "ぞ"
-                    }
-                    if(bruh == 56) {
-                        return "だ"
-                    }
-                    if(bruh == 57) {
-                        return "ぢ"
-                    }
-                    if(bruh == 58) {
-                        return "づ"
-                    }
-                    if(bruh == 59) {
-                        return "で"
-                    }
-                    if(bruh == 60) {
-                        return "ど"
-                    }
-                    if(bruh == 61) {
-                        return "ば"
-                    }
-                    if(bruh == 62) {
-                        return "び"
-                    }
-                    if(bruh == 63) {
-                        return "ぶ"
-                    }
-                    if(bruh == 64) {
-                        return "ベ"
-                    }
-                    if(bruh == 65) {
-                        return "ぼ"
-                    }
-
-
-
-
-                    if(bruh == 66) {
-                        return "ぱ"
-                    }
-                    if(bruh == 67) {
-                        return "ぴ"
-                    }
-                    if(bruh == 68) {
-                        return "ぷ"
-                    }
-                    if(bruh == 69) {
-                        return "ペ"
-                    }
-                    if(bruh == 70) {
-                        return "ぽ"
-                    }
-                }
-                if(!dakuon && handkun) {
-                    bruh = random(66,70)
-                    if(bruh == 66) {
-                        return "ぱ"
-                    }
-                    if(bruh == 67) {
-                        return "ぴ"
-                    }
-                    if(bruh == 68) {
-                        return "ぷ"
-                    }
-                    if(bruh == 69) {
-                        return "ペ"
-                    }
-                    if(bruh == 70) {
-                        return "ぽ"
-                    }
-                }
-                if(dakuon && !handkun) {
-                    bruh = random(46,65)
-                    if(bruh == 46) {
-                        return "が"
-                    }
-                    if(bruh == 47) {
-                        return "ぎ"
-                    }
-                    if(bruh == 48) {
-                        return "ぐ"
-                    }
-                    if(bruh == 49) {
-                        return "げ"
-                    }
-                    if(bruh == 50) {
-                        return "ご"
-                    }
-                    if(bruh == 51) {
-                        return "ざ"
-                    }
-                    if(bruh == 52) {
-                        return "じ"
-                    }
-                    if(bruh == 53) {
-                        return "ず"
-                    }
-                    if(bruh == 54) {
-                        return "ぜ"
-                    }
-                    if(bruh == 55) {
-                        return "ぞ"
-                    }
-                    if(bruh == 56) {
-                        return "だ"
-                    }
-                    if(bruh == 57) {
-                        return "ぢ"
-                    }
-                    if(bruh == 58) {
-                        return "づ"
-                    }
-                    if(bruh == 59) {
-                        return "で"
-                    }
-                    if(bruh == 60) {
-                        return "ど"
-                    }
-                    if(bruh == 61) {
-                        return "ば"
-                    }
-                    if(bruh == 62) {
-                        return "び"
-                    }
-                    if(bruh == 63) {
-                        return "ぶ"
-                    }
-                    if(bruh == 64) {
-                        return "ベ"
-                    }
-                    if(bruh == 65) {
-                        return "ぼ"
-                    }
-                }
+                    choose.push( "げ")
+                
+                    choose.push( "ご")
+                
+                    choose.push( "ざ")
+                
+                    choose.push( "じ")
+                
+                    choose.push( "ず")
+                
+                    choose.push( "ぜ")
+                
+                    choose.push( "ぞ")
+                
+                    choose.push( "だ")
+               
+                    choose.push( "ぢ")
+                
+                    choose.push( "づ")
+               
+                    choose.push( "で")
+               
+                    choose.push( "ど")
+                
+                    choose.push( "ば")
+                
+                    choose.push( "び")
+                
+                    choose.push( "ぶ")
+                
+                    choose.push( "ベ")
+                
+                    choose.push( "ぼ")
+                
+                    choose.push( "ぱ")
+                
+                    choose.push( "ぴ")
+                
+                    choose.push( "ぷ")
+                
+                    choose.push( "ペ")
+                
+                    choose.push( "ぽ")
                 
             }
-            if(katakana) {
                 if(!dakuon && handkun) {
-                    bruh = random(0,50)
-                    if(bruh == 0) {
-                        return "ン"
-                    }
-                    if(bruh == 1) {
-                        return "ワ"
-                    }
-                    if(bruh == 2) {
-                        return "ラ"
-                    }
-                    if(bruh == 3) {
-                        return "ヤ"
-                    }
-                    if(bruh == 4) {
-                        return "マ"
-                    }
-                    if(bruh ==  5) {
-                        return "ハ"
-                    }
-                    if(bruh ==  6) {
-                        return "ナ"
-                    }
-                    if(bruh ==  7) {
-                        return "タ"
-                    }
-                    if(bruh ==  8) {
-                        return "サ"
-                    }
-                    if(bruh ==  9) {
-                        return "カ"
-                    }
-                    if(bruh ==  10) {
-                        return "ア"
-                    }
-                    if(bruh ==  11) {
-                        return "リ"
-                    }
-                    if(bruh ==  12) {
-                        return "ミ"
-                    }
-                    if(bruh ==  13) {
-                        return "ヒ"
-                    }
-                    if(bruh ==  14) {
-                        return "ニ"
-                    }
-                    if(bruh ==  15) {
-                        return "チ"
-                    }
-                    if(bruh ==  16) {
-                        return "シ"
-                    }
-                    if(bruh ==  17) {
-                        return "キ"
-                    }
-                    if(bruh ==  18) {
-                        return "イ"
-                    }
-                    if(bruh ==  19) {
-                        return "ル"
-                    }
-                    if(bruh ==  20) {
-                        return "ユ"
-                    }
-                    if(bruh ==  21) {
-                        return "ム"
-                    }
-                    if(bruh ==  22) {
-                        return "フ"
-                    }
-                    if(bruh ==  23) {
-                        return "ヌ"
-                    }
-                    if(bruh ==  24) {
-                        return "ツ"
-                    }
-                    if(bruh ==  25) {
-                        return "ス"
-                    }
-                    if(bruh ==  26) {
-                        return "ク"
-                    }
-                    if(bruh ==  27) {
-                        return "ウ"
-                    }
-                    if(bruh ==  28) {
-                        return "レ"
-                    }
-                    if(bruh ==  29) {
-                        return "メ"
-                    }
-                    if(bruh ==  30) {
-                        return "ヘ"
-                    }
-                    if(bruh ==  31) {
-                        return "ネ"
-                    }
-                    if(bruh ==  32) {
-                        return "テ"
-                    }
-                    if(bruh ==  33) {
-                        return "セ"
-                    }
-                    if(bruh ==  34) {
-                        return "ケ"
-                    }
-                    if(bruh ==  35) {
-                        return "エ"
-                    }
-                    if(bruh ==  36) {
-                        return "ヲ"
-                    }
-                    if(bruh ==  37) {
-                        return "ロ"
-                    }
-                    if(bruh ==  38) {
-                        return "ヨ"
-                    }
-                    if(bruh ==  39) {
-                        return "モ"
-                    }
-                    if(bruh ==  40) {
-                        return "ホ"
-                    }
-                    if(bruh ==  41) {
-                        return "ノ"
-                    }
-                    if(bruh ==  42) {
-                        return "ト"
-                    }
-                    if(bruh ==  43) {
-                        return "ソ"
-                    }
-                    if(bruh ==  44) {
-                        return "コ"
-                    }
-                    if(bruh ==  45) {
-                        return "オ"
-                    }
-                    
-                    if(bruh == 46) {
-                        return "パ"
-                    }
-                    if(bruh == 47) {
-                        return "ピ"
-                    }
-                    if(bruh == 48) {
-                        return "プ"
-                    }
-                    if(bruh == 49) {
-                        return "ぺ"
-                    }
-                    if(bruh == 50) {
-                        return "ポ"
-                    }
+                
+                    choose.push( "ぱ")
+                
+                    choose.push( "ぴ")
+                
+                    choose.push( "ぷ")
+                
+                    choose.push( "ペ")
+                
+                    choose.push( "ぽ")
+                
+            }
+                if(dakuon && !handkun) {
+                choose.push("が")
+                
+                
+                choose.push( "ぎ")
+            
+                choose.push( "ぐ")
+                choose.push( "げ")
+            
+                choose.push( "ご")
+            
+            
+                choose.push( "ざ")
+            
+                choose.push( "じ")
+            
+                choose.push( "ず")
+            
+                choose.push( "ぜ")
+            
+                choose.push( "ぞ")
+            
+                choose.push( "だ")
+           
+                choose.push( "ぢ")
+            
+                choose.push( "づ")
+           
+                choose.push( "で")
+           
+                choose.push( "ど")
+            
+                choose.push( "ば")
+            
+                choose.push( "び")
+            
+                choose.push( "ぶ")
+            
+                choose.push( "ベ")
+            
+                choose.push( "ぼ")
+            }
+            
+            }
+            if(katakana) {
+                if(yoon && dakuon) {
+                    choose.push("ヴ");
                 }
-                if(!dakuon && !handkun) {
-                    bruh = random(0,45)
-                    if(bruh == 0) {
-                        return "ン"
-                    }
-                    if(bruh == 1) {
-                        return "ワ"
-                    }
-                    if(bruh == 2) {
-                        return "ラ"
-                    }
-                    if(bruh == 3) {
-                        return "ヤ"
-                    }
-                    if(bruh == 4) {
-                        return "マ"
-                    }
-                    if(bruh ==  5) {
-                        return "ハ"
-                    }
-                    if(bruh ==  6) {
-                        return "ナ"
-                    }
-                    if(bruh ==  7) {
-                        return "タ"
-                    }
-                    if(bruh ==  8) {
-                        return "サ"
-                    }
-                    if(bruh ==  9) {
-                        return "カ"
-                    }
-                    if(bruh ==  10) {
-                        return "ア"
-                    }
-                    if(bruh ==  11) {
-                        return "リ"
-                    }
-                    if(bruh ==  12) {
-                        return "ミ"
-                    }
-                    if(bruh ==  13) {
-                        return "ヒ"
-                    }
-                    if(bruh ==  14) {
-                        return "ニ"
-                    }
-                    if(bruh ==  15) {
-                        return "チ"
-                    }
-                    if(bruh ==  16) {
-                        return "シ"
-                    }
-                    if(bruh ==  17) {
-                        return "キ"
-                    }
-                    if(bruh ==  18) {
-                        return "イ"
-                    }
-                    if(bruh ==  19) {
-                        return "ル"
-                    }
-                    if(bruh ==  20) {
-                        return "ユ"
-                    }
-                    if(bruh ==  21) {
-                        return "ム"
-                    }
-                    if(bruh ==  22) {
-                        return "フ"
-                    }
-                    if(bruh ==  23) {
-                        return "ヌ"
-                    }
-                    if(bruh ==  24) {
-                        return "ツ"
-                    }
-                    if(bruh ==  25) {
-                        return "ス"
-                    }
-                    if(bruh ==  26) {
-                        return "ク"
-                    }
-                    if(bruh ==  27) {
-                        return "ウ"
-                    }
-                    if(bruh ==  28) {
-                        return "レ"
-                    }
-                    if(bruh ==  29) {
-                        return "メ"
-                    }
-                    if(bruh ==  30) {
-                        return "ヘ"
-                    }
-                    if(bruh ==  31) {
-                        return "ネ"
-                    }
-                    if(bruh ==  32) {
-                        return "テ"
-                    }
-                    if(bruh ==  33) {
-                        return "セ"
-                    }
-                    if(bruh ==  34) {
-                        return "ケ"
-                    }
-                    if(bruh ==  35) {
-                        return "エ"
-                    }
-                    if(bruh ==  36) {
-                        return "ヲ"
-                    }
-                    if(bruh ==  37) {
-                        return "ロ"
-                    }
-                    if(bruh ==  38) {
-                        return "ヨ"
-                    }
-                    if(bruh ==  39) {
-                        return "モ"
-                    }
-                    if(bruh ==  40) {
-                        return "ホ"
-                    }
-                    if(bruh ==  41) {
-                        return "ノ"
-                    }
-                    if(bruh ==  42) {
-                        return "ト"
-                    }
-                    if(bruh ==  43) {
-                        return "ソ"
-                    }
-                    if(bruh ==  44) {
-                        return "コ"
-                    }
-                    if(bruh ==  45) {
-                        return "オ"
-                    }
+                choose.push( "ン")
+                    
+                    choose.push( "ワ")
+                
+                    choose.push( "ラ")
+                
+                    choose.push( "ヤ")
+                
+                    choose.push( "マ")
+                
+                    choose.push( "ハ")
+                
+                    choose.push( "ナ")
+                
+                    choose.push( "タ")
+                
+                    choose.push( "サ")
+                
+                    choose.push( "カ")
+                
+                    choose.push( "ア")
+                
+                    choose.push( "リ")
+                
+                    choose.push( "ミ")
+                
+                    choose.push( "ヒ")
+                
+                    choose.push( "ニ")
+                
+                    choose.push( "チ")
+                
+                    choose.push( "シ")
+                
+                    choose.push( "キ")
+                
+                    choose.push( "イ")
+                
+                    choose.push( "ル")
+                
+                    choose.push( "ユ")
+                
+                    choose.push( "ム")
+                
+                    choose.push( "フ")
+                
+                    choose.push( "ヌ")
+                
+                    choose.push( "ツ")
+                
+                    choose.push( "ス")
+                
+                    choose.push( "ク")
+                
+                    choose.push( "ウ")
+                
+                    choose.push( "レ")
+                
+                    choose.push( "メ")
+                
+                    choose.push( "ヘ")
+                
+                    choose.push( "ネ")
+                
+                    choose.push( "テ")
+                
+                    choose.push( "セ")
+                
+                    choose.push( "ケ")
+                
+                    choose.push( "エ")
+                
+                    choose.push( "ヲ")
+                
+                    choose.push( "ロ")
+                
+                    choose.push( "ヨ")
+                
+                    choose.push( "モ")
+                
+                    choose.push( "ホ")
+                
+                    choose.push( "ノ")
+                
+                    choose.push( "ト")
+                
+                    choose.push( "ソ")
+                
+                    choose.push( "コ")
+                
+                    choose.push( "オ")
+                if(!dakuon && handkun) {
+                    
+                        choose.push( "パ")
+                    
+                        choose.push( "ピ")
+                    
+                        choose.push( "プ")
+                    
+                        choose.push( "ぺ")
+                    
+                        choose.push( "ポ")
+                    
                 }
                 if(dakuon && !handkun) {
-                    bruh = random(0,65)
-                    if(bruh == 0) {
-                        return "ン"
-                    }
-                    if(bruh == 1) {
-                        return "ワ"
-                    }
-                    if(bruh == 2) {
-                        return "ラ"
-                    }
-                    if(bruh == 3) {
-                        return "ヤ"
-                    }
-                    if(bruh == 4) {
-                        return "マ"
-                    }
-                    if(bruh ==  5) {
-                        return "ハ"
-                    }
-                    if(bruh ==  6) {
-                        return "ナ"
-                    }
-                    if(bruh ==  7) {
-                        return "タ"
-                    }
-                    if(bruh ==  8) {
-                        return "サ"
-                    }
-                    if(bruh ==  9) {
-                        return "カ"
-                    }
-                    if(bruh ==  10) {
-                        return "ア"
-                    }
-                    if(bruh ==  11) {
-                        return "リ"
-                    }
-                    if(bruh ==  12) {
-                        return "ミ"
-                    }
-                    if(bruh ==  13) {
-                        return "ヒ"
-                    }
-                    if(bruh ==  14) {
-                        return "ニ"
-                    }
-                    if(bruh ==  15) {
-                        return "チ"
-                    }
-                    if(bruh ==  16) {
-                        return "シ"
-                    }
-                    if(bruh ==  17) {
-                        return "キ"
-                    }
-                    if(bruh ==  18) {
-                        return "イ"
-                    }
-                    if(bruh ==  19) {
-                        return "ル"
-                    }
-                    if(bruh ==  20) {
-                        return "ユ"
-                    }
-                    if(bruh ==  21) {
-                        return "ム"
-                    }
-                    if(bruh ==  22) {
-                        return "フ"
-                    }
-                    if(bruh ==  23) {
-                        return "ヌ"
-                    }
-                    if(bruh ==  24) {
-                        return "ツ"
-                    }
-                    if(bruh ==  25) {
-                        return "ス"
-                    }
-                    if(bruh ==  26) {
-                        return "ク"
-                    }
-                    if(bruh ==  27) {
-                        return "ウ"
-                    }
-                    if(bruh ==  28) {
-                        return "レ"
-                    }
-                    if(bruh ==  29) {
-                        return "メ"
-                    }
-                    if(bruh ==  30) {
-                        return "ヘ"
-                    }
-                    if(bruh ==  31) {
-                        return "ネ"
-                    }
-                    if(bruh ==  32) {
-                        return "テ"
-                    }
-                    if(bruh ==  33) {
-                        return "セ"
-                    }
-                    if(bruh ==  34) {
-                        return "ケ"
-                    }
-                    if(bruh ==  35) {
-                        return "エ"
-                    }
-                    if(bruh ==  36) {
-                        return "ヲ"
-                    }
-                    if(bruh ==  37) {
-                        return "ロ"
-                    }
-                    if(bruh ==  38) {
-                        return "ヨ"
-                    }
-                    if(bruh ==  39) {
-                        return "モ"
-                    }
-                    if(bruh ==  40) {
-                        return "ホ"
-                    }
-                    if(bruh ==  41) {
-                        return "ノ"
-                    }
-                    if(bruh ==  42) {
-                        return "ト"
-                    }
-                    if(bruh ==  43) {
-                        return "ソ"
-                    }
-                    if(bruh ==  44) {
-                        return "コ"
-                    }
-                    if(bruh ==  45) {
-                        return "オ"
-                    }
-
-                    if(bruh == 46) {
-                        return "ガ"
-                    }
-                    if(bruh == 47) {
-                        return "ギ"
-                    }
-                    if(bruh == 48) {
-                        return "グ"
-                    }
-                    if(bruh == 49) {
-                        return "ゲ"
-                    }
-                    if(bruh == 50) {
-                        return "ゴ"
-                    }
-                    if(bruh == 51) {
-                        return "ザ"
-                    }
-                    if(bruh == 52) {
-                        return "ジ"
-                    }
-                    if(bruh == 53) {
-                        return "ズ"
-                    }
-                    if(bruh == 54) {
-                        return "ゼ"
-                    }
-                    if(bruh == 55) {
-                        return "ゾ"
-                    }
-                    if(bruh == 56) {
-                        return "ダ"
-                    }
-                    if(bruh == 57) {
-                        return "ヂ"
-                    }
-                    if(bruh == 58) {
-                        return "ヅ"
-                    }
-                    if(bruh == 59) {
-                        return "デ"
-                    }
-                    if(bruh == 60) {
-                        return "ド"
-                    }
-                    if(bruh == 61) {
-                        return "バ"
-                    }
-                    if(bruh == 62) {
-                        return "ビ"
-                    }
-                    if(bruh == 63) {
-                        return "ブ"
-                    }
-                    if(bruh == 64) {
-                        return "ベ"
-                    }
-                    if(bruh == 65) {
-                        return "ボ"
-                    }
+                    
+                        choose.push( "ガ")
+                    
+                        choose.push( "ギ")
+                    
+                        choose.push( "グ")
+                    
+                        choose.push( "ゲ")
+                    
+                        choose.push( "ゴ")
+                    
+                        choose.push( "ザ")
+                    
+                        choose.push( "ジ")
+                    
+                        choose.push( "ズ")
+                    
+                        choose.push( "ゼ")
+                    
+                        choose.push( "ゾ")
+                    
+                        choose.push( "ダ")
+                    
+                        choose.push( "ヂ")
+                    
+                        choose.push( "ヅ")
+                    
+                        choose.push( "デ")
+                    
+                        choose.push( "ド")
+                    
+                        choose.push( "バ")
+                    
+                        choose.push( "ビ")
+                    
+                        choose.push( "ブ")
+                    
+                        choose.push( "ベ")
+                    
+                        choose.push( "ボ")
+                    
                 }
                 if(dakuon && handkun) {
-                    bruh = random(0,70)
-                    if(bruh == 0) {
-                        return "ン"
-                    }
-                    if(bruh == 1) {
-                        return "ワ"
-                    }
-                    if(bruh == 2) {
-                        return "ラ"
-                    }
-                    if(bruh == 3) {
-                        return "ヤ"
-                    }
-                    if(bruh == 4) {
-                        return "マ"
-                    }
-                    if(bruh ==  5) {
-                        return "ハ"
-                    }
-                    if(bruh ==  6) {
-                        return "ナ"
-                    }
-                    if(bruh ==  7) {
-                        return "タ"
-                    }
-                    if(bruh ==  8) {
-                        return "サ"
-                    }
-                    if(bruh ==  9) {
-                        return "カ"
-                    }
-                    if(bruh ==  10) {
-                        return "ア"
-                    }
-                    if(bruh ==  11) {
-                        return "リ"
-                    }
-                    if(bruh ==  12) {
-                        return "ミ"
-                    }
-                    if(bruh ==  13) {
-                        return "ヒ"
-                    }
-                    if(bruh ==  14) {
-                        return "ニ"
-                    }
-                    if(bruh ==  15) {
-                        return "チ"
-                    }
-                    if(bruh ==  16) {
-                        return "シ"
-                    }
-                    if(bruh ==  17) {
-                        return "キ"
-                    }
-                    if(bruh ==  18) {
-                        return "イ"
-                    }
-                    if(bruh ==  19) {
-                        return "ル"
-                    }
-                    if(bruh ==  20) {
-                        return "ユ"
-                    }
-                    if(bruh ==  21) {
-                        return "ム"
-                    }
-                    if(bruh ==  22) {
-                        return "フ"
-                    }
-                    if(bruh ==  23) {
-                        return "ヌ"
-                    }
-                    if(bruh ==  24) {
-                        return "ツ"
-                    }
-                    if(bruh ==  25) {
-                        return "ス"
-                    }
-                    if(bruh ==  26) {
-                        return "ク"
-                    }
-                    if(bruh ==  27) {
-                        return "ウ"
-                    }
-                    if(bruh ==  28) {
-                        return "レ"
-                    }
-                    if(bruh ==  29) {
-                        return "メ"
-                    }
-                    if(bruh ==  30) {
-                        return "ヘ"
-                    }
-                    if(bruh ==  31) {
-                        return "ネ"
-                    }
-                    if(bruh ==  32) {
-                        return "テ"
-                    }
-                    if(bruh ==  33) {
-                        return "セ"
-                    }
-                    if(bruh ==  34) {
-                        return "ケ"
-                    }
-                    if(bruh ==  35) {
-                        return "エ"
-                    }
-                    if(bruh ==  36) {
-                        return "ヲ"
-                    }
-                    if(bruh ==  37) {
-                        return "ロ"
-                    }
-                    if(bruh ==  38) {
-                        return "ヨ"
-                    }
-                    if(bruh ==  39) {
-                        return "モ"
-                    }
-                    if(bruh ==  40) {
-                        return "ホ"
-                    }
-                    if(bruh ==  41) {
-                        return "ノ"
-                    }
-                    if(bruh ==  42) {
-                        return "ト"
-                    }
-                    if(bruh ==  43) {
-                        return "ソ"
-                    }
-                    if(bruh ==  44) {
-                        return "コ"
-                    }
-                    if(bruh ==  45) {
-                        return "オ"
-                    }
-
-
-
-
+                    choose.push( "ガ")
                     
-                    if(bruh == 46) {
-                        return "ガ"
-                    }
-                    if(bruh == 47) {
-                        return "ギ"
-                    }
-                    if(bruh == 48) {
-                        return "グ"
-                    }
-                    if(bruh == 49) {
-                        return "ゲ"
-                    }
-                    if(bruh == 50) {
-                        return "ゴ"
-                    }
-                    if(bruh == 51) {
-                        return "ザ"
-                    }
-                    if(bruh == 52) {
-                        return "ジ"
-                    }
-                    if(bruh == 53) {
-                        return "ズ"
-                    }
-                    if(bruh == 54) {
-                        return "ゼ"
-                    }
-                    if(bruh == 55) {
-                        return "ゾ"
-                    }
-                    if(bruh == 56) {
-                        return "ダ"
-                    }
-                    if(bruh == 57) {
-                        return "ヂ"
-                    }
-                    if(bruh == 58) {
-                        return "ヅ"
-                    }
-                    if(bruh == 59) {
-                        return "デ"
-                    }
-                    if(bruh == 60) {
-                        return "ド"
-                    }
-                    if(bruh == 61) {
-                        return "バ"
-                    }
-                    if(bruh == 62) {
-                        return "ビ"
-                    }
-                    if(bruh == 63) {
-                        return "ブ"
-                    }
-                    if(bruh == 64) {
-                        return "ベ"
-                    }
-                    if(bruh == 65) {
-                        return "ボ"
-                    }
-
-
-
-
-                    if(bruh == 66) {
-                        return "パ"
-                    }
-                    if(bruh == 67) {
-                        return "ピ"
-                    }
-                    if(bruh == 68) {
-                        return "プ"
-                    }
-                    if(bruh == 69) {
-                        return "ぺ"
-                    }
-                    if(bruh == 70) {
-                        return "ポ"
-                    }
+                    choose.push( "ギ")
+                
+                    choose.push( "グ")
+                
+                    choose.push( "ゲ")
+                
+                    choose.push( "ゴ")
+                
+                    choose.push( "ザ")
+                
+                    choose.push( "ジ")
+                
+                    choose.push( "ズ")
+                
+                    choose.push( "ゼ")
+                
+                    choose.push( "ゾ")
+                
+                    choose.push( "ダ")
+                
+                    choose.push( "ヂ")
+                
+                    choose.push( "ヅ")
+                
+                    choose.push( "デ")
+                
+                    choose.push( "ド")
+                
+                    choose.push( "バ")
+                
+                    choose.push( "ビ")
+                
+                    choose.push( "ブ")
+                
+                    choose.push( "ベ")
+                
+                    choose.push( "ボ")   
+                    
+                    choose.push( "パ")
+                    
+                    choose.push( "ピ")
+                    
+                    choose.push( "プ")
+                    
+                    choose.push( "ぺ")
+                    
+                    choose.push( "ポ")
                 }
+                
             }
 
             
@@ -3742,6 +2644,7 @@
                     return ""
                 }
             }
+            return choice(choose);
         }
         function convert(symbol) {
             if(symbol == "ゃ" || symbol == "ャ") {
@@ -3752,6 +2655,9 @@
             }
             if(symbol == "ょ" || symbol == "ョ") {
                 return "yo"
+            }
+            if(symbol == "っ" || symbol == "ッ") {
+                return "tsu";
             }
             if(symbol == "ん") {
                 return "n";
@@ -3783,7 +2689,7 @@
             if(symbol == "か") {
                 return "ka"
             }
-            if(symbol == "あ") {
+            if(symbol == "あ" || symbol == "ァ") {
                 return "a"
             }
             if(symbol == "り") {
@@ -3807,7 +2713,7 @@
             if(symbol == "き") {
                 return "ki"
             }
-            if(symbol == "い") {
+            if(symbol == "い" || symbol == "ィ") {
                 return "i"
             }
             if(symbol == "る") {
@@ -3834,7 +2740,7 @@
             if(symbol == "く") {
                 return "ku"
             }
-            if(symbol == "う") {
+            if(symbol == "う" || symbol == "ゥ") {
                 return "u"
             }
             if(symbol == "れ") {
@@ -3858,7 +2764,7 @@
             if(symbol == "け") {
                 return "ke"
             }
-            if(symbol == "え") {
+            if(symbol == "え" || symbol == "ェ") {
                 return "e"
             }
             if(symbol == "を") {
@@ -3888,7 +2794,7 @@
             if(symbol == "こ") {
                 return "ko"
             }
-            if(symbol == "お") {
+            if(symbol == "お" || symbol == "ォ") {
                 return "o"
             }
             if(symbol == "が") {
@@ -4234,7 +3140,7 @@
             
             if(mode == "katakana") {
                 katakana = true;
-            }else if(mode == "regular"){
+            }else {
                 regular = true;
             }
             /*if(symbol == "ya") {
@@ -4686,7 +3592,9 @@
                     if(symbol == "bo") {
                         return "ボ"
                     }
-
+                    if(symbol == "vu") {
+                        return "ヴ";
+                    }
 
 
 
@@ -4705,9 +3613,7 @@
                     if(symbol == "po") {
                         return "ポ"
                     }
-                    if(symbol == "vu") {
-                        return "ヴ";
-                    }
+                    
             }
                     
 
