@@ -263,7 +263,7 @@
         //DONE add small characters (combo hiragana) DONE A LONG TIME AGO
         //TODO GO ON DUOLINGO AND PRRACTIVE (and learn more kanji) BUT STILL
         //DONE KATAKANA FUCAOKLSGING HURRY YOU HSVE TO LEARN IT
-        //DONE 1/?? POSSIBLY MAKE SOME SORT OF ACHIEVEMNT SYSTEM BECAUSE THATS FUN (like if you got 1000 total score you got some sort of achievment and there would be a modal menu thingy that popped up and would show the things you go llo)
+        //DONE 4/?? POSSIBLY MAKE SOME SORT OF ACHIEVEMNT SYSTEM BECAUSE THATS FUN (like if you got 1000 total score you got some sort of achievment and there would be a modal menu thingy that popped up and would show the things you go llo)
         
                 // Get the modal
         var modal = document.getElementById("Modal");
@@ -645,10 +645,32 @@
             let returnSymbols = [];
             wletters = array.length;
             textToType += array.join("");
-            array.forEach(wording => {
+            array.forEach((wording, i) => {
                 word.push(wording);
-                returnSymbols.push(reconvert(wording,mode));
-                sym.push(reconvert(wording,mode));
+                let zabloing = false;
+                //console.log(array[i+1].substring(0,1));
+                //console.log(wording);
+                if(array[i+1] != undefined) {
+                    if(array[i+1].substring(0,1) == wording) {
+                        if(mode == "katakana") {
+                            returnSymbols.push("ッ");
+                            sym.push("ッ");
+                        }else {
+                            returnSymbols.push("っ");
+                            sym.push("っ");
+                        }
+                    }else {
+                        zabloing = true;
+                    }
+                }else {
+                    zabloing = true;
+                }
+                if(zabloing) {
+                    returnSymbols.push(reconvert(wording,mode));
+                    sym.push(reconvert(wording,mode));
+                }
+                
+                
             });
             return returnSymbols.join("");
         }
@@ -660,7 +682,7 @@
             mean.innerHTML = text;
         }
         function selectWord() {
-            let bruh = random(0,43);
+            let bruh = random(0,29);
             if(katakana) {
                 if(bruh == 0) {
                     return convertWords("ka me ra","katakana");
@@ -680,7 +702,7 @@
                 }else if(bruh == 7) {
                     return convertWords("ka na da","katakana");
                 }else if(bruh == 8) {
-                    return convertWords("e ji pu to","katakana")
+                    return convertWords("e sji pu to","katakana")
                 }else if(bruh == 9) {
                     return convertWords("po ru to ga ru","katakana")
                 }else if(bruh == 10) {
@@ -688,7 +710,7 @@
                 }else if(bruh == 11) {
                     return convertWords("pa ri","katakana")
                 }else if(bruh == 12) {
-                    return convertWords("bu ra ji ru","katakana")
+                    return convertWords("bu ra sji ru","katakana")
                 }else if(bruh == 13) {
                     return convertWords("i n do ne shi a","katakana");
                 }else if(bruh == 14) {
@@ -713,256 +735,347 @@
                     return convertWords("so u ru","katakana");
                 }else if(bruh == 24) {
                     return convertWords("bo su to n","katakana");
+                }else if(bruh == 25) {
+                    return convertWords("gi ri sha","katakana");
+                }else if(bruh == 26) {
+                    return convertWords("a sji a","katakana")
+                }else if(bruh == 27) {
+                    return convertWords("sjo n","katakana")
+                }else if(bruh == 28) {
+                    return convertWords("fi ri pi n","katakana")
+                }else if(bruh == 29) {
+                    return convertWords("su to k ku ho ru mu","katakana")
                 }
             }
             if(regular) {
-
+                let number = 0;
                 //hiragana 1
-                if(bruh == 0) {
+                if(bruh == number) {
                     showMean("red");
 
                     return convertWords("a ka","regular");
-                }else if(bruh == 1) {
+                }
+                number++;
+                if(bruh == number) {
                     showMean("blue");
 
                     return convertWords("a o","regular");
-                }else if(bruh == 2) {
+                }number++;
+                if(bruh == number) {
                     showMean("white");
 
                     return convertWords("shi ro","regular");
-                }else if(bruh == 3) {
+                }number++;
+                if(bruh == number) {
                     showMean("good morning");
 
                     return convertWords("o ha yo u","regular");
-                }else if(bruh == 4) {
+                }number++;
+                if(bruh == number) {
                     showMean("yes");
 
                     return convertWords("ha i","regular");
-                }
+                }number++;
 
                 //hiragana 2
-                if(bruh == 5) {
+                if(bruh == number) {
                     return convertWords("te ri ya ki","regular");
-                }else if(bruh == 6) {
+                }number++;
+                if(bruh == number) {
                     showMean("I");
 
                     return convertWords("wa ta shi","regular");
-                }else if(bruh == 7) {
+                }number++;
+                if(bruh == number) {
                     showMean("goodbye");
 
                     return convertWords("sa yo u na ra","regular");
-                }else if(bruh == 8) {
+                }number++;
+                if(bruh == number) {
                     showMean("hello");
 
-                    return convertWords("ko n ni chi ha","regular");
-                }else if(bruh == 9) {
+                    return convertWords("ko nn ni chi ha","regular");
+                }number++;
+                if(bruh == number) {
                     showMean("drink");
 
                     return convertWords("no mu","regular");
-                }else if(bruh == 10) {
+                } number++;
+                if(bruh == number) {
                     showMean("alcohol");
 
                     return convertWords("sa ke","regular");
-                }else if(bruh == 11) {
+                } number++;
+                if(bruh == number) {
                     showMean("vegetable");
 
                     return convertWords("ya sa i","regular");
-                }else if(bruh == 12) {
+                } number++;
+                if(bruh == number) {
                     showMean("sweet/delicious");
 
                     return convertWords("a ma i","regular");
                 
-                }else if(bruh == 13) {
+                } number++;
+                if(bruh == number) {
                     showMean("want");
 
                     return convertWords("ho shi i","regular");
-                }else if(bruh == 14) {
+                } number++;
+                if(bruh == number) {
                     showMean("messy/dirty");
 
                     return convertWords("ki ta na i","regular");
-                }else if(bruh == 15) {
+                } number++;
+                if(bruh == number) {
                     return convertWords("su shi","regular");
-                }else if(bruh == 16) {
+                } number++;
+                if(bruh == number) {
                     showMean("like");
 
                     return convertWords("su ki","regular");
-                }else if(bruh == 17) {
+                } number++;
+                if(bruh == number) {
                     showMean("night");
 
                     return convertWords("yo ru","regular");
-                }else if(bruh == 18) {
+                } number++;
+                if(bruh == number) {
                     showMean("read");
 
                     return convertWords("yo mu","regular");
-                }else if(bruh == 19) {
+                } number++;
+                if(bruh == number) {
                     showMean("wear");
 
                     return convertWords("ki ru","regular");
-                }
+                } number++;
 
                 //hiragana 3
-                else if(bruh == 20) {
+                if(bruh == number) {
                     showMean("back");
 
                     return convertWords("se na ka","regular");
-                }else if(bruh == 21) {
+                } number++;
+                if(bruh == number) {
                     showMean("eye");
 
                     return convertWords("me","regular");
-                }else if(bruh == 22) {
+                } number++;
+                if(bruh == number) {
                     showMean("winter");
 
                     return convertWords("fu yu","regular");
-                }else if(bruh == 23) {
+                } number++;
+                if(bruh == number) {
                     showMean("summer");
 
                     return convertWords("na tsu","regular");
-                }else if(bruh == 24) {
+                } number++;
+                if(bruh == number) {
                     showMean("ear");
 
                     return convertWords("mi mi","regular");
-                }else if(bruh == 25) {
+                } number++;
+                if(bruh == number) {
                     showMean("house");
 
                     return convertWords("i e","regular");
-                }else if(bruh == 26) {
+                } number++;
+                if(bruh == number) {
                     showMean("cat");
 
                     return convertWords("ne ko","regular");
-                }else if(bruh == 27) {
+                } number++;
+                if(bruh == number) {
                     showMean("dog");
 
                     return convertWords("i nu","regular");
-                }else if(bruh == 28) {
+                } number++;
+                if(bruh == number) {
                     showMean("bird");
 
                     return convertWords("to ri","regular")
-                }else if(bruh == 29) {
+                } number++;
+                if(bruh == number) {
                     showMean("outside");
 
                     return convertWords("so to","regular");
-                }else if(bruh == 30) {
+                } number++;
+                if(bruh == number) {
                     showMean("cloudy");
 
                     return convertWords("ku mo ri","regular");
-                }else if(bruh == 31) {
+                } number++;
+                if(bruh == number) {
                     showMean("daytime");
 
                     return convertWords("hi ru","regular")
-                }else if(bruh == 32) {
+                } number++;
+                if(bruh == number) {
                     showMean("sunny");
 
                     return convertWords("ha re","regular")
                 
-                }else if(bruh == 33) {
+                } number++;
+                if(bruh == number) {
                     showMean("room");
 
                     return convertWords("he ya","regular");
-                }
+                } number++;
 
                 //hiragana 4
-                else if(bruh == 34) {
+                if(bruh == number) {
                     showMean("bank");
 
                     return convertWords("gi n ko u","regular");
-                }else if(bruh == 35) {
+                } number++;
+                if(bruh == number) {
                     return convertWords("ma n ga","regular");
-                }else if(bruh == 36) {
-                    showMean("phone");
+                } number++;
+                if(bruh == number) {
+                    showMean("telephone");
 
                     return convertWords("de n wa","regular");
-                }else if(bruh == 37) {
+                } number++;
+                if(bruh == number) {
                     showMean("map");
 
                     return convertWords("chi zu","regular");
-                }else if(bruh == 38) {
+                } number++;
+                if(bruh == number) {
                     showMean("wind");
 
                     return convertWords("ka ze","regular");
-                }else if(bruh == 39) {
+                } number++;
+                if(bruh == number) {
                     showMean("fruit");
 
                     return convertWords("ku da mo no","regular");
-                }else if(bruh == 40) {
+                } number++;
+                if(bruh == number) {
                     return convertWords("te n pu ra","regular");
-                }else if(bruh == 41) {
+                } number++;
+                if(bruh == number) {
                     showMean("pencil");
 
                     return convertWords("e n pi tsu");
-                }else if(bruh == 42) {
+                } number++;
+                if(bruh == number) {
                     return convertWords("be n to u","regular");
-                }else if(bruh == 43) {
+                } number++;
+                if(bruh == number) {
                     showMean("bag");
 
                     return convertWords("ka ba n","regular");
-                }
+                } number++;
+                if(bruh == number) {
+                    showMean("fermented soybeans");
+                    
+                    return convertWords("na t to u");
+                } number++;
+                if(bruh == number) {
+                    showMean("school");
 
+                    return convertWords("ga k ko u");
+                } number++;
+                if(bruh == number) {
+                    showMean("tomorrow");
+
+                    return convertWords("kyo u");
+                } number++;
+                if(bruh == number) {
+                    showMean("green tea");
+
+                    return convertWords("o cha");
+                }number++;
+                if(bruh == number) {
+                    showMean("ticket");
+
+                    return convertWords("ki p pu");
+                }number++;
+                if(bruh == number) {
+                    return convertWords("e mo ji");
+                }number++;
                 //unlisted
-                else if(bruh == 44) {
+                if(bruh == number) {
                     
                     showMean("amazing");
 
                     return convertWords("su go i","regular");
-                }
+                } number++;
 
                 //greetings
-                else if(bruh == 45) {
+                if(bruh == number) {
                     showMean("likewise");
 
                     return convertWords("ko chi ra ko so","regular")
-                }else if(bruh == 46) {
+                } number++;
+                if(bruh == number) {
                     showMean("thanks - friends");
 
                     return convertWords("do u mo","regular");
-                }else if(bruh == 47) {
+                } number++;
+                if(bruh == number) {
                     showMean("thank you - friends");
 
                     return convertWords("a ri ga to u","regular");
-                }else if(bruh == 48) {
+                } number++;
+                if(bruh == number) {
                     showMean("thank you very much - friends");
 
                     return convertWords("do u mo a ri ga to u","regular");
-                }else if(bruh == 49) {
+                } number++;
+                if(bruh == number) {
                     showMean("thank you - strangers");
 
                     return convertWords("a ri ga to u go za i ma su","regular");
-                }else if(bruh == 50) {
+                } number++;
+                if(bruh == number) {
                     showMean("thank you very much - strangers");
 
                     return convertWords("do u mo a ri ga to u go za i ma su","regular");
-                }else if(bruh == 51) {
+                } number++;
+                if(bruh == number) {
                     showMean("thank you for what you did - strangers");
 
                     return convertWords("a ri ga to u go za i ma shi ta","regular");
-                }else if(bruh == 52) {
+                } number++;
+                if(bruh == number) {
                     showMean("thank you very much for what you did - strangers");
 
                     return convertWords("do u mo a ri ga to u go za i ma shi ta","regular");
-                }else if(bruh == 53) {
+                } number++;
+                if(bruh == number) {
                     showMean("nice to meet you");
 
                     return convertWords("ha ji me ma shi te","regular");
-                }else if(bruh == 54) {
+                } number++;
+                if(bruh == number) {
                     showMean("nice to meet you");
 
                     return convertWords("yo ro shi ku","regular");
-                }else if(bruh == 55) {
+                } number++;
+                if(bruh == number) {
                     showMean("sorry");
 
-                    return convertWords("go me n na sa i","regular");
-                }else if(bruh == 56) {
+                    return convertWords("go me nn na sa i","regular");
+                } number++;
+                if(bruh == number) {
                     showMean("good night");
 
                     return convertWords("o ya su mi na sa i","regular")
-                }else if(bruh == 57) {
+                } number++;
+                if(bruh == number) {
                     showMean("you're welcome");
 
                     return convertWords("do u i ta shi ma shi te","regular")
-                }else if(bruh == 58) {
+                } number++;
+                if(bruh == number) {
                     showMean("bye");
 
                     return convertWords("ma ta ne","regular");
-                }
+                } number++;
                 /*else if(bruh == 39) {
                     showMean("ticket");
 
@@ -1065,7 +1178,7 @@
                                             sym[i+1] = "ェ";
                                         }
                                     }else if(symbol == "フ") {
-                                        if(random(0,4) > 2) {
+                                        if(random(1,4) > 2) {
                                             if(random(0,1) == 1) {
                                                 yoonPositions.push(i+1);
                                                 sym[i+1] = "ォ";
@@ -3102,7 +3215,7 @@
                     if(symbol == "ヴ") {
                         return "vu"
                     }
-
+                    
             
             //dakuon
             
@@ -3170,8 +3283,8 @@
             }*/
             //katakana
             if(regular) {
-            
-                if(symbol == "n") {
+                
+                if(symbol == "n" || symbol == "nn") {
                     return "ん";
                 }
                 if(symbol == "wa") {
@@ -3327,10 +3440,10 @@
                 if(symbol == "za") {
                     return "ざ"
                 }
-                if(symbol == "ji") {
+                if(symbol == "sji") {
                     return "じ"
                 }
-                if(symbol == "zu") {
+                if(symbol == "szu") {
                     return "ず"
                 }
                 if(symbol == "ze") {
@@ -3342,10 +3455,10 @@
                 if(symbol == "da") {
                     return "だ"
                 }
-                if(symbol == "ji") {
+                if(symbol == "cji") {
                     return "ぢ"
                 }
-                if(symbol == "zu") {
+                if(symbol == "tzu") {
                     return "づ"
                 }
                 if(symbol == "de") {
@@ -3384,236 +3497,479 @@
                 if(symbol == "po") {
                     return "ぽ"
                 }
+                
+                if(symbol == "kya" ) {
+                    return "きゃ";
+                }
+                if(symbol == "kyu") {
+                    return "きゅ";
+                }
+                if(symbol == "kyo") {
+                    return "きょ";
+                }
+                if(symbol == "sha" ) {
+                    return "しゃ";
+                }
+                if(symbol == "shu") {
+                    return "しゅ";
+                }
+                if(symbol == "sho") {
+                    return "しょ";
+                }
+                if(symbol == "cha" ) {
+                    return "ちゃ";
+                }
+                if(symbol == "chu") {
+                    return "ちゅ";
+                }
+                if(symbol == "cho") {
+                    return "ちょ";
+                }
+                if(symbol == "nya" ) {
+                    return "にゃ";
+                }
+                if(symbol == "nyu") {
+                    return "にゅ";
+                }
+                if(symbol == "nyo") {
+                    return "にょ";
+                }
+                if(symbol == "hya" ) {
+                    return "ひゃ";
+                }
+                if(symbol == "hyu") {
+                    return "ひゅ";
+                }
+                if(symbol == "hyo") {
+                    return "ひょ";
+                }
+                if(symbol == "mya" ) {
+                    return "みゃ";
+                }
+                if(symbol == "myu") {
+                    return "みゅ";
+                }
+                if(symbol == "myo") {
+                    return "みょ";
+                }
+                if(symbol == "rya" ) {
+                    return "りゃ";
+                }
+                if(symbol == "ryu") {
+                    return "りゅ";
+                }
+                if(symbol == "ryo") {
+                    return "りょ";
+                }
+                if(symbol == "gya" ) {
+                    return "ぎゃ";
+                }
+                if(symbol == "gyu") {
+                    return "ぎゅ";
+                }
+                if(symbol == "gyo") {
+                    return "ぎょ";
+                }
+                if(symbol == "sja" ) {
+                    return "じゃ";
+                }
+                if(symbol == "sju") {
+                    return "じゅ";
+                }
+                if(symbol == "sjo") {
+                    return "じょ";
+                }
+                if(symbol == "cja" ) {
+                    return "ぢゃ";
+                }
+                if(symbol == "cju") {
+                    return "ぢゅ";
+                }
+                if(symbol == "cjo") {
+                    return "ぢょ";
+                }
+                if(symbol == "bya" ) {
+                    return "びゃ";
+                }
+                if(symbol == "byu") {
+                    return "びゅ";
+                }
+                if(symbol == "byo") {
+                    return "びょ";
+                }
+                if(symbol == "pya" ) {
+                    return "ぴゃ";
+                }
+                if(symbol == "pyu") {
+                    return "ぴゅ";
+                }
+                if(symbol == "pyo") {
+                    return "ぴょ";
+                }
+                
                 //kanji
                 if(symbol == "nani") {
                     return "何"
                 }
             }else {
-                if(symbol == "n") {
-                        return "ン"
-                    }
-                    if(symbol == "wa") {
-                        return "ワ"
-                    }
-                    if(symbol == "ra") {
-                        return "ラ"
-                    }
-                    if(symbol == "ya") {
-                        return "ヤ"
-                    }
-                    if(symbol == "ma") {
-                        return "マ"
-                    }
-                    if(symbol == "ha") {
-                        return "ハ"
-                    }
-                    if(symbol ==  "na") {
-                        return "ナ"
-                    }
-                    if(symbol ==  "ta") {
-                        return "タ"
-                    }
-                    if(symbol ==  "sa") {
-                        return "サ"
-                    }
-                    if(symbol ==  "ka") {
-                        return "カ"
-                    }
-                    if(symbol ==  "a") {
-                        return "ア"
-                    }
-                    if(symbol ==  "ri") {
-                        return "リ"
-                    }
-                    if(symbol ==  "mi") {
-                        return "ミ"
-                    }
-                    if(symbol ==  "hi") {
-                        return "ヒ"
-                    }
-                    if(symbol ==  "ni") {
-                        return "ニ"
-                    }
-                    if(symbol ==  "chi") {
-                        return "チ"
-                    }
-                    if(symbol ==  "shi") {
-                        return "シ"
-                    }
-                    if(symbol ==  "ki") {
-                        return "キ"
-                    }
-                    if(symbol ==  "i") {
-                        return "イ"
-                    }
-                    if(symbol ==  "ru") {
-                        return "ル"
-                    }
-                    if(symbol ==  "yu") {
-                        return "ユ"
-                    }
-                    if(symbol ==  "mu") {
-                        return "ム"
-                    }
-                    if(symbol ==  "fu") {
-                        return "フ"
-                    }
-                    if(symbol ==  "nu") {
-                        return "ヌ"
-                    }
-                    if(symbol ==  "tsu") {
-                        return "ツ"
-                    }
-                    if(symbol ==  "su") {
-                        return "ス"
-                    }
-                    if(symbol ==  "ku") {
-                        return "ク"
-                    }
-                    if(symbol ==  "u") {
-                        return "ウ"
-                    }
-                    if(symbol ==  "re") {
-                        return "レ"
-                    }
-                    if(symbol ==  "me") {
-                        return "メ"
-                    }
-                    if(symbol ==  "he") {
-                        return "ヘ"
-                    }
-                    if(symbol ==  "ne") {
-                        return "ネ"
-                    }
-                    if(symbol ==  "te") {
-                        return "テ"
-                    }
-                    if(symbol ==  "se") {
-                        return "セ"
-                    }
-                    if(symbol ==  "ke") {
-                        return "ケ"
-                    }
-                    if(symbol ==  "e") {
-                        return "エ"
-                    }
-                    if(symbol ==  "wo") {
-                        return "ヲ"
-                    }
-                    if(symbol ==  "ro") {
-                        return "ロ"
-                    }
-                    if(symbol ==  "yo") {
-                        return "ヨ"
-                    }
-                    if(symbol ==  "mo") {
-                        return "モ"
-                    }
-                    if(symbol ==  "ho") {
-                        return "ホ"
-                    }
-                    if(symbol ==  "no") {
-                        return "ノ"
-                    }
-                    if(symbol ==  "to") {
-                        return "ト"
-                    }
-                    if(symbol ==  "so") {
-                        return "ソ"
-                    }
-                    if(symbol ==  "ko") {
-                        return "コ"
-                    }
-                    if(symbol ==  "o") {
-                        return "オ"
-                    }
+                if(symbol == "n" || symbol == "nn") {
+                    return "ン"
+                }
+                if(symbol == "wa") {
+                    return "ワ"
+                }
+                if(symbol == "ra") {
+                    return "ラ"
+                }
+                if(symbol == "ya") {
+                    return "ヤ"
+                }
+                if(symbol == "ma") {
+                    return "マ"
+                }
+                if(symbol == "ha") {
+                    return "ハ"
+                }
+                if(symbol ==  "na") {
+                    return "ナ"
+                }
+                if(symbol ==  "ta") {
+                    return "タ"
+                }
+                if(symbol ==  "sa") {
+                    return "サ"
+                }
+                if(symbol ==  "ka") {
+                    return "カ"
+                }
+                if(symbol ==  "a") {
+                    return "ア"
+                }
+                if(symbol ==  "ri") {
+                    return "リ"
+                }
+                if(symbol ==  "mi") {
+                    return "ミ"
+                }
+                if(symbol ==  "hi") {
+                    return "ヒ"
+                }
+                if(symbol ==  "ni") {
+                    return "ニ"
+                }
+                if(symbol ==  "chi") {
+                    return "チ"
+                }
+                if(symbol ==  "shi") {
+                    return "シ"
+                }
+                if(symbol ==  "ki") {
+                    return "キ"
+                }
+                if(symbol ==  "i") {
+                    return "イ"
+                }
+                if(symbol ==  "ru") {
+                    return "ル"
+                }
+                if(symbol ==  "yu") {
+                    return "ユ"
+                }
+                if(symbol ==  "mu") {
+                    return "ム"
+                }
+                if(symbol ==  "fu") {
+                    return "フ"
+                }
+                if(symbol ==  "nu") {
+                    return "ヌ"
+                }
+                if(symbol ==  "tsu") {
+                    return "ツ"
+                }
+                if(symbol ==  "su") {
+                    return "ス"
+                }
+                if(symbol ==  "ku") {
+                    return "ク"
+                }
+                if(symbol ==  "u") {
+                    return "ウ"
+                }
+                if(symbol ==  "re") {
+                    return "レ"
+                }
+                if(symbol ==  "me") {
+                    return "メ"
+                }
+                if(symbol ==  "he") {
+                    return "ヘ"
+                }
+                if(symbol ==  "ne") {
+                    return "ネ"
+                }
+                if(symbol ==  "te") {
+                    return "テ"
+                }
+                if(symbol ==  "se") {
+                    return "セ"
+                }
+                if(symbol ==  "ke") {
+                    return "ケ"
+                }
+                if(symbol ==  "e") {
+                    return "エ"
+                }
+                if(symbol ==  "wo") {
+                    return "ヲ"
+                }
+                if(symbol ==  "ro") {
+                    return "ロ"
+                }
+                if(symbol ==  "yo") {
+                    return "ヨ"
+                }
+                if(symbol ==  "mo") {
+                    return "モ"
+                }
+                if(symbol ==  "ho") {
+                    return "ホ"
+                }
+                if(symbol ==  "no") {
+                    return "ノ"
+                }
+                if(symbol ==  "to") {
+                    return "ト"
+                }
+                if(symbol ==  "so") {
+                    return "ソ"
+                }
+                if(symbol ==  "ko") {
+                    return "コ"
+                }
+                if(symbol ==  "o") {
+                    return "オ"
+                }
+                if(symbol == "ga") {
+                    return "ガ"
+                }
+                if(symbol == "gi") {
+                    return "ギ"
+                }
+                if(symbol == "gu") {
+                    return "グ"
+                }
+                if(symbol == "ge") {
+                    return "ゲ"
+                }
+                if(symbol == "go") {
+                    return "ゴ"
+                }
+                if(symbol == "za") {
+                    return "ザ"
+                }
+                if(symbol == "sji") {
+                    return "ジ"
+                }
+                if(symbol == "szu") {
+                    return "ズ"
+                }
+                if(symbol == "ze") {
+                    return "ゼ"
+                }
+                if(symbol == "zo") {
+                    return "ゾ"
+                }
+                if(symbol == "da") {
+                    return "ダ"
+                }
+                if(symbol == "cji") {
+                    return "ヂ"
+                }
+                if(symbol == "tzu") {
+                    return "ヅ"
+                }
+                if(symbol == "de") {
+                    return "デ"
+                }
+                if(symbol == "do") {
+                    return "ド"
+                }
+                if(symbol == "ba") {
+                    return "バ"
+                }
+                if(symbol == "bi") {
+                    return "ビ"
+                }
+                if(symbol == "bu") {
+                    return "ブ"
+                }
+                if(symbol == "be") {
+                    return "ベ"
+                }
+                if(symbol == "bo") {
+                    return "ボ"
+                }
+                if(symbol == "pa") {
+                    return "パ"
+                }
+                if(symbol == "pi") {
+                    return "ピ"
+                }
+                if(symbol == "pu") {
+                    return "プ"
+                }
+                if(symbol == "pe") {
+                    return "ぺ"
+                }
+                if(symbol == "po") {
+                    return "ポ"
+                }
 
+                
+                if(symbol == "fa") {
+                    return "ファ";
+                }
+                if(symbol == "fo") {
+                    return "フォ";
+                }
+                if(symbol == "fi") {
+                    return "フィ"
+                }
+                if(symbol == "we") {
+                    return "ウェ";
+                }
+                if(symbol == "vu") {
+                    return "ヴ";
+                }
+                if(symbol == "vi") {
+                    return "ヴィ";
+                }
+                if(symbol == "va") {
+                    return "ヴァ"
+                }
+                if(symbol == "vo") {
+                    return "ヴォ"
+                }
+                if(symbol == "ve") {
+                    return "ヴェ"
+                }
+                if(symbol == "ti") {
+                    return "ティ"
+                }
+                if(symbol == "du") {
+                    return "ドゥ"
+                }
 
-
-
-                    
-                    if(symbol == "ga") {
-                        return "ガ"
-                    }
-                    if(symbol == "gi") {
-                        return "ギ"
-                    }
-                    if(symbol == "gu") {
-                        return "グ"
-                    }
-                    if(symbol == "ge") {
-                        return "ゲ"
-                    }
-                    if(symbol == "go") {
-                        return "ゴ"
-                    }
-                    if(symbol == "za") {
-                        return "ザ"
-                    }
-                    if(symbol == "ji") {
-                        return "ジ"
-                    }
-                    if(symbol == "zu") {
-                        return "ズ"
-                    }
-                    if(symbol == "ze") {
-                        return "ゼ"
-                    }
-                    if(symbol == "zo") {
-                        return "ゾ"
-                    }
-                    if(symbol == "da") {
-                        return "ダ"
-                    }
-                    if(symbol == "ji") {
-                        return "ヂ"
-                    }
-                    if(symbol == "zu") {
-                        return "ヅ"
-                    }
-                    if(symbol == "de") {
-                        return "デ"
-                    }
-                    if(symbol == "do") {
-                        return "ド"
-                    }
-                    if(symbol == "ba") {
-                        return "バ"
-                    }
-                    if(symbol == "bi") {
-                        return "ビ"
-                    }
-                    if(symbol == "bu") {
-                        return "ブ"
-                    }
-                    if(symbol == "be") {
-                        return "ベ"
-                    }
-                    if(symbol == "bo") {
-                        return "ボ"
-                    }
-                    if(symbol == "vu") {
-                        return "ヴ";
-                    }
-
-
-
-                    if(symbol == "pa") {
-                        return "パ"
-                    }
-                    if(symbol == "pi") {
-                        return "ピ"
-                    }
-                    if(symbol == "pu") {
-                        return "プ"
-                    }
-                    if(symbol == "pe") {
-                        return "ぺ"
-                    }
-                    if(symbol == "po") {
-                        return "ポ"
-                    }
-                    
+                if(symbol == "kya" ) {
+                    return "キャ";
+                }
+                if(symbol == "kyu") {
+                    return "キュ";
+                }
+                if(symbol == "kyo") {
+                    return "キョ";
+                }
+                if(symbol == "sha" ) {
+                    return "シャ";
+                }
+                if(symbol == "shu") {
+                    return "シュ";
+                }
+                if(symbol == "sho") {
+                    return "ショ";
+                }
+                if(symbol == "cha" ) {
+                    return "チャ";
+                }
+                if(symbol == "chu") {
+                    return "チュ";
+                }
+                if(symbol == "cho") {
+                    return "チョ";
+                }
+                if(symbol == "nya" ) {
+                    return "ニャ";
+                }
+                if(symbol == "nyu") {
+                    return "ニュ";
+                }
+                if(symbol == "nyo") {
+                    return "ニョ";
+                }
+                if(symbol == "hya" ) {
+                    return "ヒャ";
+                }
+                if(symbol == "hyu") {
+                    return "ヒュ";
+                }
+                if(symbol == "hyo") {
+                    return "ヒョ";
+                }
+                if(symbol == "mya" ) {
+                    return "ミャ";
+                }
+                if(symbol == "myu") {
+                    return "ミュ";
+                }
+                if(symbol == "myo") {
+                    return "ミョ";
+                }
+                if(symbol == "rya" ) {
+                    return "リャ";
+                }
+                if(symbol == "ryu") {
+                    return "リュ";
+                }
+                if(symbol == "ryo") {
+                    return "リョ";
+                }
+                if(symbol == "gya" ) {
+                    return "ギャ";
+                }
+                if(symbol == "gyu") {
+                    return "ギュ";
+                }
+                if(symbol == "gyo") {
+                    return "ギョ";
+                }
+                if(symbol == "sja" ) {
+                    return "ジャ";
+                }
+                if(symbol == "sju") {
+                    return "ジュ";
+                }
+                if(symbol == "sjo") {
+                    return "ジョ";
+                }
+                if(symbol == "cja" ) {
+                    return "ヂャ";
+                }
+                if(symbol == "cju") {
+                    return "ヂュ";
+                }
+                if(symbol == "cjo") {
+                    return "ヂョ";
+                }
+                if(symbol == "bya" ) {
+                    return "ビャ";
+                }
+                if(symbol == "byu") {
+                    return "ビュ";
+                }
+                if(symbol == "byo") {
+                    return "ビョ";
+                }
+                if(symbol == "pya" ) {
+                    return "ピャ";
+                }
+                if(symbol == "pyu") {
+                    return "ピュ";
+                }
+                if(symbol == "pyo") {
+                    return "ピョ";
+                }
+                
             }
                     
 
