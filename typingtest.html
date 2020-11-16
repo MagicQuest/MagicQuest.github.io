@@ -28,7 +28,9 @@
             margin-top: 0.67em;
         }
         h3 {
-            margin-top: -2em;
+            margin-top: -3em;
+            margin-bottom: 1.88em;
+            font-size: x-large;
             /*margin-bottom: 2.67em;*/
         }
         
@@ -688,8 +690,9 @@
             mean.innerHTML = text;
         }
         function selectWord() {
-            let bruh = random(0,29);
+            
             if(katakana) {
+                let bruh = random(0,29);
                 if(bruh == 0) {
                     return convertWords("ka me ra","katakana");
                     //return convertWords("a me ri ka","katakana") + "人" + convertWords("de su","regular");
@@ -754,334 +757,161 @@
                 }
             }
             if(regular) {
-                let number = 0;
+                let info = new Map();
                 //hiragana 1
-                if(bruh == number) {
-                    showMean("red");
+                info.set("red","a ka");
 
-                    return convertWords("a ka","regular");
-                }
-                number++;
-                if(bruh == number) {
-                    showMean("blue");
+                if(true) {
+                    function showMean(text,convert) {
+                        info.set(text,convert);
+                    }
+                    showMean("blue","a o");
 
-                    return convertWords("a o","regular");
-                }number++;
-                if(bruh == number) {
-                    showMean("white");
+                    showMean("white","shi ro");
 
-                    return convertWords("shi ro","regular");
-                }number++;
-                if(bruh == number) {
-                    showMean("good morning");
+                    showMean("good morning","o ha yo u");
 
-                    return convertWords("o ha yo u","regular");
-                }number++;
-                if(bruh == number) {
-                    showMean("yes");
-
-                    return convertWords("ha i","regular");
-                }number++;
+                    showMean("yes","ha i");  
 
                 //hiragana 2
-                if(bruh == number) {
-                    return convertWords("te ri ya ki","regular");
-                }number++;
-                if(bruh == number) {
-                    showMean("I");
-
-                    return convertWords("wa ta shi","regular");
-                }number++;
-                if(bruh == number) {
-                    showMean("goodbye");
-
-                    return convertWords("sa yo u na ra","regular");
-                }number++;
-                if(bruh == number) {
-                    showMean("hello");
-
-                    return convertWords("ko nn ni chi ha","regular");
-                }number++;
-                if(bruh == number) {
-                    showMean("drink");
-
-                    return convertWords("no mu","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("alcohol");
-
-                    return convertWords("sa ke","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("vegetable");
-
-                    return convertWords("ya sa i","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("sweet/delicious");
-
-                    return convertWords("a ma i","regular");
+                    
+                    showMean("teriyaki","te ri ya ki");
                 
-                } number++;
-                if(bruh == number) {
-                    showMean("want");
+                    showMean("I","wa ta shi");
+                
+                    showMean("goodbye","sa yo u na ra");
+                    
+                    showMean("hello","ko nn ni chi ha");
 
-                    return convertWords("ho shi i","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("messy/dirty");
-
-                    return convertWords("ki ta na i","regular");
-                } number++;
-                if(bruh == number) {
-                    return convertWords("su shi","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("like");
-
-                    return convertWords("su ki","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("night");
-
-                    return convertWords("yo ru","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("read");
-
-                    return convertWords("yo mu","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("wear");
-
-                    return convertWords("ki ru","regular");
-                } number++;
-
+                    showMean("drink","no mu");
+                
+                    showMean("alcohol","sa ke");
+                    
+                    showMean("vegetable","ya sa i");
+                
+                    showMean("sweet/delicious","a ma i");
+                    
+                    showMean("want","ho shi i");
+                
+                    showMean("messy/dirty","ki ta na i");
+                
+                    showMean("sushi","su shi");
+                
+                    showMean("like","su ki");
+                    
+                    showMean("night","yo ru");
+                
+                    showMean("read","yo mu");
+                
+                    showMean("wear","ki ru");
+                
                 //hiragana 3
-                if(bruh == number) {
-                    showMean("back");
-
-                    return convertWords("se na ka","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("eye");
-
-                    return convertWords("me","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("winter");
-
-                    return convertWords("fu yu","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("summer");
-
-                    return convertWords("na tsu","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("ear");
-
-                    return convertWords("mi mi","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("house");
-
-                    return convertWords("i e","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("cat");
-
-                    return convertWords("ne ko","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("dog");
-
-                    return convertWords("i nu","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("bird");
-
-                    return convertWords("to ri","regular")
-                } number++;
-                if(bruh == number) {
-                    showMean("outside");
-
-                    return convertWords("so to","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("cloudy");
-
-                    return convertWords("ku mo ri","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("daytime");
-
-                    return convertWords("hi ru","regular")
-                } number++;
-                if(bruh == number) {
-                    showMean("sunny");
-
-                    return convertWords("ha re","regular")
                 
-                } number++;
-                if(bruh == number) {
-                    showMean("room");
-
-                    return convertWords("he ya","regular");
-                } number++;
+                    showMean("back","se na ka");
+                
+                    showMean("eye","me");
+                
+                    showMean("winter","fu yu");
+                
+                    showMean("summer","na tsu");
+                
+                    showMean("ear","mi mi");
+                
+                    showMean("house","i e");
+                
+                    showMean("cat","ne ko");
+                
+                    showMean("dog","i nu");
+                
+                    showMean("bird","to ri");
+                
+                    showMean("outside","so to");
+                
+                    showMean("cloudy","ku mo ri");
+                
+                    showMean("daytime","hi ru");
+                
+                    showMean("sunny","ha re");
+                
+                    showMean("room","he ya");
 
                 //hiragana 4
-                if(bruh == number) {
-                    showMean("bank");
-
-                    return convertWords("gi n ko u","regular");
-                } number++;
-                if(bruh == number) {
-                    return convertWords("ma n ga","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("telephone");
-
-                    return convertWords("de n wa","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("map");
-
-                    return convertWords("chi zu","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("wind");
-
-                    return convertWords("ka ze","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("fruit");
-
-                    return convertWords("ku da mo no","regular");
-                } number++;
-                if(bruh == number) {
-                    return convertWords("te n pu ra","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("pencil");
-
-                    return convertWords("e n pi tsu");
-                } number++;
-                if(bruh == number) {
-                    return convertWords("be n to u","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("bag");
-
-                    return convertWords("ka ba n","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("fermented soybeans");
+                
+                    showMean("bank","gi n ko u");
                     
-                    return convertWords("na t to u");
-                } number++;
-                if(bruh == number) {
-                    showMean("school");
+                    showMean("manga","ma n ga");
+                
+                    showMean("telephone","de n wa");
+                
+                    showMean("map","chi szu");
+                
+                    showMean("wind","ka ze");
+                
+                    showMean("fruit","ku da mo no");
+                    
+                    showMean("tempura", "te n pu ra");
+                
+                    showMean("pencil","e n pi tsu");
+                    
+                    showMean("bento","be n to u");
+                
+                    showMean("bag","ka ba n");
+                
+                    showMean("fermented soybeans","na t to u");
+                
+                    showMean("school","ga k ko u");
+                
+                    showMean("tomorrow","kyo u");
 
-                    return convertWords("ga k ko u");
-                } number++;
-                if(bruh == number) {
-                    showMean("tomorrow");
-
-                    return convertWords("kyo u");
-                } number++;
-                if(bruh == number) {
-                    showMean("green tea");
-
-                    return convertWords("o cha");
-                }number++;
-                if(bruh == number) {
-                    showMean("ticket");
-
-                    return convertWords("ki p pu");
-                }number++;
-                if(bruh == number) {
-                    return convertWords("e mo ji");
-                }number++;
+                    showMean("green tea","o cha");
+                
+                    showMean("ticket","ki p pu");
+                    
+                    showMean("emoji","e mo ji");
+                
                 //unlisted
-                if(bruh == number) {
-                    
-                    showMean("amazing");
-
-                    return convertWords("su go i","regular");
-                } number++;
+                
+                    showMean("amazing","su go i");
 
                 //greetings
-                if(bruh == number) {
-                    showMean("likewise");
+                
+                    showMean("likewise","ko chi ra ko so");
+                
+                    showMean("thanks - friends","do u mo");
+                
+                    showMean("thank you - friends","a ri ga to u");
+                
+                    showMean("thank you very much - friends","do u mo a ri ga to u");
+                
+                    showMean("thank you - strangers","a ri ga to u go za i ma su");
+                
+                    showMean("thank you very much - strangers","do u mo a ri ga to u go za i ma su");
+                
+                    showMean("thank you for what you did - strangers","a ri ga to u go za i ma shi ta");
+                
+                    showMean("thank you very much for what you did - strangers","do u mo a ri ga to u go za i ma shi ta");
+                
+                    showMean("nice to meet you","ha ji me ma shi te");
+                
+                    showMean("nice to meet you 2","yo ro shi ku");
+                
+                    showMean("sorry","go me nn na sa i");
+                
+                    showMean("good night","o ya su mi na sa i");
+                
+                    showMean("you're welcome","do u i ta shi ma shi te");
+                
+                    showMean("bye","ma ta ne");
+                }
+                //console.log(info)
+                function showMean(text) {
+                    mean.style.display = "block";
+                    mean.innerHTML = text;
+                }
+                let chosenOne = choice(Array.from(info.keys()));
+                showMean(chosenOne);
 
-                    return convertWords("ko chi ra ko so","regular")
-                } number++;
-                if(bruh == number) {
-                    showMean("thanks - friends");
-
-                    return convertWords("do u mo","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("thank you - friends");
-
-                    return convertWords("a ri ga to u","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("thank you very much - friends");
-
-                    return convertWords("do u mo a ri ga to u","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("thank you - strangers");
-
-                    return convertWords("a ri ga to u go za i ma su","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("thank you very much - strangers");
-
-                    return convertWords("do u mo a ri ga to u go za i ma su","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("thank you for what you did - strangers");
-
-                    return convertWords("a ri ga to u go za i ma shi ta","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("thank you very much for what you did - strangers");
-
-                    return convertWords("do u mo a ri ga to u go za i ma shi ta","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("nice to meet you");
-
-                    return convertWords("ha ji me ma shi te","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("nice to meet you");
-
-                    return convertWords("yo ro shi ku","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("sorry");
-
-                    return convertWords("go me nn na sa i","regular");
-                } number++;
-                if(bruh == number) {
-                    showMean("good night");
-
-                    return convertWords("o ya su mi na sa i","regular")
-                } number++;
-                if(bruh == number) {
-                    showMean("you're welcome");
-
-                    return convertWords("do u i ta shi ma shi te","regular")
-                } number++;
-                if(bruh == number) {
-                    showMean("bye");
-
-                    return convertWords("ma ta ne","regular");
-                } number++;
+                return convertWords(info.get(chosenOne));
                 /*else if(bruh == 39) {
                     showMean("ticket");
 
