@@ -543,6 +543,7 @@
         }
         function wordClick() {
             words = get("words").checked;
+            start();
         }
         function kataClick() {
             katakana = true;
@@ -646,7 +647,12 @@
             wletters = array.length;
             textToType += array.join("");
             array.forEach((wording, i) => {
-                word.push(wording);
+                if(wording == "nn" || wording == "sji" || wording == "cji" || wording == "tzu" || wording == "szu" || wording == "sja" || wording == "sjo" || wording == "sju" || wording == "cjo" || wording == "cja" || wording == "cju") {
+                    word.push(wording.substring(1));
+                }else {
+                    word.push(wording);
+                }
+                
                 let zabloing = false;
                 //console.log(array[i+1].substring(0,1));
                 //console.log(wording);
