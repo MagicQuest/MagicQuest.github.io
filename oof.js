@@ -64,35 +64,35 @@ function clone(thing) {
 function SetAt(thing,func) {
 	thing.setAttribute(thing,func);
 }
-function del(thing) {                      
-	document.body.removeChild(thing);                      
+function del(thing) {
+	document.body.removeChild(thing);
 }
 function del(thing,parent) {
 	parent.removeChild(thing);
 }
-function place(thing) {                      
-	//setInterval(place(thing),1000)                      
-	document.body.appendChild(thing);                      
+function place(thing) {
+	//setInterval(place(thing),1000)
+	document.body.appendChild(thing);
 }
 function place(thing,parent) {
 	parent.appendChild(thing);
 }
-function create(thing) {                      
-	return document.createElement(thing);                      
-}   
+function create(thing) {
+	return document.createElement(thing);
+}
 //lmao this is deprecated because i didn't know that i could do this with the ! operator
 /**
  * @deprecated migga just use the ! operator :face_palm:
- * @param {*} thing 
- */                   
-function not(thing) {                      
-	if(thing == true) {                      
-		return false;                      
-	}                      
-	if(thing == false) {                      
-		return true                      
-	}                       
-}                      
+ * @param {*} thing
+ */
+function not(thing) {
+	if(thing == true) {
+		return false;
+	}
+	if(thing == false) {
+		return true
+	}
+}
 function random(min, max) {
 	return Math.floor(Math.random() * (max - min + 1) ) + min;
 }
@@ -107,7 +107,9 @@ function choice(bruh) {
 function get(doc) {
 	return document.getElementById(doc);
 }
-
+function findString(string,stringToFind) {
+	return string.indexOf(stringToFind) != -1 ? true : false;
+}
 function sound(src) {
 	this.sound = document.createElement("audio");
 	this.sound.src = src;
@@ -121,4 +123,7 @@ function sound(src) {
 	this.stop = function(){
 	  this.sound.pause();
 	}
+}
+function removeAt(array,index) {
+	array.splice(index,1);
 }

@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta name="theme-color" content="#00FFFF">
+        <meta property="og:title" content="Candy Crush remake" />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://magicquest.github.io/games/crush.html" />
+        <meta property="og:image" content="https://magicquest.github.io/crush.gif" />
+        <meta property="og:description" content="candy crush but with my friend's faces :sunglasses:" />
+        <meta charset='utf-8'>
+        <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+        <title>Candy Crush remake</title>
+        <meta name="twitter:card" content="summary_large_image">
+        <meta name='viewport' content='width=device-width, initial-scale=1'>
+        <link rel='stylesheet' type='text/css' media='screen' href='..\..\font.css'>
+        <script src='..\..\oof.js'></script>
+        <style>
+          img {
+            width:100px;
+            height:100px;
+            cursor: pointer;
+            transition: opacity .5s, outline .5s;
+          }
+          .selected { 
+            outline: auto yellow 5px;
+          }
+          .paired {
+            outline: ridge red 5px;
+          }
+          .remove {
+            opacity: 0;
+          }
+        </style>
+    </head>
+    <body>
+        <center>
+        <h2 id="score">
+          Score: 0
+        </h2>
+        <p style="display: inline;">
+          Columns:
+        </p>
+        <select onchange="restart(this.value)">
+          <option value="3">
+            3
+          </option>
+          <option value="4">
+            4
+          </option>
+          <option value="5">
+            5
+          </option>
+          <option value="6">
+            6
+          </option>
+          <option value="7">
+            7
+          </option>
+          <option value="8">
+            8
+          </option>
+          <option value="9">
+            9
+          </option>
+          <option value="10">
+            10
+          </option>
+        </select>
+        <table>
+            <tbody id="crush">
+
+            </tbody>
+        </table>
+        </center>
+        <script>
+          var pictureTotal = 0;
+          var selectedTile;
+          var selectedTile2;
+
+          var angels = 0;
+          var jaydens = 0;
+          var jaydenps = 0;
+          var dashs = 0;
+          var jacobs = 0;
+          var javarios = 0;
+          var christians = 0;
+
+          var score = 0;
+
+          const table = document.getElementById("crush");
+          var crushArray = [];
+          var cols = 3;
+
+          function removeTile(parent,self) {
+            const parentId = parent.id;
+            const selfId = self.id;
+            let childNumber = 0;
+            //const selfObj = self;
+            //console.log(Math.abs(parent.childElementCount-5));
+            parent.childNodes.forEach(node => {
+              if(node == self) {
+                if(childNumber == 0) {
+                  parent.childNodes.forEach(node2 => {
+                    if(node2 != self) {
+                      node2.id = "row" + (node2.id.slice(3)-1);
+                    }
+                  });
+                }else if(childNumber == 1) {
+                  for (let i = 0; i < parent.childNodes.length; i++) {
+                    if(i > 1) {
+                      parent.childNodes[i].id = "row"+(parent.childNodes[i].id.slice(3)-1);
+                    }
+                  }
+                }else if(childNumber == 2) {
+                  for (let i = 0; i < parent.childNodes.length; i++) {
+                    if(i > 2) {
+                      parent.childNodes[i].id = "row"+(parent.childNodes[i].id.slice(3)-1);
+                    }
+                  }
+                }else if(childNumber == 3) {
+                  for (let i = 0; i < parent.childNodes.length; i++) {
+                    if(i > 3) {
+                      parent.childNodes[i].id = "row"+(parent.childNodes[i].id.slice(3)-1);
+                    }
+                  }
+                }else if(childNumber == 4) {
+                  for (let i = 0; i < parent.childNodes.length; i++) {
+                    if(i > 4) {
+                      parent.childNodes[i].id = "row"+(parent.childNodes[i].id.slice(3)-1);
+                    }
+                  }
+                }
+              }else {
+                childNumber++;
+              }
+            });
+            crushArray[parentId.slice(3)].splice(crushArray[parentId.slice(3)].indexOf(self),1);
+            del(self,parent);
+          }
+          function addTile(col) {
+            crushArray[col][crushArray[col].length] = new Tile(crushArray[col][crushArray[col].length-1].id,getRandomPicture("dash"),table.children[col]);
+          }
+          function Tile(newRow,newPicture,newParent) {
+            this.row = "row"+newRow;
+            this.picture = newPicture;
+            this.tile = create("th");
+            this.tile.id = this.row;
+            this.tile.innerHTML = this.picture;
+            newParent.appendChild(this.tile);
+            return this.tile;
+          }
+          /*function clicked(parent,self) {
+            const parentId = parent.id;
+            const selfId = self.id;
+            let childNumber = 0;
+            //const selfObj = self;
+            //console.log(Math.abs(parent.childElementCount-5));
+            parent.childNodes.forEach(node => {
+              if(node == self) {
+                if(childNumber == 0) {
+                  parent.childNodes.forEach(node2 => {
+                    if(node2 != self) {
+                      node2.id = "row" + (node2.id.slice(3)-1);
+                    }
+                  });
+                }else if(childNumber == 1) {
+                  for (let i = 0; i < parent.childNodes.length; i++) {
+                    if(i > 1) {
+                      parent.childNodes[i].id = "row"+(parent.childNodes[i].id.slice(3)-1);
+                    }
+                  }
+                }else if(childNumber == 2) {
+                  for (let i = 0; i < parent.childNodes.length; i++) {
+                    if(i > 2) {
+                      parent.childNodes[i].id = "row"+(parent.childNodes[i].id.slice(3)-1);
+                    }
+                  }
+                }else if(childNumber == 3) {
+                  for (let i = 0; i < parent.childNodes.length; i++) {
+                    if(i > 3) {
+                      parent.childNodes[i].id = "row"+(parent.childNodes[i].id.slice(3)-1);
+                    }
+                  }
+                }else if(childNumber == 4) {
+                  for (let i = 0; i < parent.childNodes.length; i++) {
+                    if(i > 4) {
+                      parent.childNodes[i].id = "row"+(parent.childNodes[i].id.slice(3)-1);
+                    }
+                  }
+                }
+              }else {
+                childNumber++;
+              }
+            });
+            /*if(selfId.slice(3)%5 != 0) {
+              console.log(Math.abs((parent.childElementCount-5)-(selfId.slice(3)%5))-2);
+            }else {
+              console.log(Math.abs((parent.childElementCount-5)-(selfId.slice(3)%5)));
+            }*/
+            //console.log(crushArray[parentId.slice(3)][Math.abs((parent.childElementCount-5)-(selfId.slice(3)%5))]);
+            /*crushArray[parentId.slice(3)].splice(crushArray[parentId.slice(3)].indexOf(self),1);
+            del(self,parent);
+            console.log(crushArray[parentId.slice(3)][selfId.slice(3)%5]);
+            */
+            //crushArray[parentId.slice(3)].pop(selfId.slice(3)%5);
+            //del(crushArray[parentId.slice(3)][selfId.slice(3)%5],crushArray[parentId.slice(3)][selfId.slice(3)%5].parentElement);
+            //crushArray[parentId.slice(3)].pop(selfId.slice(3)%5);
+
+
+          //}
+          function getTileInArray(tile) {
+            for (let i = 0; i < cols; i++) {
+              if(crushArray[i].indexOf(tile) != -1) {
+                return {row : crushArray[i].indexOf(tile), col : i};
+              }
+            }
+          }
+          function changeTile(tile, picture) {
+            crushArray[getTileInArray(tile).col][getTileInArray(tile).row].firstElementChild.src = picture+".png";
+            crushArray[getTileInArray(tile).col][getTileInArray(tile).row].firstElementChild.alt = picture;
+          }
+          function addSelectedTile(self) {
+            new sound("../tick.mp3").play();
+            self.className = "selected";
+            if(selectedTile != undefined) {
+              selectedTile2 = self;
+            }else {
+              selectedTile = self;
+            }
+            if(selectedTile != undefined && selectedTile2 != undefined) {
+              const parent = selectedTile.parentElement.parentElement;
+              const parent2 = selectedTile2.parentElement.parentElement;
+
+              const parentLocation = Array.prototype.slice.call(parent.children,0).indexOf(selectedTile.parentElement);
+              const parentLocation2 = Array.prototype.slice.call(parent2.children,0).indexOf(selectedTile2.parentElement);
+
+              const id = selectedTile.parentElement.id;
+              const id2 = selectedTile2.parentElement.id;
+
+              const selectedTileArray = crushArray[parent.id.slice(3)].indexOf(selectedTile.parentElement);
+              const selectedTileArray2 = crushArray[parent2.id.slice(3)].indexOf(selectedTile2.parentElement);
+
+              crushArray[parent2.id.slice(3)][selectedTileArray2] = selectedTile.parentElement;
+              crushArray[parent.id.slice(3)][selectedTileArray] = selectedTile2.parentElement;
+
+              parent.insertBefore(selectedTile2.parentElement,parent.children[parentLocation]);
+              parent2.insertBefore(selectedTile.parentElement,parent2.children[parentLocation2]);
+              
+              selectedTile2.parentElement.id = id;
+              selectedTile.parentElement.id = id2;
+
+              //selectedTile.style.outline = "";
+              //selectedTile2.style.outline = "";
+              selectedTile2.className = "";
+              selectedTile.className = "";
+
+              selectedTile = undefined;
+              selectedTile2 = undefined;
+            }
+          }
+          function getRandomPicture(boolean) {
+            let randomNum = random(1,7);
+            pictureTotal++;
+            if(randomNum == 1) {
+              return boolean ? "<img src='dash.png' alt='dash' onclick='!findString(this.className,\"paired\") ? addSelectedTile(this) : undefined'>" : "dash";
+            }else if(randomNum == 2) {
+              return boolean ? "<img src='jayden.png' alt='jayden' onclick='!findString(this.className,\"paired\") ? addSelectedTile(this) : undefined'>" : "jayden";
+            }else if(randomNum == 3) {
+              return boolean ? "<img src='jaydenp.png' alt='jaydenp' onclick='!findString(this.className,\"paired\") ? addSelectedTile(this) : undefined'>" : "jaydenp";
+            }else if(randomNum == 4) {
+              return boolean ? "<img src='javario.png' alt='javario' onclick='!findString(this.className,\"paired\") ? addSelectedTile(this) : undefined'>" : "javario";
+            }else if(randomNum == 5) {
+              return boolean ? "<img src='jacob.png' alt='jacob' onclick='!findString(this.className,\"paired\") ? addSelectedTile(this) : undefined'>" : "jacob";
+            }else if(randomNum == 6) {
+              return boolean ? "<img src='angel.png' alt='angel' onclick='!findString(this.className,\"paired\") ? addSelectedTile(this) : undefined'>" : "angel";
+            }else if(randomNum == 7) {
+              return boolean ? "<img src='christian.png' alt='christian' onclick='!findString(this.className,\"paired\") ? addSelectedTile(this) : undefined'>" : "christian";
+            }
+          }
+          function getNicePicture(boolean) {
+            let randomNum = random(1,6);
+            pictureTotal++;
+            if(angels < cols) {
+              angels++;
+              return boolean ? "<img src='angel.png' alt='angel' onclick='findString(this.className,\"paired\") ? addSelectedTile(this) : undefined'>" : "angel";
+            }else if(dashs < cols) {
+              dashs++;
+              return boolean ? "<img src='dash.png' alt='dash' onclick='!findString(this.className,\"paired\") ? addSelectedTile(this) : undefined'>" : "dash";
+            }else if(jaydens < cols) {
+              jaydens++;
+              return boolean ? "<img src='jayden.png' alt='jayden' onclick='!findString(this.className,\"paired\") ? addSelectedTile(this) : undefined'>" : "jayden";
+            }else if(jaydenps < cols) {
+              jaydenps++;
+              return boolean ? "<img src='jaydenp.png' alt='jaydenp' onclick='!findString(this.className,\"paired\") ? addSelectedTile(this) : undefined'>" : "jaydenp";
+            }else if(javarios < cols) {
+              javarios++;
+              return boolean ? "<img src='javario.png' alt='javario' onclick='!findString(this.className,\"paired\") ? addSelectedTile(this) : undefined'>" : "javario";
+            }else if(jacobs < cols) {
+              jacobs++;
+              return boolean ? "<img src='jacob.png' alt='jacob' onclick='!findString(this.className,\"paired\") ? addSelectedTile(this) : undefined'>" : "jacob";
+            }else if(christians < cols) {
+              christians++;
+              return boolean ? "<img src='christian.png' alt='christian' onclick='!findString(this.className,\"paired\") ? addSelectedTile(this) : undefined'>" : "christian";
+            }else {
+              if(randomNum == 1) {
+                return boolean ? "<img src='dash.png' alt='dash' onclick='!findString(this.className,\"paired\") ? addSelectedTile(this) : undefined'>" : "dash";
+              }else if(randomNum == 2) {
+                return boolean ? "<img src='jayden.png' alt='jayden' onclick='!findString(this.className,\"paired\") ? addSelectedTile(this) : undefined'>" : "jayden";
+              }else if(randomNum == 3) {
+                return boolean ? "<img src='jaydenp.png' alt='jaydenp' onclick='!findString(this.className,\"paired\") ? addSelectedTile(this) : undefined'>" : "jaydenp";
+              }else if(randomNum == 4) {
+                return boolean ? "<img src='javario.png' alt='javario' onclick='!findString(this.className,\"paired\") ? addSelectedTile(this) : undefined'>" : "javario";
+              }else if(randomNum == 5) {
+                return boolean ? "<img src='jacob.png' alt='jacob' onclick='!findString(this.className,\"paired\") ? addSelectedTile(this) : undefined'>" : "jacob";
+              }else if(randomNum == 6) {
+                return boolean ? "<img src='angel.png' alt='angel' onclick='!findString(this.className,\"paired\") ? addSelectedTile(this) : undefined'>" : "angel";
+              }else if(randomNum == 7) {
+                return boolean ? "<img src='christian.png' alt='christian' onclick='!findString(this.className,\"paired\") ? addSelectedTile(this) : undefined'>" : "christian";
+              }
+            }
+          }
+          function getPicture(picture,boolean) {
+            pictureTotal++;
+            if(picture == "dash") {
+                return boolean ? "<img src='dash.png' alt='dash' onclick='!findString(this.className,\"paired\") ? addSelectedTile(this) : undefined'>" : "dash";
+            }else if(picture == "jayden") {
+              return boolean ? "<img src='jayden.png' alt='jayden' onclick='!findString(this.className,\"paired\") ? addSelectedTile(this) : undefined'>" : "jayden";
+
+            }else if(picture == "jaydenp") {
+              return boolean ? "<img src='jaydenp.png' alt='jaydenp' onclick='!findString(this.className,\"paired\") ? addSelectedTile(this) : undefined'>" : "jaydenp";
+
+            }else if(picture == "javario") {
+              return boolean ? "<img src='javario.png' alt='javario' onclick='!findString(this.className,\"paired\") ? addSelectedTile(this) : undefined'>" : "javario";
+
+            }else if(picture == "jacob") {
+              return boolean ? "<img src='jacob.png' alt='jacob' onclick='!findString(this.className,\"paired\") ? addSelectedTile(this) : undefined'>" : "jacob";
+
+            }else if(picture == "angel") {
+              return boolean ? "<img src='angel.png' alt='angel' onclick='!findString(this.className,\"paired\") ? addSelectedTile(this) : undefined'>" : "angel";
+
+            }else if(picture == "christian") {
+              return boolean ? "<img src='christian.png' alt='christian' onclick='!findString(this.className,\"paired\") ? addSelectedTile(this) : undefined'>" : "christian";
+
+            }
+          }
+          function createCol(amount) {
+            var info = "";
+            for(let j=0;j < amount;j++) {
+              info += `<tr id=col${pictureTotal/cols}>`
+              crushArray.push([]);
+              for(let i = 0;i<cols;i++) {
+                info+=`<th id=row${pictureTotal}> ${getRandomPicture("christian",true)} </th>`
+              }
+              info += `</tr>`
+            }
+            table.innerHTML += info;
+          }
+          function createTable() {
+            createCol(cols);
+            let i2 = -1;
+            for (let i = 0; i < cols*cols; i++) {
+              i2 += i % cols == 0 && i2 + 1 != cols ? 1 : 0;
+              console.log(i2);
+              crushArray[i2].push(document.getElementById("row"+i));
+            }
+          }
+          createTable();
+          function swap(selectedTile,selectedTile2) {
+              const parent = selectedTile.parentElement;
+              const parent2 = selectedTile2.parentElement;
+              const id = selectedTile.id;
+              const id2 = selectedTile2.id;
+              const selectedTileArray = crushArray[parent.id.slice(3)].indexOf(selectedTile);
+              const selectedTileArray2 = crushArray[parent2.id.slice(3)].indexOf(selectedTile2);
+
+              crushArray[parent2.id.slice(3)][selectedTileArray2] = selectedTile;
+              crushArray[parent.id.slice(3)][selectedTileArray] = selectedTile2;
+              
+              parent.appendChild(selectedTile2);
+              parent2.appendChild(selectedTile);
+              
+              selectedTile2.id = id;
+              selectedTile.id = id2;
+          }
+          function getSameTouchingTiles(col,row,i) {
+            const array = [];
+            try {
+              array.push(col[i-2].firstElementChild.alt == row.firstElementChild.alt ? col[i-2] : null);
+            }catch {
+              array.push(null);
+            }
+            try {
+              array.push(col[i-1].firstElementChild.alt == row.firstElementChild.alt ? col[i-1] : null);
+            }catch {
+              array.push(null);
+            }
+            try {
+              array.push(col[i+1].firstElementChild.alt == row.firstElementChild.alt ? col[i+1] : null);
+            }catch {
+              array.push(null);
+            }
+            try {
+              array.push(col[i+2].firstElementChild.alt == row.firstElementChild.alt ? col[i+2] : null);
+            }catch {
+              array.push(null);
+            }
+            return array;
+          }
+          function restart(newCols) {
+            //cols = newCols;
+            crushArray = [];
+            table.innerHTML = "";
+            cols = newCols;
+            pictureTotal = 0;
+            createTable();
+          }
+          function tick() {
+            try {
+              document.getElementById('score').innerHTML = "Score: "+score;
+              //console.log("ticking :0");
+              crushArray.forEach(col => {
+                col.forEach(row => {
+                  const i = col.indexOf(row);
+                  const touchingTiles = getSameTouchingTiles(col,row,i);
+                  let tilesToChange = [];
+                  let tiles = 0;
+                  let firstTimeNull = false; 
+                  let nulls = 0;
+                  let failed = false;
+                  
+                  for (let j = 0; j < 4; j++) {
+                    let tile = touchingTiles[j];
+                    /*if(touchingTiles[j+1] != null && touchingTiles[j+2] != null) {
+                      tilesToChange.push(touchingTiles[j+1]);
+                      tilesToChange.push(touchingTiles[j+2]);
+                      return;
+                    }*/
+                    if(tile != null) {
+                      tiles++;
+                      tilesToChange.push(tile);
+                    }else {
+                      nulls++;
+                    }
+                    if(tiles == 2) {
+                      tilesToChange.push(col[i]);
+                      break;
+                    }
+                    if(nulls == 3) {
+                      tiles = 0;
+                      tilesToChange = [];
+                      failed = true;
+                      break;
+                    }
+                    if(tiles == 1 && tile == null) {
+                      tilesToChange = [];
+                      tiles = 0;
+                      if(firstTimeNull == false) {
+                        firstTimeNull = true;
+                      }else {
+                        failed = true;
+                        break;
+                      }
+                    }
+                  }
+                  if(tiles == 1 || tiles == 0) {
+                    failed = true;
+                  }
+                  if(failed && findString(col[i].firstElementChild.className,"paired") && !findString(col[i].firstElementChild.className,"remove")) {
+                    col[i].firstElementChild.className = "";
+                  }
+                  if(failed) {
+                    tilesToChange = [];
+                  }
+                  if(failed&&findString(col[i].firstElementChild.className,"remove")) {
+                    tilesToChange.push(col[i]);
+                  }
+                  tilesToChange.forEach(tile => {
+                    //console.log(failed);
+                    //console.log(touchingTiles);
+                    //console.log(`{col=${crushArray.indexOf(col)}, row=${col.indexOf(row)}}`);
+                    //console.log("is changing somebody and self");
+                    
+                    if(tile.firstElementChild.className.indexOf("paired") == -1) {
+                      tile.firstElementChild.className = "paired";
+                    }
+                    if(tile.firstElementChild.timer == undefined && tile.firstElementChild.timer2 == undefined) {
+                      tile.firstElementChild.timer = 50;
+                    }else if(tile.firstElementChild.timer2 == undefined){
+                      tile.firstElementChild.timer--;
+                      if(tile.firstElementChild.timer == 0 && tile.firstElementChild.className.indexOf("remove") == -1) {
+                        tile.firstElementChild.className += " remove";
+                        tile.firstElementChild.timer = undefined;
+                        tile.firstElementChild.timer2 = 200;
+                      }
+                    }
+                    if(tile.firstElementChild.timer2 != undefined && findString(tile.firstElementChild.className,"remove")) {
+                      tile.firstElementChild.timer2--;
+                      if(tile.firstElementChild.timer2 == 0) {
+                        let parent = tile.parentElement.id;
+                        removeTile(tile.parentElement,tile);
+                          score++;
+                        
+                        addTile(parent.slice(3));
+                      }
+                    }
+                  });
+
+                  /*getSameTouchingTiles(col,row,i).forEach(tile => {
+                    if(tile != null) {
+                      tiles++;
+                    }
+                    if(tiles == 1 && tile == null) {
+                      if(firstTimeNull == false) {
+                        firstTimeNull == true;
+                      }
+                      tiles = 0;
+                    }
+                  });*/
+                });
+              });
+            }catch {
+
+            }
+                //ok so what i hsould do is make a new array and when it sees that something close to me i add it to the array and if its not the same i add undefinded or nil nul null
+                /*if(i != cols && i + 2 < cols && i + 1 < cols && i != cols) {
+                  if(row.firstElementChild.style.outline != "") {
+                    if(col[i+1].firstElementChild.alt == row.firstElementChild.alt && col[i+2].firstElementChild.alt == row.firstElementChild.alt) {
+                      //console.log("ok its looking normal");
+                      col[i+1].firstElementChild.className = "paired"
+                      col[i+2].firstElementChild.className = "paired"
+                      row.firstElementChild.className = "paired"
+                    }else {
+                      if(col[i+1].firstElementChild.alt == row.firstElementChild.alt && col[i+2].firstElementChild.alt != row.firstElementChild.alt && col[i-1].firstElementChild.alt == row.firstElementChild.alt) {
+                        //console.log("alright i thought you was wrong but go off");
+                        col[i+1].firstElementChild.className = "paired"
+                        col[i-1].firstElementChild.className = "paired"
+                        row.firstElementChild.className = "paired"
+                      }else if(col[i+1].firstElementChild.alt != row.firstElementChild.alt && col[i-1].firstElementChild.alt == row.firstElementChild.alt && col[i-2].firstElementChild.alt == row.firstElementChild.alt){
+                        //console.log("alright i thought you was wrong but go off");
+                        col[i-1].firstElementChild.className = "paired"
+                        col[i-2].firstElementChild.className = "paired"
+                        row.firstElementChild.className = "paired"
+                      }else {
+                        row.firstElementChild.className = "";
+                        col[i+1].firstElementChild.className = "";
+                        col[i+2].firstElementChild.className = "";
+                      }
+                    }
+                  }else {
+                    if(col[i+1].firstElementChild.alt == row.firstElementChild.alt && col[i+2].firstElementChild.alt == row.firstElementChild.alt) {
+                      //console.log("yep these are together");
+                      col[i+1].firstElementChild.className = "paired"
+                      col[i+2].firstElementChild.className = "paired"
+                      row.firstElementChild.className = "paired"
+                    }
+                  }
+                }else {
+
+                }
+              });
+            });  */
+            /*for (let i = 0; i < cols; i++) {
+              for (let j = 0; j < cols; j++) {
+                
+                if(j != cols && j + 2 < cols && j + 1 < cols && j != cols) {
+                  if(crushArray[j][i].firstElementChild.style.outline != "") {
+                    
+                    if(crushArray[j+1][i].firstElementChild.alt == crushArray[j][i].firstElementChild.alt && crushArray[j+2][i].firstElementChild.alt == crushArray[j][i].firstElementChild.alt) {
+                      //console.log("ok its looking normal");
+                      crushArray[j+1][i].firstElementChild.className = "paired"
+                      crushArray[j+2][i].firstElementChild.className = "paired"
+                      crushArray[j][i].firstElementChild.className = "paired"
+                    }else {
+                      if(crushArray[j+1][i].firstElementChild.alt == crushArray[j][i].firstElementChild.alt && crushArray[j+2][i].firstElementChild.alt != crushArray[j][i].firstElementChild.alt && crushArray[j-1][i].firstElementChild.alt == crushArray[j][i].firstElementChild.alt) {
+                        //console.log("alright i thought you was wrong but go off");
+                        crushArray[j][i+1].firstElementChild.className = "paired"
+                        crushArray[j][i-1].firstElementChild.className = "paired"
+                        crushArray[j][i].firstElementChild.className = "paired"
+                      }else if(crushArray[j+1][i].firstElementChild.alt != crushArray[j][i].firstElementChild.alt && crushArray[j-1][i].firstElementChild.alt == crushArray[j][i].firstElementChild.alt && crushArray[j-2][i].firstElementChild.alt == crushArray[j][i].firstElementChild.alt){
+                        //console.log("alright i thought you was wrong but go off");
+                        crushArray[j-1][i].firstElementChild.className = "paired"
+                        crushArray[j-2][i].firstElementChild.className = "paired"
+                        crushArray[j][i].firstElementChild.className = "paired"
+                      }else {
+                        crushArray[j][i].firstElementChild.className = "";
+                        crushArray[j+1][i].firstElementChild.className = "";
+                        crushArray[j+2][i].firstElementChild.className = "";
+                      }
+                      
+                    }
+                  }else {
+                    if(crushArray[j+1][i].firstElementChild.alt == crushArray[j][i].firstElementChild.alt && crushArray[j+2][i].firstElementChild.alt == crushArray[j][i].firstElementChild.alt) {
+                      //console.log("yep these are together");
+                      crushArray[j+1][i].firstElementChild.className = "paired"
+                      crushArray[j+2][i].firstElementChild.className = "paired"
+                      crushArray[j][i].firstElementChild.className = "paired"
+                    }
+                  }
+                }
+              }
+            }*/
+            requestAnimationFrame(tick);
+          }
+          requestAnimationFrame(tick);
+        </script>
+    </body>
+</html>

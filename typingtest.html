@@ -14,6 +14,9 @@
         <link rel='stylesheet' href="ctooltip.css">
         <!--link href="https://fonts.googleapis.com/css?family=Chilanka&display=swap" rel="stylesheet"-->
     <style>
+        input:disabled {
+            cursor: not-allowed;
+        }
         input {
 
             cursor: pointer;
@@ -176,6 +179,7 @@
     <script src = "oof.js"></script>
     
     <script>
+        
         window.onbeforeunload = confirmExit;
             function confirmExit() {
                 save();
@@ -266,10 +270,9 @@
         //TODO GO ON DUOLINGO AND PRRACTIVE (and learn more kanji) BUT STILL
         //DONE KATAKANA FUCAOKLSGING HURRY YOU HSVE TO LEARN IT
         //DONE 4/?? POSSIBLY MAKE SOME SORT OF ACHIEVEMNT SYSTEM BECAUSE THATS FUN (like if you got 1000 total score you got some sort of achievment and there would be a modal menu thingy that popped up and would show the things you go llo)
-        
                 // Get the modal
-        var modal = document.getElementById("Modal");
 
+        var modal = document.getElementById("Modal");
         // Get the button that opens the modal
         var btn = document.getElementById("modalBtn");
 
@@ -545,6 +548,43 @@
         }
         function wordClick() {
             words = get("words").checked;
+            if(words == false) {
+                var db = document.getElementById('dakuon_box');
+                db.disabled = false;
+                console.log(lastValues);
+                db.checked = lastValues[0];
+                dakuon = lastValues[0];
+                var db = document.getElementById('handkun_box');
+                db.disabled = false;
+                db.checked = lastValues[1];
+                handkun = lastValues[1];
+                var db = document.getElementById('kanji');
+                db.disabled = false;
+                db.checked = lastValues[2];
+                kanji = lastValues[2];
+                var db = document.getElementById('yoon');
+                db.disabled = false;
+                db.checked = lastValues[3];
+                yoon = lastValues[3];
+            }else {
+            lastValues = [];
+                lastValues.push(dakuon);
+                var db = document.getElementById('dakuon_box');
+                db.disabled = true;
+                dakuon = false;
+                lastValues.push(handkun);
+                var db = document.getElementById('handkun_box');
+                db.disabled = true;
+                handkun = false;
+                lastValues.push(kanji);
+                var db = document.getElementById('kanji');
+                db.disabled = true;
+                kanji = false;
+                lastValues.push(yoon);
+                var db = document.getElementById('yoon');
+                db.disabled = true;
+                yoon = false;
+            }
             start();
         }
         function kataClick() {
@@ -765,6 +805,7 @@
                     function showMean(text,convert) {
                         info.set(text,convert);
                     }
+                    
                     showMean("blue","a o");
 
                     showMean("white","shi ro");
@@ -867,7 +908,7 @@
                 
                     showMean("ticket","ki p pu");
                     
-                    showMean("emoji","e mo ji");
+                    showMean("emoji","e mo sji");
                 
                 //unlisted
                 
@@ -891,7 +932,7 @@
                 
                     showMean("thank you very much for what you did - strangers","do u mo a ri ga to u go za i ma shi ta");
                 
-                    showMean("nice to meet you","ha ji me ma shi te");
+                    showMean("nice to meet you","ha sji me ma shi te");
                 
                     showMean("nice to meet you 2","yo ro shi ku");
                 
@@ -902,6 +943,12 @@
                     showMean("you're welcome","do u i ta shi ma shi te");
                 
                     showMean("bye","ma ta ne");
+
+                    showMean("teacher","se n se i");
+
+                    showMean("excuse me","su mi ma se n");
+
+                    
                 }
                 //console.log(info)
                 function showMean(text) {

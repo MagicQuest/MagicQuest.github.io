@@ -13,57 +13,20 @@
         <meta name="twitter:card" content="summary_large_image">
         <meta name='viewport' content='width=device-width, initial-scale=1'>
         <link rel='stylesheet' type='text/css' media='screen' href='index.css'>
-        <link href="https://fonts.googleapis.com/css?family=Chilanka&display=swap" rel="stylesheet">
+        <link rel="stylesheet" type="text/css" media="screen" href="font.css">
         <script src='oof.js'></script>
     </head>
     <body>
-        <canvas id="canvas" style="position:absolute;z-index: -1;">
+        <img style="display:none;" id="snowball" src="https://static.wikia.nocookie.net/clubpenguin/images/0/04/Snowball.png"></img>
+        <canvas id="canvas" style="position: fixed;top:0px;z-index: -1;">
 
         </canvas>
-        <script>
-            var canvas = document.getElementById("canvas");
-            canvas.width = innerWidth - 50
-            canvas.height = innerHeight - 50
-            var context = canvas.getContext("2d");
-            var started = false;
-            var mouse = {
-                x:0,
-                y:0
-            }
-            var lastMouse = {
-                x:0,
-                y:0
-            }
-            addEventListener("mousemove",function(event) {
-                
-                mouse.x = event.x;
-                mouse.y = event.y - 25;
-                if(!started) {
-                    lastMouse.x = mouse.x;
-                    lastMouse.y = mouse.y;
-                }
-                context.strokeStyle = "rgba(255,255,255,100)";
-                context.beginPath();
-                //console.log("mouse: " + mouse.x + " last mouse: " + lastMouse.x);
-                context.moveTo(lastMouse.x,lastMouse.y);
-                context.lineTo(mouse.x,mouse.y);
-                context.stroke();
-                lastMouse.x = mouse.x;
-                lastMouse.y = mouse.y;
-                //started = true;
-                
-            });
-            function animate() {
-                requestAnimationFrame(animate);
-                context.fillStyle = "rgba(0,0,0,0.01)";
-                context.fillRect(0,0,canvas.width,canvas.height)
-            }
-            //animate();
-
-        </script>
         <h1>
             <center>MagicQuest</center>
         </h1>
+        <h2 id="stormtext" style="display:none;opacity:0;text-align: center;font-size: 50px;color:rgb(226, 226, 226);text-shadow: rgb(177, 177, 177) 3px 3px;">
+            Snow Storm!
+        </h2>
         <ul>
             <li>
                 <h2>Canvas Stuff</h2>
@@ -174,6 +137,13 @@
                                 </a>
                             </li>
                             <li>
+                                <a href="games/crush/">
+                                    <h3>
+                                        candy crush but with my friend's faces
+                                    </h3>
+                                </a>
+                            </li>
+                            <li>
                                 <h2>
                                     Multiplayer!
                                 </h2>
@@ -216,5 +186,150 @@
                 </ul>
             </li>
         </ul>
+        <script>
+            if(new Date().getMonth() == 11) {
+                var canvas = document.getElementById("canvas");
+                var img = document.getElementById("snowball");
+                var text = document.getElementById("stormtext");
+                var context = canvas.getContext("2d");
+                var snowArray = [];
+                var snowStorm = {
+                    count:0,
+                    duration:random(500,1500),
+                    stopping:false,
+                    nextStorm:random(300,6000),
+                };
+                var textRot = 0;
+                var rotValue = 2;
+                text.style.display = "block";
+                context.canvas.width = innerWidth
+                context.canvas.height = innerHeight
+                document.addEventListener("resize",function(evety) {
+                    context.canvas.width = innerWidth
+                    context.canvas.height = innerHeight 
+                })
+                /*var started = false;
+                var mouse = {
+                    x:0,
+                    y:0
+                }
+                var lastMouse = {
+                    x:0,
+                    y:0
+                }
+                addEventListener("mousemove",function(event) {
+                    
+                    mouse.x = event.x;
+                    mouse.y = event.y - 25;
+                    if(!started) {
+                        lastMouse.x = mouse.x;
+                        lastMouse.y = mouse.y;
+                    }
+                    context.strokeStyle = "rgba(255,255,255,100)";
+                    context.beginPath();
+                    //console.log("mouse: " + mouse.x + " last mouse: " + lastMouse.x);
+                    context.moveTo(lastMouse.x,lastMouse.y);
+                    context.lineTo(mouse.x,mouse.y);
+                    context.stroke();
+                    lastMouse.x = mouse.x;
+                    lastMouse.y = mouse.y;
+                    //started = true;
+                    
+                });*/
+                function snowBall(newX,newY) {
+                    if(!newX) {
+                        this.x = random(10,canvas.width - 10);
+                        this.y = -50;
+                        this.velocity = {
+                            x: random(-2,2),
+                            y: random(-2,2),
+                        }
+                    }else {
+                        this.x = newX;
+                        this.y = newY;
+                        this.velocity = {
+                            x: random(-2,2),
+                            y: random(0,-10),
+                        }
+                    }
+                    this.size = random(20,30);
+                    this.grav = this.size/20;
+                    this.bounced = false;
+                    
+                    this.update = function() {
+                        this.velocity.y+=this.grav;
+                        this.x+=this.velocity.x;
+                        this.y+=this.velocity.y;
+                        context.drawImage(img,this.x,this.y,this.size,this.size);
+                        if(this.y >= canvas.height - this.size && !this.bounced) {
+                            this.bounced = true;
+                            this.velocity.y *= -this.size/40;
+                        }
+                        if(this.y > canvas.height + this.size) {
+                            removeAt(snowArray,snowArray.indexOf(this));
+                            delete this;
+                        }
+                    }
+                }
+                function animate() {
+                    context.clearRect(0,0,canvas.width,canvas.height)
+                    /*if(random(0,1) == 0) {
+                        snowArray.push(new snowBall());
+                    }*/
+                    //console.log(`{ snowStorm: ${snowStorm.count}, chance: ${3000/snowStorm.count}}`);
+                    if(random(0,2000/snowStorm.count) == 0 || random(0,10000) == 0 || snowStorm.count >= 2000) {
+                        snowArray.push(new snowBall());
+                        if(snowStorm.count >= 2000) {
+                            snowStorm.stopping = true;
+                        }
+                    }
+                    if(snowStorm.count >= 2000) {
+                        text.style.opacity = 1;
+                    }else {
+                        text.style.opacity = 0;
+                    }
+                    if(snowStorm.stopping) {
+                        snowStorm.duration--;
+                        if(snowStorm.duration > 0) {
+                            snowStorm.stopping = false;
+                        }
+                    }
+                    snowArray.forEach((ball)=> {
+                        ball.update();
+                    });
+                    //context.fillStyle = "rgba(0,0,0,0.01)";
+                    if(snowStorm.nextStorm <= 0) {
+                        snowStorm.count += snowStorm.stopping ? -2 : 1;
+                    }else {
+                        snowStorm.nextStorm--;
+                    }
+                    
+                    if(snowStorm.count <= 0 && snowStorm.stopping) {
+                        snowStorm.stopping = false;
+                        snowStorm.duration = random(500,1500);
+                        snowStorm.nextStorm = random(300,6000);
+                    }
+                    
+                    textRot += rotValue;
+                    //console.log(text.style);
+                    //console.log(textRot);
+                    if(textRot >= 55 && rotValue == 2) {
+                        rotValue = -2;
+                    }
+                    if(textRot <= -55 && rotValue == -2) {
+                        rotValue = 2;
+                    }
+                    text.style.transform = `rotate(${textRot}deg)`
+                    requestAnimationFrame(animate);
+                }
+                requestAnimationFrame(animate);
+                document.addEventListener("mousemove",function(event){
+                    if(event.buttons == 1) {
+                        snowArray.push(new snowBall(event.clientX,event.clientY));
+                    }
+                });
+                
+            }
+        </script>
     </body>
 </html>

@@ -18,22 +18,22 @@
       fnausifb!
       </title>
     <link href="https://fonts.googleapis.com/css?family=Chilanka&display=swap" rel="stylesheet">
-
+    
   </head>
   <body>
     <h1>click to add more balls</h1>
     <canvas id="canvas" style="border:1px solid red">
       
       </canvas>
-      
+      <script src='../oof.js'></script>
   </body>
 <script>
   function random(min, max) {
-  return Math.floor(Math.random() * (max - min + 1) ) + min;
-}
+    return Math.floor(Math.random() * (max - min + 1) ) + min;
+  }
   
   
-  
+  //bro i just realized how terrible the code for this is :rofl: now i gotta fix the lag part
   //console.log(random(1))
   var canvas = document.getElementById('canvas')
   canvas.width = innerWidth - 5
@@ -48,7 +48,7 @@
   addEventListener("mousemove",function(event) {
     mouse.x = event.x;
     mouse.y = event.y;
-    console.log(mouse);
+    //console.log(mouse);
   })
   addEventListener("resize",function(event) {
     canvas.width = innerWidth - 5
@@ -60,7 +60,7 @@
     startx = parseInt(touchobj.clientX);
     mouse.x = startx;
     mouse.y = parseInt(touchobj.clientY);
-    console.log("bruh",e)
+    //console.log("bruh",e)
     var bruh = random(0,1)
     var bruh2 = random(0,1)
     var cirble = new Circle(mouse.x,mouse.y,1,1,random(10,200),1.2)
@@ -75,7 +75,7 @@
     balls.push(cirble)
   });
   addEventListener("click",function(event) {
-    console.log("bruh",event)
+    //console.log("bruh",event)
     var bruh = random(0,1)
     var bruh2 = random(0,1)
     var cirble = new Circle(mouse.x,mouse.y,1,1,random(10,200),1.2)
@@ -112,52 +112,49 @@
     }
 
     this.update = function() {
+      //console.log("im updating and living")
       this.draw();
       if(this.x > canvas.width - this.size) {
         this.xv = -this.xv;
       }
       if(this.x < 0 + this.size) {
-          this.xv = -this.xv;
-        }
-        if(this.y > canvas.height - this.size) {
-            console.log("bruh")
-            if(this.size < 5) {
-
-            }else {
-                this.size/=2;
-            //this.yv=-10;
-           // this.y = 0 + this.size;
-        this.yv = -this.yv/this.bounce;
-         balls.push(new Circle(this.x,this.y-100,-this.xv,this.yv,this.size,1.2))
-            }
-
-        }
-        if(this.y < 0 + this.size) {
-        this.yv=-this.yv/this.bounce;
-        }
-        //if(ypos < canvas.height + size) {
-        //  yv = -yv;
-        //}
-        if(this.x == 725 && this.y == 25) {
-          
-          
+        this.xv = -this.xv;
       }
+      if(this.y > canvas.height - this.size) {
+        //console.log("bruh")
+        if(this.size < 5) {
+          
+        }else {
+          this.size/=2;
+          //this.yv=-10;
+          // this.y = 0 + this.size;
+          this.yv = -this.yv/this.bounce;
+          balls.push(new Circle(this.x,this.y-100,-this.xv,this.yv,this.size,1.2))
+        }
+      }
+      if(this.y > canvas.height + this.size) {
+        //console.log(balls);
+        //console.log(balls.indexOf(this));
+        removeAt(balls,balls.indexOf(this));
+        delete this;
+      }
+      if(this.y < 0 + this.size) {
+        this.yv=-this.yv/this.bounce;
+      }
+      //if(ypos < canvas.height + size) {
+      //  yv = -yv;
+      //}
       this.x += this.xv;
       this.y += this.yv;
       this.yv+=1;
     } 
-      
-  }
-  function newRect(x,y,width,height,colorvalue) {
-    c.fillStyle = colorvalue
-    c.fillRect(x,y,width,height)
   }
 
-  var curvlwd = new Circle(300,300,10,-10,20,1.2)
-
+  //var curvlwd = new Circle(300,300,10,-10,20,1.2)
+  
   function animate() {
     c.clearRect(0,0,canvas.width,canvas.height)
-    curvlwd.update();
+    //curvlwd.update();
     for (let i = 0; i < balls.length; i++) {
       var ball = balls[i]
       ball.update();
