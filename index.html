@@ -202,11 +202,11 @@
                 var textRot = 0;
                 var rotValue = 2;
                 text.style.display = "block";
-                context.canvas.width = innerWidth
-                context.canvas.height = innerHeight
-                document.addEventListener("resize",function(evety) {
-                    context.canvas.width = innerWidth
-                    context.canvas.height = innerHeight 
+                canvas.width = innerWidth
+                canvas.height = innerHeight
+                addEventListener("resize",function(event) {
+                    canvas.width = innerWidth
+                    canvas.height = innerHeight
                 })
                 /*var started = false;
                 var mouse = {
