@@ -117,6 +117,10 @@ function sound(src) {
 	this.sound.setAttribute("controls", "none");
 	this.sound.style.display = "none";
 	document.body.appendChild(this.sound);
+	this.setVolume = function(vol) {
+		this.sound.volume = vol;
+		return this;
+	}
 	this.play = function(){
 	  this.sound.play();
 	}

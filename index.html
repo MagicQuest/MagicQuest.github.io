@@ -264,6 +264,9 @@
                         if(this.y >= canvas.height - this.size && !this.bounced) {
                             this.bounced = true;
                             this.velocity.y *= -this.size/40;
+                            if(random(0,3) == 0) {
+                                new sound("sounds/snowball-impact.mp3").setVolume(.2).play();
+                            }
                         }
                         if(this.y > canvas.height + this.size) {
                             removeAt(snowArray,snowArray.indexOf(this));
