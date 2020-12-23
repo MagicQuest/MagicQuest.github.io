@@ -262,11 +262,11 @@
                         this.y+=this.velocity.y;
                         context.drawImage(img,this.x,this.y,this.size,this.size);
                         if(this.y >= canvas.height - this.size && !this.bounced) {
-                            this.bounced = true;
-                            this.velocity.y *= -this.size/40;
                             if(random(0,3) == 0) {
+                                this.velocity.y *= -this.size/40;
                                 new sound("sounds/snowball-impact.mp3").setVolume(.2).play();
                             }
+                            this.bounced = true;
                         }
                         if(this.y > canvas.height + this.size) {
                             removeAt(snowArray,snowArray.indexOf(this));

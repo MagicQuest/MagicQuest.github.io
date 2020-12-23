@@ -123,6 +123,10 @@ function sound(src) {
 	}
 	this.play = function(){
 	  this.sound.play();
+	  this.sound.onended = function(event) {
+		  console.log(this);
+		  del(this,this.parentElement);
+	  }
 	}
 	this.stop = function(){
 	  this.sound.pause();

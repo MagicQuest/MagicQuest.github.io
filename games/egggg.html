@@ -76,11 +76,11 @@
             </h2-->
         </center>
         
-        <div id="birdHidden" style="display: none;position: fixed;bottom: 110px;background-color: sienna;border:outset saddlebrown;">
+        <div id="birdHidden" style="display: none;position: fixed;bottom: 110px;background-color: sienna;border: outset saddlebrown;width: 113px;">
             <h4>
                 You can buy these birds to have them peck the egg for you every 10 seconds!
             </h4>
-            <img src="https://www.cosywoodpeckercottage.com/wordpress/wp-content/uploads/2012/02/Pileated-woodpecker-Dryocopus-pileatus.jpg" width="100" height="100" alt="insert bird image here">
+            <img src="https://www.cosywoodpeckercottage.com/wordpress/wp-content/uploads/2012/02/Pileated-woodpecker-Dryocopus-pileatus.jpg" width="113" height="100" alt="insert bird image here">
         </div>
         
         <button onmouseover="ButtonOver('bird')" onmouseout="ButtonOut('bird')" class="clickable" id="birdBuy" onclick="Buy('birds')" style="background-color:sienna;border:outset saddlebrown;position: fixed;bottom: 0;">
@@ -202,17 +202,16 @@
                     changeEggs(eggs - BirdPrice);
                     Birds++;
                     BirdPrice = Math.ceil(BirdPrice**1.1);
-                birdBuy.innerHTML = `<h1>Birds - ${Birds}
+                    birdBuy.innerHTML = `<h1>Birds - ${Birds}
                                     <br>
                                     <money>$${BirdPrice}</money>
                                     </h1>`
-                                    setInterval(() => {
-                                        //for (let index = 0; index < Birds; index++) {
-                                            clickEgg();
-                                        //}
-                                    },10*1000)
+                    setInterval(() => {
+                        //for (let index = 0; index < Birds; index++) {
+                        clickEgg();
+                        //}
+                    },10*1000)
                 }
-                
             }
             function changeEggs(value) {
                 eggs = value;
