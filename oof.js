@@ -107,6 +107,7 @@ function choice(bruh) {
 function get(doc) {
 	return document.getElementById(doc);
 }
+//the most retarded person :facepalm: THE STRING PROTOTYEP ALERADY HAS INCLUDES
 function findString(string,stringToFind) {
 	return string.indexOf(stringToFind) != -1 ? true : false;
 }

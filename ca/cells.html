@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<head>
+    <meta charset='utf-8'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <meta property="og:title" content="Hiragana typing game" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://magicquest.github.io/typing.html" />
+    <meta property="og:image" content="https://magicquest.github.io/original_pic.png" />
+    <meta property="og:description" content="one of my dumb games" />
+    <link rel='stylesheet' type='text/css' media='screen' href='..\font.css'>
+    <link rel='stylesheet' href='..\clickable.css'>
+    <script src="..\oof.js"></script>
+    <style>
+        button:active {
+            border: inset royalblue 5px;
+        }
+        button {
+            outline: none;
+            background-color: rgb(96, 138, 255);
+            border: outset royalblue 5px;
+            border-radius: 10px;
+        }
+        input {
+            
+            background-color: rgba(0,0,0,0);
+            border-radius: 5px;
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            overflow: hidden;
+            background-color: grey;
+        }
+        input::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 10px;
+            height: 15px;
+            background-color:#ffd;
+            box-shadow: -100vw 0 0 100vw royalblue;
+            border: 2px solid #999; /* 1 */
+            cursor: pointer;
+        }
+    </style>
+    </head>
+    <body style="background: linear-gradient(90deg, rgba(2,0,36,0) 0%, rgba(0,212,255,1) 100%);">
+        <center>
+            <h1>
+                Cellular automata test
+            </h1>
+            <button style="width: 25%;font-size: 30px;" onclick="cleare()">
+                Clear
+            </button>
+            <canvas id="canvas" width=500 height=500 style="border:indianred inset 5px;border-radius: 10px;display: block;margin-bottom: 10px;margin-top: 10px;"></canvas>
+            <h4 style="margin-bottom: 5px;">
+                Rules
+            </h4>
+            <h4 style="display: inline;">
+                Begin: 
+            </h4>
+            <input type="text" value="2" onchange="if(!isNaN(parseInt(this.value))) {minCreateNeighbors = this.value}else {this.value = '';}" style="width: 20px;display: inline;">
+            <h4 style="display: inline;">
+                to
+            </h4>
+            <input type="text" value="3" onchange="if(!isNaN(parseInt(this.value))) {maxCreateNeighbors = this.value}else {this.value = '';}" style="width: 20px;margin-bottom: 5px;">
+            <br>
+            <h4 style="display: inline;">
+                Stay: 
+            </h4>
+            <input type="text" value="3" onchange="if(!isNaN(parseInt(this.value))) {minNeighbors = this.value}else {this.value = '';}" style="width: 20px;">
+            <h4 style="display: inline;">
+                to
+            </h4>
+            <input type="text" value="3" onchange="if(!isNaN(parseInt(this.value))) {maxNeighbors = this.value}else {this.value = '';}" style="width: 20px;margin-bottom: 5px;">
+            <br>
+            <h4 style="display: inline;">
+                Resolution: 
+            </h4>
+            <input id="res" type="range" min="1" max="10" value="7" onchange="setResolution(Math.abs(this.value-11))" style="width:5%">
+            <!--h4 style="display: inline;">
+                Tick speed: 
+            </h4>
+            <input type="text" onchange="if(!isNaN(parseInt(this.value))) {tickSpeed = this.value}else {this.value = '';}" style="width: 20px;margin-bottom: 5px"-->
+            <!--input type="range" min="1" max="100" value="1" onchange=""-->
+        </center>
+        <script>
+            var canvas = document.getElementById("canvas");
+            var context = canvas.getContext("2d");
+
+            var resolution = 4;
+            var tickSpeed = 50;
+            var minNeighbors = 2;
+            var maxNeighbors = 3;
+            var minCreateNeighbors = 3;
+            var maxCreateNeighbors = 3;
+
+            var highlight = {
+                x: 0,
+                y: 0
+            }
+
+            var start = true;
+            var drawPrompt = true;
+            var clear = false;
+            
+            const NONE = 0;
+            var oldCells = [];
+            var cells = [];
+            var liveCells = [];
+            const dormantCells = [];
+
+            context.font = "20px Georgia";
+            context.fillText("Drag here!",250-50,250);
+            context.fillText("Space to pause",250-65,250+25);
+            context.fillText("F to go frame-by-frame",250-100,250+50);
+            setResolution(resolution);
+
+            function cell(newX,newY) {
+                this.x = newX;
+                this.y = newY;
+                this.state = NONE;
+                this.life = 100;
+                this.setState = function(newState) {
+                    this.state = newState;
+                    return this;
+                }
+                this.render = function() {
+                    if(this.state == 1) {
+                        context.fillStyle = `rgb(0,${this.life+100},0)`;
+                        context.fillRect(this.x*resolution,this.y*resolution,resolution,resolution);
+                    }
+                    if(highlight.x == this.x && highlight.y == this.y) {
+                        context.fillStyle = `rgb(0,255,255)`;
+                        context.fillRect(this.x*resolution,this.y*resolution,resolution,resolution);
+                    }
+                    return this;
+                }
+            }
+            
+            function getNeighborCount(cellY,cellX) {
+                let neighbors = 0;
+                if(cells[cellX-1] != undefined && cells[cellX+1] != undefined) {
+                    if(cells[cellX][cellY+1] != undefined) {
+                        neighbors++;
+                    }
+                    if(cells[cellX][cellY-1] != undefined) {
+                        neighbors++;
+                    }
+                    if(cells[cellX-1][cellY] != undefined) {
+                        neighbors++;
+                    }
+                    if(cells[cellX+1][cellY] != undefined) {
+                        neighbors++;
+                    }
+                    if(cells[cellX+1][cellY+1] != undefined) {
+                        neighbors++;
+                    }
+                    if(cells[cellX+1][cellY-1] != undefined) {
+                        neighbors++;
+                    }
+                    if(cells[cellX-1][cellY-1] != undefined) {
+                        neighbors++;
+                    }
+                    if(cells[cellX-1][cellY+1] != undefined) {
+                        neighbors++;
+                    }
+                }
+                
+                return neighbors;
+            }
+            function getLifelessNeighbors(cellY,cellX) {
+                let neighbors = 0;
+                if(cells[cellX-1] != undefined && cells[cellX+1] != undefined) {
+                    if(cells[cellX][cellY+1] != undefined) {
+                        if(cells[cellX][cellY+1].life < 0) {
+                            neighbors++;
+                        }
+                        
+                    }
+                    if(cells[cellX][cellY-1]  != undefined) {
+                        if(cells[cellX][cellY-1].life < 0) {
+                            neighbors++;
+                        }
+                    }
+                    if(cells[cellX-1][cellY]  != undefined) {
+                        if(cells[cellX-1][cellY].life < 0) {
+                            neighbors++;
+                        }
+                    }
+                    if(cells[cellX+1][cellY]  != undefined) {
+                        if(cells[cellX+1][cellY].life < 0) {
+                            neighbors++;
+                        }
+                    }
+                    if(cells[cellX+1][cellY+1]  != undefined) {
+                        if(cells[cellX+1][cellY+1].life < 0) {
+                            neighbors++;
+                        }
+                    }
+                    if(cells[cellX+1][cellY-1] != undefined) {
+                        if(cells[cellX+1][cellY-1].life < 0) {
+                            neighbors++;
+                        }
+                    }
+                    if(cells[cellX-1][cellY-1] != undefined) {
+                        if(cells[cellX-1][cellY-1].life < 0) {
+                            neighbors++;
+                        }
+                    }
+                    if(cells[cellX-1][cellY+1] != undefined) {
+                        
+                        if(cells[cellX-1][cellY+1].life < 0) {
+                            neighbors++;
+                        }
+                    }
+                }
+                ///console.log(neighbors);
+                return neighbors;
+            }
+            function getDeadNeighbors(cell) {
+                const cellY = cell.x;
+                const cellX = cell.y;
+                const neighbors = [];
+                if(cells[cellX+1] != undefined && cells[cellX-1] != undefined) {
+                    if(cells[cellX][cellY+1] == undefined) {
+                        neighbors.push({y:cellX,x:cellY+1});
+                    }
+                    if(cells[cellX][cellY-1] == undefined) {
+                        neighbors.push({y:cellX,x:cellY-1});
+                    }
+                    if(cells[cellX-1][cellY] == undefined) {
+                        neighbors.push({y:cellX-1,x:cellY});
+                    }
+                    if(cells[cellX+1][cellY] == undefined) {
+                        neighbors.push({y:cellX+1,x:cellY});
+                    }
+                    if(cells[cellX+1][cellY+1] == undefined) {
+                        neighbors.push({y:cellX+1,x:cellY+1});
+                    }
+                    if(cells[cellX+1][cellY-1] == undefined) {
+                        neighbors.push({y:cellX+1,x:cellY-1});
+                    }
+                    if(cells[cellX-1][cellY-1] == undefined) {
+                        neighbors.push({y:cellX-1,x:cellY-1});
+                    }
+                    if(cells[cellX-1][cellY+1] == undefined) {
+                        neighbors.push({y:cellX-1,x:cellY+1});
+                    }
+                }
+                return neighbors;
+            }
+            function InCells(cell) {
+                for (let i = 0; i < cells.length; i++) {
+                    if(cells[i].indexOf(cell) != -1) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            function setCellActive(cell) {
+                if(liveCells.indexOf(cell) == -1 && cells[cell.y][cell.x] == undefined) {
+                    //console.log("ok ading now sel")
+                    liveCells.push(cell);
+                    cells[cell.y][cell.x] = cell;
+                    cell.state = 1;
+                    cell.render();
+                }
+            }
+            function setCellDead(cell) {
+                removeAt(liveCells,liveCells.indexOf(cell));
+                try {
+                    cells[cell.y][cell.x] = undefined;
+                }catch {}
+                cell.state = NONE;
+                delete cell;
+            }
+            function draw(event) {
+                if(event.buttons == 1) {
+                    drawPrompt = false;
+                    //console.log(new cell(Math.floor((event.clientX-canvas.getBoundingClientRect().left)/resolution),Math.floor((event.clientY-canvas.getBoundingClientRect().top)/resolution)))
+                    setCellActive(new cell(Math.floor((event.clientX-canvas.getBoundingClientRect().left)/resolution),Math.floor((event.clientY-canvas.getBoundingClientRect().top)/resolution)));
+                }
+            }
+            function pause(event) {
+                if(event.key == " ") {
+                    start = !start ? true : false;
+                }else if(event.key == "f") {
+                    start = true;
+                    while(!tick()){}
+                    start = false;
+                }
+            }
+            function scroole(event) {
+                setResolution(resolution-event.deltaY/100);
+                document.getElementById('res').value = Math.abs((resolution-event.deltaY/100)-11);
+                console.log(document.getElementById('res').value);
+            }
+            canvas.addEventListener('mousemove',draw);
+            addEventListener('keypress',pause);
+            canvas.addEventListener("wheel",scroole);
+            function cleare() {
+                cells = [];
+                liveCells = [];
+                console.log(canvas.width/resolution);
+                console.log(resolution);
+                for (let i = 0; i < canvas.width/resolution; i++) {
+                    cells.push([]);
+                    for (let j = 0; j < canvas.width/resolution; j++) {
+                        cells[i].push(undefined);
+                    }
+                }
+            }
+            function setResolution(newRes) {
+                if(newRes >= 1 && newRes <= 10) {
+                    resolution = newRes;
+                    console.log(resolution);
+                    console.log(newRes);
+                    oldCells[0] = liveCells;
+                    cleare();
+                    liveCells = oldCells[0];
+                    liveCells.forEach((Cell) => {
+                        if(Cell.x < canvas.width/resolution-1 && Cell.x > 0 && Cell.y < canvas.height/resolution-1 && Cell.y > 0) {
+                            cells[Cell.y][Cell.x] = Cell;
+                        }else {
+                            removeAt(liveCells,liveCells.indexOf(Cell));
+                            delete Cell;
+                        }
+                    });
+                    oldCells = [];
+                }
+            }
+            function tick() { 
+                if(!drawPrompt) {
+                    context.clearRect(0,0,canvas.width,canvas.height)
+                }
+                liveCells.forEach((Cell)=>{
+                    //console.log(cells[cell.y][cell.x])
+                    //console.log(clear);
+                    if(clear) {
+                        cells[Cell.y][Cell.x] = undefined;
+                        removeAt(liveCells,liveCells.indexOf(Cell));
+                        return;
+                    }
+                    //console.log("ficking DRAW")
+                    //console.log(cell);
+                    /*if(getNeighborCount(Cell) > 1) {
+                        if(cells[Cell.x+1][Cell.y] == undefined) {
+                            setCellActive(new cell(Cell.x+1,Cell.y));
+                        }
+                        if(cells[Cell.x-1][Cell.y] == undefined) {
+                            setCellActive(new cell(Cell.x-1,Cell.y));
+                        }
+                        if(cells[Cell.x][Cell.y-1] == undefined) {
+                            setCellActive(new cell(Cell.x,Cell.y-1));
+                        }
+                        if(cells[Cell.x][Cell.y+1] == undefined) {
+                            setCellActive(new cell(Cell.x,Cell.y+1));
+                        }
+                    }*/
+                    //if(Cell.life > 0) {
+                        if(start) {
+                            if(Cell.life > 0) {
+                                Cell.life--;
+                            }
+                            if(getNeighborCount(Cell.x,Cell.y) >= minNeighbors && getNeighborCount(Cell.x,Cell.y) <= maxNeighbors) {
+                            }else {
+                                //console.log(`killed {Cell: {x: ${Cell.x},y: ${Cell.y},state: ${Cell.state}}}`);
+                                setCellDead(Cell);
+                            }
+                            
+                            const neighbors = getDeadNeighbors(Cell);
+                            
+                            //console.log(`{neighbors: ${getNeighborCount(Cell.x,Cell.y)}, deadNeighbors: ${getDeadNeighbors(Cell).length}}`);
+                            neighbors.forEach((obj)=> {
+                                //console.log("shit");
+                                //console.log(`{obj.x: ${obj.x},obj.y: ${obj.y}}`);
+                                //console.log(getNeighborCount(obj.x,obj.y));
+                                if(getNeighborCount(obj.x,obj.y) >= minCreateNeighbors && getNeighborCount(obj.x,obj.y) <= maxCreateNeighbors) {
+                                    //console.log("new cells")
+                                    //if(getLifelessNeighbors(obj.x,obj.y) == 0) {
+                                        if(obj.x < canvas.width/resolution-1 && obj.x > 0) {
+                                            setCellActive(new cell(obj.x,obj.y));
+                                        }
+                                        //start = false;
+                                    //}
+                                }
+                            });
+                        }
+                    //}else {
+                        /*if(dormantCells.indexOf(Cell) == -1) {
+                            removeAt(liveCells,liveCells.indexOf(Cell));
+                            //console.log(`[Object object] {x: ${Cell.x}, y: ${Cell.y}}`);
+                            dormantCells.push(Cell);
+                            //console.log("dorma");
+                        }*/
+                    //}
+                    
+                    Cell.render();
+                })
+                /*dormantCells.forEach((Cell)=>{
+                    if(InCells(Cell)) {
+                        Cell.update();
+                    }else {
+                        removeAt(dormantCells,dormantCells.indexOf(Cell));
+                    }
+                    
+                })*/
+                return true;
+                //requestAnimationFrame(tick);
+            }
+            setInterval(tick,tickSpeed);
+            //requestAnimationFrame(tick);
+        </script>
+    </body>
+</html>

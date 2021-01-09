@@ -20,8 +20,6 @@
                 position: relative;
                 top:100px;
                 width:228px;height:300px;
-
-
             }
             
             #egg:hover {
@@ -41,9 +39,18 @@
             .clickable {
                 cursor: pointer;
             }
+            html,body {
+                width:  100%;
+                height: 100%;
+                margin: 0px;
+                display: inline;
+            }
         </style>
     </head>
-    <body style="background-color: sandybrown;">
+    <body style="background: url('../img/wood.jpg');">
+        <canvas id="canvas" style="position: fixed;top:0px;z-index: -1;">
+
+        </canvas>
         <!--canvas id="canvas">
 
         </canvas-->
@@ -84,18 +91,24 @@
         </div>
         
         <button onmouseover="ButtonOver('bird')" onmouseout="ButtonOut('bird')" class="clickable" id="birdBuy" onclick="Buy('birds')" style="background-color:sienna;border:outset saddlebrown;position: fixed;bottom: 0;">
-            <h1>Birds - 0
-            <br>
-            <money>$15</money>
+            <h1>
+                Birds - 0
+                <br>
+                <money>$15</money>
             </h1>
-            
         </button>
+        <div id="hover" style="position: absolute;background: url(../img/wood2.jpg);border: ridge rgb(121, 60, 17) 3px;">
+            <p style="font-weight: bold;">
+                SHITTING PANTS
+            </p>
+        </div>
         <script>
             window.onbeforeunload = confirmExit;
             function confirmExit() {
                 save();
                 //return "You have attempted to leave this page. Are you sure?";
             }
+            
             var over = "";
             
             var clickNumber = document.getElementById("clickNumber");
@@ -103,6 +116,7 @@
             var birdBuy = document.getElementById("birdBuy");
             var eggHealthElement = document.getElementById("eggHealth");
             var eggElement = document.getElementById("egg");
+            var hoverDiv = document.getElementById("hover")
 
             var eggs = 0;
             var yolk = 0;
@@ -122,9 +136,18 @@
             
             var canSave = false;
             addEventListener("mousemove",function(event) {
-                mouse.x = event.x;
-                mouse.y = event.y;
+                mouse.x = event.clientX;
+                mouse.y = event.clientY;
+                
+                hoverDiv.style.top = mouse.y-(hoverDiv.clientHeight/2)-40+"px";
+                hoverDiv.style.left = mouse.x-(hoverDiv.clientWidth/2)+"px";
             });
+            canvas.width = innerWidth
+            canvas.height = innerHeight
+            addEventListener("resize",function(event) {
+                canvas.width = innerWidth
+                canvas.height = innerHeight
+            })
             if (typeof(Storage) !== "undefined") {
                 canSave = true;
                 eggs = parseInt(localStorage.getItem("eggs"));
