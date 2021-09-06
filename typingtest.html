@@ -131,6 +131,9 @@
     <input type="checkbox" id="words" onclick="wordClick()"><bruhh>words (アメリカ)</bruhh></input>
     <!--input type="checkbox" id=""-->
     <br>
+    <!--input type="checkbox" id="ending" onclick="endClick(this.checked)"><bruhh>sentence endings (です)</input-->
+    <input type="checkbox" id="counting" onclick="countingClick()"><bruhh>counting (いち, に, さん)</bruhh></input>
+    <br>
     <h1 style="display: none;font-size: 50px;" id="activatemove">
         <center>
         brujk
@@ -169,7 +172,7 @@
         </div>
     </div>
 </div>
-<button id="modalBtn" style="position: fixed;bottom: 0;">
+<button id="modalBtn" style="/*position: fixed;*/bottom: 0;float: right;">
     <p style="font-size: 20px;"><strong>View achievements</strong></p>
 </button>
 <!--div class="a unlocked" style="position:absolute;left: 50%;top: 50%;background-image: url(img/shi.png);width:60px;height:60px;"></div-->
@@ -264,8 +267,9 @@
         }
         ns()
         //DONE YOU'VE GOT TO ADD SMALL TSU WITH YOOYNOYNNNNNN!!!!! BECAUSE A LONGM TIME AGO YOU DID AND ITS NOT IN THIAS VERSION!!
-        //finally im going to add small tus probably tomarower sunday 12 jul also im pretty excited for dr stone! ok so dr stone is a no 😔
+        //finally im going to add small tus probably tomarower sunday 12 jul 2020 also im pretty excited for dr stone! ok so dr stone is a no 😔
         //lmao jk i did it on the 13th today its 7:35 and im tired as fuckewek
+        //bro dr stone came out like a month ago and i have yet to watch it and its may 2021
         //DONE add small characters (combo hiragana) DONE A LONG TIME AGO
         //TODO GO ON DUOLINGO AND PRRACTIVE (and learn more kanji) BUT STILL
         //DONE KATAKANA FUCAOKLSGING HURRY YOU HSVE TO LEARN IT
@@ -310,6 +314,7 @@
 
         const yoonHiragana = ["き", "し", "ち", "に", "ひ", "み", "り", "ぎ", "じ", "ぢ", "び", "ぴ"];
         const yoonKatakana = ["キ", "シ", "チ", "ニ", "ヒ", "ミ", "リ", "ギ", "ジ", "ヂ", "ビ", "ピ","ヴ","ウ","フ","テ","ド"];
+        const numbers = ["いち","に","さん","よん","ご","ろく","なな","はち","きゅう","じゅう"];
         
         //var word[1];
         //var word[2];
@@ -336,6 +341,7 @@
         var krdhscore = 0;
         var krtscore = 0;
         var seconds = 0;
+        var countingNumber = 1;
 
         var regular = true;
 
@@ -347,6 +353,9 @@
         var kanji = false;
         var katakana = false;
         var words = false;
+        //var endings = false;
+        var counting = false;
+        //jesus this system sucks and i completely forgot (may 15 2021)
 
         for (let i = 4; i < maxLetters; i++) {
             get("selectd").innerHTML += `<option value="${i}">${i}</option>`
@@ -441,7 +450,7 @@
                         
                 change(number);
                     
-            }    
+            }       
             for (let j = 0; j < i; j++) {
                 print(`sym[${number}] == sym[${j}] || ${sym[number]} == ${sym[j]}`)
                 if(sym[number] == sym[j]) {
@@ -546,6 +555,15 @@
             document.getElementById("rtscore").innerHTML = "Total Hiragana Score: " + rtscore
             start();
         }
+        //function endClick(val) {
+        //    endings = val;
+        //    start();
+        //    if(val) {
+                
+        //    }else {
+                
+        //    }
+        //}
         function wordClick() {
             words = get("words").checked;
             if(words == false) {
@@ -649,6 +667,93 @@
                 yoon = lastValues[3];
             }
         }
+        function countingClick() {
+            if(get('counting').checked) {
+                counting = true;
+                lastValues = [];
+                lastValues.push(dakuon);
+
+                var db = document.getElementById('dakuon_box');
+                db.disabled = true;
+                dakuon = false;
+
+                lastValues.push(handkun);
+                var db = document.getElementById('handkun_box');
+                db.disabled = true;
+                handkun = false;
+
+                lastValues.push(regular);
+                var db = document.getElementById('hiragana_box');
+                db.disabled = true;
+                regular = false;
+
+                lastValues.push(yoon);
+                var db = document.getElementById('yoon');
+                db.disabled = true;
+                yoon = false;
+
+                //lastValues.push(kanji);
+                //var db = get('kanji');
+                //db.disabled = true;
+                //kanji = false;
+
+                lastValues.push(words);
+                var db = get('words');
+                db.disabled = true;
+                words = false;
+
+                lastValues.push(katakana);
+                var db = get('katakana_box');
+                db.disabled = true;
+                katakana = false;
+            }else {
+                counting = false;
+
+                var turningNumber = 0;
+                
+                var db = document.getElementById('dakuon_box');
+                db.disabled = false;
+                db.checked = lastValues[turningNumber];
+                dakuon = lastValues[turningNumber];
+                turningNumber++;
+
+                var db = document.getElementById('handkun_box');
+                db.disabled = false;
+                db.checked = lastValues[turningNumber];
+                handkun = lastValues[turningNumber];
+                turningNumber++;
+
+                var db = document.getElementById('hiragana_box');
+                db.disabled = false;
+                db.checked = lastValues[turningNumber];
+                regular = lastValues[turningNumber];
+                turningNumber++;
+
+                var db = document.getElementById('yoon');
+                db.disabled = false;
+                db.checked = lastValues[turningNumber];
+                yoon = lastValues[turningNumber];
+                turningNumber++;
+
+                //var db = document.getElementById('kanji');
+                //db.disabled = false;
+                //db.checked = lastValues[turningNumber];
+                //kanji = lastValues[turningNumber];
+
+                var db = document.getElementById('words');
+                db.disabled = false;
+                db.checked = lastValues[turningNumber];
+                words = lastValues[turningNumber];
+                turningNumber++;
+                
+                var db = document.getElementById('katakana_box');
+                db.disabled = false;
+                db.checked = lastValues[turningNumber];
+                katakana = lastValues[turningNumber];
+                turningNumber++;
+            }
+            start();
+        }
         //const charList = 'abcdefghijklmnopqrstuvwxyz';
         //var keySequence = [];
       //  var userInput;
@@ -683,18 +788,21 @@
         //var secretCode = ""
         //set random hiragana text just get all of the dakuten or hankudencaen and just regular stuff and make a converter script this gon be hard doe
         //bruh when did i write this lmao
-        function convertWords(bruh,mode) {
+        function convertWords(bruh,mode,modify = true) {
             let array = bruh.split(" ");
             let returnSymbols = [];
-            wletters = array.length;
-            textToType += array.join("");
+            if(modify) {
+                wletters = array.length;
+                textToType += array.join("");
+            }
             array.forEach((wording, i) => {
-                if(wording == "nn" || wording == "sji" || wording == "cji" || wording == "tzu" || wording == "szu" || wording == "sja" || wording == "sjo" || wording == "sju" || wording == "cjo" || wording == "cja" || wording == "cju") {
-                    word.push(wording.substring(1));
-                }else {
-                    word.push(wording);
+                if(modify) {
+                    if(wording == "nn" || wording == "sji" || wording == "cji" || wording == "tzu" || wording == "szu" || wording == "sja" || wording == "sjo" || wording == "sju" || wording == "cjo" || wording == "cja" || wording == "cju") {
+                        word.push(wording.substring(1));
+                    }else {
+                        word.push(wording);
+                    }
                 }
-                
                 let zabloing = false;
                 //console.log(array[i+1].substring(0,1));
                 //console.log(wording);
@@ -702,10 +810,15 @@
                     if(array[i+1].substring(0,1) == wording) {
                         if(mode == "katakana") {
                             returnSymbols.push("ッ");
-                            sym.push("ッ");
+                            if(modify) {
+                                sym.push("ッ");
+                            }
+                            
                         }else {
                             returnSymbols.push("っ");
-                            sym.push("っ");
+                            if(modify) {
+                                sym.push("っ");
+                            }
                         }
                     }else {
                         zabloing = true;
@@ -715,7 +828,9 @@
                 }
                 if(zabloing) {
                     returnSymbols.push(reconvert(wording,mode));
-                    sym.push(reconvert(wording,mode));
+                    if(modify) {
+                        sym.push(reconvert(wording,mode));
+                    }
                 }
                 
                 
@@ -1016,7 +1131,7 @@
                 
             }
             
-            if(!wletters) {
+            if(!wletters && !counting) {
                 checkArray();
             }
             
@@ -1136,6 +1251,26 @@
                     }
                 });
             }
+            //console.log(word);
+            //console.log(sym);
+            /*if(endings) {
+                let words = new Map();
+                words.set("de su",convertWords('de su',regular ? regular : "katakana",false));
+                words.set("de su ka",convertWords('de su ka',regular ? regular : "katakana",false));
+                //console.log(words);
+                let chosenOne = choice(Array.from(words.keys()));
+                //console.log(chosenOne);
+                //console.log(words.get(chosenOne));
+                chosenOne.split(" ").forEach((bryg) => {
+                    word.push(bryg);
+                });
+                sym.push(words.get(chosenOne));
+                //showMean(chosenOne);
+                console.log(chosenOne);
+                console.log(chosenOne.split(' ').length);
+                wletters = word.length-(chosenOne.split(' ').length-1);
+                
+            }*/
             textToType = word.join("");
             text.innerHTML = sym.join("");
             
@@ -1196,7 +1331,7 @@
                         const randomEmoji = ["😂","🙌","🎉","👍"];
                         const randomWord = ["Great","Good","Awesome","Epic","Nice"];
                         const bruhText = choice(randomWord) + " job at getting " + score + "!";
-                        achievement.innerHTML = `<center>${randomEmoji[random(0,randomEmoji.length-1)]+bruhText+randomEmoji[random(0,randomEmoji.length-1)]}</center>`
+                        achievement.innerHTML = `<center>${choice(randomEmoji)+bruhText+choice(randomEmoji)}</center>`
                         
                         setTimeout(() => {
                             achievement.id = "activatemove"
@@ -1317,14 +1452,14 @@
             }
             text.innerHTML = "<bruh style='color:green'>" + green + "</bruh>" + nogreen; */
 
-            /////////////      //              //   //////////////  //////////////  \\\\\\\\        \\\\\\\\\\\\\   \\\\\\\\\\\\\\\\        \\\\\\\\\\\\\\\    \\\\\\\\\\\\       \\    //  
-                ////           ////            //   //////////////  //////////////  //     \\           \\\\\       \\            \\        \\                      \\\            \\  //
-                ////           //  //          //   //              //              //      \\          \\\\\       \\            \\        \\                      \\\             \\//
-                ////           //    //        //   ///////////     ///////////     //       \\         \\\\\       \\            \\        \\\\\\\\\\\\            \\\             //\\
-                ////           //      //      //   //////////      //////////      //       //         \\\\\       \\            \\        \\                      \\\            //  \\
-                ////           //        //    //   //              //              //      //          \\\\\       \\            \\        \\                      \\\           //    \\
-                ////           //          //  //   //////////////  //////////////  //     //           \\\\\       \\            \\        \\                      \\\          //      \\
-            /////////////      //            ////   //////////////  //////////////  ////////            \\\\\       \\\\\\\\\\\\\\\\        \\                 \\\\\\\\\\\\     //        \\
+            /////////////      //              //   //////////////  //////////////  \\\\\\\\        \\\\\\\\\\\\\   \\\\\\\\\\\\\\\\        \\\\\\\\\\\\\\\    \\\\\\\\\\\\     \\      //  
+                ////           ////            //   //////////////  //////////////  //     \\           \\\\\       \\            \\        \\                      \\\          \\    //
+                ////           //  //          //   //              //              //      \\          \\\\\       \\            \\        \\                      \\\           \\  //
+                ////           //    //        //   ///////////     ///////////     //       \\         \\\\\       \\            \\        \\\\\\\\\\\\            \\\            \\//
+                ////           //      //      //   //////////      //////////      //       //         \\\\\       \\            \\        \\                      \\\            //\\
+                ////           //        //    //   //              //              //      //          \\\\\       \\            \\        \\                      \\\           //  \\
+                ////           //          //  //   //////////////  //////////////  //     //           \\\\\       \\            \\        \\                      \\\          //    \\
+            /////////////      //            ////   //////////////  //////////////  ////////            \\\\\       \\\\\\\\\\\\\\\\        \\                 \\\\\\\\\\\\     //      \\
             if(wletters) {
                 if(wletters == 1) {
                     if(pressedA[0].join("").includes(word[0])) {
@@ -2638,6 +2773,14 @@
                 }
                 if(bruh == 1) {
                     return ""
+                }
+            }
+            if(counting) {
+                if(countingNumber <= 10) {
+                    
+                    return numbers[countingNumber-1];
+                }else {
+                    
                 }
             }
             return choice(choose);

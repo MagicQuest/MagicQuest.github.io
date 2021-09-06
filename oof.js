@@ -125,7 +125,7 @@ function sound(src) {
 	this.play = function(){
 	  this.sound.play();
 	  this.sound.onended = function(event) {
-		  console.log(this);
+		  //console.log(this);
 		  del(this,this.parentElement);
 	  }
 	}

@@ -21,6 +21,12 @@ body {
 input::placeholder {
   color: white;
 }
+button {
+  border: 2mm outset rgba(170, 50, 220, .6);
+}
+button:active {
+  border: 2mm inset rgba(170, 50, 220, .6);
+}
     </style>
 </head>
 <body style="background-color: #0093E9;
@@ -29,7 +35,7 @@ background-image: linear-gradient(160deg, #0093E9 0%, #80D0C7 100%);">
 
   </script>
   <center>
-    <button id="unshort" style="border: 2mm ridge rgba(170, 50, 220, .6);border-radius: 10px;background-color: #0093E9;color:white;font-size: larger;">
+    <button id="unshort" style="border-radius: 10px;background-color: #0093E9;color:white;font-size: larger;">
       prenk unshortener
   </button>
   </center>
@@ -42,7 +48,7 @@ background-image: linear-gradient(160deg, #0093E9 0%, #80D0C7 100%);">
       <input placeholder="put the link here" id="input" type="text" style="border: thick double slateblue;background-color: #0093E9;color:white;font-size: large;">
       <br>
       <br>
-      <button style="border: 2mm ridge rgba(170, 50, 220, .6);border-radius: 10px;background-color: #0093E9;color:white;width: 250px;font-size: larger;">
+      <button style="border-radius: 10px;background-color: #0093E9;color:white;width: 250px;font-size: larger;">
         Make prenk!
       </button>
     </form>
@@ -61,7 +67,7 @@ background-image: linear-gradient(160deg, #0093E9 0%, #80D0C7 100%);">
       <input placeholder="put the 'shortened' link here" id="input2" type="text" style="border: thick double slateblue;background-color: #0093E9;color:white;font-size: large;">
       <br>
       <br>
-      <button style="border: 2mm ridge rgba(170, 50, 220, .6);border-radius: 10px;background-color: #0093E9;color:white;width: 250px;font-size: larger;">
+      <button style="border-radius: 10px;background-color: #0093E9;color:white;width: 250px;font-size: larger;">
         Unshorten prenk!
       </button>
     </form>
