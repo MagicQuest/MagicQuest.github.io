@@ -97,11 +97,11 @@
                 <money>$15</money>
             </h1>
         </button>
-        <div id="hover" style="position: absolute;background: url(../img/wood2.jpg);border: ridge rgb(121, 60, 17) 3px;">
+        <!--div id="hover" style="position: absolute;background: url(../img/wood2.jpg);border: ridge rgb(121, 60, 17) 3px;">
             <p style="font-weight: bold;">
                 SHITTING PANTS
             </p>
-        </div>
+        </div-->
         <script>
             window.onbeforeunload = confirmExit;
             function confirmExit() {
@@ -131,16 +131,16 @@
                 y:0
             }
 
-            var cs = new sound("click.mp3");
-            var crackSound = new sound("crack.mp3");
+            var cs = new sound("../sounds/click.mp3");
+            var crackSound = new sound("../sounds/crack.mp3");
             
             var canSave = false;
             addEventListener("mousemove",function(event) {
                 mouse.x = event.clientX;
                 mouse.y = event.clientY;
                 
-                hoverDiv.style.top = mouse.y-(hoverDiv.clientHeight/2)-40+"px";
-                hoverDiv.style.left = mouse.x-(hoverDiv.clientWidth/2)+"px";
+                //hoverDiv.style.top = mouse.y-(hoverDiv.clientHeight/2)-40+"px";
+                //hoverDiv.style.left = mouse.x-(hoverDiv.clientWidth/2)+"px";
             });
             canvas.width = innerWidth
             canvas.height = innerHeight
