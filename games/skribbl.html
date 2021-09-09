@@ -11,18 +11,18 @@
         <meta http-equiv='X-UA-Compatible' content='IE=edge'>
         <title>Skribbl.io remake</title>
         <meta name='viewport' content='width=device-width, initial-scale=1'>
-        <link rel='stylesheet' type='text/css' media='screen' href='../font.css'>
-        <link href="https://fonts.googleapis.com/css?family=Chilanka&display=swap" rel="stylesheet">
-        <script src='../oof.js'></script>
+        <!--link rel='stylesheet' type='text/css' media='screen' href='../font.css'-->
+        <!--link href="https://fonts.googleapis.com/css?family=Chilanka&display=swap" rel="stylesheet"-->
+        <!--script src='../oof.js'></script-->
     </head>
     <body>
         <iframe src="https://skribbleio.herokuapp.com/" style="border: none;position:absolute;top:0px;left:0px;" title="this is the game" id="game"></iframe>
         <script>
-            get("game").height = innerHeight;
-            get("game").width = innerWidth;
+            document.getElementById("game").height = innerHeight;
+            document.getElementById("game").width = innerWidth;
             addEventListener("resize",function(event) {
-                get("game").width = innerWidth - 5
-                get("game").height = innerHeight - 5
+                document.getElementById("game").width = innerWidth;
+                document.getElementById("game").height = innerHeight;
             });
         </script>
     </body>
