@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>fnf reader</title>
+    <link rel="stylesheet" href="../clickable.css">
+    <style>
+        .leftArrow.left {
+            position: absolute;
+            clip: rect(0px,310px,153px,155px);
+            left:-155px;
+        }
+        .upArrow.left {
+            position: absolute;
+            clip: rect(0px,620px,153px,465px);
+            left: -135px;
+        }
+        .rightArrow.left {
+            position: absolute;
+            clip: rect(0px,465px,153px,310px);
+            left: 190px;
+        }
+        .downArrow.left {
+            position: absolute;
+            clip: rect(0px,155px,153px,0px);
+            left: 170px;
+        }
+        
+        .downArrow.right {
+            position: absolute;
+            clip: rect(0px,155px,153px,0px);
+            right: -135px;
+        }
+        .leftArrow.right {
+            position: absolute;
+            clip: rect(0px,310px,153px,155px);
+            right:190px;
+        }
+        .upArrow.right {
+            position: absolute;
+            clip: rect(0px,620px,153px,465px);
+            right: 170px;
+        }
+        .rightArrow.right {
+            position: absolute;
+            clip: rect(0px,465px,153px,310px);
+            right: -155px;
+        }
+    </style>
+    <script src="../oof.js"></script>
+    <script src="foolhardy.json"></script>
+    <script src="whereareyou.json"></script>
+    <script src="furiosity.json"></script>
+    <script src="supernovae.json"></script>
+    <script src="hellclown.json"></script>
+    <script src="bushwhack.json"></script>
+</head>
+<body style="width:100%;height:100%;overflow:hidden;">
+    <center>
+        <form style="display: inline-block;" id="forme">
+            <select onchange="this.parentElement.children[1].value = eval(`JSON.parse(${this.value}).song.speed`)">
+                <option value="foolhardy">foolhardy</option>
+                <option value="whereareyou">shaggy where are you</option>
+                <option value="furiosity">vs dave furiosity</option>
+                <option value="supernovae">vs dave supernovae</option>
+                <option value="bushwhack">zardy bushwhack</option>
+                <option value="hellclown">tricky hellclown</option>
+            </select>
+            <input type="number" step=".1" onblur="this.value = this.value == '' ? eval(`JSON.parse(${this.parentElement.firstElementChild.value}).song.speed`) : this.value" value="2.9">
+            <button type="submit" style="display: block;width: 100%;">Start</button>
+        </form>
+    </center>
+    <img src="../img/fnf arrows.png" class="leftArrow left" style="top: 80%">
+    <img src="../img/fnf arrows.png" class="downArrow left" style="top: 80%">
+    <img src="../img/fnf arrows.png" class="upArrow left" style="top: 80%">
+    <img src="../img/fnf arrows.png" class="rightArrow left" style="top: 80%">
+
+
+    <img src="../img/fnf arrows.png" class="leftArrow right" style="top: 80%">
+    <img src="../img/fnf arrows.png" class="downArrow right" style="top: 80%">
+    <img src="../img/fnf arrows.png" class="upArrow right" style="top: 80%">
+    <img src="../img/fnf arrows.png" class="rightArrow right" style="top: 80%">
+
+    <script>
+        var started = false;
+        var music;
+        var song;
+        var songSpeed;
+        var notesArray = [];
+        var notesMap = new Map();
+        notesMap.set(0,"leftArrow");
+        notesMap.set(1,"downArrow");
+        notesMap.set(2,"upArrow");
+        notesMap.set(3,"rightArrow");
+        
+        /*document.addEventListener("click",()=> {
+            if(!started) {
+                start();
+            }
+            started = true;
+        });*/
+        
+        document.addEventListener("keydown",(event)=>{
+            if(event.key == "-") {
+                music.sound.volume -= .1;
+            }else if(event.key == "+" || event.key == "=") {
+                music.sound.volume += .1;
+            }
+        });
+        function noteObj(mili,note,left,hold) {
+            this.mili = mili;
+            this.createNote = ()=>{
+                this.htmlObj = document.createElement('img');
+                this.htmlObj.src = "../img/fnf arrows.png";
+                this.htmlObj.style.display = "none";
+                this.htmlObj.className = notesMap.get(note) + " " + (left == true ? "left" : "right");
+                //this.htmlObj.parentElement = document.body;
+                this.htmlObj = document.body.appendChild(this.htmlObj);
+            }
+        }
+        function tick() {
+            notesArray.forEach(note => {
+                let shit = note.mili+(song.startTime - new Date().getTime());
+                if(shit < 3000 && !note.htmlObj) {
+                    note.createNote();
+                }else if(shit < 3000) {
+                    note.htmlObj.style.display = "inline";
+                    //console.log(song.startTime - new Date().getTime());
+                    //console.log(note.mili - (song.startTime - new Date().getTime()));
+                    note.htmlObj.style.top = "calc(80% - " + (shit*songSpeed) + "px)";
+                    //note.htmlObj.style.top = "calc(50% - " + toString((note.mili/100)) + "px)";
+                    if(shit <= 0) {
+                        notesArray.splice(notesArray.indexOf(note),1);
+                        note.htmlObj.remove();
+                        //del(htmlObj,document.body);
+                    }
+                }
+            });
+            requestAnimationFrame(tick);
+        }
+        forme.onsubmit = (event) => {
+            event.preventDefault();
+            let songName = forme.firstElementChild.value;
+            //console.log(songName);
+            //console.log(JSON.parse(songName));
+            music = new sound(songName+".mp3");
+            song = JSON.parse(eval(songName)).song;
+            songSpeed = forme.children[1].value/2;
+            forme.parentElement.remove();
+            //let letsgo = false;
+            music.sound.onplay = function() {
+                //letsgo = true;
+                song.startTime = new Date().getTime();
+
+                song.notes.forEach(bruh => {
+                    bruh.sectionNotes.forEach(notes => {
+                        //console.log(notes);
+                        if(notes[1] < 4) {
+                            notesArray.push(new noteObj(notes[0],notes[1],!bruh.mustHitSection,notes[2] == 0 ? true : false));
+                        }else {
+                            notesArray.push(new noteObj(notes[0],notes[1]%4,bruh.mustHitSection,notes[2] == 0 ? true : false));
+                        }
+                    });
+                });
+
+                tick();
+                //setInterval(()=> {
+                    
+                //},1);
+            }
+            music.play();
+            //let shit = setInterval(()=> { (yeah ok i realize this looks horrible so im gonna try to use a promise (i literally didn't have to do any of this (i thought i had to because i was gonna combine the voices and the background music but i decided it was dumb,)))
+                //if(letsgo) {
+                    
+                    //clearInterval(shit);
+                //}
+            //},1)
+        }
+        //function start() {
+            
+        //}
+        //console.log(song);
+    </script>
+</body>
+</html>
