@@ -7,46 +7,51 @@
     <title>fnf reader</title>
     <link rel="stylesheet" href="../clickable.css">
     <style>
+        /*img {
+            max-width: 500px;
+        }*/
         .leftArrow.left {
             position: absolute;
-            clip: rect(0px,310px,153px,155px);
-            left:-155px;
-        }
-        .upArrow.left {
-            position: absolute;
-            clip: rect(0px,620px,153px,465px);
-            left: -135px;
-        }
-        .rightArrow.left {
-            position: absolute;
-            clip: rect(0px,465px,153px,310px);
-            left: 190px;
+            clip: rect(0px,153px,153px,0px);
+            left:0;
+
         }
         .downArrow.left {
             position: absolute;
-            clip: rect(0px,155px,153px,0px);
-            left: 170px;
+            clip: rect(0px,309px,154px,153px);
+            left: 10px;
+        }
+        .upArrow.left {
+            position: absolute;
+            clip: rect(0px,465px,153px,310px);
+            left: 20px;
+        }
+        .rightArrow.left {
+            position: absolute;
+            clip: rect(0px,620px,153px,465px);
+            left: 30px;
         }
         
-        .downArrow.right {
-            position: absolute;
-            clip: rect(0px,155px,153px,0px);
-            right: -135px;
-        }
+        
         .leftArrow.right {
             position: absolute;
-            clip: rect(0px,310px,153px,155px);
-            right:190px;
+            clip: rect(0px,153px,153px,0px);
+            right:30px;
+        }
+        .downArrow.right {
+            position: absolute;
+            clip: rect(0px,309px,154px,153px);
+            right: 20px;
         }
         .upArrow.right {
             position: absolute;
-            clip: rect(0px,620px,153px,465px);
-            right: 170px;
+            clip: rect(0px,465px,153px,310px);
+            right: 10px;
         }
         .rightArrow.right {
             position: absolute;
-            clip: rect(0px,465px,153px,310px);
-            right: -155px;
+            clip: rect(0px,620px,153px,465px);
+            right: 0px;
         }
     </style>
     <script src="../oof.js"></script>
@@ -56,6 +61,7 @@
     <script src="supernovae.json"></script>
     <script src="hellclown.json"></script>
     <script src="bushwhack.json"></script>
+    <script src="boxingmatch.json"></script>
 </head>
 <body style="width:100%;height:100%;overflow:hidden;">
     <center>
@@ -67,6 +73,7 @@
                 <option value="supernovae">vs dave supernovae</option>
                 <option value="bushwhack">zardy bushwhack</option>
                 <option value="hellclown">tricky hellclown</option>
+                <option value="boxingmatch">matt boxing match</option>
             </select>
             <input type="number" step=".1" onblur="this.value = this.value == '' ? eval(`JSON.parse(${this.parentElement.firstElementChild.value}).song.speed`) : this.value" value="2.9">
             <button type="submit" style="display: block;width: 100%;">Start</button>
@@ -113,7 +120,7 @@
             this.mili = mili;
             this.createNote = ()=>{
                 this.htmlObj = document.createElement('img');
-                this.htmlObj.src = "../img/fnf arrows.png";
+                this.htmlObj.src = "../img/colored fnf arrows.png";
                 this.htmlObj.style.display = "none";
                 this.htmlObj.className = notesMap.get(note) + " " + (left == true ? "left" : "right");
                 //this.htmlObj.parentElement = document.body;
@@ -149,23 +156,35 @@
             song = JSON.parse(eval(songName)).song;
             songSpeed = forme.children[1].value/2;
             forme.parentElement.remove();
+            delete foolhardy;
+            delete whereareyou;
+            delete furiosity;
+            delete supernovae;
+            delete hellclown;
+            delete bushwhack;
+            delete boxingmatch;
             //let letsgo = false;
+            //music.play();
+
+            //music.sound.onload = function() {
             music.sound.onplay = function() {
                 //letsgo = true;
                 song.startTime = new Date().getTime();
 
-                song.notes.forEach(bruh => {
-                    bruh.sectionNotes.forEach(notes => {
-                        //console.log(notes);
-                        if(notes[1] < 4) {
-                            notesArray.push(new noteObj(notes[0],notes[1],!bruh.mustHitSection,notes[2] == 0 ? true : false));
-                        }else {
-                            notesArray.push(new noteObj(notes[0],notes[1]%4,bruh.mustHitSection,notes[2] == 0 ? true : false));
-                        }
+                    song.notes.forEach(bruh => {
+                        bruh.sectionNotes.forEach(notes => {
+                            //console.log(notes);
+                            if(notes[1] < 4) {
+                                notesArray.push(new noteObj(notes[0],notes[1],!bruh.mustHitSection,notes[2] == 0 ? true : false));
+                            }else {
+                                notesArray.push(new noteObj(notes[0],notes[1]%4,bruh.mustHitSection,notes[2] == 0 ? true : false));
+                            }
+                        });
                     });
-                });
 
-                tick();
+                    tick();
+                
+            
                 //setInterval(()=> {
                     
                 //},1);
