@@ -67,17 +67,19 @@
     <center>
         <form style="display: inline-block;" id="forme">
             <select onchange="this.parentElement.children[1].value = eval(`JSON.parse(${this.value}).song.speed`)">
-                <option value="foolhardy">foolhardy</option>
                 <option value="whereareyou">shaggy where are you</option>
+                <option value="foolhardy">foolhardy</option>
                 <option value="furiosity">vs dave furiosity</option>
                 <option value="supernovae">vs dave supernovae</option>
                 <option value="bushwhack">zardy bushwhack</option>
                 <option value="hellclown">tricky hellclown</option>
                 <option value="boxingmatch">matt boxing match</option>
             </select>
-            <input type="number" step=".1" onblur="this.value = this.value == '' ? eval(`JSON.parse(${this.parentElement.firstElementChild.value}).song.speed`) : this.value" value="2.9">
+            <input type="number" step=".1" onblur="this.value = this.value == '' ? eval(`JSON.parse(${this.parentElement.firstElementChild.value}).song.speed`) : this.value" value="1.7000000000000002">
             <button type="submit" style="display: block;width: 100%;">Start</button>
         </form>
+        <h1 id="combo" style="display: none;">Combo: 0</h1>
+        <h1 id="score" style="display: none;">Score: 0</h1>
     </center>
     <img src="../img/fnf arrows.png" class="leftArrow left" style="top: 80%">
     <img src="../img/fnf arrows.png" class="downArrow left" style="top: 80%">
@@ -92,10 +94,15 @@
 
     <script>
         var started = false;
+        var paused = false;
         var music;
         var song;
         var songSpeed;
+        var animationFrame;
+        var comboNumber = 0;
         var notesArray = [];
+        var couldHitNotes = [[],[],[],[]];
+        var keys = {};
         var notesMap = new Map();
         notesMap.set(0,"leftArrow");
         notesMap.set(1,"downArrow");
@@ -108,21 +115,118 @@
             }
             started = true;
         });*/
-        
+        function goodHit(noteDiff) {
+            //replace good with king
+            if (noteDiff > 166) { // so god damn early its a miss 
+                combo.innerHTML = "Combo: 0 (miss)"; comboNumber = 0;
+            }
+            if (noteDiff > 135) { // way early
+                combo.innerHTML = `Combo: ${++comboNumber} (shit)`;
+            }else if (noteDiff > 90) {// early
+                combo.innerHTML = `Combo: ${++comboNumber} (bad)`;
+            }else if (noteDiff > 45) {// your kinda there
+                combo.innerHTML = `Combo: ${++comboNumber} (good)`;
+            }else if (noteDiff < 45 && noteDiff > -45) {
+                combo.innerHTML = `Combo: ${++comboNumber} (great)`;
+                console.log(comboNumber);
+            }else if (noteDiff < -45) {// little late
+                combo.innerHTML = `Combo: ${++comboNumber} (good)`;
+            }else if (noteDiff < -90) {// late
+                combo.innerHTML = `Combo: ${++comboNumber} (bad)`;
+            }else if (noteDiff < -135) {// late as fuck
+                combo.innerHTML = `Combo: ${++comboNumber} (shit)`;
+            }else if (noteDiff < -166) {// so god damn late its a miss
+                combo.innerHTML = "Combo: 0 (miss)";
+                comboNumber = 0;
+            }
+                console.log(noteDiff);
+        }
+        function noteInRow(row) {
+            //couldHitNotes[row][0].htmlObj.src = "../img/colored fnf arrows.png";
+            //couldHitNotes[row][couldHitNotes[row].length-1].htmlObj.src = "../img/colored fnf arrows.png";
+
+            /*couldHitNotes[row].forEach((note) => {
+                let bruh = note.mili+(song.startTime - new Date().getTime());
+                
+            });*/
+            try {
+                couldHitNotes[row].sort((note, note2) => (note.mili+(song.startTime - new Date().getTime()) > note2.mili+(song.startTime - new Date().getTime())) ? 1 : -1);
+                let note = couldHitNotes[row][0];
+                let noteDiff = note.mili+(song.startTime - new Date().getTime());
+                goodHit(noteDiff);
+                //couldHitNotes[row][0].htmlObj.src = "../img/colored fnf arrows.png";
+                notesArray.splice(notesArray.indexOf(note),1);
+                couldHitNotes[row].splice(0,1);
+                note.htmlObj.remove();
+            }catch {
+
+            }
+        }
         document.addEventListener("keydown",(event)=>{
             if(event.key == "-") {
                 music.sound.volume -= .1;
             }else if(event.key == "+" || event.key == "=") {
                 music.sound.volume += .1;
             }
+            if(event.key == "Enter") {
+                new sound("../sounds/textclickmodern.ogg").play();
+                if(!paused) { //have to negate this value because im setting it after (because i need the start time)
+                    music.sound.pause();
+                    cancelAnimationFrame(animationFrame);
+                }else {
+                    music.sound.play();
+                    song.startTime += new Date().getTime()-paused;
+                    tick();
+                }
+                paused = paused == false ? new Date().getTime() : false;
+            }
+            if(!keys[event.key]) {
+                //console.log(keys[event.key]);
+                if(event.key == "d" || event.key == "ArrowLeft") {
+                    document.getElementsByClassName("leftArrow right")[0].src = "../img/colored fnf arrows.png";
+                    noteInRow(0);
+                }
+                if(event.key == "f" || event.key == "ArrowDown") {
+                    document.getElementsByClassName("downArrow right")[0].src = "../img/colored fnf arrows.png";
+                    noteInRow(1);
+                }
+                if(event.key == "j" || event.key == "ArrowUp") {
+                    document.getElementsByClassName("upArrow right")[0].src = "../img/colored fnf arrows.png";
+                    noteInRow(2);
+                }
+                if(event.key == "k" || event.key == "ArrowRight") {
+                    document.getElementsByClassName("rightArrow right")[0].src = "../img/colored fnf arrows.png";
+                    noteInRow(3);
+                }
+            }
+            keys[event.key] = true; 
         });
+        document.addEventListener("keyup",(event)=>{
+            if(event.key == "d" || event.key == "ArrowLeft") {
+                document.getElementsByClassName("leftArrow right")[0].src = "../img/fnf arrows.png";
+            }
+            if(event.key == "f" || event.key == "ArrowDown") {
+                document.getElementsByClassName("downArrow right")[0].src = "../img/fnf arrows.png";
+            }
+            if(event.key == "j" || event.key == "ArrowUp") {
+                document.getElementsByClassName("upArrow right")[0].src = "../img/fnf arrows.png";
+            }
+            if(event.key == "k" || event.key == "ArrowRight") {
+                document.getElementsByClassName("rightArrow right")[0].src = "../img/fnf arrows.png";
+            }
+            delete keys[event.key];
+        })
         function noteObj(mili,note,left,hold) {
             this.mili = mili;
+            if(!left) {
+                this.mustHit = true;
+                this.row = note;
+            }
             this.createNote = ()=>{
                 this.htmlObj = document.createElement('img');
                 this.htmlObj.src = "../img/colored fnf arrows.png";
                 this.htmlObj.style.display = "none";
-                this.htmlObj.className = notesMap.get(note) + " " + (left == true ? "left" : "right");
+                this.htmlObj.className = notesMap.get(note) + " " + (this.mustHit ? "right" : "left");
                 //this.htmlObj.parentElement = document.body;
                 this.htmlObj = document.body.appendChild(this.htmlObj);
             }
@@ -130,22 +234,34 @@
         function tick() {
             notesArray.forEach(note => {
                 let shit = note.mili+(song.startTime - new Date().getTime());
-                if(shit < 3000 && !note.htmlObj) {
+                if(shit < 2500 && !note.htmlObj) {
                     note.createNote();
-                }else if(shit < 3000) {
+                }else if(shit < 2500) {
                     note.htmlObj.style.display = "inline";
                     //console.log(song.startTime - new Date().getTime());
                     //console.log(note.mili - (song.startTime - new Date().getTime()));
                     note.htmlObj.style.top = "calc(80% - " + (shit*songSpeed) + "px)";
                     //note.htmlObj.style.top = "calc(50% - " + toString((note.mili/100)) + "px)";
-                    if(shit <= 0) {
+                    if(shit < 1000) {
+                        if(note.mustHit && couldHitNotes[note.row].indexOf(note) == -1) {
+                            //note.htmlObj.src = "../img/fnf arrows.png";
+                            couldHitNotes[note.row].push(note);
+                        }
+                    }
+                    if(shit <= 0 && !note.mustHit) {
                         notesArray.splice(notesArray.indexOf(note),1);
                         note.htmlObj.remove();
+                    }else if(shit <= -200) {
+                        notesArray.splice(notesArray.indexOf(note),1);
+                        couldHitNotes[note.row].splice(couldHitNotes[note.row].indexOf(note),1);
+                        note.htmlObj.remove();
+                        goodHit(1000); //(miss)
                         //del(htmlObj,document.body);
                     }
                 }
             });
-            requestAnimationFrame(tick);
+            //notesArray[0].htmlObj.src = "../img/fnf arrows.png";
+            animationFrame = requestAnimationFrame(tick);
         }
         forme.onsubmit = (event) => {
             event.preventDefault();
@@ -155,21 +271,27 @@
             music = new sound(songName+".mp3");
             song = JSON.parse(eval(songName)).song;
             songSpeed = forme.children[1].value/2;
-            forme.parentElement.remove();
+            forme.remove();
+            combo.style.display = "block";
+            score.style.display = "block";
             delete foolhardy;
             delete whereareyou;
             delete furiosity;
             delete supernovae;
             delete hellclown;
             delete bushwhack;
-            delete boxingmatch;
+            delete boxingmatch;//Wake up get up get put there
             //let letsgo = false;
             //music.play();
 
             //music.sound.onload = function() {
-            music.sound.onplay = function() {
+            
+            music.sound.addEventListener("loadeddata",function() {
                 //letsgo = true;
-                song.startTime = new Date().getTime();
+                if(music.sound.readyState == 4) {
+                    song.startTime = new Date().getTime();
+
+                    music.play();
 
                     song.notes.forEach(bruh => {
                         bruh.sectionNotes.forEach(notes => {
@@ -183,13 +305,11 @@
                     });
 
                     tick();
-                
-            
+                }
                 //setInterval(()=> {
                     
                 //},1);
-            }
-            music.play();
+            });
             //let shit = setInterval(()=> { (yeah ok i realize this looks horrible so im gonna try to use a promise (i literally didn't have to do any of this (i thought i had to because i was gonna combine the voices and the background music but i decided it was dumb,)))
                 //if(letsgo) {
                     

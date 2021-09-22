@@ -126,11 +126,8 @@ function sound(src) {
 	  this.sound.play();
 	  this.sound.onended = function() {
 		  //console.log(this);
-		  del(this,this.parentElement);
+		  this.remove();//del(this,this.parentElement);
 	  }
-	}
-	this.stop = function(){
-	  this.sound.pause();
 	}
 }
 function removeAt(array,index) {
