@@ -24,14 +24,17 @@
     <div>
         <canvas id="canvas" width="660" height="660" oncontextmenu="event.preventDefault();" style="display: block;"></canvas>
         <label>Numbers</label>
-        <input type="checkbox" onchange="numbers = this.checked;">
+        <input type="checkbox" onchange="settings.numbers = this.checked;">
+        <br>
+        <label>Random path</label>
+        <input type="checkbox" checked="true" onchange="settings.randomPath = this.checked;">
     </div>
     <script>
         let context = canvas.getContext('2d');
         let tiles = [];
         let size = 32;
         let globalNumber = 1;
-        let numbers = false;
+        let settings = {numbers: false, randomPath: true};
 
         let destination;// = {x: 0,y: 0};
         let lastTile;
@@ -217,10 +220,16 @@
                                     if(info.tmp == 0) {
                                         if(neighbors[n].number < info.number && neighbors[n].number != 0) {
                                             potentialPaths.push(neighbors[n]);
+                                            if(!settings.randomPath) {
+                                                break;
+                                            }
                                         }
                                     }else {
                                         if(neighbors[n].number > info.number && neighbors[n].number != 0) {
                                             potentialPaths.push(neighbors[n]);
+                                            if(!settings.randomPath) {
+                                                break;
+                                            }
                                         }
                                     }
                                     
@@ -245,7 +254,7 @@
                         }
                         //context.fillStyle = `rgb(${info.number*10 + 50},0,0)`;
                         context.fillRect((x*size)+incX,(y*size)+incY,size,size);
-                        if(numbers) {
+                        if(settings.numbers) {
                             context.fillStyle = "black";
                             context.fillText(info.number,(x*size)+incX+10,(y*size)+incY+25);
                         }
