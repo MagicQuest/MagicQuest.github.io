@@ -237,7 +237,7 @@
                 if(shit < 2500 && !note.htmlObj) {
                     note.createNote();
                 }else if(shit < 2500) {
-                    note.htmlObj.style.display = "inline";
+                    note.htmlObj.style.display = "inline";                                                                                                                                                                                        
                     //console.log(song.startTime - new Date().getTime());
                     //console.log(note.mili - (song.startTime - new Date().getTime()));
                     note.htmlObj.style.top = "calc(80% - " + (shit*songSpeed) + "px)";
@@ -288,9 +288,10 @@
             
             music.sound.addEventListener("loadeddata",function() {
                 //letsgo = true;
+                console.log(music.sound.readyState);
                 if(music.sound.readyState == 4) {
                     song.startTime = new Date().getTime();
-
+                    
                     music.play();
 
                     song.notes.forEach(bruh => {

@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pathfinding</title>
+    <script src="oof.js"></script>
+    <style>
+        div {
+            display: inline-block;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            -webkit-transform: translate(-50%, -50%);
+            transform: translate(-50%, -50%);
+            cursor: pointer;
+            font-size: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <canvas id="canvas" width="660" height="660" oncontextmenu="event.preventDefault();" style="display: block;"></canvas>
+        <label>Numbers</label>
+        <input type="checkbox" onchange="numbers = this.checked;">
+    </div>
+    <script>
+        let context = canvas.getContext('2d');
+        let tiles = [];
+        let size = 32;
+        let globalNumber = 1;
+        let numbers = false;
+
+        let destination;// = {x: 0,y: 0};
+        let lastTile;
+
+        let queue = [];
+        let reached = [];
+
+        context.font = "20px comic sans ms"
+
+        for(let y = 0; y < 20; y++) {
+            tiles[y] = [];
+            reached[y] = [];
+            for(let x = 0; x < 20; x++) {
+                tiles[y][x] = {state: 0, number: 0, x: x,y: y,tmp: 0,created: 0};
+                reached[y][x] = false;
+            }
+        }
+
+        destination = tiles[random(0,19)][random(0,19)];//{x: random(0,19),y: random(0,19)};
+        destination.state = 2;
+
+        function beginPathfinding() {
+            for(let y in reached) {
+                for(let x in reached[y]) {
+                    reached[y][x] = false;
+                    tiles[y][x].number = 0;
+                }
+            }
+            reached[destination.y][destination.x] = true;
+            queue = [destination];
+            globalNumber = 1;
+            pathfind();
+        }
+
+        /*function getReached() {
+            for(let y in reached) {
+                for(let x in reached[y]) {
+                    if(reached[y][x]) {
+                        console.log(tiles[y][x]);
+                    }
+                }
+            }
+        }*/
+
+        function pathfind() {
+            //let pushShit = [];
+            //let i = 0;
+
+            /*let fella = setInterval(() => {
+                let j = 0;
+                if(!queue[i]) {
+                    clearInterval(fella);
+                }
+                let ogTile = queue[i];
+                let neighbors = getNeighbors(ogTile);
+                let fuck = setInterval(() => {
+                    let tile = neighbors[j];
+                },100);
+            },100);
+            for(let i in queue) {
+                let ogTile = queue[i];
+                let neighbors = getNeighbors(ogTile);      
+                let n = 0;
+                setInterval(() => {
+                    let tile = neighbors[n];
+                    console.log(n);
+                    if(!reached[tile.y][tile.x]) {
+                        reached[tile.y][tile.x] = true;
+                        //tile.state++;
+                        //pushShit.push(tile);
+                        tile.state = 2;
+                        tile.number = globalNumber;
+                        queue.push(tile);
+                    }
+                    n++;    
+                },1000 * n);        
+                /*for(let n in neighbors) {
+                    let tile = neighbors[n];
+                    if(!reached[tile.y][tile.x]) {
+                        reached[tile.y][tile.x] = true;
+                        //tile.state++;
+                        //pushShit.push(tile);
+                        tile.state = 2;
+                        tile.number = globalNumber;
+                        queue.push(tile);
+                    }
+                }*//*
+                queue.splice(queue.indexOf(ogTile),1);
+                ogTile.state = 1;
+            }
+            globalNumber++;*/// tried to slow it down here but i gave up (there is just no way to do it that good :(( )
+            
+            queue.forEach(ogTile => {
+                getNeighbors(ogTile).forEach(tile => {
+                    //if(tile.created) {
+                        //tile.state = 2;
+                        //tile.created = false;
+                    //}else {
+                    //}
+                    if(!reached[tile.y][tile.x] && tile.state != 1) {
+                        reached[tile.y][tile.x] = true;
+                        //tile.state++;
+                        //pushShit.push(tile);
+                        //tile.state = 2;
+                        tile.number = globalNumber;
+                        queue.push(tile);
+                    }
+                });
+                //queue.splice(queue.indexOf(ogTile),1);
+                //wait a minute why did me not removing it from the queue work????? uh guys im starting to thing you weren't supposed to remove it from the queue
+                //ogTile.state = 1;
+            });
+            globalNumber++;
+            //there has got to be a better way :( (even worse it doesn't loop over something you just added so i didn't need this)
+            //pushShit.forEach(shit => {
+            //    queue.push(shit);
+            //});
+            //queue.push(pushShit);
+            if(queue.length != 400) {
+                //pathfind();
+                setTimeout(pathfind,50);
+            }
+            //setTimeout(pathfind,100);
+        }
+
+        beginPathfinding();
+        //pathfind();
+
+        //tiles[destination.y][destination.x].state = 2;
+
+        //function getTileInPos(mouseX,mouseY) {
+            
+        //}
+        function getNeighbors(tile) {
+            let startX = tile.x;
+            let startY = tile.y;
+            let neighbors = [];
+            if(tiles[startY+1]) {
+                neighbors.push(tiles[startY+1][startX]);
+            }
+            if(tiles[startY-1]) {
+                neighbors.push(tiles[startY-1][startX]);
+            }
+            if(tiles[startY][startX+1]) {
+                neighbors.push(tiles[startY][startX+1]);
+            }
+            if(tiles[startY][startX-1]) {
+                neighbors.push(tiles[startY][startX-1]);
+            }
+            return neighbors;
+            //come on bruh i cooked this up and then boom i don't have to do it
+            //for(let y = -1; y < 2; y++) {
+            //    for(let x = -1; x < 2;x++) {
+                    //if(x == 0 && y == 0) {
+                        //tiles[startY][startX].state = 2;
+                    //}else {
+                        //neighbors.push(tiles[startY-y][startX-x]);
+                    //}
+            //    }
+            //}
+        }
+
+        function draw() {
+            context.clearRect(0,0,canvas.width,canvas.height);
+            //multiplied by size here
+            let incX = 0, incY = 0; //ayo wait when could you do this
+            tiles.forEach((tiles2,y) => {
+                tiles2.forEach((info,x) => {
+                    //if(info[0] == 0) {
+                        //console.log(info);
+                        if(info.state == 0) {
+                            context.fillStyle = info.number == 0 ? "rgb(221,213,213)" : "rgb(204, 191, 179)";
+                        }else if(info.state == 1) {
+                            context.fillStyle = "rgb(134, 134, 121)";
+                        }else if(info.state == 2) {
+                            context.fillStyle = "rgb(191, 64, 64)";
+                        }else if(info.state == 3) {
+                            if(!info.created) {
+                                info.created++;
+                                let neighbors = getNeighbors(info);
+                                let potentialPaths = [];
+                                for(let n in neighbors) {
+                                    if(info.tmp == 0) {
+                                        if(neighbors[n].number < info.number && neighbors[n].number != 0) {
+                                            potentialPaths.push(neighbors[n]);
+                                        }
+                                    }else {
+                                        if(neighbors[n].number > info.number && neighbors[n].number != 0) {
+                                            potentialPaths.push(neighbors[n]);
+                                        }
+                                    }
+                                    
+                                }
+                                //console.log(potentialPaths);
+                                if(potentialPaths.length) {
+                                    let path = choice(potentialPaths);
+                                    //if(path.number != 0) {
+                                        path.state = info.state;
+                                        path.tmp = info.tmp;
+                                    //}
+                                }
+                            }else {
+                                info.created++;
+                                context.fillStyle = `rgb(255,${165-info.created},${info.tmp == 0 ? info.created*2 : 255 - info.created*2})`;
+                                if(info.created > 50) {
+                                    info.state = 0;
+                                    info.created = 0;
+                                    info.tmp = 0;
+                                }
+                            }
+                        }
+                        //context.fillStyle = `rgb(${info.number*10 + 50},0,0)`;
+                        context.fillRect((x*size)+incX,(y*size)+incY,size,size);
+                        if(numbers) {
+                            context.fillStyle = "black";
+                            context.fillText(info.number,(x*size)+incX+10,(y*size)+incY+25);
+                        }
+
+                    //}
+                    incX++;
+                });
+                incY++;
+                incX = 0;
+                //context.fillRect(x,x,size,size);
+            });
+            /*for(let y = 0; y < 20*size; y += size + 1) {
+                for(let x = 0; x < 20*size; x += size + 1) {
+                    //ok so i was confused because i wanted them to be spaced by 1 so i finally realized that i could just add one and start at -1 (wait no thats not right either ok i think i finally have it)
+                    //console.log((y/32)-(y%32),(x/32)-(x%32));
+                    if(tiles[y][x] == 1) {
+                        context.fillRect(x,y,size,size);
+                    }
+                }
+            }*/
+            requestAnimationFrame(draw);
+        }
+        draw();
+
+        canvas.addEventListener('mousedown',event => {
+            let mode = event.button+event.shiftKey;
+            //console.log(getTileInPos(event.offsetX,event.offsetY));
+            let incX = 0, incY = 0;
+            for(let y in tiles) {
+                for(let x in tiles[y]) {
+                    let trueX = (x*size)+incX;
+                    let trueY = (y*size)+incY;
+                    if(trueX < event.offsetX && event.offsetX < trueX+size) {
+                        //console.log(trueY,mouseY);
+                        //console.log(mouseY,trueY+size);
+                        if(trueY < event.offsetY && event.offsetY < trueY+size) {
+                            //delete tiles[y][x];
+                            lastTile = /*{x: trueX,y: trueY};*/tiles[y][x];
+                            if(mode == 1) {
+                                if(tiles[y][x].state == 2) {
+                                    tiles[y][x].state = 0;
+                                    destination = undefined;
+                                }else {
+                                    tiles[y][x].state = 2;
+                                    if(destination) {
+                                        destination.state = 0;
+                                    }
+                                    destination = tiles[y][x];//{x: x,y: y};
+                                }
+                            }else {
+                                if(mode == 2 || mode == 3) {
+                                    if(mode == 3) {
+                                        tiles[y][x].state = tiles[y][x].state == 3 ? 0 : 3;
+                                        tiles[y][x].tmp = 1;
+                                    }else {
+                                        tiles[y][x].state = tiles[y][x].state == 3 ? 0 : 3;
+                                    }
+                                }else {
+                                    tiles[y][x].state = Number(!tiles[y][x].state);
+                                    if(tiles[y][x] == destination) {
+                                        destination = undefined;
+                                    } //only in here because not gonna happen
+                                }
+                            }
+                            if(mode != 2 && mode != 3) {
+                                beginPathfinding();
+                            }
+                            return;
+                        }
+                    }
+                    incX++;
+                }
+                incY++;
+                incX = 0;
+            }
+            //can't break/return
+            /*tiles.forEach((tiles2,y) => {
+                tiles2.forEach((value,x) => {
+                
+                });
+            });*/
+        });
+        
+        canvas.addEventListener('mousemove',event => {
+            if(event.buttons == 1) {
+                let incX = 0, incY = 0;
+                for(let y in tiles) {
+                    for(let x in tiles[y]) {
+                        let trueX = (x*size)+incX;
+                        let trueY = (y*size)+incY;
+                        if(trueX < event.offsetX && event.offsetX < trueX+size) {
+                            //console.log(trueY,mouseY);
+                            //console.log(mouseY,trueY+size);
+                            if(trueY < event.offsetY && event.offsetY < trueY+size) {
+                                //delete tiles[y][x];
+                                if((lastTile != tiles[y][x])) {
+                                    if(tiles[y][x] == destination) {
+                                        destination = undefined;
+                                    }
+                                    tiles[y][x].state = Number(!tiles[y][x].state);
+                                    lastTile = tiles[y][x];//{x: trueX, y: trueY}; bruh i though that doing it the current way wouldn't work but i guess it knows more about the object than i thought (2 objects with the exact same elements inside are not equal unless they are the same variable)
+                                }//else {
+                                    //console.log(`tx: ${trueX} ty: ${trueY} x: ${lastTile.x} y: ${lastTile.y}`);
+                                //}
+                                beginPathfinding();
+                                return;
+                            }
+                        }
+                        incX++;
+                    }
+                    incY++;
+                    incX = 0;
+                }
+            }
+        });
+    </script>
+</body>
+</html>

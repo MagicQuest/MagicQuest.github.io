@@ -25,13 +25,17 @@ function componentToHex(c) {
 	var hex = c.toString(16);
 	return hex.length == 1 ? "0" + hex : hex;
 }
-function circle(ctx,x,y,r,endAngle = 360,fillColor = "0") {
+function circle(ctx,x,y,r,endAngle = 360,fillColor = undefined,strokeColor = undefined) {
 	ctx.beginPath();
 	
 	ctx.arc(x, y, r, 0, (endAngle/180) * Math.PI);
-	if(fillColor != "0") {
+	//bruh why did i check if it was 0 and not undefined
+	if(fillColor) {
 		ctx.fillStyle = fillColor;
 		ctx.fill();
+	}
+	if(strokeColor) {
+		ctx.strokeStyle = strokeColor;
 	}
 	ctx.stroke();
 }
