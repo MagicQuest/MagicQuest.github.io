@@ -287,10 +287,10 @@
                 for(let x in tiles[y]) {
                     let trueX = (x*size)+incX;
                     let trueY = (y*size)+incY;
-                    if(trueX < event.offsetX && event.offsetX < trueX+size) {
+                    if(trueX-1 < event.offsetX && event.offsetX < trueX+size+1) {
                         //console.log(trueY,mouseY);
                         //console.log(mouseY,trueY+size);
-                        if(trueY < event.offsetY && event.offsetY < trueY+size) {
+                        if(trueY-1 < event.offsetY && event.offsetY < trueY+size+1) {
                             //delete tiles[y][x];
                             lastTile = /*{x: trueX,y: trueY};*/tiles[y][x];
                             if(mode == 1) {
@@ -345,10 +345,10 @@
                     for(let x in tiles[y]) {
                         let trueX = (x*size)+incX;
                         let trueY = (y*size)+incY;
-                        if(trueX < event.offsetX && event.offsetX < trueX+size) {
+                        if(trueX-1 < event.offsetX && event.offsetX < trueX+size+1) {
                             //console.log(trueY,mouseY);
                             //console.log(mouseY,trueY+size);
-                            if(trueY < event.offsetY && event.offsetY < trueY+size) {
+                            if(trueY-1 < event.offsetY && event.offsetY < trueY+size+1) {
                                 //delete tiles[y][x];
                                 if((lastTile != tiles[y][x])) {
                                     if(tiles[y][x] == destination) {

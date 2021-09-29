@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>conways game of cum</title>
+    <title>life of cum</title>
     <style>
         div {
             display: inline-block;
@@ -14,7 +14,7 @@
             -webkit-transform: translate(-50%, -50%);
             transform: translate(-50%, -50%);
             cursor: pointer;
-            font-size: amountpx;
+            font-size: 20px;
             text-align: center;
         }
     </style>
@@ -28,7 +28,7 @@
         let tiles = [];
         let lastTile;
         let amount = 40;
-        let size = 16;
+        let size = 15.5;
         let paused;
         let tick;
         //let skip;
@@ -58,6 +58,25 @@
                         
                     }
                 }
+            }
+            return neighbors;
+        }
+
+        function get4Neighbors(tile) {
+            let startX = tile.x;
+            let startY = tile.y;
+            let neighbors = [];
+            if(tiles[startY+1]) {
+                neighbors.push(tiles[startY+1][startX]);
+            }
+            if(tiles[startY-1]) {
+                neighbors.push(tiles[startY-1][startX]);
+            }
+            if(tiles[startY][startX+1]) {
+                neighbors.push(tiles[startY][startX+1]);
+            }
+            if(tiles[startY][startX-1]) {
+                neighbors.push(tiles[startY][startX-1]);
             }
             return neighbors;
         }
@@ -92,6 +111,17 @@
                             context.fillStyle = "rgb(204, 191, 179)";
                         }else if(tile.state == 1) {
                             context.fillStyle = "rgb(134, 134, 121)";
+                        }else if(tile.state == 2) {
+                            context.fillStyle = "rgb(191, 64, 64)";
+                        }
+                        if(tile.state == 2 /*&& skip*/ && tile.changed == false) {
+                            get4Neighbors(tile).forEach(tile2 => {
+                                if(tile2.state == 0) {
+                                    tile2.state = 2;
+                                    tile2.changed = true;
+                                }
+                            });
+                            tile.state = 1;
                         }
                         if(!paused/* && !skip*/) {
                             if(tile.state == 1 && (tile.neighbors != 2 && tile.neighbors != 3)) {
@@ -100,7 +130,6 @@
                             if(tile.state == 0 && (tile.neighbors == 3)) {
                                 tile.state = 1;
                             }
-                            
                            
                             //else if(tile.state == 0 && tile.neighbors == 3) {
                             //    tile.state = 1;
@@ -120,13 +149,15 @@
             tiles.forEach((tiles2,y) => {
                 tiles2.forEach((tile,x) => {
                     tile.neighbors = getNeighbors(tile);
+                    tile.changed = false;
                 });
             });
             if(tick) {
                 tick = false;
                 paused = true;
             }
-            /*if(!skip) {
+            //skip = !skip;
+            /*if(!skip) { (bro why did i do it like this :( )
                 skip = true;
             }else {
                 skip = false;
@@ -146,13 +177,17 @@
                 for(let x in tiles[y]) {
                     let trueX = (x*size)+incX;
                     let trueY = (y*size)+incY;
-                    if(trueX < event.offsetX && event.offsetX < trueX+size) {
+                    if(trueX-1 < event.offsetX && event.offsetX < trueX+size+1) {
                         //console.log(trueY,mouseY);
                         //console.log(mouseY,trueY+size);
-                        if(trueY < event.offsetY && event.offsetY < trueY+size) {
+                        if(trueY-1 < event.offsetY && event.offsetY < trueY+size+1) {
                             //delete tiles[y][x];
-                            lastTile = /*{x: trueX,y: trueY};*/tiles[y][x];
-                            tiles[y][x].state = Number(!tiles[y][x].state);
+                            if(mode == 2) {
+                                tiles[y][x].state = 2;
+                            }else {
+                                lastTile = /*{x: trueX,y: trueY};*/tiles[y][x];
+                                tiles[y][x].state = Number(!tiles[y][x].state);
+                            }
                             return;
                         }
                     }
@@ -176,10 +211,10 @@
                     for(let x in tiles[y]) {
                         let trueX = (x*size)+incX;
                         let trueY = (y*size)+incY;
-                        if(trueX < event.offsetX && event.offsetX < trueX+size) {
+                        if(trueX-1 < event.offsetX && event.offsetX < trueX+size+1) {
                             //console.log(trueY,mouseY);
                             //console.log(mouseY,trueY+size);
-                            if(trueY < event.offsetY && event.offsetY < trueY+size) {
+                            if(trueY-1 < event.offsetY && event.offsetY < trueY+size+1) {
                                 //delete tiles[y][x];
                                 if((lastTile != tiles[y][x])) {
                                     tiles[y][x].state = Number(!tiles[y][x].state);
