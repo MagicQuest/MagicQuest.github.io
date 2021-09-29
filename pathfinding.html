@@ -48,7 +48,7 @@
             tiles[y] = [];
             reached[y] = [];
             for(let x = 0; x < 20; x++) {
-                tiles[y][x] = {state: 0, number: 0, x: x,y: y,tmp: 0,created: 0};
+                tiles[y][x] = {state: 0, number: 0, x: x,y: y,tmp: 0,life: -1};
                 reached[y][x] = false;
             }
         }
@@ -129,9 +129,9 @@
             
             queue.forEach(ogTile => {
                 getNeighbors(ogTile).forEach(tile => {
-                    //if(tile.created) {
+                    //if(tile.life) {
                         //tile.state = 2;
-                        //tile.created = false;
+                        //tile.life = false;
                     //}else {
                     //}
                     if(!reached[tile.y][tile.x] && tile.state != 1) {
@@ -212,8 +212,8 @@
                         }else if(info.state == 2) {
                             context.fillStyle = "rgb(191, 64, 64)";
                         }else if(info.state == 3) {
-                            if(!info.created) {
-                                info.created++;
+                            if(!info.life) {
+                                info.life++;
                                 let neighbors = getNeighbors(info);
                                 let potentialPaths = [];
                                 for(let n in neighbors) {
@@ -243,11 +243,11 @@
                                     //}
                                 }
                             }else {
-                                info.created++;
-                                context.fillStyle = `rgb(255,${165-info.created},${info.tmp == 0 ? info.created*2 : 255 - info.created*2})`;
-                                if(info.created > 50) {
+                                info.life++;
+                                context.fillStyle = `rgb(255,${165-info.life},${info.tmp == 0 ? info.life*2 : 255 - info.life*2})`;
+                                if(info.life > 50) {
                                     info.state = 0;
-                                    info.created = 0;
+                                    info.life = -1;
                                     info.tmp = 0;
                                 }
                             }
