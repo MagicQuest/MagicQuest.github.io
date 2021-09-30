@@ -32,6 +32,7 @@
     <script>
         let context = canvas.getContext('2d');
         let tiles = [];
+        let particles = [];
         let size = 32;
         let globalNumber = 1;
         let settings = {numbers: false, randomPath: true};
@@ -42,7 +43,14 @@
         let queue = [];
         let reached = [];
 
-        context.font = "20px comic sans ms"
+        context.font = "20px comic sans ms";
+
+        function particle(x,y,dest) {
+            this.x = x;
+            this.y = y;
+            this.vel = {x: 0,y: 0};
+            this.destination = dest;
+        }
 
         for(let y = 0; y < 20; y++) {
             tiles[y] = [];
@@ -265,6 +273,11 @@
                 incY++;
                 incX = 0;
                 //context.fillRect(x,x,size,size);
+            });
+            particles.forEach(particle => {
+                particle.x += particle.vel.x;
+                particle.y += particle.vel.y;
+                circle(context,particle.x,particle.y,5,360,"rgb(191, 64, 64)","rgba(0,0,0,0)");
             });
             /*for(let y = 0; y < 20*size; y += size + 1) {
                 for(let x = 0; x < 20*size; x += size + 1) {

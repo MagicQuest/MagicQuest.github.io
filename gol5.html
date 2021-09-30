@@ -21,19 +21,19 @@
 </head>
 <body>
     <div>
-        <canvas id="canvas" width="660" height="660" oncontextmenu="event.preventDefault();" style="display: block;"></canvas>
+        <canvas id="canvas" width="825" height="825" oncontextmenu="event.preventDefault();" style="display: block;"></canvas>
     </div>
     <script>
         let context = canvas.getContext('2d');
         let tiles = [];
         let lastTile;
         let amount = 40;
-        let size = 15.5;
+        let size = 19.625;
         let paused;
         let tick;
         //let skip;
 
-        context.font = "10px comic sans ms"
+        context.font = "12.5px comic sans ms"
 
         for(let y = 0; y < amount; y++) {
             tiles[y] = [];
@@ -140,7 +140,7 @@
                         //logic(tile);
                         context.fillRect((x*size)+incX,(y*size)+incY,size,size);
                         context.fillStyle = "black";
-                        context.fillText(tile.neighbors,(x*size)+incX+5,(y*size)+incY+12);
+                        context.fillText(tile.neighbors,(x*size)+incX+6,(y*size)+incY+13);
                     incX++;
                 });
                 incY++;
