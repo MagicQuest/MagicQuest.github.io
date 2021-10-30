@@ -128,7 +128,7 @@
                 combo.innerHTML = `Combo: ${++comboNumber} (good)`;
             }else if (noteDiff < 45 && noteDiff > -45) {
                 combo.innerHTML = `Combo: ${++comboNumber} (great)`;
-                console.log(comboNumber);
+                //console.log(comboNumber);
             }else if (noteDiff < -45) {// little late
                 combo.innerHTML = `Combo: ${++comboNumber} (good)`;
             }else if (noteDiff < -90) {// late
@@ -139,7 +139,7 @@
                 combo.innerHTML = "Combo: 0 (miss)";
                 comboNumber = 0;
             }
-                console.log(noteDiff);
+            //console.log(noteDiff);
         }
         function noteInRow(row) {
             //couldHitNotes[row][0].htmlObj.src = "../img/colored fnf arrows.png";
@@ -149,18 +149,26 @@
                 let bruh = note.mili+(song.startTime - new Date().getTime());
                 
             });*/
-            try {
-                couldHitNotes[row].sort((note, note2) => (note.mili+(song.startTime - new Date().getTime()) > note2.mili+(song.startTime - new Date().getTime())) ? 1 : -1);
-                let note = couldHitNotes[row][0];
-                let noteDiff = note.mili+(song.startTime - new Date().getTime());
-                goodHit(noteDiff);
-                //couldHitNotes[row][0].htmlObj.src = "../img/colored fnf arrows.png";
-                notesArray.splice(notesArray.indexOf(note),1);
-                couldHitNotes[row].splice(0,1);
-                note.htmlObj.remove();
-            }catch {
+            //try {
+                //couldHitNotes[row].sort((note, note2) => (note.mili+(song.startTime - new Date().getTime()) > note2.mili+(song.startTime - new Date().getTime())) ? 1 : -1);
+                console.log(couldHitNotes[row]);
+                for(let i in couldHitNotes[row]) {
+                    let note = couldHitNotes[row][i];
+                    //console.log(note,couldHitNotes[row]);
+                    let noteDiff = note.mili+(song.startTime - new Date().getTime());
+                    goodHit(noteDiff);
+                    //couldHitNotes[row][0].htmlObj.src = "../img/colored fnf arrows.png";
+                    notesArray.splice(notesArray.indexOf(note),1);
+                    couldHitNotes[row].splice(0,1);
+                    note.htmlObj.remove();
+                }
+                //couldHitNotes[row].forEach(note => {
+                    
+                //});
+                
+            //}catch {
 
-            }
+            //}
         }
         document.addEventListener("keydown",(event)=>{
             if(event.key == "-") {
@@ -182,19 +190,19 @@
             }
             if(!keys[event.key]) {
                 //console.log(keys[event.key]);
-                if(event.key == "d" || event.key == "ArrowLeft") {
+                if(event.key == "d" || event.key == "ArrowLeft" || event.key == "z") {
                     document.getElementsByClassName("leftArrow right")[0].src = "../img/colored fnf arrows.png";
                     noteInRow(0);
                 }
-                if(event.key == "f" || event.key == "ArrowDown") {
+                if(event.key == "f" || event.key == "ArrowDown" || event.key == "x") {
                     document.getElementsByClassName("downArrow right")[0].src = "../img/colored fnf arrows.png";
                     noteInRow(1);
                 }
-                if(event.key == "j" || event.key == "ArrowUp") {
+                if(event.key == "j" || event.key == "ArrowUp" || event.key == ",") {
                     document.getElementsByClassName("upArrow right")[0].src = "../img/colored fnf arrows.png";
                     noteInRow(2);
                 }
-                if(event.key == "k" || event.key == "ArrowRight") {
+                if(event.key == "k" || event.key == "ArrowRight" || event.key == ".") {
                     document.getElementsByClassName("rightArrow right")[0].src = "../img/colored fnf arrows.png";
                     noteInRow(3);
                 }
@@ -202,16 +210,16 @@
             keys[event.key] = true; 
         });
         document.addEventListener("keyup",(event)=>{
-            if(event.key == "d" || event.key == "ArrowLeft") {
+            if(event.key == "d" || event.key == "ArrowLeft" || event.key == "z") {
                 document.getElementsByClassName("leftArrow right")[0].src = "../img/fnf arrows.png";
             }
-            if(event.key == "f" || event.key == "ArrowDown") {
+            if(event.key == "f" || event.key == "ArrowDown" || event.key == "x") {
                 document.getElementsByClassName("downArrow right")[0].src = "../img/fnf arrows.png";
             }
-            if(event.key == "j" || event.key == "ArrowUp") {
+            if(event.key == "j" || event.key == "ArrowUp" || event.key == ",") {
                 document.getElementsByClassName("upArrow right")[0].src = "../img/fnf arrows.png";
             }
-            if(event.key == "k" || event.key == "ArrowRight") {
+            if(event.key == "k" || event.key == "ArrowRight" || event.key == ".") {
                 document.getElementsByClassName("rightArrow right")[0].src = "../img/fnf arrows.png";
             }
             delete keys[event.key];
@@ -237,12 +245,12 @@
                 if(shit < 2500 && !note.htmlObj) {
                     note.createNote();
                 }else if(shit < 2500) {
-                    note.htmlObj.style.display = "inline";                                                                                                                                                                                        
+                    note.htmlObj.style.display = "inline";
                     //console.log(song.startTime - new Date().getTime());
                     //console.log(note.mili - (song.startTime - new Date().getTime()));
                     note.htmlObj.style.top = "calc(80% - " + (shit*songSpeed) + "px)";
                     //note.htmlObj.style.top = "calc(50% - " + toString((note.mili/100)) + "px)";
-                    if(shit < 1000) {
+                    if(shit < 152/songSpeed) {
                         if(note.mustHit && couldHitNotes[note.row].indexOf(note) == -1) {
                             //note.htmlObj.src = "../img/fnf arrows.png";
                             couldHitNotes[note.row].push(note);

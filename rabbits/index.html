@@ -18,20 +18,23 @@
     <body>
         <script>
             //man this sucks i would have to use node js to use a random api (because instagram's doesn't make sense) and it doesn't allow you to get info from other sites
-            /*var request = new XMLHttpRequest();
+            var request = new XMLHttpRequest();
             var data;
 
             request.onreadystatechange = function() {
-                data = JSON.parse(request.responseText);
-                console.log(data);
+                console.log(request);
+                if(request.responseText) {
+                    data = JSON.parse(request.responseText);
+                    console.log(data);
+                }
             }
-
-            request.open("GET","https://www.instagram.com/rabbits.jpg/?__a=1");
-            request.send();
+            //request.setRequestHeader('');
+            //request.open("GET","https://www.instagram.com/rabbits.jpg/?__a=1");
+            //request.send();
 
             function getPicture() {
                 
-            }*/
+            }
             //so i will just be manually updating it until i find a solution
             //actually i give up
         </script>

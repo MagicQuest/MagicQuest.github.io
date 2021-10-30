@@ -56,10 +56,10 @@ function checkCollide(pointX, pointY, objectx, objecty, objectw, objecth) { // p
 function rgbToHex(r, g, b) {
 	return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
 }
-function rgbToHex(rgb) {
-	r = rgb.r;
-	g = rgb.g;
-	b = rgb.b;
+function rgbToHex({r,g,b}) {
+	//r = rgb.r;
+	//g = rgb.g;
+	//b = rgb.b;
 	return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
 }
 function clone(thing) {
@@ -116,7 +116,7 @@ function findString(string,stringToFind) {
 	return string.indexOf(stringToFind) != -1 ? true : false;
 }
 function sound(src) {
-	this.sound = document.createElement("audio");
+	this.sound = document.createElement("audio"); //bruh i could just do new Audio();
 	this.sound.src = src;
 	this.sound.setAttribute("preload", "auto");
 	this.sound.setAttribute("controls", "none");

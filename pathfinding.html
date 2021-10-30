@@ -275,6 +275,22 @@
                 //context.fillRect(x,x,size,size);
             });
             particles.forEach(particle => {
+                let incX = 0, incY = 0;
+                /*for(let y in tiles) {
+                    for(let x in tiles[y]) {
+                        let trueX = (x*size)+incX;
+                        let trueY = (y*size)+incY;
+                        if(trueX < particle.x && particle.x < trueX+size) {
+                            if(trueY < particle.y && particle.y < trueY+size) {
+
+                            }
+                        }
+                        incX++;
+                    }
+                    incY++;
+                    incX = 0;
+                }*/
+                
                 particle.x += particle.vel.x;
                 particle.y += particle.vel.y;
                 circle(context,particle.x,particle.y,5,360,"rgb(191, 64, 64)","rgba(0,0,0,0)");
