@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>evolutiohn</title>
+    <style>
+        canvas {
+            top: 0%;
+            left: 0%;
+            position:fixed;
+            border:1px solid red;
+            z-index: -1;
+        }
+        body {
+                margin: 0;
+                background-color: darkslategrey;
+            }
+    </style>
+    <script src="p2.js"></script>
+</head>
+<body>
+    <canvas id="canvas" width="800" height="600">shoot i gotta send the bros the photos</canvas>
+    <script>
+        canvas.width = innerWidth - 5
+        canvas.height = innerHeight - 5
+
+        let context = canvas.getContext('2d');
+        context.font = "24px comic sans ms"
+        context.textAlign = "right";
+        //feel like using var but it looks upgly next to let
+        var world = new p2.World();
+        world.defaultContactMaterial.restitution = .75;
+        world.gravity[1] = -9;
+
+        function createBox(position, size, color, anchored, evo) {
+            let shape = new p2.Box({
+                width: size[0]*.025,
+                height: size[1]*.025,
+            });
+            let body = new p2.Body({
+                mass: +!anchored,
+                position: position,
+            });
+            body.addShape(shape);
+            //body.type = anchored ? p2.Body.STATIC : body.type;
+            world.addBody(body);
+            body.color = color;
+            body.evo = evo;
+            //body.score = 0;
+            return body;
+        }
+        function drawBox(body) {
+            shape = body.shapes[0];
+            context.beginPath();
+            let x = body.interpolatedPosition[0], y = body.interpolatedPosition[1];
+            //console.log(x, y);
+            context.save();
+            context.translate(x, y);        // Translate to the center of the box
+            context.rotate(body.angle);  // Rotate to the box body frame
+            context.fillStyle = body.color;
+            context.fillRect(-shape.width/2, -shape.height/2, shape.width, shape.height);
+            if(body.evo) {            
+                const rawColor = body.color.substring(4).split(",");
+                context.scale(1,-1);
+                context.rotate(body.angle);
+                context.fillStyle = `rgb(${255-rawColor[0]}, ${255-rawColor[1]}, ${255-parseInt(rawColor[2])})`;
+                context.fillText(Math.round(x), shape.width/2-.25, shape.height/2-.25);
+            }
+            //context.fill();
+            context.stroke();
+            context.restore();
+        }
+        function Trandom(min, max) {
+            return Math.random() * (max - min + 1) + min;
+        }
+        function random(min, max) {
+            return Math.floor(Math.random() * (max - min + 1) ) + min;
+        }
+
+        let run = 0;
+
+        document.addEventListener("keydown", function(event) {
+            if(event.key == " ") {
+                run = lastTime;
+            }
+        });
+
+        const EVOCOL = Math.pow(2,0);
+        const GROUND = Math.pow(2,1);
+
+        class evoBox {
+            constructor(stepsis, additionalrandtend) {
+                this.body = createBox([-20,2],[50,50],"rgb(255,0,128)", false, true);
+                this.shape = this.body.shapes[0];
+                this.shape.collisionGroup = EVOCOL;
+                this.shape.collisionMask = GROUND;
+                this.step = 100+(random(-20,100));
+                this.steps = [];
+                this.i = 0;
+                this.addrandtend = Trandom(-1,1);
+                this.body.color = `rgb(${255-(this.addrandtend*28)}, ${0+(this.addrandtend*28)}, ${random(0 ,1) ? 128+(this.addrandtend*28) : 128-(this.addrandtend*28)})`
+            }
+            
+            update(time) {
+                if(time % this.step == 0) {
+                    if(this.steps[this.i]) {
+                        this.body.velocity = this.steps[this.i];
+                    }else {
+                        let shit = [Trandom(-5,5)+this.addrandtend,Trandom(-5,7)+this.addrandtend];
+                        this.body.velocity = shit;
+                        this.steps.push(shit);
+                    }
+                    this.i++;
+                }
+                //let shape = this.body.shapes[0];
+                context.beginPath();
+                let x = this.body.interpolatedPosition[0], y = this.body.interpolatedPosition[1];
+                //console.log(x, y);
+                context.save();
+                context.translate(x, y);        // Translate to the center of the box
+                context.rotate(this.body.angle);  // Rotate to the box body frame
+                context.fillStyle = this.body.color;
+                context.fillRect(-this.shape.width/2, -this.shape.height/2, this.shape.width, this.shape.height);
+
+                    const rawColor = this.body.color.substring(4).split(",");
+                    context.scale(1,-1);
+                    context.rotate(this.body.angle);
+                    context.fillStyle = `rgb(${255-rawColor[0]}, ${255-rawColor[1]}, ${255-parseInt(rawColor[2])})`;
+                    context.fillText(Math.round(x), this.shape.width/2-.25, this.shape.height/2-.25);
+                
+                //context.fill();
+                context.stroke();
+                context.restore();
+            }
+        }
+
+        let evolutions = [];
+        for(let i = 0; i < 100; i++) {
+            evolutions.push(new evoBox());
+        }
+
+        //let p1 = createBox([0,5],[50,50],"rgb(255,0,128)", false, true);
+        let p3 = createBox([1.9,-7],[150,200],"red", true, false);
+        let walls = [createBox( [-24.5,0], [1/.025,16/.025], "black", true),
+                createBox( [24.5,0], [1/.025,16/.025], "black", true),
+                ];
+                walls[0].shapes[0].collisionGroup = GROUND;
+                walls[1].shapes[0].collisionGroup = GROUND;
+
+        p3.shapes[0].collisionGroup = GROUND;
+        p3.shapes[0].collisionMask = EVOCOL;
+
+            floor = new p2.Body({
+                position: [0,-7]
+            });
+            floor.addShape(new p2.Plane());
+            world.addBody(floor);
+            floor.shapes[0].collisionGroup = GROUND;
+
+
+        let lastTime = undefined;
+
+        function update(time) {
+            let dt = lastTime ? (time - lastTime) / 1000 : 0;
+            dt = Math.min(1 / 10, dt);
+            lastTime = time;
+            world.step(1/60, dt, 5);
+            
+            context.save();
+            context.font = "1px comic sans ms"
+            context.translate(canvas.width/2, canvas.height/2);
+            context.scale(40,-40);
+
+            //drawBox(p1);
+            if(run) {
+            let rt = Math.round(time);
+            evolutions.forEach(box => {
+                box.update(rt);
+            });
+            walls.forEach(wall => {
+                drawBox(wall);
+            });
+        }
+            drawBox(p3);
+
+            context.beginPath();
+            context.moveTo(-canvas.width, -7.5);
+            context.lineTo(canvas.width, -7.5);
+            context.stroke();
+
+            context.restore();
+
+            let timetr = Math.trunc((time-run)/10)/100;
+
+            context.fillText(timetr, canvas.width/2, 400);
+
+            if(timetr > 30) {
+                let farthjest = {steps: [], score: 0, addrandtend: 0};
+                evolutions.forEach(box => {
+                    if(box.body.interpolatedPosition[0] > farthjest.score) {
+                        farthjest = {score: box.body.interpolatedPosition[0], steps: box.steps, addrandtend: box.addrandtend};
+                    }
+                });
+                evolutions = [new evoBox(farthjest.steps, farthjest.addrandtend)];
+                //for(let i = 0; i < 100; i++) {
+                //    evolutions.push(new evoBox(farthjest.steps, farthjest.addrandtend));
+                //}
+                console.log(farthjest);
+                run = time;
+            }
+        }
+
+        function tick(time) {
+            context.clearRect(0,0,canvas.width,canvas.height);
+
+            update(time);
+
+            //canvas.style.cursor = hover ? "pointer" : "initial";
+            //hover = false;
+            requestAnimationFrame(tick);
+        }
+        tick();
+    </script>
+</body>
+</html>

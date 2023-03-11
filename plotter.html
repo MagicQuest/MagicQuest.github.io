@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>desmos</title>
+    <style>
+        html, body { 
+            margin:0;
+            padding:0;
+            width:100%;
+            height:100%;
+            /*overflow: hidden;*/
+            /*display: block;*/
+        }
+    </style>
+</head>
+<body>
+    <canvas style="border: 1px solid forestgreen;position:absolute;top:0;left:0;" id="canvas"></canvas>
+    <script>
+        let context = canvas.getContext("2d");
+        canvas.width = innerWidth-2;
+        canvas.height = innerHeight-2; //3 minutes for it to stretch to screen (nigga why is it so hard to do this)
+    </script>
+</body>
+</html>

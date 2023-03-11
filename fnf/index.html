@@ -53,6 +53,21 @@
             clip: rect(0px,620px,153px,465px);
             right: 0px;
         }
+        /*#scores {
+            transition: opacity 1s ;
+        }*/
+        .shit {
+            clip: rect(0px,403px,152px,0px);
+        }
+        .bad {
+            clip: rect(152px,403px,304px,0px);
+        }
+        .good {
+            clip: rect(304px,403px,456px,0px);
+        }
+        .great {
+            clip: rect(456px,403px,608px,0px);
+        }
     </style>
     <script src="../oof.js"></script>
     <script src="foolhardy.json"></script>
@@ -92,6 +107,8 @@
     <img src="../img/fnf arrows.png" class="upArrow right" style="top: 80%">
     <img src="../img/fnf arrows.png" class="rightArrow right" style="top: 80%">
 
+    <img src="../img/scores.png" id="scores" class="shit" style="position: absolute; bottom: 20%; left: 50%; z-index: -1;">
+
     <script>
         var started = false;
         var paused = false;
@@ -100,6 +117,7 @@
         var songSpeed;
         var animationFrame;
         var comboNumber = 0;
+        var scoreNumber = 0; //WAIT WHY AM I USING VAR (is there really a good reason to not use var other than what i feel)
         var notesArray = [];
         var couldHitNotes = [[],[],[],[]];
         var keys = {};
@@ -115,29 +133,45 @@
             }
             started = true;
         });*/
+
         function goodHit(noteDiff) {
             //replace good with king
+            scores.style.display = "";
             if (noteDiff > 166) { // so god damn early its a miss 
                 combo.innerHTML = "Combo: 0 (miss)"; comboNumber = 0;
+                score.innerHTML = `Score: ${scoreNumber-=10}`;
+                scores.style.display = "none";
             }
             if (noteDiff > 135) { // way early
                 combo.innerHTML = `Combo: ${++comboNumber} (shit)`;
+                scores.className = "shit";
             }else if (noteDiff > 90) {// early
                 combo.innerHTML = `Combo: ${++comboNumber} (bad)`;
+                scores.className = "bad";
             }else if (noteDiff > 45) {// your kinda there
                 combo.innerHTML = `Combo: ${++comboNumber} (good)`;
+                score.innerHTML = `Score: ${scoreNumber+=200}`;
+                scores.className = "good";
             }else if (noteDiff < 45 && noteDiff > -45) {
                 combo.innerHTML = `Combo: ${++comboNumber} (great)`;
+                score.innerHTML = `Score: ${scoreNumber+=350}`; //data according to dave engine
+                scores.className = "great";
                 //console.log(comboNumber);
             }else if (noteDiff < -45) {// little late
                 combo.innerHTML = `Combo: ${++comboNumber} (good)`;
+                score.innerHTML = `Score: ${scoreNumber+=200}`;
+                scores.className = "good";
             }else if (noteDiff < -90) {// late
                 combo.innerHTML = `Combo: ${++comboNumber} (bad)`;
+                scores.className = "bad";
             }else if (noteDiff < -135) {// late as fuck
                 combo.innerHTML = `Combo: ${++comboNumber} (shit)`;
+                scores.className = "shit";
             }else if (noteDiff < -166) {// so god damn late its a miss
                 combo.innerHTML = "Combo: 0 (miss)";
                 comboNumber = 0;
+                score.innerHTML = `Score: ${scoreNumber-=10}`;
+                scores.style.display = "none";
             }
             //console.log(noteDiff);
         }
@@ -282,7 +316,8 @@
             forme.remove();
             combo.style.display = "block";
             score.style.display = "block";
-            delete foolhardy;
+            delete foolhardy; //ok so the reason i did this was because chrome stops websites from GET ing local files so i couldn't test it and just did this
+            //ok just had a brain blast 12:41 AM 3/11/2023 so like i could've just ran this on a local server bruh 
             delete whereareyou;
             delete furiosity;
             delete supernovae;

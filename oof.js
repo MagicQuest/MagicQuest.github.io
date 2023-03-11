@@ -100,6 +100,16 @@ function not(thing) {
 function random(min, max) {
 	return Math.floor(Math.random() * (max - min + 1) ) + min;
 }
+
+function fib(int, lastfib, times) {
+    if(times <= 0) {
+        return;
+    }
+    console.log(int+lastfib);
+    fib(int+lastfib, int, --times);
+}
+//fib(0,1,10); (wait why i put this here lmao)
+
 /**
  * @summary this is just a copy of the python function lol
  * @since 9:03PM JULY4

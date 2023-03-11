@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="p2.js"></script>
+    <title>tone defa</title>
+</head>
+<body>
+    <canvas id="canvas" style="border: 1px solid rgb(132, 0, 255)" width="800" height="600"></canvas>
+    <script>
+        let context = canvas.getContext('2d');
+        let mouse = {x: 0, y: 0};
+        let hover = false;
+        let moveDirection = {x: 0, y: 0};
+
+        //haha prototypes go brrrr
+        //wait a minute 
+        DOMRect.prototype.contains = function(x, y) {
+            if(x > this.x && x < this.x+this.width && y > this.y && y < this.y+this.height) {
+                return true;
+            }
+            return false;
+        }
+
+        context.font = "150px comic sans ms";
+        context.textAlign = "center";
+
+        canvas.addEventListener("mousemove", event => {
+            mouse.x = event.clientX-canvas.getBoundingClientRect().left;
+            mouse.y = event.clientY-canvas.getBoundingClientRect().top;
+            //mouse.hold = event.buttons;
+            //console.log(event.button + " " + event.buttons);
+        });
+        canvas.addEventListener("mousedown", event => {
+            mouse.hold = event.button;
+        });
+        canvas.addEventListener("mouseup", event => {
+            mouse.hold = -1;
+        });
+        addEventListener("keydown", event => {
+            /*let code = event.keyCode;
+            if(code > 80) {
+                if(code == 87) {
+                    moveDirection.y = 1;
+                }else if(code == 83) {
+                    moveDirection.y = -1;
+                }
+            }else if(code > 60){
+                if(code == 87) {
+                    moveDirection.y = 1;
+                }else if(code == 83) {
+                    moveDirection.y = -1;
+                }
+            }*/ //man what im i doing
+            if(event.key == "w") {
+                moveDirection.y = -2;
+            }else if(event.key == "s") {
+                moveDirection.y = 2;
+            }else if(event.key == "a") {
+                moveDirection.x = -2;
+            }else if(event.key == "d") {
+                moveDirection.x = 2;
+            }
+            console.log(moveDirection);
+        });
+        addEventListener("keyup", event => {
+            if(event.key == "w") {
+                moveDirection.y += 2;
+            }else if(event.key == "s") {
+                moveDirection.y += -2;
+            }else if(event.key == "a") {
+                moveDirection.x += 2;
+            }else if(event.key == "d") {
+                moveDirection.x += -2;
+            }
+            console.log(moveDirection);
+        });
+        ///maybe do fnf style playstate shit
+        class Button {
+            constructor(text, pos, size, action) {
+                this.text = text;
+                //this.position = {x: pos[0], y: pos[1]};
+                //this.size = {x: size[0], y: size[1]}; //bruh this for easy
+                this.rect = new DOMRect(pos[0],pos[1],size[0],size[1]);
+                this.action = action;
+            }
+
+            /*mouseover() {
+
+            }
+
+            mouseout() {
+
+            }*/
+
+            update() {
+                //console.log(this.rect, mouse);
+                if(this.rect.contains(mouse.x, mouse.y)) {
+                    //ocnsole.log("update");
+                    //canvas.style.cursor = "pointer";
+                    hover = true;
+                    if(mouse.hold == 0) {
+                        //state = new LevelSelection();
+                        this.action();
+                        return;
+                    }
+                }
+                
+                this.draw();
+            }
+
+            draw() {
+                context.font = `${this.rect.height*.75}px comic sans ms`;
+                context.fillStyle = "black";
+                context.fillRect(this.rect.x, this.rect.y, this.rect.width, this.rect.height); //should i just keep using an array??
+                context.fillStyle = "blue";
+                context.fillText(this.text, this.rect.x+this.rect.width/2, this.rect.y+this.rect.height/1.25);
+            }
+
+            /*update() {
+
+            }*/
+        }
+        class Title {
+            constructor() {
+                this.play = new Button("shit", [200, 200], [200, 100], () => {state = new LevelSelection();});
+            }
+
+            draw() {
+                this.play.update();//update();
+            }
+        }
+        class LevelSelection {
+            constructor() {
+                this.buttons = [];
+                let x = 0;
+                let y = 0;
+                for(let i = 0; i < 25; i++) {
+                    x = (800/25)*i+3.125;
+                    this.buttons.push(new Button(i, [x,25], [25,25], () => {state = new Game(new Level(i));}));
+                }
+            }
+
+            draw() {
+                this.buttons.forEach(button => {
+                    button.update();
+                });
+            }
+        }
+        class Player {
+            constructor(pos = [100,100]) {
+                this.position = {x: pos[0], y: pos[1]};
+                this.velocity = {x: 0, y: 0};
+            }
+
+            update() {
+                this.velocity.y += .1;
+                this.position.y += this.velocity.y + moveDirection.y;
+                this.position.x += moveDirection.x;
+                this.draw();
+            }
+
+            draw() {
+                context.fillStyle = "grey";
+                context.fillRect(this.position.x, this.position.y, 50, 50);
+            }
+        }
+        class Rectangle {
+            constructor(x, y, width, height, color) {
+                this.rect = new DOMRect(x, y, width, height);
+                this.color = color;
+            }
+
+            draw() {
+                context.fillStyle = this.color;
+                context.fillRect(this.rect.x, this.rect.y, this.rect.width, this.rect.height);
+            }
+
+        }
+        function createPlane(world) {
+            let floor = new p2.Body({
+                position: [0,1]
+            });
+            floor.addShape(new p2.Plane());
+            world.addBody(floor);
+            //return floor;
+        }
+        function createBox(world, position, size) {
+            let shape = new p2.Box({
+                width: size[0],
+                height: size[1]
+            });
+            let body = new p2.Body({
+                mass: 1,
+                position: position,
+                angularVelocity: 1
+            });
+            body.addShape(shape);
+            world.addBody(body);
+        }
+        function drawBox(body, shape) {
+            context.beginPath();
+            let x = body.interpolatedPosition[0], y = body.interpolatedPosition[1];
+            context.save();
+            context.translate(x, y);        // Translate to the center of the box
+            context.rotate(body.angle);  // Rotate to the box body frame
+            context.rect(-shape.width/2, -shape.height/2, shape.width, shape.height);
+            context.stroke();
+            context.restore();
+        }
+        function drawPlane(body) {
+            let y = body.interpolatedPosition[1];
+            context.moveTo(-800, y);
+            context.lineTo(800, y);
+            context.stroke();
+        }
+        function drawShit(shapeName, body, shape) {
+            if(shapeName == "Plane") {
+                drawPlane(body);
+            }else if(shapeName == "Box") {
+                drawBox(body, shape);
+            }
+        }
+        class Level {
+            constructor(id) {
+                this.world = new p2.World();
+                //this.parts = [];
+                if(id == 0) {
+                    createPlane(this.world);
+                    createBox(this.world, [50,50], [25,25]);
+                    //this.parts.push(new Rectangle(0, 500, 800, 100, "yellow"));
+                }
+            }
+
+            draw() {
+                this.world.bodies.forEach(body => {
+                    //console.log(body.shapes[0].constructor.name);
+                    //console.log(`draw${body.shapes[0].constructor.name}(${body}, ${body.shapes[0]})`);
+                    drawShit(body.shapes[0].constructor.name, body, body.shapes[0]);
+                    //eval(`draw${body.shapes[0].constructor.name}(${body}, ${body.shapes[0]})`); //haha imma genius but i wonder if there is any downside to doing so
+                });
+                /*this.parts.forEach(part => {
+                    //console.log("draw part");
+                    part.draw();
+                });*/
+            }
+        }
+        class Game {
+            constructor(level) {
+                this.level = level;
+                //this.level = level;
+                this.player = new Player();
+            }
+
+            draw() {
+                this.level.draw();
+                this.player.update(); //damn we gonna need box2d and what not
+                //well da,mn we are not acutally using box2d for the player
+            }
+        }
+
+        let state = new Title();
+
+        context.fillStyle = "black";
+        context.fillRect(200,200,200,200);
+
+        //bruh this system is weird i gotta fix this
+
+        function tick() {
+            context.clearRect(0,0,800,600);
+            state.draw();
+            canvas.style.cursor = hover ? "pointer" : "initial";
+            hover = false;
+            requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+    </script>
+</body>
+</html>

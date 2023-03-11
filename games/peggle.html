@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="p2.js"></script>
+    <title>peggle (freej bunny suit and sponsered by dougoduog)</title>
+    <style>
+    </style>
+</head>
+<body>
+    <center>
+        <button style="cursor: pointer; display: block; margin-bottom: 10px" onclick="let string = ''; created.forEach(body => {string+=`createCircle(this.world, [${body.position[0]}, ${body.position[1]}], 10, '${body.color}', true);\n`}); console.log(string);">niggas know im late</button>
+        <canvas id="canvas" style="border: 1px solid rgb(132, 0, 255); display: block;"></canvas>
+        <img id="phiggle" src="phiggle.png">
+    </center>
+    <script>
+        const width = 1000;
+        const height = 800;
+        canvas.width = width;
+        canvas.height = height;
+        let context = canvas.getContext('2d');
+        let mouse = {x: 0, y: 0};
+        let hover = false;
+        let moveDirection = {x: 0, y: 0};
+
+        //haha prototypes go brrrr
+        //wait a minute 
+        DOMRect.prototype.contains = function(x, y) {
+            if(x > this.x && x < this.x+this.width && y > this.y && y < this.y+this.height) {
+                return true;
+            }
+            return false;
+        }
+
+        context.font = "150px comic sans ms";
+        context.textAlign = "center";
+
+        canvas.addEventListener("mousemove", event => {
+            mouse.x = event.clientX-canvas.getBoundingClientRect().left;
+            mouse.y = event.clientY-canvas.getBoundingClientRect().top; //why ain't this a varibale
+            //mouse.hold = event.buttons;
+            //console.log(event.button + " " + event.buttons);
+        });
+        let created = [];
+        canvas.addEventListener("click", event => {
+            //shoot this shit
+            if(state.constructor.name == "Game" && state.level.balls > 0 && !state.level.pinball) {
+                state.level.balls--;
+                //well actually shoot nigga but hold on here
+                let mousePos = getPhysicsCoord();
+                //created.push(createCircle(state.level.world, mousePos, 10, `rgb(${Math.round(Math.random()*255)}, ${Math.round(Math.random()*255)}, ${Math.round(Math.random()*255)})`, true)); //bruh i almost put [mousePos[0], mousePos[1]]; that was about ot be retarde
+                //createCircle(state.level.world, [state.level.launcher.rect.x, state.level.launcher.rect.y], 7, "grey", false).velocity = new Float32Array([state.level.launcher.rect.x + mousePos[0], state.level.launcher.rect.y + mousePos[1]]); // * lookvector :(
+                state.level.pinball = createCircle(state.level.world, [state.level.launcher.rect.x, state.level.launcher.rect.y], 7, "grey", false);
+                state.level.pinball.velocity = new Float32Array([mousePos[0] - state.level.launcher.rect.x, mousePos[1] - state.level.launcher.rect.y]); // * lookvector :(
+            }
+        });
+        canvas.addEventListener("mousedown", event => {
+            mouse.hold = event.button;
+        });
+        canvas.addEventListener("mouseup", event => {
+            mouse.hold = -1;
+        });
+        addEventListener("keydown", event => {
+            /*let code = event.keyCode;
+            if(code > 80) {
+                if(code == 87) {
+                    moveDirection.y = 1;
+                }else if(code == 83) {
+                    moveDirection.y = -1;
+                }
+            }else if(code > 60){
+                if(code == 87) {
+                    moveDirection.y = 1;
+                }else if(code == 83) {
+                    moveDirection.y = -1;
+                }
+            }*/ //man what im i doing
+            if(event.key == "w") {
+                moveDirection.y = -1;
+            }else if(event.key == "s") {
+                moveDirection.y = 1;
+            }else if(event.key == "a") {
+                moveDirection.x = -1;
+            }else if(event.key == "d") {
+                moveDirection.x = 1;
+            }
+            //console.log(moveDirection);
+        });
+        addEventListener("keyup", event => {
+            if(event.key == "w") {
+                moveDirection.y += 1;
+            }else if(event.key == "s") {
+                moveDirection.y += -1;
+            }else if(event.key == "a") {
+                moveDirection.x += 1;
+            }else if(event.key == "d") {
+                moveDirection.x += -1;
+            }
+            //console.log(moveDirection);
+        });
+        ///maybe do fnf style playstate shit
+        class Button {
+            constructor(text, pos, size, action) {
+                this.text = text;
+                //this.position = {x: pos[0], y: pos[1]};
+                //this.size = {x: size[0], y: size[1]}; //bruh this for easy
+                this.rect = new DOMRect(pos[0],pos[1],size[0],size[1]);
+                this.action = action;
+            }
+
+            /*mouseover() {
+
+            }
+
+            mouseout() {
+
+            }*/
+
+            update() {
+                //console.log(this.rect, mouse);
+                if(this.rect.contains(mouse.x, mouse.y)) {
+                    //ocnsole.log("update");
+                    //canvas.style.cursor = "pointer";
+                    hover = true;
+                    if(mouse.hold == 0) {
+                        //state = new LevelSelection();
+                        this.action();
+                        return;
+                    }
+                }
+                
+                this.draw();
+            }
+
+            draw() {
+                context.font = `${this.rect.height*.75}px comic sans ms`;
+                context.fillStyle = "black";
+                context.fillRect(this.rect.x, this.rect.y, this.rect.width, this.rect.height); //should i just keep using an array??
+                context.fillStyle = "blue";
+                context.fillText(this.text, this.rect.x+this.rect.width/2, this.rect.y+this.rect.height/1.25);
+            }
+
+            /*update() {
+
+            }*/
+        }
+        class Title {
+            constructor() {
+                this.play = new Button("shit", [200, 200], [200, 100], () => {state = new LevelSelection();});
+            }
+
+            draw() {
+                this.play.update();//update();
+            }
+        }
+        class LevelSelection {
+            constructor() {
+                this.buttons = [];
+                let x = 0;
+                let y = 0;
+                for(let i = 0; i < 25; i++) {
+                    x = (width/25)*i+3.125;
+                    this.buttons.push(new Button(i, [x,25], [25,25], () => {state = new Game(new Level(i));}));
+                }
+            }
+
+            draw() {
+                this.buttons.forEach(button => {
+                    button.update();
+                });
+            }
+        }
+        /*class Player {
+            constructor(pos = [100,100]) {
+                this.position = {x: pos[0], y: pos[1]};
+                this.velocity = {x: 0, y: 0};
+            }
+
+            update() {
+                this.velocity.y += .1;
+                this.position.y += this.velocity.y + moveDirection.y;
+                this.position.x += moveDirection.x;
+                this.draw();
+            }
+
+            draw() {
+                context.fillStyle = "grey";
+                context.fillRect(this.position.x, this.position.y, 50, 50);
+            }
+        }*/
+        class Rectangle {
+            constructor(x, y, width, height, color) {
+                this.rect = new DOMRect(x, y, width, height);
+                this.color = color;
+                this.angle = 0;
+            }
+
+            draw() {
+                context.save();
+                context.translate(this.rect.x, this.rect.y);
+                context.rotate(this.angle);
+                context.fillStyle = this.color;
+                //context.fillRect(this.rect.x, this.rect.y, this.rect.width, this.rect.height);
+                context.fillRect(-this.rect.width/2, -this.rect.height/2, this.rect.width, this.rect.height);
+                context.restore();
+            }
+        }
+        function createPlane(world) {
+            let floor = new p2.Body({
+                position: [0,-8]
+            });
+            floor.addShape(new p2.Plane());
+            world.addBody(floor);
+            //return floor;
+        }
+        function createBox(world, position, size, color, anchored) {
+            let shape = new p2.Box({
+                width: size[0]*.025,
+                height: size[1]*.025,
+            });
+            let body = new p2.Body({
+                mass: +!anchored,
+                position: position,
+            });
+            body.addShape(shape);
+            //body.type = anchored ? p2.Body.STATIC : body.type;
+            world.addBody(body);
+            body.color = color;
+            return body;
+        }
+        function createCircle(world, position, radius, color, peg) {
+            let body = new p2.Body({
+                        mass: +!peg, //freaky
+                        position: position,
+                    });
+            //body.mass = peg ? body.mass : 0;
+            body.addShape(new p2.Circle({ radius: radius*.025 }));
+            //body.type = peg ? p2.Body.STATIC : body.type;
+            world.addBody(body);
+            body.color = color;
+            return body;
+        }
+        function drawCircle(body, shape) {
+            context.beginPath();
+            let x = body.interpolatedPosition[0],
+                y = body.interpolatedPosition[1],
+                radius = shape.radius;
+            //context.lineWidth = .1;
+            context.fillStyle = body.color;
+            context.arc(x,y,radius,0,2*Math.PI);
+            context.fill();
+            context.closePath();
+            //context.stroke();
+        }
+        function drawVertices(body, shape) {
+            context.beginPath();
+            let x = body.interpolatedPosition[0], y = body.interpolatedPosition[1];
+            let verts = shape.vertices;
+            //console.log(x, y);
+            context.save();
+            context.translate(x, y);        // Translate to the center of the box
+            context.rotate(body.angle);  // Rotate to the box body frame
+            context.moveTo(verts[verts.length-1][0], verts[verts.length-1][1]);
+            verts.forEach(vert => {
+                context.lineTo(vert[0], vert[1]);
+            });
+            context.fillStyle = body.color;
+            context.fill();
+            //context.stroke();
+            context.restore();
+        }
+        function drawBox(body, shape) {
+            context.beginPath();
+            let x = body.interpolatedPosition[0], y = body.interpolatedPosition[1];
+            //console.log(x, y);
+            context.save();
+            context.translate(x, y);        // Translate to the center of the box
+            context.rotate(body.angle);  // Rotate to the box body frame
+            if(body.color == "phiggle") {
+                context.drawImage(phiggle,-shape.width/2, -shape.height/2, shape.width, shape.height);
+            }else {
+                context.fillStyle = body.color;
+                context.fillRect(-shape.width/2, -shape.height/2, shape.width, shape.height);
+            }
+            //context.fill();
+            context.stroke();
+            context.restore();
+        }
+        function drawPlane(body) {
+            context.beginPath();
+            let y = body.interpolatedPosition[1];
+            context.moveTo(-width, y);
+            context.lineTo(width, y);
+            context.stroke();
+        }
+        function drawShit(shapeName, body, shape) {
+            //this is the part where you use eval or better yet new Function("console.log('nigga')")()
+            if(shapeName == "Box") {
+                drawBox(body, shape);
+            }else if(shapeName == "Circle") {
+                drawCircle(body, shape);
+            }else if(shapeName == "Plane") {
+                drawPlane(body);
+            }
+        }
+        function getPhysicsCoord(){
+            let rect = canvas.getBoundingClientRect();
+            let x = mouse.x;
+            let y = mouse.y;
+
+            x = (x - width / 2) / 40;
+            y = (y - height / 2) / -40;
+
+            return [x, y];
+        }
+        class WaveEffect {
+            constructor(position, color, points) {
+                this.position = position;
+                this.color = color;
+                this.size = 8*.025;
+                this.points = points;
+            }
+
+            draw() {
+                context.save();
+                context.beginPath();
+                context.lineWidth = .1;
+                //console.log(this.color);
+                context.strokeStyle = this.color;
+                context.globalAlpha = .6/this.size - 1;
+                context.arc(this.position[0],this.position[1],this.size += .0125,0,2*Math.PI);
+                context.stroke();
+                context.beginPath();
+                context.arc(this.position[0],this.position[1],/*Math.log10(this.size)*/this.size**2,0,2*Math.PI);
+                //context.fill();
+                //context.closePath();
+                context.stroke();
+                context.translate(this.position[0], this.position[1])
+                context.scale(.5,-.5);
+                context.font = "1px comic sans ms";
+                context.fillText(this.points, 0, 1.5);
+                context.restore();
+            }
+        }
+        function random(min, max) {
+            return Math.floor(Math.random() * (max - min + 1) ) + min;
+        }
+        function choosePeg(pegs) {
+            //let pegs = state.level.pegs;
+            let peg = pegs[random(0,pegs.length-1)];
+            console.log(peg, peg.id);//random(0, pegs.length-1));
+            if(peg.color == "orange") {
+                choosePeg(pegs);
+                return;
+            }
+            peg.color = "orange";
+        }
+        function calcMultiplier(oranges) {
+            return oranges > 10 ? oranges > 15 ? oranges > 19 ? oranges > 22 ? oranges > 25 ? 10 : 10 : 5 : 3 : 2 : 1;
+        }
+        class Level {
+            constructor(id) {
+                this.world = new p2.World();
+                this.world.defaultContactMaterial.restitution = 1.25;
+                this.lastTime = undefined;
+                this.subSteps = 5;
+                this.player = createBox(this.world, [0,5], [50,50], "phiggle");
+                //this.parts = [];
+                this.launcher = new Rectangle(0,7,100*.025,100*.025,"pink");//createBox(this.world, [0,8], [100,100], "pink", true);
+                this.score = 0;
+                this.pinball = undefined;
+                this.effects = [];
+                this.pegs = [];
+                this.balls = 10;
+                this.oranges = 0;
+                this.orangesVisual = [];
+                this.zoom = 40;
+                this.shit = [0,0];
+
+                for(let i = 25; i > 0; i--) {
+                    this.orangesVisual.push(new Rectangle(950, i*25, 100, 25, "rgb(127,65,0)"));
+                }
+                createBox(this.world, [-10.5,0], [1/.025,16/.025], "black", true);
+                createBox(this.world, [10.5,0], [1/.025,16/.025], "black", true);
+                createBox(this.world, [0,10], [16/.025, 1/.025], "black", true);
+                this.bucket = [];/* = new p2.Body({
+                    type: p2.Body.KINEMATIC,
+                    postiion: [0,-7],
+                });*/
+                let bsbody = new p2.Body({type: p2.Body.KINEMATIC, position: [-9.5,-8.5]});
+                bsbody.color = "blue";
+                /*let bucketshape = new p2.Box({
+                    width: 2,
+                    height: 2,
+                    /*vertices: [        
+                        p2.vec2.fromValues(-2/2, -2/2),
+                        //p2.vec2.fromValues( 2/2, -2/2),
+                        p2.vec2.fromValues( 2/2,  2/2),
+                        p2.vec2.fromValues(-2/2,  2/2),
+                    ],*/
+                /*}).vertices = [        
+                        p2.vec2.fromValues(-2/2, -2/2),
+                        //p2.vec2.fromValues( 2/2, -2/2),
+                        p2.vec2.fromValues( 2/2,  2/2),
+                        p2.vec2.fromValues(-2/2,  2/2),
+                    ];*/
+                let bucketshape = new p2.Convex({vertices: [
+                    p2.vec2.fromValues(-1/2, -1/2),
+                    p2.vec2.fromValues( 1/2, -1/2),
+                    p2.vec2.fromValues( 1/2,  1/2),
+                    //p2.vec2.fromValues(-2/2,  2/2),
+                ]});
+                bsbody.addShape(bucketshape);
+                this.world.addBody(bsbody);
+                this.bucket.push(bsbody);
+                let bsbody2 = new p2.Body({type: p2.Body.KINEMATIC, position: [-4.5,-8.5]});
+                bsbody2.color = "green";
+                /*let bucketshape2 = new p2.Box({
+                    width: 2,
+                    height: 2,
+                    /*vertices: [        
+                        p2.vec2.fromValues(-2/2, -2/2),
+                        p2.vec2.fromValues( 2/2, -2/2),
+                        p2.vec2.fromValues( 2/2,  2/2),
+                        //vec2.fromValues(-2/2,  2/2),
+                    ],*/
+                /*}).vertices = [        
+                        p2.vec2.fromValues(-2/2, -2/2),
+                        p2.vec2.fromValues( 2/2, -2/2),
+                        p2.vec2.fromValues( 2/2,  2/2),
+                        //vec2.fromValues(-2/2,  2/2),
+                    ];*/
+                let bucketshape2 = new p2.Convex({vertices: [        
+                        p2.vec2.fromValues(-1/2, -1/2),
+                        p2.vec2.fromValues( 1/2, -1/2),
+                        //p2.vec2.fromValues( 2/2,  2/2),
+                        p2.vec2.fromValues(-1/2,  1/2),
+                    ],});
+                bsbody2.addShape(bucketshape2);
+                this.world.addBody(bsbody2);
+                this.bucket.push(bsbody2);
+                this.bucket.push(createBox(this.world, [-7,-10], [6/.025, 2/.025], "red", true));
+                this.world.on("postStep", () => {
+                    this.bucket.forEach(body => {
+                        body.velocity[0] = 7*Math.sin(this.world.time);
+                        //body.velocity[1] = 8*Math.cos(this.world.time);
+                    });
+                });
+                //this.bucket.addShape(bucketshape);
+                //this.bucket.addShape(bucketshape2);
+                //this.bucket.addShape(bucketpot);
+                //this.world.addBody(this.bucket);
+                if(id == 0) {
+                    //createBox(this.world, [0,0], [100,100], "blue");
+                    //createCircle(this.world, [1,0], 10, "orange", true);
+                    //ok create the pegs
+                    for(let y = 0; y < 7; y++) {
+                        for(let x = 0; x < 12; x++) {
+                            //255,165,0
+                            //22,0,255
+                            let circle = createCircle(this.world, [(x*1.5 - 9) + (y%2) + Math.random()/4,(y - 3.5) + Math.random()/4], 8, /*Math.random() > .5 ? "orange" : */"blue", true);
+                            circle.detect = true;
+                            this.pegs.push(circle);
+                        }
+                    }
+
+                    for(let i = 0; i < 84; i++) {
+                        //this.pegs[random(0,this.pegs.length)].
+                        choosePeg(this.pegs);
+                    }
+                    //this.parts.push(new Rectangle(0, 500, 800, 100, "yellow"));
+                }else if(id == 21) {
+                    this.star = new p2.Body();
+                    this.star.addShape(new p2.Convex({vertices: [
+                        p2.vec2.fromValues(-2, 0),
+                        p2.vec2.fromValues(0, -2),
+                        p2.vec2.fromValues(2, 0),
+                        p2.vec2.fromValues(2, 2),
+                        p2.vec2.fromValues(-1, -1),
+                        p2.vec2.fromValues(0, 2),
+                    ]}));
+                    this.world.addBody(this.star);
+                }else {
+                    createCircle(this.world, [-7.849999904632568, 5.179999828338623], 10, 'rgb(227, 92, 50)', true);
+createCircle(this.world, [-3.25, 2.9800000190734863], 10, 'rgb(118, 105, 29)', true);
+createCircle(this.world, [-3.25, 2.9000000953674316], 10, 'rgb(28, 126, 94)', true);
+createCircle(this.world, [-3.2699999809265137, 2.7799999713897705], 10, 'rgb(82, 180, 140)', true);
+createCircle(this.world, [-3.3499999046325684, 2.619999885559082], 10, 'rgb(75, 92, 141)', true);
+createCircle(this.world, [-3.4100000858306885, 2.440000057220459], 10, 'rgb(68, 251, 216)', true);
+createCircle(this.world, [-3.430000066757202, 2.2200000286102295], 10, 'rgb(132, 29, 70)', true);
+createCircle(this.world, [-3.430000066757202, 2.059999942779541], 10, 'rgb(160, 1, 13)', true);
+createCircle(this.world, [-3.430000066757202, 1.9600000381469727], 10, 'rgb(136, 172, 146)', true);
+createCircle(this.world, [-3.430000066757202, 1.899999976158142], 10, 'rgb(184, 251, 128)', true);
+createCircle(this.world, [-3.430000066757202, 1.8600000143051147], 10, 'rgb(97, 84, 48)', true);
+createCircle(this.world, [-3.430000066757202, 1.7999999523162842], 10, 'rgb(171, 162, 79)', true);
+createCircle(this.world, [-3.430000066757202, 1.7200000286102295], 10, 'rgb(11, 100, 91)', true);
+createCircle(this.world, [-3.450000047683716, 1.6200000047683716], 10, 'rgb(43, 148, 143)', true);
+createCircle(this.world, [-3.490000009536743, 1.5199999809265137], 10, 'rgb(226, 100, 238)', true);
+createCircle(this.world, [-3.490000009536743, 1.4199999570846558], 10, 'rgb(247, 17, 26)', true);
+createCircle(this.world, [-3.490000009536743, 1.2799999713897705], 10, 'rgb(196, 206, 36)', true);
+createCircle(this.world, [-3.509999990463257, 1.1399999856948853], 10, 'rgb(159, 109, 61)', true);
+createCircle(this.world, [-3.5299999713897705, 1.059999942779541], 10, 'rgb(27, 22, 214)', true);
+createCircle(this.world, [-3.549999952316284, 0.9599999785423279], 10, 'rgb(117, 240, 49)', true);
+createCircle(this.world, [-3.569999933242798, 0.8799999952316284], 10, 'rgb(192, 6, 146)', true);
+createCircle(this.world, [-3.609999895095825, 0.800000011920929], 10, 'rgb(144, 216, 193)', true);
+createCircle(this.world, [-3.6500000953674316, 0.6800000071525574], 10, 'rgb(233, 140, 126)', true);
+createCircle(this.world, [-3.6700000762939453, 0.5600000023841858], 10, 'rgb(91, 61, 183)', true);
+createCircle(this.world, [-3.7100000381469727, 0.41999998688697815], 10, 'rgb(154, 192, 64)', true);
+createCircle(this.world, [-3.75, 0.2800000011920929], 10, 'rgb(141, 197, 252)', true);
+createCircle(this.world, [-3.809999942779541, 0.10000000149011612], 10, 'rgb(202, 186, 10)', true);
+createCircle(this.world, [-3.809999942779541, -0.07999999821186066], 10, 'rgb(220, 128, 127)', true);
+createCircle(this.world, [-3.809999942779541, -0.23999999463558197], 10, 'rgb(129, 229, 232)', true);
+createCircle(this.world, [-3.809999942779541, -0.3799999952316284], 10, 'rgb(181, 122, 108)', true);
+createCircle(this.world, [-3.7899999618530273, -0.5199999809265137], 10, 'rgb(29, 109, 252)', true);
+createCircle(this.world, [-3.7699999809265137, -0.6399999856948853], 10, 'rgb(152, 36, 204)', true);
+createCircle(this.world, [-3.75, -0.7599999904632568], 10, 'rgb(223, 70, 201)', true);
+createCircle(this.world, [-3.75, -0.8799999952316284], 10, 'rgb(71, 77, 172)', true);
+createCircle(this.world, [-3.7300000190734863, -0.9599999785423279], 10, 'rgb(132, 245, 141)', true);
+createCircle(this.world, [-3.7300000190734863, -1.0199999809265137], 10, 'rgb(118, 112, 187)', true);
+createCircle(this.world, [-3.7300000190734863, -1.059999942779541], 10, 'rgb(202, 138, 68)', true);
+createCircle(this.world, [-3.7300000190734863, -1.159999966621399], 10, 'rgb(249, 128, 42)', true);
+createCircle(this.world, [-3.7300000190734863, -1.2799999713897705], 10, 'rgb(52, 238, 173)', true);
+createCircle(this.world, [-3.7100000381469727, -1.4199999570846558], 10, 'rgb(94, 139, 130)', true);
+createCircle(this.world, [-3.6700000762939453, -1.5], 10, 'rgb(206, 185, 54)', true);
+createCircle(this.world, [-3.6500000953674316, -1.559999942779541], 10, 'rgb(78, 17, 219)', true);
+createCircle(this.world, [-3.609999895095825, -1.6200000047683716], 10, 'rgb(87, 20, 81)', true);
+createCircle(this.world, [-3.569999933242798, -1.7000000476837158], 10, 'rgb(0, 28, 118)', true);
+createCircle(this.world, [-3.509999990463257, -1.7999999523162842], 10, 'rgb(34, 37, 92)', true);
+createCircle(this.world, [-3.490000009536743, -1.8600000143051147], 10, 'rgb(238, 199, 254)', true);
+createCircle(this.world, [-3.450000047683716, -1.9199999570846558], 10, 'rgb(86, 120, 4)', true);
+createCircle(this.world, [-3.390000104904175, -2], 10, 'rgb(129, 64, 14)', true);
+createCircle(this.world, [-3.369999885559082, -2.059999942779541], 10, 'rgb(241, 158, 154)', true);
+createCircle(this.world, [-3.3299999237060547, -2.0999999046325684], 10, 'rgb(180, 217, 23)', true);
+createCircle(this.world, [-3.2300000190734863, -2.180000066757202], 10, 'rgb(141, 91, 29)', true);
+createCircle(this.world, [-3.130000114440918, -2.240000009536743], 10, 'rgb(2, 111, 34)', true);
+createCircle(this.world, [-3.0299999713897705, -2.2799999713897705], 10, 'rgb(52, 75, 204)', true);
+createCircle(this.world, [-2.930000066757202, -2.3399999141693115], 10, 'rgb(85, 20, 59)', true);
+createCircle(this.world, [-2.75, -2.4200000762939453], 10, 'rgb(177, 156, 152)', true);
+createCircle(this.world, [-2.5899999141693115, -2.4800000190734863], 10, 'rgb(201, 111, 183)', true);
+createCircle(this.world, [-2.450000047683716, -2.5], 10, 'rgb(149, 7, 89)', true);
+createCircle(this.world, [-2.2699999809265137, -2.5199999809265137], 10, 'rgb(217, 240, 14)', true);
+createCircle(this.world, [-2.0899999141693115, -2.559999942779541], 10, 'rgb(206, 114, 232)', true);
+createCircle(this.world, [-1.9700000286102295, -2.5799999237060547], 10, 'rgb(147, 149, 95)', true);
+createCircle(this.world, [-1.8899999856948853, -2.5799999237060547], 10, 'rgb(29, 199, 36)', true);
+createCircle(this.world, [-1.809999942779541, -2.5999999046325684], 10, 'rgb(96, 77, 28)', true);
+createCircle(this.world, [-1.6699999570846558, -2.619999885559082], 10, 'rgb(195, 161, 20)', true);
+createCircle(this.world, [-1.4700000286102295, -2.640000104904175], 10, 'rgb(178, 251, 166)', true);
+createCircle(this.world, [-1.2300000190734863, -2.6600000858306885], 10, 'rgb(165, 41, 144)', true);
+createCircle(this.world, [-1.0499999523162842, -2.680000066757202], 10, 'rgb(29, 194, 232)', true);
+createCircle(this.world, [-0.9100000262260437, -2.680000066757202], 10, 'rgb(133, 234, 254)', true);
+createCircle(this.world, [-0.6700000166893005, -2.700000047683716], 10, 'rgb(220, 0, 69)', true);
+createCircle(this.world, [-0.3700000047683716, -2.740000009536743], 10, 'rgb(72, 7, 176)', true);
+createCircle(this.world, [-0.09000000357627869, -2.759999990463257], 10, 'rgb(172, 162, 185)', true);
+createCircle(this.world, [0.07000000029802322, -2.759999990463257], 10, 'rgb(121, 143, 199)', true);
+createCircle(this.world, [0.23000000417232513, -2.740000009536743], 10, 'rgb(109, 38, 11)', true);
+createCircle(this.world, [0.4300000071525574, -2.700000047683716], 10, 'rgb(175, 6, 139)', true);
+createCircle(this.world, [0.6899999976158142, -2.700000047683716], 10, 'rgb(187, 160, 30)', true);
+createCircle(this.world, [0.8899999856948853, -2.680000066757202], 10, 'rgb(118, 186, 239)', true);
+createCircle(this.world, [1.1299999952316284, -2.6600000858306885], 10, 'rgb(226, 175, 5)', true);
+createCircle(this.world, [1.350000023841858, -2.6600000858306885], 10, 'rgb(123, 14, 220)', true);
+createCircle(this.world, [1.5499999523162842, -2.640000104904175], 10, 'rgb(118, 181, 151)', true);
+createCircle(this.world, [1.690000057220459, -2.619999885559082], 10, 'rgb(113, 255, 75)', true);
+createCircle(this.world, [1.850000023841858, -2.619999885559082], 10, 'rgb(178, 19, 203)', true);
+createCircle(this.world, [2.069999933242798, -2.5799999237060547], 10, 'rgb(206, 48, 192)', true);
+createCircle(this.world, [2.2699999809265137, -2.559999942779541], 10, 'rgb(100, 186, 127)', true);
+createCircle(this.world, [2.450000047683716, -2.5199999809265137], 10, 'rgb(110, 37, 137)', true);
+createCircle(this.world, [2.630000114440918, -2.5], 10, 'rgb(88, 36, 203)', true);
+createCircle(this.world, [2.7899999618530273, -2.4800000190734863], 10, 'rgb(29, 168, 16)', true);
+createCircle(this.world, [2.930000066757202, -2.4600000381469727], 10, 'rgb(27, 221, 250)', true);
+createCircle(this.world, [3.049999952316284, -2.4200000762939453], 10, 'rgb(103, 199, 189)', true);
+createCircle(this.world, [3.190000057220459, -2.359999895095825], 10, 'rgb(227, 213, 169)', true);
+createCircle(this.world, [3.369999885559082, -2.299999952316284], 10, 'rgb(213, 69, 148)', true);
+createCircle(this.world, [3.509999990463257, -2.259999990463257], 10, 'rgb(246, 169, 124)', true);
+createCircle(this.world, [3.609999895095825, -2.200000047683716], 10, 'rgb(201, 63, 229)', true);
+createCircle(this.world, [3.7300000190734863, -2.119999885559082], 10, 'rgb(65, 62, 170)', true);
+createCircle(this.world, [3.869999885559082, -2.0399999618530273], 10, 'rgb(36, 95, 146)', true);
+createCircle(this.world, [4.03000020980835, -1.9600000381469727], 10, 'rgb(230, 164, 0)', true);
+createCircle(this.world, [4.130000114440918, -1.840000033378601], 10, 'rgb(92, 20, 199)', true);
+createCircle(this.world, [4.210000038146973, -1.7200000286102295], 10, 'rgb(80, 156, 145)', true);
+createCircle(this.world, [4.289999961853027, -1.659999966621399], 10, 'rgb(62, 197, 204)', true);
+createCircle(this.world, [4.389999866485596, -1.5399999618530273], 10, 'rgb(21, 99, 165)', true);
+createCircle(this.world, [4.489999771118164, -1.399999976158142], 10, 'rgb(239, 153, 89)', true);
+createCircle(this.world, [4.650000095367432, -1.1200000047683716], 10, 'rgb(61, 168, 243)', true);
+createCircle(this.world, [4.710000038146973, -0.9800000190734863], 10, 'rgb(151, 28, 134)', true);
+createCircle(this.world, [4.769999980926514, -0.8799999952316284], 10, 'rgb(240, 62, 122)', true);
+createCircle(this.world, [4.809999942779541, -0.7799999713897705], 10, 'rgb(163, 124, 4)', true);
+createCircle(this.world, [4.849999904632568, -0.6200000047683716], 10, 'rgb(109, 240, 76)', true);
+createCircle(this.world, [4.869999885559082, -0.47999998927116394], 10, 'rgb(220, 79, 136)', true);
+createCircle(this.world, [4.909999847412109, -0.3199999928474426], 10, 'rgb(142, 137, 126)', true);
+createCircle(this.world, [4.929999828338623, -0.1599999964237213], 10, 'rgb(115, 118, 224)', true);
+createCircle(this.world, [4.929999828338623, 0], 10, 'rgb(129, 30, 86)', true);
+createCircle(this.world, [4.929999828338623, 0.10000000149011612], 10, 'rgb(214, 247, 141)', true);
+createCircle(this.world, [4.929999828338623, 0.25999999046325684], 10, 'rgb(41, 52, 26)', true);
+createCircle(this.world, [4.929999828338623, 0.41999998688697815], 10, 'rgb(154, 18, 200)', true);
+createCircle(this.world, [4.929999828338623, 0.5600000023841858], 10, 'rgb(42, 11, 236)', true);
+createCircle(this.world, [4.929999828338623, 0.699999988079071], 10, 'rgb(91, 143, 48)', true);
+createCircle(this.world, [4.929999828338623, 0.8399999737739563], 10, 'rgb(174, 105, 158)', true);
+createCircle(this.world, [4.909999847412109, 0.9800000190734863], 10, 'rgb(66, 247, 87)', true);
+createCircle(this.world, [4.829999923706055, 1.1399999856948853], 10, 'rgb(104, 45, 233)', true);
+createCircle(this.world, [4.769999980926514, 1.2599999904632568], 10, 'rgb(201, 146, 112)', true);
+createCircle(this.world, [4.710000038146973, 1.340000033378601], 10, 'rgb(35, 238, 253)', true);
+createCircle(this.world, [4.670000076293945, 1.4199999570846558], 10, 'rgb(70, 45, 162)', true);
+createCircle(this.world, [4.590000152587891, 1.5399999618530273], 10, 'rgb(234, 201, 99)', true);
+createCircle(this.world, [4.489999771118164, 1.6799999475479126], 10, 'rgb(236, 43, 144)', true);
+createCircle(this.world, [4.309999942779541, 1.8799999952316284], 10, 'rgb(204, 112, 128)', true);
+createCircle(this.world, [4.170000076293945, 2], 10, 'rgb(17, 146, 55)', true);
+createCircle(this.world, [3.9100000858306885, 2.180000066757202], 10, 'rgb(93, 223, 52)', true);
+createCircle(this.world, [3.6500000953674316, 2.319999933242798], 10, 'rgb(6, 76, 27)', true);
+createCircle(this.world, [3.430000066757202, 2.4600000381469727], 10, 'rgb(72, 7, 141)', true);
+createCircle(this.world, [3.2699999809265137, 2.559999942779541], 10, 'rgb(4, 245, 139)', true);
+createCircle(this.world, [3.1500000953674316, 2.619999885559082], 10, 'rgb(161, 236, 248)', true);
+createCircle(this.world, [3.009999990463257, 2.680000066757202], 10, 'rgb(84, 18, 3)', true);
+createCircle(this.world, [2.869999885559082, 2.740000009536743], 10, 'rgb(231, 13, 14)', true);
+createCircle(this.world, [2.7100000381469727, 2.7799999713897705], 10, 'rgb(239, 69, 89)', true);
+createCircle(this.world, [2.549999952316284, 2.819999933242798], 10, 'rgb(196, 58, 247)', true);
+createCircle(this.world, [2.369999885559082, 2.859999895095825], 10, 'rgb(47, 251, 109)', true);
+createCircle(this.world, [2.2300000190734863, 2.880000114440918], 10, 'rgb(17, 8, 67)', true);
+createCircle(this.world, [2.009999990463257, 2.940000057220459], 10, 'rgb(142, 193, 41)', true);
+createCircle(this.world, [1.7699999809265137, 2.9800000190734863], 10, 'rgb(50, 188, 233)', true);
+createCircle(this.world, [1.6100000143051147, 3], 10, 'rgb(79, 162, 147)', true);
+createCircle(this.world, [1.4500000476837158, 3], 10, 'rgb(245, 250, 6)', true);
+createCircle(this.world, [1.2899999618530273, 3.0399999618530273], 10, 'rgb(210, 238, 9)', true);
+createCircle(this.world, [1.0499999523162842, 3.059999942779541], 10, 'rgb(130, 114, 12)', true);
+createCircle(this.world, [0.8500000238418579, 3.059999942779541], 10, 'rgb(220, 84, 121)', true);
+createCircle(this.world, [0.6899999976158142, 3.059999942779541], 10, 'rgb(231, 62, 118)', true);
+createCircle(this.world, [0.4699999988079071, 3.059999942779541], 10, 'rgb(90, 207, 41)', true);
+createCircle(this.world, [0.27000001072883606, 3.059999942779541], 10, 'rgb(109, 25, 236)', true);
+createCircle(this.world, [0.17000000178813934, 3.059999942779541], 10, 'rgb(168, 62, 67)', true);
+createCircle(this.world, [0.07000000029802322, 3.059999942779541], 10, 'rgb(11, 120, 45)', true);
+createCircle(this.world, [-0.05000000074505806, 3.059999942779541], 10, 'rgb(177, 129, 110)', true);
+createCircle(this.world, [-0.17000000178813934, 3.059999942779541], 10, 'rgb(186, 47, 120)', true);
+createCircle(this.world, [-0.28999999165534973, 3.0399999618530273], 10, 'rgb(130, 202, 104)', true);
+createCircle(this.world, [-0.4699999988079071, 3.0399999618530273], 10, 'rgb(64, 151, 228)', true);
+createCircle(this.world, [-0.6299999952316284, 3.0199999809265137], 10, 'rgb(251, 156, 74)', true);
+createCircle(this.world, [-0.7300000190734863, 3.0199999809265137], 10, 'rgb(237, 43, 101)', true);
+createCircle(this.world, [-0.8100000023841858, 3], 10, 'rgb(207, 38, 112)', true);
+createCircle(this.world, [-0.8899999856948853, 2.9800000190734863], 10, 'rgb(95, 121, 8)', true);
+createCircle(this.world, [-0.9900000095367432, 2.9600000381469727], 10, 'rgb(67, 67, 52)', true);
+createCircle(this.world, [-1.1299999952316284, 2.9200000762939453], 10, 'rgb(147, 81, 200)', true);
+createCircle(this.world, [-1.2699999809265137, 2.9000000953674316], 10, 'rgb(126, 193, 92)', true);
+createCircle(this.world, [-1.409999966621399, 2.880000114440918], 10, 'rgb(234, 184, 110)', true);
+createCircle(this.world, [-1.5499999523162842, 2.859999895095825], 10, 'rgb(98, 114, 183)', true);
+createCircle(this.world, [-1.690000057220459, 2.8399999141693115], 10, 'rgb(180, 178, 175)', true);
+createCircle(this.world, [-1.8300000429153442, 2.819999933242798], 10, 'rgb(198, 155, 56)', true);
+createCircle(this.world, [-1.9700000286102295, 2.7799999713897705], 10, 'rgb(174, 23, 199)', true);
+createCircle(this.world, [-2.109999895095825, 2.740000009536743], 10, 'rgb(18, 255, 224)', true);
+createCircle(this.world, [-2.25, 2.7200000286102295], 10, 'rgb(165, 163, 175)', true);
+createCircle(this.world, [-2.369999885559082, 2.7200000286102295], 10, 'rgb(253, 154, 158)', true);
+createCircle(this.world, [-2.490000009536743, 2.7200000286102295], 10, 'rgb(102, 113, 234)', true);
+createCircle(this.world, [-2.5299999713897705, 2.7200000286102295], 10, 'rgb(124, 182, 216)', true);
+createCircle(this.world, [-2.6500000953674316, 2.7200000286102295], 10, 'rgb(249, 46, 246)', true);
+createCircle(this.world, [-2.7899999618530273, 2.740000009536743], 10, 'rgb(164, 83, 14)', true);
+createCircle(this.world, [-2.890000104904175, 2.759999990463257], 10, 'rgb(254, 25, 167)', true);
+createCircle(this.world, [-2.9700000286102295, 2.7799999713897705], 10, 'rgb(63, 48, 67)', true);
+createCircle(this.world, [-3.049999952316284, 2.799999952316284], 10, 'rgb(16, 69, 11)', true);
+createCircle(this.world, [-3.0899999141693115, 2.8399999141693115], 10, 'rgb(253, 39, 63)', true);
+createCircle(this.world, [-3.1500000953674316, 2.880000114440918], 10, 'rgb(97, 181, 11)', true);
+createCircle(this.world, [-3.1700000762939453, 2.9200000762939453], 10, 'rgb(57, 34, 108)', true);
+createCircle(this.world, [-3.1700000762939453, 2.9600000381469727], 10, 'rgb(154, 84, 70)', true);
+createCircle(this.world, [-3.190000057220459, 2.9800000190734863], 10, 'rgb(5, 224, 248)', true);
+createCircle(this.world, [-3.190000057220459, 3.0199999809265137], 10, 'rgb(36, 37, 113)', true);
+                }
+                //*createPlane(this.world);
+                this.world.on("beginContact", e => {
+                    let peg = e.bodyA == this.pinball ? e.bodyB : e.bodyA;
+                    let pball = e.bodyA == this.pinball ? e.bodyA : e.bodyB;
+                    if(pball == this.pinball) {//e.bodyA == this.pinball && e.bodyB.detect) {
+                        if(/*peg && pball && */peg.detect) {
+                            //e.bodyB.detect = false;
+                            peg.detect = false;
+                            peg.time = Date.now()/1000+1;
+                            //peg.color = "light"+peg.color;
+                            let points;
+                            if(peg.color == "orange") {
+                                this.orangesVisual[this.oranges].color = "orange";
+                                this.oranges++;
+                                points = 100*calcMultiplier(this.oranges);
+                            }else {
+                                points = 10*calcMultiplier(this.oranges);
+                            }
+                            this.effects.push(new WaveEffect(peg.position, peg.color, points));
+                            this.score += points;
+                            //this.score += 10*(peg.color == "orange" ? 10 : 1)*
+                        }
+                        let shid = e.bodyA == this.bucket[2] ? e.bodyA : e.bodyB;
+                        if(shid == this.bucket[2]) {
+                            this.balls++;
+                            this.world.removeBody(this.pinball);
+                            this.pinball = undefined; //i can't delete it so next best thing (well actually im not sure if you can or not (hey you can but i don't want to in this case))]
+                        }
+                    }
+                });
+            }
+
+            update(time) {
+                let mousePos = getPhysicsCoord();
+                this.launcher.angle = Math.atan2(mousePos[1] - this.launcher.rect.y, mousePos[0] - this.launcher.rect.x); //this.launcher.position[1]';'
+                //update here
+                //perhaps it shsould vbe p2.vec2.copy(this.player.velocity, abdteb all the nmath)
+                this.player.velocity = new Float32Array([this.player.velocity[0] + moveDirection.x/4, this.player.velocity[1] + -moveDirection.y/4]);
+                //(x - width / 2) / 40;
+                context.fillRect((this.launcher.rect.x + width/2)/* - (this.launcher.rect.width/.05)*/,this.launcher.rect.y + 112/*?*/,100,100);
+                /*context.save();
+                context.beginPath();
+                context.translate((this.launcher.rect.x + width/2), this.launcher.rect.y + 112);
+                context.moveTo(0,0);
+                //context.moveTo(width/2,112);
+                //context.lineWidth = 1;
+                
+                context.stroke();
+                context.restore();*/
+
+                let dt = this.lastTime ? (time - this.lastTime) / 1000 : 0;
+                dt = Math.min(1 / 10, dt);
+                this.lastTime = time;
+                this.world.step(1/60, dt, this.subSteps);
+
+                console.log(this.lastTime);
+
+                context.save();
+                context.translate(width/2 + this.shit[0], height/2 + this.shit[1]);
+                context.scale(this.zoom,-this.zoom);
+                this.launcher.draw();
+                context.beginPath();
+                context.lineWidth = .1;
+                context.moveTo(this.launcher.rect.x, this.launcher.rect.y);
+                //for(let y = this.launcher.rect.y; y < mousePos[1]; y += Math.abs(this.launcher.rect.y-mousePos[1])/2) {
+                //    for(let x = this.launcher.rect.x; x < mousePos[0]; x += Math.abs(this.launcher.rect.x-mousePos[0])/2) {
+                //        context.lineTo(x, y);
+                //    }
+                //}
+                //for(let y = this.launcher.rect.y; y < mousePos[1]; y++) {
+                //    for(let x = this.launcher.rect.x; x < mousePos[0]; x++) {
+                        //context.lineTo(x,y);
+                //    }
+                //}
+                //for(let y = 0; y < mousePos[1]; y++) {
+                //    for(let x = 0; x < mousePos[0]; x++) {
+                //        context.lineTo(x,y);
+                //    }
+                //}
+                //context.lineTo(mousePos[0]/* - this.launcher.rect.x*/, mousePos[1]/* - this.launcher.rect.y*/);
+                context.stroke();
+
+                //deprecate
+                /*this.world.bodies.forEach(body => {
+                    //console.log(body.shapes[0].constructor.name);
+                    //console.log(`draw${body.shapes[0].constructor.name}(${body}, ${body.shapes[0]})`);
+                    drawShit(body.shapes[0].constructor.name, body, body.shapes[0]);
+                    //eval(`draw${body.shapes[0].constructor.name}(${body}, ${body.shapes[0]})`); //haha imma genius but i wonder if there is any downside to doing so
+                });*/ //WHAT WAS HE COOKING BURH 
+                drawBox(this.player, this.player.shapes[0]);
+                if(this.pinball) {
+                /*    this.shit = this.pinball.position;
+                this.shit[0] = (this.shit[0] * this.zoom);
+                this.shit[1] = (this.shit[1] * this.zoom);*/
+
+                    drawCircle(this.pinball, this.pinball.shapes[0]);
+                    if(this.pinball.position[1] < -10) {
+                        this.world.removeBody(this.pinball);
+                        this.pinball = undefined; //i can't delete it so next best thing (well actually im not sure if you can or not (hey you can but i don't want to in this case))
+                    }
+                }
+                let deleted = [];
+                this.pegs.forEach((peg, i) => {
+                    if(peg.time && Date.now()/1000 > peg.time) {
+                        console.log(peg.time);
+                        deleted.push([peg, i]);
+                        //this.world.removeBody(peg);
+                        //this.pegs.splice(i, 1);
+                        //does it really matter if i delete it but still draw it? we will see
+                        //i may have to shit tho (epic fail)
+                        //return;
+                    }
+                    drawCircle(peg, peg.shapes[0]);
+                });
+                deleted.forEach(info => {
+                    this.world.removeBody(info[0]);
+                    this.pegs.splice(info[1], 1);
+                });
+                let deleted2 = [];
+                this.effects.forEach((effect,i) => {
+                    effect.draw();
+                    if(effect.size > 24*.025) {
+                        deleted2.push(i);
+                        //this.effects.splice(i, 1); //garbage collection should come in clutch here i hope
+                    }
+                });
+                deleted2.forEach(i => {
+                    this.effects.splice(i, 1);
+                });
+                /*this.bucket.shapes.forEach(shape => {
+                    drawBox(this.bucket, shape);
+                });*/
+                drawVertices(this.bucket[0], this.bucket[0].shapes[0]);
+                drawVertices(this.bucket[1], this.bucket[1].shapes[0]);
+                //drawBox(this.bucket[0], {width: 1, height: 1});
+                //drawBox(this.bucket[1], {width: 1, height: 1});
+                drawBox(this.bucket[2], this.bucket[2].shapes[0]);
+                if(this.star) {
+                    drawVertices(this.star, this.star.shapes[0]);
+                }
+                context.restore();
+                context.fillText(this.balls, 50, 100);
+                context.fillText(this.score, 250, 25);
+                this.orangesVisual.forEach(puck => {
+                    puck.draw();
+                });
+                //if(this.oranges == 24 && distancetoballfromorangeshitdadada) {
+                    //camera zoom (how)
+                //}
+                /*this.parts.forEach(part => {
+                    //console.log("draw part");
+                    part.draw();
+                });*/
+            }
+        }
+        class Game {
+            constructor(level) {
+                this.level = level;
+                //this.level = level;
+                this.player = level.player;
+            }
+
+            draw(time) {
+                this.level.update(time);
+                //this.player.update(); //damn we gonna need box2d and what not
+            }
+        }
+
+        let state = new Title();
+
+        context.fillStyle = "black";
+        context.fillRect(200,200,200,200);
+
+        //bruh this system is weird i gotta fix this
+
+        function tick(time) {
+            requestAnimationFrame(tick);
+            context.clearRect(0,0,width,height);
+            state.draw(time);
+            canvas.style.cursor = hover ? "pointer" : "initial";
+            hover = false;
+        }
+        requestAnimationFrame(tick);
+    </script>
+</body>
+</html>

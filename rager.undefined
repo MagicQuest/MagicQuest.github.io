@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>first mutiplayer test</title>
+        <!--script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script-->
+        <link rel="stylesheet" href="https://magicquest.github.io/clickable.css">
+        <link rel="stylesheet" href="https://magicquest.github.io/font.css">
+        <script src="https://magicquest.github.io/oof.js"></script>
+        <style>
+            a {
+                font-size: 50px;
+            }
+        </style>
+    </head>
+    <body>
+        <!--h1>im not done yet lol</h1-->
+        <img id="bruh" src="img/troll2.png" style="position: absolute; top: -200px; left: -200px;">
+        <a href="/trollmaker">trollz</a>
+        <br>
+        <a href="/screenshare">screenshare</a>
+        <br>
+        <a href="/ocr.html">character recognition</a>
+    </body>
+</html>

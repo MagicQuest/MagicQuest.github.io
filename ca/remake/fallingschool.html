@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ca probably 5</title>
+</head>
+<body>
+    <center>
+    <canvas oncontextmenu="event.preventDefault();" id="canvas" style="outline: 2px orange solid;" width="500" height="500"></canvas>
+    </center>
+    <script>
+        let context = canvas.getContext("2d");
+
+        let tiles = [];
+        let newTiles = [];
+
+        let mouse = {x: 0, y: 0, hold: 0};
+
+        let state = 1;
+
+        let size = 1;
+
+        let tick = 0;
+
+        const BOUNDS = 100;
+        const BB = 500/BOUNDS;
+        const SIZE = BB-2;
+
+        addEventListener("mousemove", event => {
+            mouse.x = Math.round((event.clientX - canvas.getBoundingClientRect().x-2.5)/BB);
+            //console.log(mouse.x);
+            mouse.y = Math.round((event.clientY - canvas.getBoundingClientRect().y-2.5)/BB);
+
+            mouse.hold = event.buttons;
+        });
+
+        addEventListener("keydown", event => {
+            if(event.keyCode > 47 && event.keyCode < 58 ) {
+                state = event.keyCode-48;
+            }
+        });
+
+        addEventListener("wheel", event => {
+            //console.log(event.deltaY);
+            size += event.deltaY/-100;
+        });
+
+        for(let i = 0; i < BOUNDS; i++) {
+            tiles.push([]);
+            for(let j = 0; j < BOUNDS; j++) {
+                tiles[i][j] = Math.round(Math.random());
+            }
+        }
+
+        newTiles = tiles.map((tile) => tile.slice());
+
+        function getNeighbors(x, y) {
+            let int = 0;
+            for(let i = -1; i <= 1; i++) {
+                for(let j = -1; j <= 1; j++) {
+                    if(x+i < BOUNDS && x+i >= 0 && y+j >= 0 && y+j < BOUNDS) {
+                        if(!(i == 0 && j == 0) && tiles[x+i][y+j] == 3) {
+                            int++;
+                        }
+                    }
+                }
+            }
+
+            return int;
+        }
+
+        function tock() {
+            context.fillStyle = "lightyellow"
+            context.fillRect(0,0,500,500);
+            for(let i = 0; i < BOUNDS; i++) {
+                for(let j = 0; j < BOUNDS; j++) {
+                    const neighbors = getNeighbors(i,j);
+
+                    if(tiles[i][j]) {
+                        context.fillStyle=tiles[i][j] == 2 ? "cyan" : tiles[i][j] == 3 ? "lightgreen" : "orange";
+                        context.fillRect(i*BB+1,j*BB+1, SIZE, SIZE);
+                        if(tiles[i][j] == 1) { //oops all my code has been ignoring the left side becauseo f  0 > instead of =>
+                            if(j+1 < BOUNDS) {
+                                if(!tiles[i][j+1]) {
+                                    newTiles[i][j] = 0;
+                                    newTiles[i][j+1] = tiles[i][j];
+                                }else if(i-1 >= 0 && !tiles[i-1][j+1]) {
+                                    newTiles[i][j] = 0;
+                                    newTiles[i-1][j+1] = tiles[i][j];
+                                }else if(i+1 < BOUNDS && !tiles[i+1][j+1]) {
+                                    newTiles[i][j] = 0;
+                                    newTiles[i+1][j+1] = tiles[i][j];
+                                }
+                            }
+                        }else if(tiles[i][j] == 2) {
+                            if(j+1 < BOUNDS && !newTiles[i][j+1]) {
+                                newTiles[i][j] = 0;
+                                newTiles[i][j+1] = tiles[i][j];
+                            }else {
+                                let left = (i-1 >= 0 && !newTiles[i-1][j]);
+                                let right = (i+1 < BOUNDS && !newTiles[i+1][j]);
+                                if(left && !right) {
+                                    newTiles[i][j] = 0;
+                                    newTiles[i-1][j] = tiles[i][j];
+                                }else if(right && !left) {
+                                    newTiles[i][j] = 0;
+                                    newTiles[i+1][j] = tiles[i][j];
+                                }else if(right && left) {
+                                    if(Math.round(Math.random())) {
+                                        newTiles[i][j] = 0;
+                                        newTiles[i-1][j] = tiles[i][j];
+                                    }else {
+                                        newTiles[i][j] = 0;
+                                        newTiles[i+1][j] = tiles[i][j];
+                                    }
+                                }
+                            }
+                        }else if(tiles[i][j] == 3) {
+                            if(neighbors < 2 || neighbors > 5) {
+                                newTiles[i][j] = 0;
+                            }else if(neighbors == 2 || neighbors == 3 || neighbors == 4 || neighbors == 5) {
+                                newTiles[i][j] = 3;
+                            }
+                        }
+                    }else {
+                        if(neighbors <= 8 && neighbors >= 4) {
+                            newTiles[i][j] = 3;
+                        }
+                    }
+                    if(i == mouse.x && j == mouse.y) {
+                        context.fillStyle = state == 2 ? "cyan" : state == 3 ? "lightgreen" : "black";
+                        context.fillRect(i*BB+1, j*BB+1, SIZE*(size+1), SIZE*(size+1));
+                        if(mouse.hold == 1) {
+                            for(let x = 0; x < size; x++) {
+                                for(let y = 0; y < size; y++) {
+                                    newTiles[Math.min(BOUNDS, i+x)][Math.min(BOUNDS, j+y)] = state;
+                                }
+                            }
+                        }else if(mouse.hold == 2) {
+                            for(let x = 0; x < size; x++) {
+                                for(let y = 0; y < size; y++) {
+                                    newTiles[Math.min(BOUNDS, i+x)][Math.min(BOUNDS, j+y)] = 0;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            tiles = newTiles.map((tile) => tile.slice());
+
+            tick = requestAnimationFrame(tock);
+        }
+
+        tock();
+    </script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ca1</title>
+</head>
+<body>
+    <center>
+        <canvas id="canvas" width="500" height="500" style="outline: 2px orange solid">nigger</canvas>
+    </center>
+    <script>
+        let context = canvas.getContext('2d');
+
+        let tiles = [];
+        let newTiles = [];
+
+        let mouse = {x: 0, y: 0, hold: 0};
+
+        const bounds = 100;
+        const BB = 500/bounds;
+
+        addEventListener("mousemove", event => {
+            mouse.x = Math.round((event.clientX - canvas.getBoundingClientRect().x-2.5)/BB);
+            //console.log(mouse.x);
+            mouse.y = Math.round((event.clientY - canvas.getBoundingClientRect().y-2.5)/BB);
+
+            mouse.hold = event.buttons;
+        });
+        
+        for(let i = 0; i < bounds; i++) {
+            tiles[i] = [];
+            for(let j = 0; j < bounds; j++) {
+                tiles[i][j] = Math.round(Math.random());
+            }
+        }
+
+        newTiles = tiles.map((tile) => tile.slice());
+
+        function getNeighbors(x, y) {
+            let int = 0;
+            for(let i = -1; i <= 1; i++) {
+                for(let j = -1; j <= 1; j++) {
+                    if(x+i < bounds && x+i >= 0 && y+j >= 0 && y+j < bounds) {
+                        if(!(i == 0 && j == 0) && tiles[x+i][y+j]) {
+                            int++;
+                        }
+                    }
+                }
+            }
+
+            return int;
+        }
+
+        function tick() {
+            //context.clearRect(0,0, 500,500);
+            context.fillStyle = "lightyellow"
+            context.fillRect(0,0,500,500);
+            //context.save();
+            //context.translate(-2.5,-2.5);
+            for(let i = 0; i < bounds; i++) {
+                for(let j = 0; j < bounds; j++) {
+                    const neighbors = getNeighbors(i,j);
+                    //turn uinto ternary statemnt alters
+                    if(tiles[i][j]) {
+                        if(neighbors < 2 || neighbors > 3) {
+                            newTiles[i][j] = 0;
+                        }else if(neighbors == 2 || neighbors == 3) {
+                            newTiles[i][j] = 1;
+                        }
+                        context.fillStyle = "sandybrown";
+                        context.fillRect(i*BB+2.5, j*BB+2.5, 4.5, 4.5);
+                    }else {
+                        if(neighbors == 3) {
+                            newTiles[i][j] = 1;
+                        }
+                    }
+                    context.fillStyle = "black";
+                    if(i == mouse.x && j == mouse.y) {
+                        context.fillRect(i*BB+2.5, j*BB+2.5, 4.5, 4.5);
+                        if(mouse.hold) {
+                            newTiles[i][j] = 1;
+                        }
+                    }
+                    //context.fillText(getNeighbors(i,j), i*10+4.5, j*10+6);
+                }
+            }
+            tiles = newTiles.map((tile) => tile.slice());
+            //context.restore();
+            requestAnimationFrame(tick);
+        }
+
+        tick();
+    </script>
+</body>
+</html>

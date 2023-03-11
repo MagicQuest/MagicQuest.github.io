@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>orb.farm</title>
+    <link rel='stylesheet' href='clickable.css'>
+    <link rel='stylesheet' href='font.css'>
+    <script src="oof.js"></script>
+    <style>
+        button {
+            padding: 10px;
+            border: grey 3px outset;
+            font-size: 16px;
+        }
+        button:active {
+            border: grey 3px inset;
+        }
+    </style>
+</head>
+<body style="background-color: grey;">
+    <div style="position: absolute; max-width: 450px;" id="buttons">
+        <button onclick="setup(circleSize, true);">reset</button>
+        <input type="range" value="200" max="450" oninput="setup(this.value);">
+        <div id="buttonColors">
+            <button onclick="drawState = 0;">clear</button>
+            <button onclick="drawState = 1;">sand</button>
+            <button onclick="drawState = 2;">glass</button>
+            <button onclick="drawState = 3;">water</button>
+            <button onclick="drawState = 4;">algae</button>
+            <button onclick="drawState = 5;">zooplankton seeds</button>
+            <button onclick="drawState = 6;">zooplankton</button>
+        </div>
+        <h1>check out the real game at<br><a href="https://orb.farm/">https://orb.farm/</a></h1>
+    </div>
+    <center>
+        <canvas id="canvas" width="800" height="800" style="/*border: 5px cornsilk solid;*/" oncontextmenu="event.preventDefault();"></canvas>
+    </center>
+    <script>
+        /*
+        <center style="line-height: 0px;">
+        <canvas id="canvas" width="400" height="400" style="position: absolute; bottom: 0; right: 0px; left: 0px; image-rendering: pixelated; max-width: calc(100%); line-height: 0.6;" oncontextmenu="event.preventDefault();"></canvas>
+    </center>
+    <script>
+        canvas.style.height = innerHeight+"px";
+        addEventListener("resize", () => {
+            canvas.style.height = innerHeight+"px";
+        });
+        */
+        const elementColors = ["white", "sandybrown", "cornsilk", "rgb(0,100,255)", "green", "white", "rgb(255,200,225)"];
+        for(let i = 0; i < buttonColors.childElementCount; i++) {
+            buttonColors.children[i].style.backgroundColor = elementColors[i];
+        }
+
+        const size = 200;
+        const cellSize = (800/size);
+
+        let context = canvas.getContext('2d');
+        let cells = [];
+        //let activeCells = [];
+        let nextCells = [];
+
+        let circleSize = 200;
+        
+        function setup(sizee, reset) {
+            let lastSize = circleSize;
+            circleSize = sizee;
+            if(reset) {
+                nextCells = [];
+                cells = [];
+                for(let x = 0; x < size; x++) {
+                    cells.push([]);
+                    for(let y = 0; y < size; y++) {
+                        let state = 0;
+                        //console.log(distanceSq({x: size/2, y: size/2}, {x: x, y: y}));2300                                                            2500
+                        if(distanceSq({x: size/2-.5, y: size/2-.5}, {x: x, y: y}) > circleSize*26 && distanceSq({x: size/2-.5, y: size/2-.5}, {x: x, y: y}) < circleSize*28) {
+                            state = 2;
+                        }
+                        cells[x].push({state: state, prev: false, properties: {life: 0, ctype: null}});
+                    }
+                }
+            }else {
+                for(let x = 0; x < size; x++) {
+                    //cells.push([]);
+                    for(let y = 0; y < size; y++) {
+                        //let state = 0;
+                        //console.log(distanceSq({x: size/2, y: size/2}, {x: x, y: y}));2300                                                            2500
+                        if(distanceSq({x: size/2-.5, y: size/2-.5}, {x: x, y: y}) > lastSize*26 && distanceSq({x: size/2-.5, y: size/2-.5}, {x: x, y: y}) < lastSize*28) { // + (1000/circleSize)
+                            cells[x][y].state = 0;
+                            //state = 2;
+                        }
+                        if(distanceSq({x: size/2-.5, y: size/2-.5}, {x: x, y: y}) > circleSize*26 && distanceSq({x: size/2-.5, y: size/2-.5}, {x: x, y: y}) < circleSize*28) {
+                            cells[x][y].state = 2;
+                            //state = 2;
+                        }
+                        //cells[x].push({state: state, prev: false});
+                    }
+                }
+            }
+        }
+
+        setup(300, true);
+
+        let paused = false;
+
+        let mouseInfo = {pos: {x: -1, y: -1}, button: 0, shiftctrl: false};
+        let startMouse;
+
+        //let update = true;
+
+        let renderer;
+
+        let drawState = 1;
+        let drawSize = 1;
+
+
+        //let mousedown = false;
+
+        function line(p0, p1) {
+            let points = [];
+            let N = diagonal_distance(p0, p1);
+            for (let step = 0; step <= N; step++) {
+                let t = N === 0? 0.0 : step / N;
+                points.push(round_point(lerp_point(p0, p1, t)));
+            }
+            return points;
+        }
+
+        function diagonal_distance(p0, p1) {
+            let dx = p1.x - p0.x, dy = p1.y - p0.y;
+            return Math.max(Math.abs(dx), Math.abs(dy));
+        }
+
+        function round_point(p) {
+            return {x: Math.round(p.x), y: Math.round(p.y)};
+        }
+
+        function lerp_point(p0, p1, t) {
+            return {x: lerp(p0.x, p1.x, t), y: lerp(p0.y, p1.y, t)};
+        }
+
+        function lerp(start, end, t) {
+            return start + t * (end-start);
+        } //hahga stoplen from https://www.redblobgames.com/grids/line-drawing.html thank yiou
+
+        function distanceSq(p0, p1) {
+            let x = p0.x - p1.x;
+            let y = p0.y - p1.y;
+            return x*x + y*y;//{x: (p0.x-p1.x)**2, y: (p0.y-p1.y)**2};
+        } //stolen from minecrtaft
+
+        canvas.addEventListener("mousedown", (event) => {
+            //mousedown = true;
+            let mouse = {x: Math.round((event.clientX - canvas.offsetLeft)/cellSize+.5), y: Math.round((event.clientY - canvas.offsetTop)/cellSize+.5)};
+            startMouse = {x: Math.round((event.clientX - canvas.offsetLeft)/cellSize+.5), y: Math.round((event.clientY - canvas.offsetTop)/cellSize+.5)};
+            mouseInfo.pos.x = mouse.x;
+            mouseInfo.pos.y = mouse.y;
+            mouseInfo.button = event.buttons;
+            mouseInfo.shiftctrl = event.shiftKey && event.ctrlKey;
+            if(event.shiftKey && event.ctrlKey) {
+                let cell = cells[mouse.x][mouse.y];
+                if(cell.state != 0) {
+                    cell.properties.ctype = cell.state;
+                    cell.state = -1;
+                    cell.prev = true;
+                }
+            }else if(mouse.x > -1 && mouse.y > -1) {
+                mouse.x -= Math.round(drawSize/2);
+                mouse.y -= Math.round(drawSize/2);
+                for(let x = 0; x < drawSize; x++) {
+                    for(let y = 0; y < drawSize; y++) {
+                        if(mouse.x+x >= 0 && mouse.x+x < size && mouse.y+y >= 0 && mouse.y+y < size) {
+                            let cell = cells[mouse.x+x][mouse.y+y];
+                            let dState = event.buttons == 2 ? 0 : drawState;
+                            if((cell.state != 2 && cell.state != -1) || dState == 0) {
+                                cell.state = dState;
+                                cell.prev = true;
+                            }
+                        }
+                    }
+                }
+            }
+            //nextCells.push({x: mouse.x, y: mouse.y, state: drawState});
+            //activeCells.push({x: mouse.x, y: mouse.y, state: cells[mouse.x][mouse.y].state});
+        });
+        addEventListener("mouseup", (event) => {
+            //mousedown = false;
+            startMouse = undefined;
+            mouseInfo.button = 0;
+        });
+        canvas.addEventListener("mousemove", (event) => {
+            //console.log(event);
+            mouseInfo.pos.x = Math.round((event.clientX - canvas.offsetLeft)/cellSize+.5);
+            mouseInfo.pos.y = Math.round((event.clientY - canvas.offsetTop)/cellSize+.5);
+            mouseInfo.button = event.buttons;
+            mouseInfo.shiftctrl = event.shiftKey && event.ctrlKey;
+            /*if(event.buttons >= 1 && startMouse && !(event.shiftKey && event.ctrlKey)) {
+                let mouse = {x: Math.round((event.clientX - canvas.offsetLeft)/cellSize+.5), y: Math.round((event.clientY - canvas.offsetTop)/cellSize+.5)};
+                line(startMouse, mouse).forEach(point => {
+                    if(point.x > -1 && point.y > -1) {
+                        point.x -= Math.round(drawSize/2);
+                        point.y -= Math.round(drawSize/2);
+                        for(let x = 0; x < drawSize; x++) {
+                            for(let y = 0; y < drawSize; y++) {
+                                if(point.x+x >= 0 && point.x+x < size && point.y+y >= 0 && point.y+y < size) {
+                                    let cell = cells[point.x+x][point.y+y];
+                                    let dState = event.buttons == 2 ? 0 : drawState;
+                                    if(cell.state != 2 || dState == 0) {
+                                        cell.state = dState;
+                                        cell.prev = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+                /*if(mouse.x > -1 && mouse.y > -1) {
+                    mouse.x -= Math.round(drawSize/2);
+                    mouse.y -= Math.round(drawSize/2);
+                    for(let x = 0; x < drawSize; x++) {
+                        for(let y = 0; y < drawSize; y++) {
+                            if(mouse.x+x >= 0 && mouse.x+x < size && mouse.y+y > 0 && mouse.y+y < size) {
+                                cells[mouse.x+x][mouse.y+y].state = event.buttons == 2 ? 0 : drawState;
+                                cells[mouse.x+x][mouse.y+y].prev = true;
+                            }
+                        }
+                    }
+                }*//*
+                startMouse = {x: Math.round((event.clientX - canvas.offsetLeft)/cellSize+.5), y: Math.round((event.clientY - canvas.offsetTop)/cellSize+.5)};
+                //nextCells.push({x: mouse.x, y: mouse.y, state: drawState});
+                //activeCells.push({x: mouse.x, y: mouse.y, state: cells[mouse.x][mouse.y].state});
+            }*/
+        });
+        canvas.addEventListener("wheel", (event) => {
+            console.log(Math.max(event.deltaY/-100, 1));
+            drawSize += event.deltaY/-100;
+            drawSize = Math.max(drawSize, 1); //genius ??
+        });
+        addEventListener("keydown", (event) => {
+            console.log(event.key);
+            mouseInfo.shiftctrl = event.shiftKey && event.ctrlKey;
+            if(event.key == "f") {
+                paused = false;
+                cancelAnimationFrame(renderer);
+                render();
+                paused = true;
+            }else if(event.key == " ") {
+                paused = !paused;
+            }
+        });
+
+        function sandplaceable(state) {
+            return state == 0 || state == 3//? true : state == 3 ? true : false;
+        }
+
+        function render() {
+            context.clearRect(0, 0, 800, 800);
+            //let next = [];
+            //activeCells = [];
+            nextCells.forEach(cell => {
+                let cellObj = cells[cell.x][cell.y];
+                if(cell.state == -1) {
+                    let positions = [{x: cell.x-1, y: cell.y}, {x: cell.x+1, y: cell.y}, {x: cell.x, y: cell.y+1}, {x: cell.x, y: cell.y-1}/*, {x: cell.x-5, y: cell.y+5}, {x: cell.x+2, y: cell.y}, {x: cell.x, y: cell.y+3}, {x: cell.x, y: cell.y-5}*/]; //insane pattern
+                    positions.forEach(pos => {
+                        if(pos.x >= 0 && pos.x < size && pos.y >= 0 && pos.y < size) {
+                            let cellz = cells[pos.x][pos.y];
+                            if(cellz && cellz.state == cellObj.properties.ctype) {
+                                cellz.state = -1;
+                                cellz.properties.ctype = cellObj.properties.ctype;
+                            }
+                        }
+                    });
+                    cellObj.state = 0; //aw nah you can't modify this value because it is a custom object; have to use cellObj not cell
+                    cellObj.properties.ctype = null;
+                }else if(cell.state == 1) {
+                    //console.log(activeCells.indexOf(cell));
+                    //might as well loop through but that is terrible
+                    //myArray.map(function(e) { return `${e.x},${e.y}`; }).indexOf(`${cell.x},${cell.y}`);
+                    //activeCells.splice(i, 1);
+                    let cellz = cells[cell.x][cell.y+1];
+                    if(cellz) {
+                        let x = cell.x;
+                        let y = cell.y+1;
+                        if(cellz.state == -1) {
+                            return
+                        }else if(cellz.state == 0) {
+                            cellObj.prev = true;
+                            cellObj.state = 0;
+                            cellz.state = 1;
+                            cellz.prev = true;
+                        }else if(x+1 < size && x-1 >= 0) {
+                            //console.log("working");
+                            //if(Math.random() > .5) {
+                                if(sandplaceable(cells[x+1][y].state) && !sandplaceable(cells[x-1][y].state)) {
+                                    cellObj.prev = true;
+                                    cellObj.state = cells[x+1][y].state;
+                                    cells[x+1][y].state = 1;
+                                    cells[x+1][y].prev = true;
+                                }else if(!sandplaceable(cells[x+1][y].state) && sandplaceable(cells[x-1][y].state)) {
+                                    cellObj.prev = true;
+                                    cellObj.state = cells[x-1][y].state;
+                                    cells[x-1][y].state = 1;
+                                    cells[x-1][y].prev = true;
+                                }else if(sandplaceable(cells[x+1][y].state) && sandplaceable(cells[x-1][y].state)){
+                                    cellObj.prev = true;
+                                    if(Math.random() > .5) {
+                                        cellObj.state = cells[x+1][y].state;
+                                        cells[x+1][y].state = 1;
+                                        cells[x+1][y].prev = true;
+                                    }else {
+                                        cellObj.state = cells[x-1][y].state;
+                                        cells[x-1][y].state = 1;
+                                        cells[x-1][y].prev = true;
+                                    }
+                                }
+                            /*}else {
+                                if(!sandplaceable(cells[x+1][y].state) && sandplaceable(cells[x-1][y].state)) {
+                                    cellObj.prev = true;
+                                    cellObj.state = cells[x+1][y].state;
+                                    cells[x+1][y].state = 1;
+                                    cells[x+1][y].prev = true;
+                                }else if(sandplaceable(cells[x+1][y].state) && !sandplaceable(cells[x-1][y].state)) {
+                                    cellObj.prev = true;
+                                    cellObj.state = cells[x-1][y].state;
+                                    cells[x-1][y].state = 1;
+                                    cells[x-1][y].prev = true;
+                                }else if(sandplaceable(cells[x+1][y].state) && sandplaceable(cells[x-1][y].state)){
+                                    cellObj.prev = true;
+                                    if(Math.random() > .5) {
+                                        cellObj.state = cells[x+1][y].state;
+                                        cells[x+1][y].state = 1;
+                                        cells[x+1][y].prev = true;
+                                    }else {
+                                        cellObj.state = cells[x-1][y].state;
+                                        cells[x-1][y].state = 1;
+                                        cells[x-1][y].prev = true;
+                                    }
+                                }
+                            }*/
+                            //console.log(cells[cell.x][cell.y].state);
+                        }
+                    }
+                    if(cellObj.state == 1) {
+                        //console.log("autno");
+                        cellObj.prev = false;
+                    }
+                    //console.log("checkimg");
+                    //cells[cell.x][cell.y+1].state = 1;
+                    //activeCells.push({x: cell.x, y: cell.y+1, state: 1});
+                    //activeCells.push(cell);
+                }else if(cell.state == 3) {
+                    let cellz = cells[cell.x][cell.y+1];
+                    if(cellz) {
+                        let x = cell.x;
+                        let y = cell.y;
+                        if(cellz.state == 0) {
+                            cellObj.prev = true;
+                            cellObj.state = 0;
+                            cellz.state = 3;
+                            cellz.prev = true;
+                        }else if(x+1 < size && x-1 >= 0) {
+                            //console.log("working");
+                            if(cells[x+1][y].state == 0 && cells[x-1][y].state != 0) {
+                                cellObj.prev = true;
+                                cellObj.state = 0;
+                                cells[x+1][y].state = 3;
+                                cells[x+1][y].prev = true;
+                            }else if(cells[x+1][y].state != 0 && cells[x-1][y].state == 0) {
+                                cellObj.prev = true;
+                                cellObj.state = 0;
+                                cells[x-1][y].state = 3;
+                                cells[x-1][y].prev = true;
+                            }else if(cells[x+1][y].state == 0 && cells[x-1][y].state == 0){
+                                cellObj.prev = true;
+                                cellObj.state = 0;
+                                if(Math.random() > .5) {
+                                    cells[x+1][y].state = 3;
+                                    cells[x+1][y].prev = true;
+                                }else {
+                                    cells[x-1][y].state = 3;
+                                    cells[x-1][y].prev = true;
+                                }
+                            }else {
+                                y = cell.y+1;
+                                if(cells[x+1][y].state == 0 && cells[x-1][y].state != 0) {
+                                    cellObj.prev = true;
+                                    cellObj.state = 0;
+                                    cells[x+1][y].state = 3;
+                                    cells[x+1][y].prev = true;
+                                }else if(cells[x+1][y].state != 0 && cells[x-1][y].state == 0) {
+                                    cellObj.prev = true;
+                                    cellObj.state = 0;
+                                    cells[x-1][y].state = 3;
+                                    cells[x-1][y].prev = true;
+                                }else if(cells[x+1][y].state == 0 && cells[x-1][y].state == 0){
+                                    cellObj.prev = true;
+                                    cellObj.state = 0;
+                                    if(Math.random() > .5) {
+                                        cells[x+1][y].state = 3;
+                                        cells[x+1][y].prev = true;
+                                    }else {
+                                        cells[x-1][y].state = 3;
+                                        cells[x-1][y].prev = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    //if(cell.state == 3) {
+                        //cells[cell.x][cell.y].prev = false;
+                    //}
+                }else if(cell.state == 4) {
+                    let cellz = cells[cell.x][cell.y+1];
+                    if(cellz) {
+                        let x = cell.x;
+                        let y = cell.y+1;
+                        if(cellz.state == 0) {
+                            cellObj.prev = true;
+                            cellObj.state = 0;
+                            cellz.state = 4;
+                            cellz.prev = true;
+                        }else if(x+1 < size && x-1 >= 0) {
+                            if(Math.random() < .0125) {
+                                let target = cells[(cell.x-1)+random(0,2)][(cell.y-1)+random(0,2)];
+                                if(target && target.state == 3) {
+                                    cellObj.prev = true;
+                                    cellObj.state = 3;
+                                    target.state = 4;
+                                    target.prev = true;
+                                    if(Math.random() < .125) {
+                                        let target = cells[(cell.x-1)+random(0,2)][(cell.y-1)+random(0,2)];
+                                        if(target && target.state == 3) {
+                                            target.state = 4;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }else if(cell.state == 5) {
+                    let cellz = cells[cell.x][cell.y+1];
+                    if(cellz) {
+                        let x = cell.x;
+                        let y = cell.y+1;
+                        if(cellz.state == -1) {
+                            return
+                        }else if(cellz.state == 0) {
+                            cellObj.prev = true;
+                            cellObj.state = 0;
+                            cellz.state = 5;
+                            cellz.prev = true;
+                        }else if(x+1 < size && x-1 >= 0) {
+                            //console.log("working");
+                            //if(Math.random() > .5) {
+                                if(sandplaceable(cells[x+1][y].state) && !sandplaceable(cells[x-1][y].state)) {
+                                    cellObj.prev = true;
+                                    cellObj.state = cells[x+1][y].state;
+                                    cells[x+1][y].state = 5;
+                                    cells[x+1][y].prev = true;
+                                }else if(!sandplaceable(cells[x+1][y].state) && sandplaceable(cells[x-1][y].state)) {
+                                    cellObj.prev = true;
+                                    cellObj.state = cells[x-1][y].state;
+                                    cells[x-1][y].state = 5;
+                                    cells[x-1][y].prev = true;
+                                }else if(sandplaceable(cells[x+1][y].state) && sandplaceable(cells[x-1][y].state)){
+                                    cellObj.prev = true;
+                                    if(Math.random() > .5) {
+                                        cellObj.state = cells[x+1][y].state;
+                                        cells[x+1][y].state = 5;
+                                        cells[x+1][y].prev = true;
+                                    }else {
+                                        cellObj.state = cells[x-1][y].state;
+                                        cells[x-1][y].state = 5;
+                                        cells[x-1][y].prev = true;
+                                    }
+                                }
+                            /*}else {
+                                if(!sandplaceable(cells[x+1][y].state) && sandplaceable(cells[x-1][y].state)) {
+                                    cellObj.prev = true;
+                                    cellObj.state = cells[x+1][y].state;
+                                    cells[x+1][y].state = 1;
+                                    cells[x+1][y].prev = true;
+                                }else if(sandplaceable(cells[x+1][y].state) && !sandplaceable(cells[x-1][y].state)) {
+                                    cellObj.prev = true;
+                                    cellObj.state = cells[x-1][y].state;
+                                    cells[x-1][y].state = 1;
+                                    cells[x-1][y].prev = true;
+                                }else if(sandplaceable(cells[x+1][y].state) && sandplaceable(cells[x-1][y].state)){
+                                    cellObj.prev = true;
+                                    if(Math.random() > .5) {
+                                        cellObj.state = cells[x+1][y].state;
+                                        cells[x+1][y].state = 1;
+                                        cells[x+1][y].prev = true;
+                                    }else {
+                                        cellObj.state = cells[x-1][y].state;
+                                        cells[x-1][y].state = 1;
+                                        cells[x-1][y].prev = true;
+                                    }
+                                }
+                            }*/
+                            //console.log(cells[cell.x][cell.y].state);
+                        }
+                    }
+                    if(cellObj.state == 5) {
+                        //console.log("autno");
+                        cellObj.prev = false;
+                    }
+                }
+            });
+            nextCells = [];
+            /*activeCells.forEach(cell => {
+                //let x = cell.x;
+                //let y = cell.y;
+                if(cell.state == 1) {
+                    context.fillStyle = `blue`;
+                    //cells[cell.x][cell.y].state = 0; //WAIT A MINUTE WHAT THE FUCK IOS THIS (HOW DOES HITS WORK)
+                    //activeCells.splice(activeCells.indexOf(cell), 1);
+                    //console.log(y);
+                    //cells[cell.x][++cell.y].state = 1;
+                    //console.log(y);
+                    //who know that all this time i could have just pushed and it wouldn't have looped over it
+                    nextCells.push(cell);
+                    //nextCells.push({x: x,y: y,state: 1});
+                    //y++;
+                    //next.push(cell);
+                }
+                context.fillRect(cell.x*10, cell.y*10, 10, 10);
+            });*/
+            /*next.forEach(cell => {
+                activeCells.splice(activeCells.indexOf(cell), 1);
+            });*/
+            if(mouseInfo.button >= 1 && startMouse && !mouseInfo.shiftctrl) {
+                let mouse = {x: mouseInfo.pos.x, y: mouseInfo.pos.y};//{x: Math.round((event.clientX - canvas.offsetLeft)/cellSize+.5), y: Math.round((event.clientY - canvas.offsetTop)/cellSize+.5)};
+                line(startMouse, mouse).forEach(point => {
+                    if(point.x > -1 && point.y > -1) {
+                        point.x -= Math.round(drawSize/2);
+                        point.y -= Math.round(drawSize/2);
+                        for(let x = 0; x < drawSize; x++) {
+                            for(let y = 0; y < drawSize; y++) {
+                                if(point.x+x >= 0 && point.x+x < size && point.y+y >= 0 && point.y+y < size) {
+                                    let cell = cells[point.x+x][point.y+y];
+                                    let dState = mouseInfo.button == 2 ? 0 : drawState;
+                                    if((cell.state != 2 && cell.state != -1) || dState == 0) {
+                                        cell.state = dState;
+                                        cell.prev = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+                /*if(mouse.x > -1 && mouse.y > -1) {
+                    mouse.x -= Math.round(drawSize/2);
+                    mouse.y -= Math.round(drawSize/2);
+                    for(let x = 0; x < drawSize; x++) {
+                        for(let y = 0; y < drawSize; y++) {
+                            if(mouse.x+x >= 0 && mouse.x+x < size && mouse.y+y > 0 && mouse.y+y < size) {
+                                cells[mouse.x+x][mouse.y+y].state = event.buttons == 2 ? 0 : drawState;
+                                cells[mouse.x+x][mouse.y+y].prev = true;
+                            }
+                        }
+                    }
+                }*/
+                startMouse = {x: mouseInfo.pos.x, y: mouseInfo.pos.y};
+                //nextCells.push({x: mouse.x, y: mouse.y, state: drawState});
+                //activeCells.push({x: mouse.x, y: mouse.y, state: cells[mouse.x][mouse.y].state});
+            }
+            for(let x = 0; x < size; x++) {
+                for(let y = 0; y < size; y++) {
+                    let cell = cells[x][y];
+                    if(cell.properties.life != 0) {
+                        context.fillStyle = `rgb(${cell.properties.life*10}, ${x*(255/size)}, ${y*x*(255/size) % 255})`;
+                        context.fillRect(x*cellSize, y*cellSize, cellSize, cellSize);
+                    }
+                    if(cell.properties.ctype) {
+                        context.fillStyle = `rgb(244, ${x*(255/size)}, ${y*x*(255/size) % 255})`;
+                        context.fillRect(x*cellSize, y*cellSize, cellSize, cellSize);
+                    }
+                    if(cell.state == -1) {
+                        //if(!paused) {
+                            nextCells.push({x: x, y: y, state: cell.state});
+                        //}
+                        context.fillStyle = `rgb(${(renderer/x*y)/(renderer*y/x) % 255}, ${x*(255/size)}, ${y*x*(255/size) % 255})`;
+                        context.fillRect(x*cellSize, y*cellSize, cellSize, cellSize);
+                    }else if(cell.state == 1) {
+                        if(!paused && y+1 < size && (cell.prev || (sandplaceable(cells[x][y+1].state)))) {
+                            nextCells.push({x: x, y: y, state: cell.state});
+                        }else if(!paused && y+1 < size) {
+                            //console.log(x-1, y+1);
+                            //console.log(cells[x-1]);
+                            if((x+1 < size && x-1 >= 0)) {
+                                if(sandplaceable(cells[x+1][y+1].state) || sandplaceable(cells[x-1][y+1].state)) {
+                                    nextCells.push({x: x, y: y, state: cell.state});
+                                }
+                            }
+                        }
+                        context.fillStyle = /*cell.prev ? */elementColors[cell.state]/* : "rgba(244, 164, 96, .25)"*/;
+                        context.fillRect(x*cellSize, y*cellSize, cellSize, cellSize);
+                    }else if(cell.state == 2) {
+                        context.fillStyle = elementColors[cell.state];
+                        context.fillRect(x*cellSize, y*cellSize, cellSize, cellSize);
+                    }else if(cell.state == 3) {
+                        cell.prev = true;
+                        //let shit = false;
+                        if(!paused && y+1 < size) {
+                            /*let positions = [{x: x+1,y: y},{x: x-1,y: y},{x: x+1,y: y-1},{x: x-1,y: y-1},{x: x+1,y: y+1},{x: x-1,y: y+1},{x: x,y: y-1},{x: x,y: y+1}];
+                                let max = 8;
+                                let value = 0;
+                                for(let i = 0; i < 8; i++) {
+                                    const pos = positions[i];
+                                //positions.forEach(pos => {
+                                    if(pos.x >= 0 && pos.x < size) {
+                                        let cellz = cells[pos.x][pos.y];
+                                        //console.log(cell);
+                                        if(cellz && cellz.state == 3) {
+                                            value++;
+                                        }else if(!cellz) {
+                                            max--;
+                                        }
+                                    }
+                                //});
+                                }
+                                //console.log(value,max);
+                                shit = value != max;
+                            if(shit) {*/
+                                nextCells.push({x: x, y: y, state: cell.state});
+                            //}
+                        }/*else if(!paused && y+1 < size) {
+                            //console.log(x-1, y+1);
+                            //console.log(cells[x-1]);
+                            /*if((x+1 < size && x-1 > 0)) {
+                                if(cells[x+1][y+1].state == 0 || cells[x-1][y+1].state == 0) {
+                                    nextCells.push({x: x, y: y, state: cell.state});
+                                }
+                            }*/
+                        //}
+                        //shit |= paused; //wow im actually using |=
+                        context.fillStyle = /*shit ? */elementColors[cell.state]/* : "lightblue"*/;
+                        context.fillRect(x*cellSize, y*cellSize, cellSize, cellSize);
+                    }else if(cell.state == 4) {
+                        cell.prev = true;
+                        if(!paused) {
+                            nextCells.push({x: x, y: y, state: cell.state});
+                        }
+                        context.fillStyle = elementColors[cell.state];
+                        context.fillRect(x*cellSize, y*cellSize, cellSize, cellSize);
+                    }else if(cell.state == 5) {
+                        if(!paused && y+1 < size && (cell.prev || (sandplaceable(cells[x][y+1].state)))) {
+                            nextCells.push({x: x, y: y, state: cell.state});
+                        }else if(!paused && y+1 < size) {
+                            //console.log(x-1, y+1);
+                            //console.log(cells[x-1]);
+                            if((x+1 < size && x-1 >= 0)) {
+                                if(sandplaceable(cells[x+1][y+1].state) || sandplaceable(cells[x-1][y+1].state)) {
+                                    nextCells.push({x: x, y: y, state: cell.state});
+                                }
+                            }
+                        }
+                        context.fillStyle = /*cell.prev ? */elementColors[cell.state]/* : "rgba(244, 164, 96, .25)"*/;
+                        context.fillRect(x*cellSize, y*cellSize, cellSize, cellSize);
+                    }
+                    /*context.fillStyle = `rgb(${x*4.25},${y*4.25 + cells[x][y].state*50},${x*4.25})`;
+                    context.fillRect(x*10, y*10, 10, 10);
+                    context.fillStyle = `rgb(0,255,255)`;
+                    context.fillText(cells[x][y].state, x*10+2.5, y*10+8.75);*/
+                }
+            }
+            context.fillStyle = "rgba(255,255,255,.25)";
+            if(mouseInfo.shiftctrl) {
+                context.fillRect((mouseInfo.pos.x-drawSize/2)*cellSize, (mouseInfo.pos.y)*cellSize, drawSize*cellSize, cellSize);
+                context.fillRect((mouseInfo.pos.x)*cellSize, (mouseInfo.pos.y-drawSize/2)*cellSize, cellSize, drawSize*cellSize);
+            }else {
+                //context.fillRect((mouseInfo.pos.x-drawSize/2)*cellSize, (mouseInfo.pos.y-drawSize/2)*cellSize, drawSize*cellSize, drawSize*cellSize); and replace all +.5 with -.5
+                context.fillRect((mouseInfo.pos.x-drawSize/2-(drawSize % 2 == 0 ? 0 : .5))*cellSize, (mouseInfo.pos.y-drawSize/2-(drawSize % 2 == 0 ? 0 : .5))*cellSize, drawSize*cellSize, drawSize*cellSize);
+            }
+            renderer = requestAnimationFrame(render);// update ? requestAnimationFrame(render) : 0;
+        }
+
+        renderer = requestAnimationFrame(render);
+    </script>
+</body>
+</html>
