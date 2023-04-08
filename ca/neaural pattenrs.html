@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!--title>convolutional n**** life</title-->
+    <title>neuralpatterns.io copy (no webgl)</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas">
+
+    </canvas>
+
+    <script>
+        canvas.width = innerWidth;
+        canvas.height = innerHeight;
+
+        let res = 10;
+
+        let width = Math.round(canvas.width/res);
+        let height = Math.round(canvas.height/res);
+
+        addEventListener("mousemove", (event) => {
+            if(event.buttons == 1) {
+                let x = Math.round(event.clientX/res);
+                let y = Math.round(event.clientY/res);
+                //console.log("x: " + Math.round(event.clientX/res) + " y: " + Math.round(event.clientY/res));
+                //newCells[Math.round(event.clientX/res)][Math.round(event.clientY/res)] = 1;
+                for(let i = -1; i < 2; i++) {
+                    for(let j = -1; j < 2; j++) {
+                        cells[wrapX(x+i)][wrapY(y+j)] = 1;
+                    }
+                }
+            }
+        });
+
+        let context = canvas.getContext('2d'); //ain;t nobody using webgfl (ok im lying webgl otw)
+        context.font = `${res}px comic sans ms`;
+
+        //let filters = [];
+        //for(let i = 0; i < 3;i++) {
+        //    filters.push([]); //didn't really know you could index negative but ok (don';t feel like doing it because it kinda weird)
+        //    for(let j = 0; j < 3;j++) {
+        //        filters[i].push((Math.random() > .5 ? Math.random() : -Math.random()));
+        //    }
+        //}
+
+        let filters = [[0.565,-0.716,0.565],[-0.759, 0.627, -0.759],[0.565, -0.716,0.565]]; //stars
+        
+        let cells = [];
+        
+        for(let i = 0; i < width; i++) {
+            cells.push([]);
+            for(let j = 0; j < height; j++) {
+                cells[i].push([Math.random()]);
+            }
+        }
+
+        let newCells = cells.map((cell) => cell.slice());//cells;
+
+        function wrapX(x) {
+            return x < 0 ? width-1 : x > width-1 ? 0 : x;
+        }
+        function wrapY(y) {
+            return y < 0 ? height-1 : y > height-1 ? 0 : y;
+        }
+
+        /**
+         * Returns a number whose value is limited to the given range.
+         *
+         * Example: limit the output of this computation to between 0 and 255
+         * (x * 255).clamp(0, 255)
+         *
+         * @param {Number} min The lower boundary of the output range
+         * @param {Number} max The upper boundary of the output range
+         * @returns A number in the range [min, max]
+         * @type Number
+         */
+        Math.__proto__.clamp = function(min, max, num) {
+            return this.min(this.max(num, min), max);
+        };
+
+        function convolve(x,y) {
+            let sum = 0;
+            for(let i = -1; i < 2; i++) {
+                for(let j = -1; j < 2; j++) {
+                    //could do j <= 1 but nah
+                    let state = cells[wrapX(x+i)][wrapY(y+j)];
+                    //state * filter
+                    sum += state*filters[i+1][j+1];
+                }
+            }
+            newCells[x][y] = Math.abs(Math.clamp(-1,1,sum));//Math.abs(sum); //activate (wait is it after all of them or no)
+            //yo i think sum is actually clamped
+            //ok after the clamp i should actiavte
+        }
+
+        function tick() {
+            context.fillStyle = "black";
+            context.fillRect(0,0,canvas.width, canvas.height);
+            //context.fillStyle = "sandybrown";
+            for (let i = 0; i < width; i++) {//canvas.width; i += res) {
+                for(let j = 0; j < height; j++) {//canvas.height;j += res) {
+                    //console.log(`i ${i}, j ${j} cedlld ${cells[i][j]}`)
+                    context.fillStyle = `rgba(244,164,96, ${cells[i][j]})`
+                    context.fillRect(i*res, j*res, res,res);
+                    //context.fillStyle = "white";
+                    //context.fillText(cells[i][j], i*res, j*res);
+
+                    convolve(i,j);
+                }
+            }
+
+            //cells = newCells;
+            cells = newCells.map((cell) => cell.slice());
+
+            requestAnimationFrame(tick);
+        }
+
+        requestAnimationFrame(tick);
+        
+        //context.fillStyle = "black";
+
+        //context.fillRect(0,0,canvas.width, canvas.height);
+        
+    </script>
+</body>
+</html>
