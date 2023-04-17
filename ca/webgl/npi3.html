@@ -11,13 +11,25 @@
             margin: 0;
             overflow: hidden;
         }
+        input, button {
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
     <canvas id="canvas">
 
     </canvas>
-
+    <div style="position: absolute; left: 0; top: 0;">
+        <input type="range" min="0" max="500" id="slide" onchange="l.innerHTML = this.value;"><label style="color: white;" id="l"></label>
+        <input type="range" min="0" max="500" id="slider2" onchange="l2.innerHTML = this.value;"><label style="color:white;" id="l2"></label>
+        <button onclick = "cells = []; for(let i = 0; i < width; i++) {
+            cells.push([]);
+            for(let j = 0; j < height; j++) {
+                cells[i].push([0]);
+            }
+        }newCells = cells.map((cell) => cell.slice());">clear</button>
+    </div>
     <script>
         canvas.width = innerWidth;
         canvas.height = innerHeight;
@@ -52,7 +64,89 @@
         //    }
         //}
 
-        let filters = [[0.565,-0.716,0.565],[-0.759, 0.627, -0.759],[0.565, -0.716,0.565]]; //stars
+        //let filters = [[0.565,-0.716,0.565],[-0.759, 0.627, -0.759],[0.565, -0.716,0.565]]; //stars abs(x)
+        //let activate = Math.abs;
+        
+        let filters = [[0.565,-0.716,0.565],[-0.716,0.627,-0.716],[0.565,-0.716,0.565]]; //waves abs(1.2)
+
+        //let filters = [[.808,.927,-.987],[-.875,-.816,.867],[.274,.272,.37]]; //fire fire abs(x/1.5);
+        //let activate = function(x) {Math.abs(1.2*x)};
+        /*
+[
+    [
+        -0.3164864989387377,
+        0.7716948219141426,
+        -0.3244629856615411
+    ],
+    [
+        0.4372066102971319,
+        0.1480755600653727,
+        -0.1408492669958723
+    ],
+    [
+        -0.3700537977984917,
+        -0.5084511003815286,
+        0.44780426358843006
+    ]
+]
+        *///random
+
+        /*
+        [
+    [
+        -0.6113017444843125,
+        0.31203132596375327,
+        0.2782692791608654
+    ],
+    [
+        -0.376741180420203,
+        -0.7370168741707892,
+        0.5405641711002056
+    ],
+    [
+        -0.22972247543754531,
+        0.1400099628092748,
+        0.5936105376635348
+    ]
+]*///cooler random like fire (better)
+/*
+[
+    [
+        0.2434342066390236,
+        -0.2947248433686036,
+        0.25518500511204056
+    ],
+    [
+        -0.4164622286566739,
+        0.8270869721682743,
+        0.02467469630440955
+    ],
+    [
+        -0.669167490798908,
+        -0.05255217266396728,
+        -0.15042329097947937
+    ]
+]*///fire again
+
+/*
+[
+    [
+        -0.25659456661159075,
+        -0.23431601958331538,
+        0.20095931662200583
+    ],
+    [
+        0.6721267924059857,
+        0.9155807271903025,
+        -0.5621617165191746
+    ],
+    [
+        -0.2685008928988031,
+        -0.5303551969635403,
+        0.07235841479390048
+    ]
+]
+*///lines
         
         let cells = [];
         
@@ -97,7 +191,7 @@
                     sum += state*filters[i+1][j+1];
                 }
             }
-            newCells[x][y] = Math.abs(Math.clamp(-1,1,sum));//Math.abs(sum); //activate (wait is it after all of them or no)
+            newCells[x][y] = Math.abs(Math.clamp(-1,1,sum)*1.2);//Math.abs(sum); //activate (wait is it after all of them or no)
             //yo i think sum is actually clamped
             //ok after the clamp i should actiavte
         }
@@ -109,14 +203,24 @@
             for (let i = 0; i < width; i++) {//canvas.width; i += res) {
                 for(let j = 0; j < height; j++) {//canvas.height;j += res) {
                     //console.log(`i ${i}, j ${j} cedlld ${cells[i][j]}`)
-                    context.fillStyle = `rgba(244,164,96, ${cells[i][j]})`
-                    context.fillRect(i*res, j*res, res,res);
+                    let shit = slide.value/cells[i][j];
+                    shit = shit > slider2.value ? shit : 0;
+                    context.fillStyle = `rgba(${255-(shit)/*(1-cells[i][j])*100*/}, ${255-(shit)}, 255, ${cells[i][j]})`//`rgba(244,164,96, ${cells[i][j]})`
+                    //context.fillRect(i*res, j*res, res,res);
                     //context.fillStyle = "white";
-                    //context.fillText(cells[i][j], i*res, j*res);
-
+                    if(cells[i][j] > .01) { //sorta speeds it up
+                        //context.fillText(Math.round(cells[i][j]*10)/10, i*res, j*res);
+                        context.fillRect(i*res, j*res, res,res);
+                    }
                     convolve(i,j);
                 }
             }
+
+            //for (let i = 0; i < width; i++) {//canvas.width; i += res) {
+            //    for(let j = 0; j < height; j++) {//canvas.height;j += res) {
+            //        newCells[i][j] = Math.abs(newCells[i][j]); //actually no point because it is reading from cells so me activating before or after does not do shitd
+            //    }
+            //}
 
             //cells = newCells;
             cells = newCells.map((cell) => cell.slice());

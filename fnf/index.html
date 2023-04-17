@@ -77,6 +77,13 @@
     <script src="hellclown.json"></script>
     <script src="bushwhack.json"></script>
     <script src="boxingmatch.json"></script>
+    <script src="glitch.json"></script> <!--the original song is called the glitch by the boneyard !-->
+    <script src="endless.json"></script>
+    <script src="expurgation.json"></script>
+    <script src="house.json"></script>
+    <script src="insanity.json"></script>
+    <script src="ram.json"></script>
+    <script src="sbskaioken.json"></script>
 </head>
 <body style="width:100%;height:100%;overflow:hidden;">
     <center>
@@ -89,12 +96,24 @@
                 <option value="bushwhack">zardy bushwhack</option>
                 <option value="hellclown">tricky hellclown</option>
                 <option value="boxingmatch">matt boxing match</option>
+                <option value="glitch">glitch dave</option>
+                <option value="endless">sonic exe endless</option> <!--mp3 made using ffmpeg -i Inst.ogg -i Voices.ogg -filter_complex amix=inputs=2:duration=longest endless.mp3-->
+                <option value="expurgation">tricky expurgation</option>
+                <option value="house">vs dave house</option>
+                <option value="insanity">vs dave insanity</option>
+                <option value="ram">hex ram</option>
+                <option value="sbskaioken">shaggy b side kaioken</option>
+
             </select>
             <input type="number" step=".1" onblur="this.value = this.value == '' ? eval(`JSON.parse(${this.parentElement.firstElementChild.value}).song.speed`) : this.value" value="1.7000000000000002">
+            <br><input type="checkbox" id="aimassist"><label>aim assist (makes it a lot easier to hit doubles and the best songs for are vs dave lmao)</label>
+            <br><input type="checkbox" id="mustmusthit"><label>play both parts at the same time (might add middle scroll)</label>
             <button type="submit" style="display: block;width: 100%;">Start</button>
         </form>
         <h1 id="combo" style="display: none;">Combo: 0</h1>
         <h1 id="score" style="display: none;">Score: 0</h1>
+        <h1 id="misses" style="display: none;">Misses: 0</h1>
+        <h2 id="accu" style="display: none;">Accuracy: 100%</h2>
     </center>
     <img src="../img/fnf arrows.png" class="leftArrow left" style="top: 80%">
     <img src="../img/fnf arrows.png" class="downArrow left" style="top: 80%">
@@ -107,17 +126,20 @@
     <img src="../img/fnf arrows.png" class="upArrow right" style="top: 80%">
     <img src="../img/fnf arrows.png" class="rightArrow right" style="top: 80%">
 
-    <img src="../img/scores.png" id="scores" class="shit" style="position: absolute; bottom: 20%; left: 50%; z-index: -1;">
+    <img src="../img/scores.png" id="scores" class="shit" style="position: absolute; bottom: 10%; left: 50%; z-index: -1;">
 
     <script>
         var started = false;
         var paused = false;
         var music;
         var song;
+        var miss; //sure
         var songSpeed;
         var animationFrame;
         var comboNumber = 0;
         var scoreNumber = 0; //WAIT WHY AM I USING VAR (is there really a good reason to not use var other than what i feel)
+        var allNotesHit = 0;
+        var aNHS = 0;
         var notesArray = [];
         var couldHitNotes = [[],[],[],[]];
         var keys = {};
@@ -125,7 +147,7 @@
         notesMap.set(0,"leftArrow");
         notesMap.set(1,"downArrow");
         notesMap.set(2,"upArrow");
-        notesMap.set(3,"rightArrow");
+        notesMap.set(3,"rightArrow"); //wait a minute couldnt i have done notesMap = ["leftArrow","downArroy"] and shit like wtf??
         
         /*document.addEventListener("click",()=> {
             if(!started) {
@@ -137,42 +159,58 @@
         function goodHit(noteDiff) {
             //replace good with king
             scores.style.display = "";
-            if (noteDiff > 166) { // so god damn early its a miss 
+            if (noteDiff > 166) { // so god damn early its a miss
+                //if(comboNumber > 20) {
+                    miss.sound.play();
+                //}
+                misses.innerHTML = "Misses: " + (eval(misses.innerHTML.split(" ")[1])+1); 
                 combo.innerHTML = "Combo: 0 (miss)"; comboNumber = 0;
-                score.innerHTML = `Score: ${scoreNumber-=10}`;
+                score.innerHTML = `Score: ${scoreNumber-=10}`; //appardntly -300 (nope this was apparently right)
                 scores.style.display = "none";
             }
             if (noteDiff > 135) { // way early
-                combo.innerHTML = `Combo: ${++comboNumber} (shit)`;
+                combo.innerHTML = `Combo: ${++comboNumber} (shit)`; //wait apparently it is a miss if you get shit and -300 (donm't feel like it tho)
                 scores.className = "shit";
+                aNHS += .25;allNotesHit++;
             }else if (noteDiff > 90) {// early
                 combo.innerHTML = `Combo: ${++comboNumber} (bad)`;
                 scores.className = "bad";
+                aNHS += .5;allNotesHit++;
             }else if (noteDiff > 45) {// your kinda there
                 combo.innerHTML = `Combo: ${++comboNumber} (good)`;
                 score.innerHTML = `Score: ${scoreNumber+=200}`;
                 scores.className = "good";
+                aNHS += 0.75;allNotesHit++;
             }else if (noteDiff < 45 && noteDiff > -45) {
                 combo.innerHTML = `Combo: ${++comboNumber} (great)`;
-                score.innerHTML = `Score: ${scoreNumber+=350}`; //data according to dave engine
+                score.innerHTML = `Score: ${scoreNumber+=350}`; //data according to dave engine (yeah this kade engine is only saying 200 soooo (double wait i was looking at good))
                 scores.className = "great";
+                aNHS++;allNotesHit++;
                 //console.log(comboNumber);
             }else if (noteDiff < -45) {// little late
                 combo.innerHTML = `Combo: ${++comboNumber} (good)`;
                 score.innerHTML = `Score: ${scoreNumber+=200}`;
                 scores.className = "good";
+                aNHS += 0.75;allNotesHit++;
             }else if (noteDiff < -90) {// late
                 combo.innerHTML = `Combo: ${++comboNumber} (bad)`;
                 scores.className = "bad";
+                aNHS += .5;allNotesHit++;
             }else if (noteDiff < -135) {// late as fuck
                 combo.innerHTML = `Combo: ${++comboNumber} (shit)`;
                 scores.className = "shit";
+                aNHS += .25;allNotesHit++; //from playstatd.hx (kad engine)
             }else if (noteDiff < -166) {// so god damn late its a miss
+                //if(comboNumber > 20) {
+                    miss.sound.play();
+                //}
+                misses.innerHTML = "Misses: " + (eval(misses.innerHTML.split(" ")[1])+1);
                 combo.innerHTML = "Combo: 0 (miss)";
                 comboNumber = 0;
-                score.innerHTML = `Score: ${scoreNumber-=10}`;
+                score.innerHTML = `Score: ${scoreNumber-=10}`; //notsur wh
                 scores.style.display = "none";
             }
+            accu.innerHTML = `Accuracy: ${Math.round(((aNHS - eval(misses.innerHTML.split(" ")[1]))/allNotesHit * 100)*100)/100}%`;
             //console.log(noteDiff);
         }
         function noteInRow(row) {
@@ -186,15 +224,83 @@
             //try {
                 //couldHitNotes[row].sort((note, note2) => (note.mili+(song.startTime - new Date().getTime()) > note2.mili+(song.startTime - new Date().getTime())) ? 1 : -1);
                 console.log(couldHitNotes[row]);
-                for(let i in couldHitNotes[row]) {
-                    let note = couldHitNotes[row][i];
+                //for(let i in couldHitNotes[row]) { //????? wait in hold on
+                if(aimassist.checked) {//valur) //why does thsi specific input do not use balue
+                    //hellaur
+
+                    let splicees = [];
+
+                    for(let note of couldHitNotes[row]) {
+                        noteDiff = note.mili+(song.startTime - new Date().getTime());
+                        if(noteDiff < 90 && noteDiff > -90) {
+                            goodHit(noteDiff);
+                            notesArray.splice(notesArray.indexOf(note),1);
+                            splicees.push(note);
+                            note.htmlObj.remove();
+                            console.log("rmovd a not", couldHitNotes[row].length);
+                        }
+                    }
+
+                    for (let note of splicees) {
+                        couldHitNotes[row].splice(couldHitNotes[row].indexOf(note),1);
+                    }
+
+                    //for(let note of couldHitNotes[row]) {
+                    //    //let note = couldHitNotes[row][i];
+                    //    //console.log(note,couldHitNotes[row]);
+                    //    let noteDiff = note.mili+(song.startTime - new Date().getTime());
+                    //    goodHit(noteDiff);
+                    //    //couldHitNotes[row][0].htmlObj.src = "../img/colored fnf arrows.png";
+                    //    notesArray.splice(notesArray.indexOf(note),1);
+                    //    //couldHitNotes[row].splice(0,1); //i just realized after i came up with the solution whyu thisd messed it up
+                    //    //java has like concurrent errors so i figgured thats how it worked so i removed it without even processing what happeneed
+                    //    //anyways enough talk, it would remove the first element so when i used let i in couldhitnotes i would be 0
+                    //    //then it deletes the note in slot 0 and so they would all shift and i would then be 1 and would miss the one back at 0
+                    //    note.htmlObj.remove();
+                    //    console.log("rmovd a not", couldHitNotes[row].length);
+                    //}
+                    //couldHitNotes[row] = [];
+                }else if(couldHitNotes[row][0]){
+                    let note = couldHitNotes[row][0];
                     //console.log(note,couldHitNotes[row]);
                     let noteDiff = note.mili+(song.startTime - new Date().getTime());
                     goodHit(noteDiff);
                     //couldHitNotes[row][0].htmlObj.src = "../img/colored fnf arrows.png";
                     notesArray.splice(notesArray.indexOf(note),1);
-                    couldHitNotes[row].splice(0,1);
+                    couldHitNotes[row].splice(0,1); //i just realized after i came up with the solution whyu thisd messed it up
                     note.htmlObj.remove();
+                    console.log("rmovd a not", couldHitNotes[row].length);
+
+                    if(mustmusthit && songName == "glitch") {
+
+                    let splicees = []; //slightly lss advanatgous aim assist
+
+                    for(let note of couldHitNotes[row]) {
+                        //let note = couldHitNotes[row][i];
+                        //console.log(note,couldHitNotes[row]);
+
+                        //note = couldHitNotes[row][0];
+                        //if(note) {
+                        noteDiff = note.mili+(song.startTime - new Date().getTime());
+                        if(noteDiff < 50 && noteDiff > -50) { //idk man
+                            goodHit(noteDiff);
+                            //couldHitNotes[row][0].htmlObj.src = "../img/colored fnf arrows.png";
+                            notesArray.splice(notesArray.indexOf(note),1);
+                            splicees.push(note);
+                            //couldHitNotes[row].splice(0,1); //i just realized after i came up with the solution whyu thisd messed it up
+                            //java has like concurrent errors so i figgured thats how it worked so i removed it without even processing what happeneed
+                            //anyways enough talk, it would remove the first element so when i used let i in couldhitnotes i would be 0
+                            //then it deletes the note in slot 0 and so they would all shift and i would then be 1 and would miss the one back at 0
+                            note.htmlObj.remove();
+                            console.log("rmovd a not", couldHitNotes[row].length);
+                        }
+                    }
+                    //}
+
+                    for (let note of splicees) {
+                        couldHitNotes[row].splice(couldHitNotes[row].indexOf(note),1);
+                    }
+                }
                 }
                 //couldHitNotes[row].forEach(note => {
                     
@@ -218,6 +324,7 @@
                 }else {
                     music.sound.play();
                     song.startTime += new Date().getTime()-paused;
+                    //music.sound.currentTime = (new Date().getTime() - song.startTime)/1000; //fast forwarding
                     tick();
                 }
                 paused = paused == false ? new Date().getTime() : false;
@@ -284,9 +391,10 @@
                     //console.log(note.mili - (song.startTime - new Date().getTime()));
                     note.htmlObj.style.top = "calc(80% - " + (shit*songSpeed) + "px)";
                     //note.htmlObj.style.top = "calc(50% - " + toString((note.mili/100)) + "px)";
-                    if(shit < 152/songSpeed) {
+                    if(shit < 304/songSpeed) { //152??????
                         if(note.mustHit && couldHitNotes[note.row].indexOf(note) == -1) {
                             //note.htmlObj.src = "../img/fnf arrows.png";
+                            console.log(shit, 304/songSpeed);
                             couldHitNotes[note.row].push(note);
                         }
                     }
@@ -311,19 +419,32 @@
             //console.log(songName);
             //console.log(JSON.parse(songName));
             music = new sound(songName+".mp3");
+            miss = new sound("miss.wav");
             song = JSON.parse(eval(songName)).song;
             songSpeed = forme.children[1].value/2;
+            window.aimassist = {checked: aimassist.checked}; //lol (prob don't hav to say window)
+            mustmusthit = !mustmusthit.checked;
+            //console.log(mustmusthit);
             forme.remove();
             combo.style.display = "block";
             score.style.display = "block";
+            misses.style.display = "block";
+            accu.style.display = "block";
             delete foolhardy; //ok so the reason i did this was because chrome stops websites from GET ing local files so i couldn't test it and just did this
             //ok just had a brain blast 12:41 AM 3/11/2023 so like i could've just ran this on a local server bruh 
-            delete whereareyou;
+            delete whereareyou; //i should prolly change that since i've got a local server (node-http-server npx shit) however how will i get the songspeed by using many get requests (ah im prolly not chainging shit)
             delete furiosity;
             delete supernovae;
             delete hellclown;
             delete bushwhack;
             delete boxingmatch;//Wake up get up get put there
+            delete glitch;
+            delete endless;
+            delete expurgation;
+            delete house;
+            delete insanity;
+            delete ram;
+            delete sbskaioken;
             //let letsgo = false;
             //music.play();
 
@@ -337,16 +458,37 @@
                     
                     music.play();
 
-                    song.notes.forEach(bruh => {
-                        bruh.sectionNotes.forEach(notes => {
-                            //console.log(notes);
-                            if(notes[1] < 4) {
-                                notesArray.push(new noteObj(notes[0],notes[1],!bruh.mustHitSection,notes[2] == 0 ? true : false));
-                            }else {
-                                notesArray.push(new noteObj(notes[0],notes[1]%4,bruh.mustHitSection,notes[2] == 0 ? true : false));
-                            }
+                    const K = songName == "sbskaioken" ? 6 : 4;
+
+                    if(mustmusthit) {
+                        song.notes.forEach(bruh => {
+                            bruh.sectionNotes.forEach(notes => {
+                                //console.log(notes);
+                                if(notes[1] < K) {
+                                                                                    //yeah this cannot continue
+                                    notesArray.push(new noteObj(notes[0],notes[1]%4,!bruh.mustHitSection/* && mustmusthit*/,notes[2] == 0 ? true : false));
+                                }else { //? ayo i had "6 key support" where i downgraded it??? (wait no thats how it deterfmined must hit)
+                                    //console.log((bruh.mustHitSection || mustmusthit) == bruh.mustHitSection);
+                                    //console.log(bruh.mustHitSection, mustmusthit, (bruh.mustHitSection && mustmusthit));
+                                    notesArray.push(new noteObj(notes[0],notes[1]%4,bruh.mustHitSection/* && mustmusthit*/,notes[2] == 0 ? true : false));
+                                }
+                            });
                         });
-                    });
+                    }else {
+                        song.notes.forEach(bruh => {
+                            bruh.sectionNotes.forEach(notes => {
+                                //console.log(notes);
+                                //if(notes[1] < 4) {
+                                                                                    //yeah this cannot continue
+                                    notesArray.push(new noteObj(notes[0],notes[1]%4,false,notes[2] == 0 ? true : false));
+                                //}else { //? ayo i had "6 key support" where i downgraded it??? (wait no thats how it deterfmined must hit)
+                                    //console.log((bruh.mustHitSection || mustmusthit) == bruh.mustHitSection);
+                                    //console.log(bruh.mustHitSection, mustmusthit, (bruh.mustHitSection && mustmusthit));
+                                 //   notesArray.push(new noteObj(notes[0],notes[1]%4,true,notes[2] == 0 ? true : false));
+                                //}
+                            });
+                        });
+                    }
 
                     tick();
                 }

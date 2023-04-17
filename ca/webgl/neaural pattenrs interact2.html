@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!--title>convolutional n**** life</title-->
+    <title>neuralpatterns.io copy (no webgl)</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas">
+
+    </canvas>
+    <div style="position: absolute; left: 0; top: 0;">
+        <input type="range" min="0" max="500" id="slide" onchange="l.innerHTML = this.value;"><label style="color: white;" id="l"></label>
+        <input type="range" min="0" max="500" id="slider2" onchange="l2.innerHTML = this.value;"><label style="color:white;" id="l2"></label>
+    </div>
+    <script>
+        canvas.width = innerWidth;
+        canvas.height = innerHeight;
+
+        let res = 10;
+
+        let width = Math.round(canvas.width/res);
+        let height = Math.round(canvas.height/res);
+
+        addEventListener("mousemove", (event) => {
+            if(event.buttons == 1) {
+                let x = Math.round(event.clientX/res);
+                let y = Math.round(event.clientY/res);
+                //console.log("x: " + Math.round(event.clientX/res) + " y: " + Math.round(event.clientY/res));
+                //newCells[Math.round(event.clientX/res)][Math.round(event.clientY/res)] = 1;
+                for(let i = -1; i < 2; i++) {
+                    for(let j = -1; j < 2; j++) {
+                        cells[wrapX(x+i)][wrapY(y+j)].v = 1;
+                    }
+                }
+            }
+        });
+
+        let context = canvas.getContext('2d'); //ain;t nobody using webgfl (ok im lying webgl otw)
+        context.font = `${res}px comic sans ms`;
+
+        //let filters = [];
+        //for(let i = 0; i < 3;i++) {
+        //    filters.push([]); //didn't really know you could index negative but ok (don';t feel like doing it because it kinda weird)
+        //    for(let j = 0; j < 3;j++) {
+        //        filters[i].push((Math.random() > .5 ? Math.random() : -Math.random()));
+        //    }
+        //}
+
+        //let filters = [[0.565,-0.716,0.565],[-0.759, 0.627, -0.759],[0.565, -0.716,0.565]]; //stars abs(x)
+        //let activate = Math.abs;
+        
+        let filters = [[0.565,-0.716,0.565],[-0.716,0.627,-0.716],[0.565,-0.716,0.565]]; //waves abs(1.2)
+        //let activate = function(x) {Math.abs(1.2*x)};
+        /*
+[
+    [
+        -0.3164864989387377,
+        0.7716948219141426,
+        -0.3244629856615411
+    ],
+    [
+        0.4372066102971319,
+        0.1480755600653727,
+        -0.1408492669958723
+    ],
+    [
+        -0.3700537977984917,
+        -0.5084511003815286,
+        0.44780426358843006
+    ]
+]
+        *///random
+
+        /*
+        [
+    [
+        -0.6113017444843125,
+        0.31203132596375327,
+        0.2782692791608654
+    ],
+    [
+        -0.376741180420203,
+        -0.7370168741707892,
+        0.5405641711002056
+    ],
+    [
+        -0.22972247543754531,
+        0.1400099628092748,
+        0.5936105376635348
+    ]
+]*///cooler random like fire (better)
+/*
+[
+    [
+        0.2434342066390236,
+        -0.2947248433686036,
+        0.25518500511204056
+    ],
+    [
+        -0.4164622286566739,
+        0.8270869721682743,
+        0.02467469630440955
+    ],
+    [
+        -0.669167490798908,
+        -0.05255217266396728,
+        -0.15042329097947937
+    ]
+]*///fire again
+
+/*
+[
+    [
+        -0.25659456661159075,
+        -0.23431601958331538,
+        0.20095931662200583
+    ],
+    [
+        0.6721267924059857,
+        0.9155807271903025,
+        -0.5621617165191746
+    ],
+    [
+        -0.2685008928988031,
+        -0.5303551969635403,
+        0.07235841479390048
+    ]
+]
+*///lines
+        
+        let cells = [];
+        
+        for(let i = 0; i < width; i++) {
+            cells.push([]);
+            for(let j = 0; j < height; j++) {
+                cells[i].push({v:Math.random()});
+            }
+        }
+
+        let newCells = cells.map((cell) => cell.slice());//cells;
+
+        function wrapX(x) {
+            return x < 0 ? width-1 : x > width-1 ? 0 : x;
+        }
+        function wrapY(y) {
+            return y < 0 ? height-1 : y > height-1 ? 0 : y;
+        }
+
+        /**
+         * Returns a number whose value is limited to the given range.
+         *
+         * Example: limit the output of this computation to between 0 and 255
+         * (x * 255).clamp(0, 255)
+         *
+         * @param {Number} min The lower boundary of the output range
+         * @param {Number} max The upper boundary of the output range
+         * @returns A number in the range [min, max]
+         * @type Number
+         */
+        Math.__proto__.clamp = function(min, max, num) {
+            return this.min(this.max(num, min), max);
+        };
+
+        function convolve(x,y) {
+            let sum = 0;
+            for(let i = -1; i < 2; i++) {
+                for(let j = -1; j < 2; j++) {
+                    //could do j <= 1 but nah
+                    let state = cells[wrapX(x+i)][wrapY(y+j)].v;
+                    //state * filter
+                    sum += state*filters[i+1][j+1];
+                }
+            }
+            newCells[x][y].v = Math.abs(1.2*Math.clamp(-1,1,sum));//Math.abs(sum); //activate (wait is it after all of them or no)
+            //yo i think sum is actually clamped
+            //ok after the clamp i should actiavte
+        }
+
+        function tick() {
+            context.fillStyle = "black";
+            context.fillRect(0,0,canvas.width, canvas.height);
+            //context.fillStyle = "sandybrown";
+            for (let i = 0; i < width; i++) {//canvas.width; i += res) {
+                for(let j = 0; j < height; j++) {//canvas.height;j += res) {
+                    //console.log(`i ${i}, j ${j} cedlld ${cells[i][j]}`)
+                    let shit = slide.value/cells[i][j].v;
+                    shit = shit > slider2.value ? shit : 0;
+                    context.fillStyle = `rgba(${255-(shit)/*(1-cells[i][j])*100*/}, ${255-(shit)}, 255, ${cells[i][j].v})`//`rgba(244,164,96, ${cells[i][j]})`
+                    //context.fillRect(i*res, j*res, res,res);
+                    //context.fillStyle = "white";
+                    if(cells[i][j].v > .01) { //sorta speeds it up
+                        //context.fillText(Math.round(cells[i][j]*10)/10, i*res, j*res);
+                        context.fillRect(i*res, j*res, res,res);
+                    }
+                    convolve(i,j);
+                }
+            }
+
+            //for (let i = 0; i < width; i++) {//canvas.width; i += res) {
+            //    for(let j = 0; j < height; j++) {//canvas.height;j += res) {
+            //        newCells[i][j] = Math.abs(newCells[i][j]); //actually no point because it is reading from cells so me activating before or after does not do shitd
+            //    }
+            //}
+
+            //cells = newCells;
+            cells = newCells.map((cell) => cell.slice());
+
+            requestAnimationFrame(tick);
+        }
+
+        requestAnimationFrame(tick);
+        
+        //context.fillStyle = "black";
+
+        //context.fillRect(0,0,canvas.width, canvas.height);
+        
+    </script>
+</body>
+</html>
