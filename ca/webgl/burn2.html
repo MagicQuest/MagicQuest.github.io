@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>wegbl</title>
+    <style>
+        body {
+            text-align : center;
+        }
+        canvas {
+            display : block;
+            /*width : 280px;
+            height : 210px;*/
+            margin : auto;
+            padding : 0;
+            border : none;
+            background-color : black;
+            cursor: pointer;
+        }
+        button {
+            display : block;
+            font-size : inherit;
+            margin : auto;
+            padding : 0.6em;
+        }
+    </style>
+</head>
+<body>
+    <p>Hello World! Hello GLSL!</p>
+    <select id="type">
+        <option value="stars">Stars</option>
+        <option value="waves">Waves</option>
+        <option value="fire" selected>Fire</option>
+    </select>
+    <br>
+    <label>bSize</label>
+    <input type="range" id="bSize" onchange='bsl.innerHTML = this.value; gl.uniform1i(gl.getUniformLocation(program2, "bSize"), this.value);' min="0" max="10" value="1"><label id="bsl">1</label>
+    <br>
+    <label>filtah</label>
+    <input type="range" id="filtah" onchange='flstudio.innerHTML = this.value; gl.uniform1f(gl.getUniformLocation(program2, "filtah"), this.value);' min="-2" max="2" value="1" step=".01"><label id="flstudio">1</label>
+    <br>
+    <label>weight</label>
+    <input type="range" id="weight" onchange='wl.innerHTML = this.value; gl.uniform1f(gl.getUniformLocation(program2, "weight"), this.value);' min="0" max="1000" value="2"><label id="wl">9</label>
+    <br>
+    <canvas id="canvas" width="1280" height="720" oncontextmenu="event.preventDefault()">Your browser does not seem to support 
+      HTML5 canvas.</canvas>
+      <!--MAKE ACTIVATION FUNCTION WITH CNNEVO TEXTURE WHITE IS TEXTURE.x*x (TEXTURE.x = 1)-->
+      <!--canvas id="canvas2" width="240" height="180" style="display: inline;">nigga update ya browser</canvas-->
+
+
+    <script type="x-shader/x-vertex" id="vertex-shader">#version 300 es
+
+        precision mediump float;
+
+        in vec2 vertPosition;
+        //attribute vec2 res;
+
+        //uniform vec2 iResolution;
+
+        out vec4 fragColor;
+
+        void main() {
+          gl_Position = vec4(vertPosition, 0.0, 1.0);
+          //gl_PointSize = 32.0;
+        }
+    </script>
+    <script type="x-shader/x-fragment" id="ccafragment-shader">#version 300 es
+        precision mediump float;
+
+        uniform vec2 iResolution;
+
+        uniform sampler2D iChannel1;
+        uniform sampler2D iChannel0B;
+        //uniform sampler2D fnafpp;
+        
+        uniform float iTime;
+        
+        float rand(float co) { return fract(sin(co*(91.3458)) * 47453.5453); }
+        float rand(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453); }
+
+        //uniform float f1[3];
+        //uniform float f2[3];
+        //uniform float f3[3];
+
+
+        //float f1[3] = float[3](0.565,-0.716,0.565);
+        //float f2[3] = float[3](-0.759, 0.627, -0.759);
+        //float f3[3] = float[3](0.565, -0.716,0.565);
+
+        //[[0.565,-0.716,0.565],[-0.716,0.627,-0.716],[0.565,-0.716,0.565]]
+
+        uniform vec3 f1;// = float[3](0.565,-0.716,0.565);
+        uniform vec3 f2;// = float[3](-0.716,0.627,-0.716);
+        uniform vec3 f3;// = float[3](0.565,-0.716,0.565);
+
+        //[[.808,.927,-.987],[-.875,-.816,.867],[.274,.272,.37]]
+
+        //float f1[3] = float[3](.808,.927,-.987);
+        //float f2[3] = float[3](-.875,-.816,.867);
+        //float f3[3] = float[3](.274,.272,.37);
+
+        //vec3 deez = vec3(1.,0.,0.);
+
+        float lerp(float a, float b, float t) {
+            return (b /*—*/- a) * t + a;
+                     // - //ARE YOU FUCKING SERIOUS I GOT HIT WITH THAT GREEK QUESTION MARK BULLSHIT;;; -—- EMDASH BULSHIT
+        }
+
+        out vec4 fragColor;
+
+        uniform vec3 iMouse;
+
+        //float inverse_gaussian(float x) {
+        //    return -1./pow(2., (0.6*pow(x, 2.)))+1.;
+        //}
+
+        #activate
+
+        uniform bool gol;
+
+        uniform float size;
+
+        void main() {
+            //vec2 res = vec2(280., 210.);
+            //vec2 fragmentPosition = 2.0*gl_PointCoord - 1.0;
+            vec2 uv = gl_FragCoord.xy / iResolution.xy;
+            vec3 color = (gol == false ? vec3(0.0) : vec3(texture(iChannel0B, uv).x));
+
+            if(gol == false) {
+
+            float sum = 0.0;
+    
+            for(int i = -1; i <= 1; i += 1)
+            {
+                for( int j = -1; j <= 1; j += 1)
+                {
+                    vec2 offset = vec2(i, j) / iResolution.xy;		 // Scale the offset down
+                    vec4 lookup = texture(iChannel0B, uv + offset); // Apply offset and sample
+                    //sum += lookup.x;
+                    if(i == -1) {
+                        sum += /*(texture(iChannel1, uv).x)**/(lookup.x)*f1[2-(j+1)]; //getting rid of (texture(iChannel1, uv).x)* on here and        look the best
+                    }else if(i == 0) {
+                        sum += /*(texture(iChannel1, uv).x)**/(lookup.x)*f2[2-(j+1)]; //2-(j+1) reflects it and make the fire go up and not down
+                    }else if(i == 1) {
+                        sum += /*(texture(iChannel1, uv).x)**/(lookup.x)*f3[2-(j+1)];                               //here 
+                    }
+                }
+            }
+
+            sum = clamp(sum, -1., 1.);
+
+            //color = vec3(abs(sum));
+            //float cell = texture(iChannel0B, uv).x;
+    
+    
+            /*
+                Now we just need to apply the rules to calulate the state of the cell in this iteraton.
+                It's really simple: We have already initialized the cell of this iteration to 0,
+                We therefore just have to check if we need to change that by seeing whether the
+                conditions for being alive hold:
+                Cell alive and exactly 2 or 3 _other_ neighbors (3 or 4 in total)
+                OR
+                Cell dead and exactly 2 _other_ neighbors (3 in total)
+            */
+            //if(cell > 0.0) {
+            //    if(sum >= 3.0 && sum <= 4.0) {
+            //        color = vec3(1.0);
+            //    }
+            //} else if(sum > 2.0 && sum < 4.0) {
+            //    color = vec3(1.0);
+            //}
+
+
+            //color = vec3(0.,(abs(sum)/1.2),(texture(iChannel1, uv).x > .5 ? 1. : /*9.*/.84)*(activate(sum)));//vec3(activate(sum),abs(sum),0.);
+
+            color = vec3((texture(iChannel1, uv).x > .5 ? 1. : .84)*activate(sum), sum > .8 ? lerp(.91, .0, clamp((texture(iChannel1, uv).x > .5 ? 1. : .84)*activate(sum), 0., 1.)) : 0.0, 0.);
+
+            if(distance(iMouse.xy, uv) < (iMouse.z == 0.0 ? .1+(size*4.) : .025+size)) {             //iMouse.x > uv.x-.025 && iMouse.x < uv.x+.025 && iMouse.y > uv.y-.025 && iMouse.y < uv.y+.025) {
+                color = vec3(iMouse.z, rand(uv)/2.5, 0.0); //deez[0]);
+            }
+
+            if(iTime < 1.0) {
+                color = vec3(texture(iChannel1, gl_FragCoord.xy / iResolution.xy).x);//vec4(1.0,1.0,0.0,.0);             //vec4(gl_PointCoord.x, gl_PointCoord.y, 0.34, 1.0);
+            }
+        }else {
+            if(distance(iMouse.xy, uv) < (iMouse.z == 0.0 ? .1+(size*4.) : .025+size)) {             //iMouse.x > uv.x-.025 && iMouse.x < uv.x+.025 && iMouse.y > uv.y-.025 && iMouse.y < uv.y+.025) {
+                color = vec3(iMouse.z, 0, 1);
+            }
+        }
+
+            fragColor = vec4(color, 1.0);
+        }
+    </script>
+    <script type="x-shader/x-fragment" id="mfragment-shader">
+        #version 100
+        precision mediump float;
+
+        uniform vec2 iResolution;
+
+        uniform sampler2D iChannel0;
+
+        //uniform float iTime;
+                
+        void main() {
+            vec2 uv = gl_FragCoord.xy / iResolution.xy;
+            vec4 color = texture2D(iChannel0, uv);
+            gl_FragColor = vec4(color.xyz, 1.0);
+        }
+    </script>
+    <script type="x-shader/x-fragment" id="blurf-shader">#version 300 es
+        precision mediump float;
+
+        uniform vec2 iResolution;
+
+        uniform sampler2D iChannel0B;
+
+        //box blur https://webgl2fundamentals.org/webgl/lessons/webgl-image-processing-continued.html
+
+        //float f1[6] = float[6](1.0, 1.0, 1.0, 1.0, 1.0, 1.0);
+        //float f2[6] = float[6](1.0, 1.0, 1.0, 1.0, 1.0, 1.0);
+        //float f3[6] = float[6](1.0, 1.0, 1.0, 1.0, 1.0, 1.0);
+        
+        out vec4 fragColor;
+
+        uniform int bSize;
+        uniform float filtah;
+        uniform float weight;
+                
+        void main() {
+            vec2 uv = gl_FragCoord.xy / iResolution.xy;
+            vec4 color;
+            for(int i = -bSize; i <= bSize; i += 1)
+            {
+                for( int j = -bSize; j <= bSize; j += 1)
+                {
+                    vec2 offset = vec2(i, j) / iResolution.xy;
+                    vec4 lookup = texture(iChannel0B, uv + offset);
+                    //if(i == -1) {
+                        color += (lookup)*filtah;//1.0;//f1[j+1];
+                    //}else if(i == 0) {
+                    //    color += (lookup)*f2[j+1];
+                    //}else if(i == 1) {
+                    //    color += (lookup)*f3[j+1];
+                    //}
+                }
+            }
+            fragColor = vec4((color/weight).xyz, 1.0); //kernal weight is .999 for box blur
+        }
+    </script>
+    <script type="x-shader/x-fragment" id="burn-shader">#version 300 es
+        precision mediump float;
+
+        uniform vec2 iResolution;
+
+        uniform sampler2D iChannel0B;
+
+        out vec4 fragColor;
+                
+        void main() {
+            vec2 uv = gl_FragCoord.xy / iResolution.xy;
+            vec4 color = texture(iChannel0B, uv);
+            if(color.x > .1) {
+                color = vec4(1.0,1.0,1.0,1.0);
+            }
+            //color = vec4(1.0,1.0,1.0,1.0);
+            fragColor = vec4(color.xyz, 1.0);
+        }
+    </script>
+    <img src="./cnnevo2.png" id="fnaf" crossorigin="anonymous">
+    <img src="./white.png" id="image" crossorigin="anonymous">
+    <img src="./noise.png" id="noise" crossorigin="anonymous">
+
+    <!--script src="canvas2init.js"></script-->
+
+    <script>
+        //ok so burn like use a new frame buffer and fragment + program to check if pixel xyz whatever is fire and remove that one somehow
+
+        window.addEventListener("load", setupWebGL, false);
+        
+        let gl;
+        let program, program2;
+
+        let rect = [
+            -1,1,
+            -1,-1,
+            1,-1,
+            1,1,
+        ];
+
+        function isPowerOf2(value) {
+            return (value & (value - 1)) === 0;
+        }
+
+        let newTexture = function(texture) {
+            return new Promise(function(resolve, reject) {
+                //let image = new Image();
+                //image.src = "./noise.png";//"someshit;"
+                //image.crossOrigin = "anonymous";
+                //image.onload = () => {
+                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture);
+                    // WebGL1 has different requirements for power of 2 images
+                    // vs non power of 2 images so check if the image is a
+                    // power of 2 in both dimensions.
+                    if (isPowerOf2(texture.width) && isPowerOf2(texture.height)) {
+                        // Yes, it's a power of 2. Generate mips.
+                        gl.generateMipmap(gl.TEXTURE_2D);
+                    } else {
+                        // No, it's not a power of 2. Turn off mips and set
+                        // wrapping to clamp to edge
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); //TWAS linear
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                    }
+                    
+                    resolve();
+                //}
+            });
+        }
+
+        let buffer, iChannel0, iChannel0B, iChannel1, fb, fb2, fnafpp;
+
+        let gol = false;
+        let size = 0;
+
+        function setTypes() {
+            //aw man i gotta make a whole new program
+            let activation = `float activate(float x) {
+                return x;
+            }`;
+
+            if(type.value == "waves") {
+                gl.uniform3fv(gl.getUniformLocation(program, "f1"), new Float32Array([0.565,-0.716,0.565]));//new Float32Array([.808,.927,-.987]));
+                gl.uniform3fv(gl.getUniformLocation(program, "f2"), new Float32Array([-0.716,0.627,-0.716]));//new Float32Array([-.875,-.816,.867]));
+                gl.uniform3fv(gl.getUniformLocation(program, "f3"), new Float32Array([0.565,-0.716,0.565]));//new Float32Array([.274,.272,.37]));
+                activation = activation.replace("x;", "abs(1.2*x);");
+            }else if(type.value == "fire") {
+                gl.uniform3fv(gl.getUniformLocation(program, "f1"), new Float32Array([.808,.927,-.987]));
+                gl.uniform3fv(gl.getUniformLocation(program, "f2"), new Float32Array([-.875,-.816,.867]));
+                gl.uniform3fv(gl.getUniformLocation(program, "f3"), new Float32Array([.274,.272,.37]));
+                activation = activation.replace("x;", "abs(x/1.5);");
+            }else if(type.value == "stars") {
+                gl.uniform3fv(gl.getUniformLocation(program, "f1"), new Float32Array([0.565,-0.716,0.565]));
+                gl.uniform3fv(gl.getUniformLocation(program, "f2"), new Float32Array([-0.759, 0.627, -0.759]));
+                gl.uniform3fv(gl.getUniformLocation(program, "f3"), new Float32Array([0.565, -0.716,0.565]));
+                activation = activation.replace("x;", "abs(x);");
+            }
+
+            return activation;
+
+            let source = document.querySelector("#vertex-shader").innerHTML;
+            const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+            gl.shaderSource(vertexShader, source);
+            gl.compileShader(vertexShader);
+            if(!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+                console.log("vertex bitch nigga\n", gl.getShaderInfoLog(vertexShader));
+            }
+
+            source = document.querySelector("#ccafragment-shader").innerHTML;
+            source = source.replace("#activate", activation);
+            console.log(source);
+            const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+            gl.shaderSource(fragmentShader, source);
+            gl.compileShader(fragmentShader);
+            if(!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+                console.log("CAfragment bitch nigga\n", gl.getShaderInfoLog(fragmentShader));
+            }
+
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+
+            gl.detachShader(program, vertexShader);
+            gl.detachShader(program, fragmentShader);
+
+            gl.deleteShader(vertexShader);
+            gl.deleteShader(fragmentShader);
+        }
+
+        type.addEventListener("change", setTypes);
+
+        function newProgram(v, f) {
+            p = gl.createProgram();
+
+            gl.attachShader(p, v);
+            gl.attachShader(p, f);
+            gl.linkProgram(p);
+
+            gl.detachShader(p, v);
+            gl.detachShader(p, f);
+
+            if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+                const linkErrLog = gl.getProgramInfoLog(p);
+                cleanup();
+                document.querySelector(
+                "p"
+                ).textContent = `Shader program did not link successfully. Error log: ${linkErrLog}`;
+                return;
+            }
+            
+            let pAL = gl.getAttribLocation(p, 'vertPosition'); 
+            gl.vertexAttribPointer(pAL, 2, gl.FLOAT, gl.FALSE, 2 * Float32Array.BYTES_PER_ELEMENT, 0);
+            gl.enableVertexAttribArray(pAL);
+
+            return p;
+        }
+
+        async function setupWebGL(evt) {
+            window.removeEventListener(evt.type, setupWebGL, false);
+            if (!(gl = getRenderingContext())) return;
+
+            let source = document.querySelector("#vertex-shader").innerHTML;
+            const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+            gl.shaderSource(vertexShader, source);
+            gl.compileShader(vertexShader);
+            if(!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+                console.log("vertex bitch nigga\n", gl.getShaderInfoLog(vertexShader));
+            }
+
+            source = document.querySelector("#ccafragment-shader").innerHTML;
+            source = source.replace("#activate", `float activate(float x) {return abs(x/1.5);}`);
+            console.log(source);
+            const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+            gl.shaderSource(fragmentShader, source);
+            gl.compileShader(fragmentShader);
+            if(!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+                console.log("CAfragment bitch nigga\n", gl.getShaderInfoLog(fragmentShader));
+            }
+
+            //source = document.querySelector("#mfragment-shader").innerHTML;
+            //const mfragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+            //gl.shaderSource(mfragmentShader, source);
+            //gl.compileShader(mfragmentShader);
+            //if(!gl.getShaderParameter(mfragmentShader, gl.COMPILE_STATUS)) {
+            //    console.log("MAINfragment bitch nigga\n", gl.getShaderInfoLog(mfragmentShader));
+            //}
+
+            source = document.querySelector("#blurf-shader").innerHTML;
+            const bfShader = gl.createShader(gl.FRAGMENT_SHADER);
+            gl.shaderSource(bfShader, source);
+            gl.compileShader(bfShader);
+            if(!gl.getShaderParameter(bfShader, gl.COMPILE_STATUS)) {
+                console.log("lblurf bitch nigga\n", gl.getShaderInfoLog(bfShader));
+            }
+
+            source = document.querySelector("#burn-shader").innerHTML;
+            const burnShader = gl.createShader(gl.FRAGMENT_SHADER);
+            gl.shaderSource(burnShader, source);
+            gl.compileShader(burnShader);
+            if(!gl.getShaderParameter(burnShader, gl.COMPILE_STATUS)) {
+                console.log("burnShader bitch nigga\n", gl.getShaderInfoLog(burnShader));
+            }
+
+            let rectVBO = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, rectVBO);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(rect), gl.STATIC_DRAW);
+
+            program = newProgram(vertexShader, fragmentShader);
+            program2 = newProgram(vertexShader, bfShader);
+            program3 = newProgram(vertexShader, burnShader);
+//
+            //gl.attachShader(program, vertexShader);
+            //gl.attachShader(program, fragmentShader);
+            //gl.linkProgram(program);
+//
+            //gl.attachShader(program2, vertexShader);
+            //gl.attachShader(program2, bfShader);
+            ////gl.attachShader(program2, mfragmentShader);
+            //gl.linkProgram(program2);
+//
+            //// let rectVBO = gl.createBuffer();
+            //// gl.bindBuffer(gl.ARRAY_BUFFER, rectVBO);
+            //// gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(rect), gl.STATIC_DRAW);
+//
+            //// let pAL = gl.getAttribLocation(program, 'vertPosition'); 
+            //// gl.vertexAttribPointer(pAL, 2, gl.FLOAT, gl.FALSE, 2 * Float32Array.BYTES_PER_ELEMENT, 0);
+            //// gl.enableVertexAttribArray(pAL);
+//
+            //gl.detachShader(program, vertexShader);
+            //gl.detachShader(program, fragmentShader);
+//
+            //gl.detachShader(program2, vertexShader);
+            //gl.detachShader(program2, bfShader);
+            ////gl.detachShader(program2, mfragmentShader);
+//
+            gl.deleteShader(vertexShader);
+            gl.deleteShader(fragmentShader);
+            gl.deleteShader(bfShader);
+            gl.deleteShader(burnShader);
+            ////gl.deleteShader(mfragmentShader);
+
+            //if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+            //    const linkErrLog = gl.getProgramInfoLog(program);
+            //    cleanup();
+            //    document.querySelector(
+            //    "p"
+            //    ).textContent = `Shader program did not link successfully. Error log: ${linkErrLog}`;
+            //    return;
+            //}
+//
+            //if (!gl.getProgramParameter(program2, gl.LINK_STATUS)) {
+            //    const linkErrLog = gl.getProgramInfoLog(program2);
+            //    cleanup();
+            //    document.querySelector(
+            //    "p"
+            //    ).textContent = `Shader program2 did not link successfully. Error log: ${linkErrLog}`;
+            //    return;
+            //}
+
+            //initializeAttributes();
+            
+            //let iChannel0 = gl.createBuffer();
+            //gl.bindBuffer(gl.ARRAY_BUFFER, iChannel0);
+            //gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(rect), gl.STATIC_DRAW);
+
+            //let pAL = gl.getAttribLocation(program, 'vertPosition'); 
+            //gl.vertexAttribPointer(pAL, 2, gl.FLOAT, gl.FALSE, 2 * Float32Array.BYTES_PER_ELEMENT, 0);
+            //gl.enableVertexAttribArray(pAL);
+//
+            //let pAL2 = gl.getAttribLocation(program2, 'vertPosition'); 
+            //gl.vertexAttribPointer(pAL2, 2, gl.FLOAT, gl.FALSE, 2 * Float32Array.BYTES_PER_ELEMENT, 0);
+            //gl.enableVertexAttribArray(pAL2);
+            
+            gl.useProgram(program);
+
+            
+            setTypes();
+            // if(type.value == "waves") {
+            //     gl.uniform3fv(gl.getUniformLocation(program, "f1"), new Float32Array([0.565,-0.716,0.565]));//new Float32Array([.808,.927,-.987]));
+            //     gl.uniform3fv(gl.getUniformLocation(program, "f2"), new Float32Array([-0.716,0.627,-0.716]));//new Float32Array([-.875,-.816,.867]));
+            //     gl.uniform3fv(gl.getUniformLocation(program, "f3"), new Float32Array([0.565,-0.716,0.565]));//new Float32Array([.274,.272,.37]));
+            // }else if(type.value == "fire") {
+            //     gl.uniform3fv(gl.getUniformLocation(program, "f1"), new Float32Array([.808,.927,-.987]));
+            //     gl.uniform3fv(gl.getUniformLocation(program, "f2"), new Float32Array([-.875,-.816,.867]));
+            //     gl.uniform3fv(gl.getUniformLocation(program, "f3"), new Float32Array([.274,.272,.37]));
+            // }else if(type.value == "stars") {
+            //     gl.uniform3fv(gl.getUniformLocation(program, "f1"), new Float32Array([0.565,-0.716,0.565]));
+            //     gl.uniform3fv(gl.getUniformLocation(program, "f2"), new Float32Array([-0.759, 0.627, -0.759]));
+            //     gl.uniform3fv(gl.getUniformLocation(program, "f3"), new Float32Array([0.565, -0.716,0.565]));
+            // }
+            let res = gl.getUniformLocation(program, "iResolution");
+            gl.uniform2fv(res, new Float32Array([canvas.width, canvas.height]));
+
+            //program 2
+
+            iChannel1 = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, iChannel1);
+
+            console.log("wait");
+            await newTexture(image);
+            console.log("await");
+
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, iChannel1);
+            gl.uniform1i(gl.getUniformLocation(program, "iChannel1"), 0);
+            
+            fb = gl.createFramebuffer();
+            gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, iChannel1, 0);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+
+            iChannel0B = gl.createTexture();
+            gl.activeTexture(gl.TEXTURE2);
+            gl.bindTexture(gl.TEXTURE_2D, iChannel0B);
+            await newTexture(noise);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            gl.uniform1i(gl.getUniformLocation(program, "iChannel0B"), 2);
+
+            fnafpp = gl.createTexture();
+            gl.activeTexture(gl.TEXTURE4);
+            gl.bindTexture(gl.TEXTURE_2D, fnafpp);
+            await newTexture(fnaf);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            gl.uniform1i(gl.getUniformLocation(program, "fnafpp"), 4);
+            
+            fb2 = gl.createFramebuffer();
+            gl.bindFramebuffer(gl.FRAMEBUFFER, fb2);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, iChannel0B, 0);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+            //iChannelB00B = gl.createTexture();
+            //gl.activeTexture(gl.TEXTURE3);
+            //gl.bindTexture(gl.TEXTURE_2D, iChannelB00B);
+            //await newTexture();
+            //gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            ////gl.uniform1i(gl.getUniformLocation(program, "iChannelB00B"), 3);
+            //
+            //fboob = gl.createFramebuffer();
+            //gl.bindFramebuffer(gl.FRAMEBUFFER, fboob);
+            //gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT2, gl.TEXTURE_2D, iChannelB00B, 0);
+            //gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+            //console.log(rectVBO, pAL, res); //for some reason expected memory addresses but this is just js :joy:
+
+            gl.useProgram(program2);
+            gl.uniform2fv(gl.getUniformLocation(program2, "iResolution"), new Float32Array([canvas.width, canvas.height]));
+            gl.uniform1i(gl.getUniformLocation(program2, "bSize"), 1);
+            gl.uniform1f(gl.getUniformLocation(program2, "filtah"), 1);
+            gl.uniform1f(gl.getUniformLocation(program2, "weight"), 9);
+            gl.useProgram(program); //already using
+            //gl triangled??S
+            //gl.bindTexture(gl.TEXTURE_2D, null);
+            //gl.viewport(0, 0, 240, 180);
+
+            //gl.drawArrays(gl.TRIANGLE_FAN, 0, 4); //4 verts
+
+            //gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+
+            //gl.useProgram(program2);
+
+            //gl.uniform2fv(gl.getUniformLocation(program2, "iResolution"), new Float32Array([canvas.width, canvas.height]));
+
+            //gl.bindTexture(gl.TEXTURE_2D, iChannel0);
+
+            //gl.activeTexture(gl.TEXTURE1);
+            //gl.bindTexture(gl.TEXTURE_2D, fb);
+            
+            //gl.viewport(0, 0, 
+            //    gl.drawingBufferWidth, gl.drawingBufferHeight);
+
+            //gl.uniform1i(gl.getUniformLocation(program2, "iChannel0"), 1);
+
+            gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+            //cleanup();
+            render2(0);
+            //return;
+
+
+
+
+
+
+            // gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            // gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            // gl.useProgram(program);
+
+            // gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+            // gl.uniform1f(gl.getUniformLocation(program, "iTime"), 0);
+
+            // gl.drawArrays(gl.TRIANGLE_FAN, 0, 4); //4 verts
+
+            // gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+
+            // //gl.useProgram(program2);
+
+            // //gl.uniform2fv(gl.getUniformLocation(program2, "iResolution"), new Float32Array([canvas.width, canvas.height]));
+
+            // //gl.bindTexture(gl.TEXTURE_2D, iChannel0);
+
+            // //gl.activeTexture(gl.TEXTURE1);
+            // //gl.bindTexture(gl.TEXTURE_2D, fb);
+            
+            // //gl.viewport(0, 0, 
+            // //    gl.drawingBufferWidth, gl.drawingBufferHeight);
+
+            // //gl.uniform1i(gl.getUniformLocation(program2, "iChannel0"), 1);
+
+            // gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+            // gl.useProgram(program2);
+
+            // gl.bindFramebuffer(gl.FRAMEBUFFER, );
+
+            // gl.uniform1i(gl.getUniformLocation(program2, "iChannel0"), 1);
+
+            // gl.uniform2fv(gl.getUniformLocation(program2, "iResolution"), new Float32Array([canvas.width, canvas.height]));
+
+            // gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+            //gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+            //gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+
+
+
+        }
+
+        let i = 0;
+
+        /*function render(time) {
+            gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            gl.useProgram(program);
+
+            //gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+
+            //gl.bindTexture(gl.TEXTURE_2D, iChannel0); //for some reason binding texture even tho nothing happens when i don't
+
+            //gl.uniform2fv(gl.getUniformLocation(program, "iResolution"), new Float32Array([canvas.width, canvas.height]));
+
+            gl.uniform1f(gl.getUniformLocation(program, "iTime"), time/1000);
+
+            //gl.activeTexture(gl.TEXTURE0);
+            //gl.bindTexture(gl.TEXTURE_2D, iChannel0);
+            //gl.uniform1i(gl.getUniformLocation(program, "iChannel0"), 0);
+            //gl.bindTexture(gl.TEXTURE_2D, null);
+
+            gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+            gl.useProgram(program2);
+
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+            gl.uniform2fv(gl.getUniformLocation(program2, "iResolution"), new Float32Array([canvas.width, canvas.height]));
+
+            gl.uniform1i(gl.getUniformLocation(program2, "iChannel0"), 1);
+
+            gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+            //gl.activeTexture(gl.TEXTURE0);
+            //gl.bindTexture(gl.TEXTURE_2D, iChannel0);
+            //gl.uniform1i(gl.getUniformLocation(program, "iChannel0"), 0);
+
+            requestAnimationFrame(render);
+        }*/
+
+        function render2(time) {
+            //if(time/1000 % .25 < .01) {
+                //console.log("goe");
+                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+           // gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            //gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            //gl.useProgram(program);
+
+            gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+
+            gl.bindTexture(gl.TEXTURE_2D, iChannel0B);
+
+            if(!gol) {
+
+                gl.uniform1i(gl.getUniformLocation(program, "iChannel0B"), 2);//i % 2 == 0 ? 2 : 3);
+            
+            }else {
+                gl.bindTexture(gl.TEXTURE_2D,iChannel1);
+
+                gl.uniform1i(gl.getUniformLocation(program, "iChannel0B"), 0);
+            }
+            gl.uniform1f(gl.getUniformLocation(program, "iTime"), time/1000);
+            gl.uniform1i(gl.getUniformLocation(program, "iChannel1"), 0);
+
+            //gl.bindFramebuffer(gl.FRAMEBUFFER, fb2);
+
+            gl.drawArrays(gl.TRIANGLE_FAN, 0, 4); //4 verts
+
+            //gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+            if(!gol) {
+                gl.activeTexture(gl.TEXTURE2);
+            gl.bindTexture(gl.TEXTURE_2D,iChannel0B);
+            gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, canvas.width, canvas.height, 0);
+
+            }//else {
+            //    gl.activeTexture(gl.TEXTURE0);
+            //    gl.bindTexture(gl.TEXTURE_2D,iChannel1);
+            //    //gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, canvas.width, canvas.height, 0);
+//
+            //}
+
+
+            if(!gol) {
+            gl.useProgram(program2);
+
+            gl.uniform1i(gl.getUniformLocation(program2, "iChannel0B"), 2);
+
+            gl.uniform1i(gl.getUniformLocation(program2, "bSize"), bSize.value);
+            gl.uniform1f(gl.getUniformLocation(program2, "filtah"), filtah.value);
+            gl.uniform1f(gl.getUniformLocation(program2, "weight"), weight.value);
+
+            gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+            //gl.useProgram(program);
+
+            gl.useProgram(program3);
+
+//gl.bindTexture(gl.TEXTURE_2D,null);
+
+gl.activeTexture(gl.TEXTURE2);
+gl.bindTexture(gl.TEXTURE_2D,iChannel0B);
+gl.uniform1i(gl.getUniformLocation(program3, "iChannel0B"), 2);
+
+gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+
+gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+gl.useProgram(program);
+
+            }
+
+
+            //gl.drawArrays(gl.TRIANGLE_FAN, 0, 4); //4 verts
+            
+            /*gl.bindFramebuffer(gl.FRAMEBUFFER, fb);//i % 2 == 0 ? fb : fboob);
+
+            gl.viewport(0, 0, 240, 180);
+
+            //gl.useProgram(program2);
+
+            //gl.uniform2fv(gl.getUniformLocation(program2, "iResolution"), new Float32Array([canvas.width, canvas.height]));
+
+            //gl.bindTexture(gl.TEXTURE_2D, iChannel0);
+
+            //gl.activeTexture(gl.TEXTURE1);
+            //gl.bindTexture(gl.TEXTURE_2D, fb);
+
+            //gl.viewport(0, 0, 
+            //    gl.drawingBufferWidth, gl.drawingBufferHeight);
+
+            //gl.uniform1i(gl.getUniformLocation(program2, "iChannel0"), 1);
+
+            gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+            gl.useProgram(program2);
+
+            //if(i % 2 == 0) {
+//
+            //gl.bindFramebuffer(gl.FRAMEBUFFER, fboob);
+//
+            //gl.uniform1i(gl.getUniformLocation(program2, "iChannel0"), 1);
+//
+            //gl.uniform2fv(gl.getUniformLocation(program2, "iResolution"), new Float32Array([canvas.width, canvas.height]));
+//
+            //gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+//
+            ////console.log("boob" + i + " " + i%2);
+//
+            //}else {
+                gl.bindFramebuffer(gl.FRAMEBUFFER, fb2);
+
+                gl.uniform1i(gl.getUniformLocation(program2, "iChannel0"), 1);//i % 2 == 0 ? 3 : 1);
+
+                gl.uniform2fv(gl.getUniformLocation(program2, "iResolution"), new Float32Array([canvas.width, canvas.height]));
+
+                gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+                //if(time > 1000) {
+                //    console.log(gl.checkFramebufferStatus(gl.FRAMEBUFFER) == gl.FRAMEBUFFER_COMPLETE);
+//
+                //    let pixelks = new Uint8Array(4 * canvas.width * canvas.height);
+                //    gl.readPixels(0,0,canvas.width,canvas.height,gl.RGBA, gl.UNSIGNED_BYTE, pixelks);
+                //    let context = canvas2.getContext('2d');
+                //    let ID = context.getImageData(0,0,canvas2.width,canvas2.height);
+                //    for(let i = 0; i < pixelks.length;i++) {
+                //        ID.data[i] = pixelks[i];
+                //    }
+                //    context.putImageData(ID, 0, 0);
+                //    //canvas2.getContext('2d').putImageData(new ImageData(pixelks, canvas.width, canvas.height, {colorSpace: "srgb"}), 0, 0);
+                //    
+                //    console.log(pixelks, ID.data);
+                //    return;
+                //}*/
+                
+
+
+                
+//console.log("fb2" + i + " " + i%2);
+            //}
+            //gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+            //gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+
+            //}
+            i++;
+            requestAnimationFrame(render2);
+
+        }
+
+        canvas.addEventListener("mousemove", function(event) {
+            if(event.buttons == 1 || event.buttons == 2) {
+                let x = Math.round(event.clientX - canvas.getBoundingClientRect().left);
+                let y = Math.round(event.clientY - canvas.getBoundingClientRect().top);
+                //console.log(x/canvas.width,1-y/canvas.height);
+                gl.uniform3fv(gl.getUniformLocation(program, "iMouse"), new Float32Array([x/canvas.width,1-y/canvas.height,1-(event.buttons-1)]));
+            }else {
+                gl.uniform3fv(gl.getUniformLocation(program, "iMouse"), new Float32Array([-1,-1,1]));
+            }
+        });
+
+        addEventListener("keydown", function(event) {
+            if(event.key == "t") {
+                gol = !gol;
+                gl.uniform1i(gl.getUniformLocation(program, "gol"), gol);
+            }
+        });
+
+        canvas.addEventListener("wheel", function(event) {
+            event.preventDefault();
+            size += -event.deltaY/100000;
+            gl.uniform1f(gl.getUniformLocation(program, "size"), size);
+            console.log(size);
+        });
+
+        //requestAnimationFrame(render);
+
+        //function initializeAttributes() {
+        //    gl.enableVertexAttribArray(0);
+        //    buffer = gl.createBuffer();
+        //    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        //    gl.vertexAttribPointer(0, 1, gl.FLOAT, false, 0, 0);
+        //}
+
+        function cleanup() {
+            gl.useProgram(null);
+            if (buffer) {
+                gl.deleteBuffer(buffer);
+            }
+            if (program) {
+                gl.deleteProgram(program);
+            }
+        }
+
+        function getRenderingContext() {
+            var canvas = document.querySelector("canvas");
+            canvas.width = canvas.clientWidth;
+            canvas.height = canvas.clientHeight;
+            var gl = canvas.getContext("webgl2"); 
+                //|| canvas.getContext("experimental-webgl");
+            if (!gl) {
+                var paragraph = document.querySelector("p");
+                paragraph.innerHTML = "Failed to get WebGL context."
+                + "Your browser or device may not support WebGL.";
+                return null;
+            }
+            gl.viewport(0, 0, 
+                gl.drawingBufferWidth, gl.drawingBufferHeight); //???he said canvas height and widrh
+            gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            return gl;
+        }
+    </script>
+</body>
+</html>

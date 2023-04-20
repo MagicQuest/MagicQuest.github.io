@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>wegbl</title>
+    <style>
+        body {
+            text-align : center;
+            margin: 0;
+            overflow: hidden;
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        /*canvas {
+        /*    width: 100%;
+        /*    height: 100%;
+        /*}*/
+        button {
+            display : block;
+            font-size : inherit;
+            margin : auto;
+            padding : 0.6em;
+        }
+    </style>
+</head>
+<body>
+    <p style="color:white; position: absolute; top: 0; z-index: 1;">Hello World! Hello GLSL!</p>
+    <canvas id="canvas" width="1080" height="810" oncontextmenu="event.preventDefault()">Your browser does not seem to support 
+      HTML5 canvas.</canvas>
+      <!--canvas id="canvas2" width="240" height="180" style="display: inline;">nigga update ya browser</canvas-->
+
+
+    <script type="x-shader/x-vertex" id="vertex-shader">#version 300 es
+
+        precision mediump float;
+
+        in vec2 vertPosition;
+        //attribute vec2 res;
+
+        //uniform vec2 iResolution;
+
+        out vec4 fragColor;
+
+        void main() {
+          gl_Position = vec4(vertPosition, 0.0, 1.0);
+          //gl_PointSize = 32.0;
+        }
+    </script>
+    <script type="x-shader/x-fragment" id="sans-shader">#version 300 es
+        precision mediump float;
+
+        uniform vec2 iResolution;
+
+        uniform sampler2D iChannel1;
+        uniform sampler2D iChannel0;
+        
+        uniform float iTime;
+        
+        float rand(float co) { return fract(sin(co*(91.3458)) * 47453.5453); }
+        float rand(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453); }
+
+        out vec4 fragColor;
+
+        uniform vec3 iMouse;
+
+        uniform float size;
+
+        void main() {
+            vec2 uv = gl_FragCoord.xy / iResolution.xy;
+            vec3 color = vec3(0.0);
+
+            float cell = texture(iChannel0, uv).x;
+
+            float dy = texture(iChannel0, uv + (vec2(0.0, 1.0) / iResolution.xy)).x;
+            float dx = texture(iChannel0, uv + (vec2(1.0, 1.0) / iResolution.xy)).x;
+            float dpnx = texture(iChannel0, uv + (vec2(-1.0, 1.0) / iResolution.xy)).x;
+
+            float dny = texture(iChannel0, uv + (vec2(0.0, -1.0) / iResolution.xy)).x;
+            float dnx = texture(iChannel0, uv + (vec2(1.0, -1.0) / iResolution.xy)).x;
+            float dnnx = texture(iChannel0, uv + (vec2(-1.0, -1.0) / iResolution.xy)).x;
+    
+            /*
+                Now we just need to apply the rules to calulate the state of the cell in this iteraton.
+                It's really simple: We have already initialized the cell of this iteration to 0,
+                We therefore just have to check if we need to change that by seeing whether the
+                conditions for being alive hold:
+                Cell alive and exactly 2 or 3 _other_ neighbors (3 or 4 in total)
+                OR
+                Cell dead and exactly 2 _other_ neighbors (3 in total)
+            */
+            //if(cell > 0.0) {
+            //    if(sum >= 3.0 && sum <= 4.0) {
+            //        color = vec3(1.0);
+            //    }
+            //} else if(sum > 2.0 && sum < 4.0) {
+            //    color = vec3(1.0);
+            //}
+
+            //if(dy < .5) {
+            //    
+            //}
+
+            if(cell > .5) {
+                if(dny < .5) {// && uv.y > .01) {
+                    color = vec3(0.0,0.0,0.0);
+                }else {
+                    if(dnx > .5 && dnnx > .5) {
+                        color = vec3(1.0,0.64,0.38);
+                    }else {
+                        color = vec3(0.0,0.0,0.0);
+                    }
+                    //if(dnx < .5 || dnnx < .5) { //we need the <> operator in some random language assump
+                    //    color = vec3(0.0,0.0,0.0);
+                    //}else if(dnx > .5 && dnnx > .5) {
+                    //    color = vec3(1.0,0.64,0.38);
+                    //}
+                    //color = vec3(1.0,0.64,0.38);
+                }
+                if(uv.y > .04 && uv.y < .06) {
+                    color = vec3(1.0,0.64,0.38);
+                }
+            }else {
+                if(dy > .5 && uv.y >= .05) {
+                    color = vec3(1.0,0.64,0.38);
+                }else {
+                    //if(dx < .5) {
+                    ////    color = vec3(1.0,0.64,0.38);
+                    //}
+                    //if((dpnx < .5 && dny > .5) || (dx < .5 && dny > .5)) { //bruh i said dny
+                    //    color = vec3(1.0,0.64,0.38);
+                    //}
+                }
+                if(uv.y > .04 && uv.y < .06) {
+                    color = vec3(1.0,0.64,0.38);
+                }
+            }
+
+
+            if(distance(iMouse.xy, uv) < (iMouse.z == 0.0 ? .025+(size*4.) : .00625+size)) {             //iMouse.x > uv.x-.025 && iMouse.x < uv.x+.025 && iMouse.y > uv.y-.025 && iMouse.y < uv.y+.025) {
+                color = vec3(iMouse.z, 0.64, 0.38);//vec3(/*iMouse.z*/0.0, rand(uv)/2.5, iMouse.z); //deez[0]);
+            }
+
+            if(iTime < 1.0) {
+                color = vec3(texture(iChannel1, gl_FragCoord.xy / iResolution.xy).x);//vec4(1.0,1.0,0.0,.0);             //vec4(gl_PointCoord.x, gl_PointCoord.y, 0.34, 1.0);
+            }
+
+            fragColor = vec4(color, 1.0);
+        }
+    </script>
+    <img src="./noise.png" id="image" crossorigin="anonymous">
+
+    <script>
+        window.addEventListener("load", setupWebGL, false);
+        
+        let gl;
+        let program;
+
+        let rect = [
+            -1,1,
+            -1,-1,
+            1,-1,
+            1,1,
+        ];
+
+        function isPowerOf2(value) {
+            return (value & (value - 1)) === 0;
+        }
+
+        let newTexture = function(texture) {
+            return new Promise(function(resolve, reject) {
+                //let image = new Image();
+                //image.src = "./noise.png";//"someshit;"
+                //image.crossOrigin = "anonymous";
+                //image.onload = () => {
+                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+                    // WebGL1 has different requirements for power of 2 images
+                    // vs non power of 2 images so check if the image is a
+                    // power of 2 in both dimensions.
+                    if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
+                        // Yes, it's a power of 2. Generate mips.
+                        gl.generateMipmap(gl.TEXTURE_2D);
+                    } else {
+                        // No, it's not a power of 2. Turn off mips and set
+                        // wrapping to clamp to edge
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); //TWAS linear
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                    }
+                    
+                    resolve();
+                //}
+            });
+        }
+
+        let buffer, iChannel0, iChannel1, fb;
+
+        async function setupWebGL(evt) {
+            window.removeEventListener(evt.type, setupWebGL, false);
+            if (!(gl = getRenderingContext())) return;
+
+            let source = document.querySelector("#vertex-shader").innerHTML;
+            const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+            gl.shaderSource(vertexShader, source);
+            gl.compileShader(vertexShader);
+            if(!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+                console.log("vertex bitch nigga\n", gl.getShaderInfoLog(vertexShader));
+            }
+
+            source = document.querySelector("#sans-shader").innerHTML;
+            //source = source.replace("#activate", `float activate(float x) {return abs(x*1.2);}`);
+            //console.log(source);
+            const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+            gl.shaderSource(fragmentShader, source);
+            gl.compileShader(fragmentShader);
+            if(!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+                console.log("sanssfragment bitch nigga\n", gl.getShaderInfoLog(fragmentShader));
+            }
+
+            program = gl.createProgram();
+
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+
+            gl.detachShader(program, vertexShader);
+            gl.detachShader(program, fragmentShader);
+
+            gl.deleteShader(vertexShader);
+            gl.deleteShader(fragmentShader);
+
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                const linkErrLog = gl.getProgramInfoLog(program);
+                cleanup();
+                document.querySelector(
+                "p"
+                ).textContent = `Shader program did not link successfully. Error log: ${linkErrLog}`;
+                return;
+            }
+            
+            let rectVBO = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, rectVBO);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(rect), gl.STATIC_DRAW);
+
+            //let iChannel0 = gl.createBuffer();
+            //gl.bindBuffer(gl.ARRAY_BUFFER, iChannel0);
+            //gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(rect), gl.STATIC_DRAW);
+
+            let pAL = gl.getAttribLocation(program, 'vertPosition'); 
+            gl.vertexAttribPointer(pAL, 2, gl.FLOAT, gl.FALSE, 2 * Float32Array.BYTES_PER_ELEMENT, 0);
+            gl.enableVertexAttribArray(pAL);
+            
+            gl.useProgram(program);
+
+            let res = gl.getUniformLocation(program, "iResolution");
+            gl.uniform2fv(res, new Float32Array([canvas.width, canvas.height]));
+
+            //program 2
+
+            iChannel1 = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, iChannel1);
+
+            console.log("wait");
+            await newTexture();
+            console.log("await");
+
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, iChannel1);
+            gl.uniform1i(gl.getUniformLocation(program, "iChannel1"), 0);
+
+            iChannel0 = gl.createTexture();
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_2D, iChannel0);
+            await newTexture();
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            //gl.uniform1i(gl.getUniformLocation(program, "iChannel0"), 1);
+            
+            fb = gl.createFramebuffer();
+            gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, iChannel0, 0);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+            console.log(rectVBO, pAL, res); //for some reason expected memory addresses but this is just js :joy:
+
+            //gl triangled??S
+            //gl.bindTexture(gl.TEXTURE_2D, null);
+            //gl.viewport(0, 0, 240, 180);
+
+            gl.drawArrays(gl.TRIANGLE_FAN, 0, 4); //4 verts
+
+            gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+
+            //gl.useProgram(program2);
+
+            //gl.uniform2fv(gl.getUniformLocation(program2, "iResolution"), new Float32Array([canvas.width, canvas.height]));
+
+            //gl.bindTexture(gl.TEXTURE_2D, iChannel0);
+
+            //gl.activeTexture(gl.TEXTURE1);
+            //gl.bindTexture(gl.TEXTURE_2D, fb);
+            
+            //gl.viewport(0, 0, 
+            //    gl.drawingBufferWidth, gl.drawingBufferHeight);
+
+            //gl.uniform1i(gl.getUniformLocation(program2, "iChannel0"), 1);
+
+            gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+            //cleanup();
+            render2(0);
+            //return;
+
+
+
+
+
+
+            // gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            // gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            // gl.useProgram(program);
+
+            // gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+            // gl.uniform1f(gl.getUniformLocation(program, "iTime"), 0);
+
+            // gl.drawArrays(gl.TRIANGLE_FAN, 0, 4); //4 verts
+
+            // gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+
+            // //gl.useProgram(program2);
+
+            // //gl.uniform2fv(gl.getUniformLocation(program2, "iResolution"), new Float32Array([canvas.width, canvas.height]));
+
+            // //gl.bindTexture(gl.TEXTURE_2D, iChannel0);
+
+            // //gl.activeTexture(gl.TEXTURE1);
+            // //gl.bindTexture(gl.TEXTURE_2D, fb);
+            
+            // //gl.viewport(0, 0, 
+            // //    gl.drawingBufferWidth, gl.drawingBufferHeight);
+
+            // //gl.uniform1i(gl.getUniformLocation(program2, "iChannel0"), 1);
+
+            // gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+            // gl.useProgram(program2);
+
+            // gl.bindFramebuffer(gl.FRAMEBUFFER, );
+
+            // gl.uniform1i(gl.getUniformLocation(program2, "iChannel0"), 1);
+
+            // gl.uniform2fv(gl.getUniformLocation(program2, "iResolution"), new Float32Array([canvas.width, canvas.height]));
+
+            // gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+            //gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+            //gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+
+
+
+        }
+
+        let i = 0;
+
+        /*function render(time) {
+            gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            gl.useProgram(program);
+
+            //gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+
+            //gl.bindTexture(gl.TEXTURE_2D, iChannel0); //for some reason binding texture even tho nothing happens when i don't
+
+            //gl.uniform2fv(gl.getUniformLocation(program, "iResolution"), new Float32Array([canvas.width, canvas.height]));
+
+            gl.uniform1f(gl.getUniformLocation(program, "iTime"), time/1000);
+
+            //gl.activeTexture(gl.TEXTURE0);
+            //gl.bindTexture(gl.TEXTURE_2D, iChannel0);
+            //gl.uniform1i(gl.getUniformLocation(program, "iChannel0"), 0);
+            //gl.bindTexture(gl.TEXTURE_2D, null);
+
+            gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+            gl.useProgram(program2);
+
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+            gl.uniform2fv(gl.getUniformLocation(program2, "iResolution"), new Float32Array([canvas.width, canvas.height]));
+
+            gl.uniform1i(gl.getUniformLocation(program2, "iChannel0"), 1);
+
+            gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+            //gl.activeTexture(gl.TEXTURE0);
+            //gl.bindTexture(gl.TEXTURE_2D, iChannel0);
+            //gl.uniform1i(gl.getUniformLocation(program, "iChannel0"), 0);
+
+            requestAnimationFrame(render);
+        }*/
+
+        function render2(time) {
+            //if(time/1000 % .25 < .01) {
+                //console.log("goe");
+                
+           // gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            //gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            gl.useProgram(program);
+
+            gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+
+            gl.uniform1i(gl.getUniformLocation(program, "iChannel0"), 1);//i % 2 == 0 ? 2 : 3);
+            gl.uniform1f(gl.getUniformLocation(program, "iTime"), time/1000);
+
+            //gl.bindFramebuffer(gl.FRAMEBUFFER, fb2);
+
+            gl.drawArrays(gl.TRIANGLE_FAN, 0, 4); //4 verts
+
+            //gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+            gl.activeTexture(gl.TEXTURE2);
+            gl.bindTexture(gl.TEXTURE_2D,iChannel0);
+            gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, canvas.width, canvas.height, 0);
+
+            //gl.useProgram(program2);
+
+            //gl.uniform1i(gl.getUniformLocation(program2, "iChannel0B"), 2);
+
+            //gl.uniform1i(gl.getUniformLocation(program2, "bSize"), bSize.value);
+            //gl.uniform1f(gl.getUniformLocation(program2, "filtah"), filtah.value);
+            //gl.uniform1f(gl.getUniformLocation(program2, "weight"), weight.value);
+
+            //gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+            //gl.useProgram(program);
+
+            //gl.drawArrays(gl.TRIANGLE_FAN, 0, 4); //4 verts
+            
+            /*gl.bindFramebuffer(gl.FRAMEBUFFER, fb);//i % 2 == 0 ? fb : fboob);
+
+            gl.viewport(0, 0, 240, 180);
+
+            //gl.useProgram(program2);
+
+            //gl.uniform2fv(gl.getUniformLocation(program2, "iResolution"), new Float32Array([canvas.width, canvas.height]));
+
+            //gl.bindTexture(gl.TEXTURE_2D, iChannel0);
+
+            //gl.activeTexture(gl.TEXTURE1);
+            //gl.bindTexture(gl.TEXTURE_2D, fb);
+
+            //gl.viewport(0, 0, 
+            //    gl.drawingBufferWidth, gl.drawingBufferHeight);
+
+            //gl.uniform1i(gl.getUniformLocation(program2, "iChannel0"), 1);
+
+            gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+            gl.useProgram(program2);
+
+            //if(i % 2 == 0) {
+//
+            //gl.bindFramebuffer(gl.FRAMEBUFFER, fboob);
+//
+            //gl.uniform1i(gl.getUniformLocation(program2, "iChannel0"), 1);
+//
+            //gl.uniform2fv(gl.getUniformLocation(program2, "iResolution"), new Float32Array([canvas.width, canvas.height]));
+//
+            //gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+//
+            ////console.log("boob" + i + " " + i%2);
+//
+            //}else {
+                gl.bindFramebuffer(gl.FRAMEBUFFER, fb2);
+
+                gl.uniform1i(gl.getUniformLocation(program2, "iChannel0"), 1);//i % 2 == 0 ? 3 : 1);
+
+                gl.uniform2fv(gl.getUniformLocation(program2, "iResolution"), new Float32Array([canvas.width, canvas.height]));
+
+                gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+                //if(time > 1000) {
+                //    console.log(gl.checkFramebufferStatus(gl.FRAMEBUFFER) == gl.FRAMEBUFFER_COMPLETE);
+//
+                //    let pixelks = new Uint8Array(4 * canvas.width * canvas.height);
+                //    gl.readPixels(0,0,canvas.width,canvas.height,gl.RGBA, gl.UNSIGNED_BYTE, pixelks);
+                //    let context = canvas2.getContext('2d');
+                //    let ID = context.getImageData(0,0,canvas2.width,canvas2.height);
+                //    for(let i = 0; i < pixelks.length;i++) {
+                //        ID.data[i] = pixelks[i];
+                //    }
+                //    context.putImageData(ID, 0, 0);
+                //    //canvas2.getContext('2d').putImageData(new ImageData(pixelks, canvas.width, canvas.height, {colorSpace: "srgb"}), 0, 0);
+                //    
+                //    console.log(pixelks, ID.data);
+                //    return;
+                //}*/
+                
+
+
+                
+//console.log("fb2" + i + " " + i%2);
+            //}
+            //gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+            //gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+
+            //}
+            i++;
+            requestAnimationFrame(render2);
+
+        }
+
+        canvas.addEventListener("mousemove", function(event) {
+            if(event.buttons == 1 || event.buttons == 2) {
+                let x = Math.round(event.clientX - canvas.getBoundingClientRect().left);
+                let y = Math.round(event.clientY - canvas.getBoundingClientRect().top);
+                //console.log(x/canvas.width,1-y/canvas.height);
+                gl.uniform3fv(gl.getUniformLocation(program, "iMouse"), new Float32Array([x/canvas.width,1-y/canvas.height,1-(event.buttons-1)]));
+            }else {
+                gl.uniform3fv(gl.getUniformLocation(program, "iMouse"), new Float32Array([-1,-1,1]));
+            }
+        });
+
+        let size = 0;
+
+        canvas.addEventListener("wheel", function(event) {
+            //event.preventDefault();
+            size += -event.deltaY/100000;
+            gl.uniform1f(gl.getUniformLocation(program, "size"), size);
+            console.log(size);
+        });
+
+        //requestAnimationFrame(render);
+
+        //function initializeAttributes() {
+        //    gl.enableVertexAttribArray(0);
+        //    buffer = gl.createBuffer();
+        //    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        //    gl.vertexAttribPointer(0, 1, gl.FLOAT, false, 0, 0);
+        //}
+
+        function cleanup() {
+            gl.useProgram(null);
+            if (buffer) {
+                gl.deleteBuffer(buffer);
+            }
+            if (program) {
+                gl.deleteProgram(program);
+            }
+        }
+
+        function getRenderingContext() {
+            var canvas = document.querySelector("canvas");
+            canvas.width = innerWidth;//canvas.clientWidth;
+            canvas.height = innerHeight;
+            var gl = canvas.getContext("webgl2"); 
+                //|| canvas.getContext("experimental-webgl");
+            if (!gl) {
+                var paragraph = document.querySelector("p");
+                paragraph.innerHTML = "Failed to get WebGL context."
+                + "Your browser or device may not support WebGL.";
+                return null;
+            }
+            gl.viewport(0, 0, 
+                gl.drawingBufferWidth, gl.drawingBufferHeight); //???he said canvas height and widrh
+            gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            return gl;
+        }
+    </script>
+</body>
+</html>
