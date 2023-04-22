@@ -115,6 +115,7 @@
         <h1 id="misses" style="display: none;">Misses: 0</h1>
         <h2 id="accu" style="display: none;">Accuracy: 100%</h2>
     </center>
+    <!--div-->
     <img src="../img/fnf arrows.png" class="leftArrow left" style="top: 80%">
     <img src="../img/fnf arrows.png" class="downArrow left" style="top: 80%">
     <img src="../img/fnf arrows.png" class="upArrow left" style="top: 80%">
@@ -125,6 +126,7 @@
     <img src="../img/fnf arrows.png" class="downArrow right" style="top: 80%">
     <img src="../img/fnf arrows.png" class="upArrow right" style="top: 80%">
     <img src="../img/fnf arrows.png" class="rightArrow right" style="top: 80%">
+    <!--/div-->
 
     <img src="../img/scores.png" id="scores" class="shit" style="position: absolute; bottom: 10%; left: 50%; z-index: -1;">
 
@@ -144,6 +146,7 @@
         var couldHitNotes = [[],[],[],[]];
         var keys = {};
         var notesMap = new Map();
+        var songName;
         notesMap.set(0,"leftArrow");
         notesMap.set(1,"downArrow");
         notesMap.set(2,"upArrow");
@@ -415,7 +418,7 @@
         }
         forme.onsubmit = (event) => {
             event.preventDefault();
-            let songName = forme.firstElementChild.value;
+            songName = forme.firstElementChild.value;
             //console.log(songName);
             //console.log(JSON.parse(songName));
             music = new sound(songName+".mp3");
