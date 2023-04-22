@@ -405,6 +405,18 @@ animate();
 
 console.log(camera);
 
+addEventListener("touchmove", (event) => {
+    if(!debug) {
+        if(postInteraction) {
+            camera.rotation.y = .125-event.touches[0].clientX/(window.innerWidth*4); //some math involved between the first const and second 😭
+            camera.rotation.x = .125-event.touches[0].clientY/(window.innerHeight*4);
+        }else {
+            camera.rotation.y = 0.0625-event.touches[0].clientX/(window.innerWidth*8); //some math involved between the first const and second 😭
+            camera.rotation.x = 0.0625-event.touches[0].clientY/(window.innerHeight*8);
+        }
+    }
+});
+
 addEventListener("mousemove", (event) => {
     //console.log("x", .25-event.clientY/(window.innerHeight*2), " yt ", .25-event.clientX/(window.innerWidth*2));
     if(!debug) {
