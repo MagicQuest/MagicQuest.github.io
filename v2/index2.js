@@ -411,6 +411,7 @@ animate();
 console.log(camera);
 
 addEventListener("touchmove", (event) => {
+    event.preventDefault();
     if(!debug) {
         if(postInteraction) {
             camera.rotation.y = .125-event.touches[0].clientX/(window.innerWidth*4); //some math involved between the first const and second 😭
