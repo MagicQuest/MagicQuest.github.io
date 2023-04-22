@@ -271,6 +271,11 @@ let mouse = {x: 0, y: 0};
 
 window.animations = []; //using window actually exposes module vars (which is why i hate using modules because all of this debugging is locked behind the shit)
 
+function smoothstep (min, max, value) { //erm wait a minute MathUtils.smoothstep is a thing (shoot im not using that) and they got smootherstep 😭image.png (@manvel gif)
+    var x = Math.max(0, Math.min(1, (value-min)/(max-min)));
+    return x*x*(3 - 2*x);
+};
+
 function lerp( a, b, t ) {
     return a + t * ( b - a );
 }
@@ -473,9 +478,9 @@ addEventListener("mousedown", (event) => {
             window.animations.push({tick: function(nowTime, startTime, kill) {
                 //console.log(this, "log this");
                 let time = nowTime-startTime;
-                shelfdoor.rotation.y = lerp(-1.6, 0, time); //4.71238898038469 used by addubg 270 or 360 idk in radians (wait this still ain';t even the effect iwant)
-                camera.position.z = lerp(2.4, 4.2, time);
-                camera.fov = lerp(75, 30, time);
+                shelfdoor.rotation.y = lerp(-1.6, 0, smoothstep(0,1,time)); //4.71238898038469 used by addubg 270 or 360 idk in radians (wait this still ain';t even the effect iwant)
+                camera.position.z = lerp(2.4, 4.2, smoothstep(0,1,time));
+                camera.fov = lerp(75, 30, smoothstep(0,1,time));
                 camera.updateProjectionMatrix();
                 light.intensity = lerp(1, .5, time);
                 if(time > 1) {
