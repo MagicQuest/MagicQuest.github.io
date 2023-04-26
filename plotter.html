@@ -22,6 +22,53 @@
         let context = canvas.getContext("2d");
         canvas.width = innerWidth-2;
         canvas.height = innerHeight-2; //3 minutes for it to stretch to screen (nigga why is it so hard to do this)
+        //erm where is the code
+
+        function clamp(z) { return Math.max(0, Math.min(1, z)); };
+
+        let linear = "clamp(x)";//"function d(z) { return Math.max(0, Math.min(1, z)); }; x";
+        let eq = "let z = clamp(x); (z*z*(3-2*z));"//"function d(z) { return Math.max(0, Math.min(1, z)); }; (d(x)*d(x)*(3-2*d(x)))"; //haha smoof
+        let smoother = "let z = clamp(x); let w = (z*z*(3-2*z)); (w*w*(3-2*w))";
+        let smoothest = "let z = clamp(x); let w = (z*z*(3-2*z)); let ijk = (w*w*(3-2*w)); (ijk*ijk*(3-2*ijk));";
+        let bronze_age_memes = "let z = clamp(x); (-Math.cos(180**(1.21*z))+1)/2";
+        let the_epic_of_gilgamesh = "let z = clamp(x); (-Math.cos(180**Math.tan(5*z))+1)/2";
+        let piecederesitance = "let d = clamp(x); (-Math.cos(Math.PI**(2*d))+1)/2" //\frac{\left(-\cos\left(\pi^{2d}\right)+1\right)}{2} (apparently this some TeX rendering shidd so im finna steal that at some point);
+        let last;// = {x: 500, y: canvas.height/4};
+        let zoom = 300;
+        //let finir = true;//haha frnech
+        
+        context.stroke
+
+        function draw(type) {
+            context.strokeStyle = `rgb(${Math.random()*255},${Math.random()*255},${Math.random()*255})`;
+            //if(finir) {
+                last = undefined;
+            //    finir = false;
+            //}
+            //context.clearRect(0,0, canvas.width, canvas.height);
+
+            for(let x = -2; x < 2; x+=.0005) {
+                let y = (canvas.height/(zoom*2))-eval(type); //was zoom*8 for lower values anywasy
+                context.beginPath();
+                if(!last) {
+                    last = {x: (x*zoom)+(canvas.width/2), y: y*(zoom)}
+                }
+                context.moveTo(last.x, last.y);
+                context.lineTo((x*zoom)+(canvas.width/2), y*(zoom));
+                context.stroke();
+                last.x = (x*zoom)+(canvas.width/2);
+                last.y = y*(zoom);
+            }
+            //finir = true;
+        }
+
+        draw(linear);
+        draw(eq);
+        draw(smoother);
+        draw(smoothest);
+        //draw(bronze_age_memes);
+        //draw(the_epic_of_gilgamesh);
+        draw(piecederesitance);
     </script>
 </body>
 </html>

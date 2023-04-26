@@ -5,6 +5,9 @@ import {
   } from 'three/addons/loaders/RGBELoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 //import { GUI } from 'dat.gui'
+
+//for my next move i will recreate a tv menu with folders for my shits
+
 let debug = false;
 
 const gui = new dat.gui.GUI();
@@ -272,9 +275,25 @@ let mouse = {x: 0, y: 0};
 window.animations = []; //using window actually exposes module vars (which is why i hate using modules because all of this debugging is locked behind the shit)
 
 function smoothstep (min, max, value) { //erm wait a minute MathUtils.smoothstep is a thing (shoot im not using that) and they got smootherstep 😭image.png (@manvel gif)
-    var x = Math.max(0, Math.min(1, (value-min)/(max-min)));
+    let x = Math.max(0, Math.min(1, (value-min)/(max-min)));
     return x*x*(3 - 2*x);
-};
+}; //https://www.desmos.com/calculator/wuuwsybycn - desmos.com/calculator/lo90tmgdma
+
+function smootherstep(min, max, value) {
+    //https://www.desmos.com/calculator/1ebqh0pqwt
+    let x = Math.max(0, Math.min(1, (value-min)/(max-min)));
+    return smoothstep(min, max, x*x*(3 - 2*x));
+}
+
+function kystep(min, max, value) {
+    let x = Math.max(0, Math.min(1, (value-min)/(max-min)));
+    return (-Math.cos(Math.PI**(2*x))+1)/2; //(-Math.cos(180**(1.21*x))+1)/2; (js used radians and not degrees like desmos so i had to upgrade the plotter to show me that);
+}
+
+function easeilo(min, max, value) { //ease in less out (https://www.desmos.com/calculator/e521id72yu)
+    let x = Math.max(0, Math.min(1, (value-min)/(max-min)));
+    return (x**Math.E)*(3-2*x); //(-Math.cos(180**(1.21*x))+1)/2; (js used radians and not degrees like desmos so i had to upgrade the plotter to show me that);
+}
 
 function lerp( a, b, t ) {
     return a + t * ( b - a );
@@ -479,9 +498,9 @@ addEventListener("mousedown", (event) => {
             window.animations.push({tick: function(nowTime, startTime, kill) {
                 //console.log(this, "log this");
                 let time = nowTime-startTime;
-                shelfdoor.rotation.y = lerp(-1.6, 0, smoothstep(0,1,time)); //4.71238898038469 used by addubg 270 or 360 idk in radians (wait this still ain';t even the effect iwant)
+                shelfdoor.rotation.y = lerp(-1.6, 0, /*kystep*/smoothstep(0,1,time)); //4.71238898038469 used by addubg 270 or 360 idk in radians (wait this still ain';t even the effect iwant)
                 camera.position.z = lerp(2.4, 4.2, smoothstep(0,1,time));
-                camera.fov = lerp(75, 30, smoothstep(0,1,time));
+                camera.fov = lerp(75, 30, smootherstep(0,1,time));
                 camera.updateProjectionMatrix();
                 light.intensity = lerp(1, .5, time);
                 if(time > 1) {

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>chaotic magnetic attraction</title>
+    <style>
+        body {
+            display:block;
+            margin:0;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas" style="display: block; outline: lightblue 1px solid;">gbruh</canvas>
+
+    <script>
+        let context = canvas.getContext('2d');
+        canvas/*.style*/.width = innerWidth;//+"px";
+        canvas/*.style*/.height = innerHeight;//+"px";
+
+        //well gah dayum if you use display block on your canvas that jawn will not bloat the dom up
+        //well 1 2 buckle my shoe https://www.youtube.com/watch?v=zxGGMYZqJhk
+
+        //context.fillRect(100,100, 200,200);
+
+        let points = [{x: 400, y: 400, strength: 1}];
+        let balls = [];
+
+        function animate() {
+            context.clearRect(0,0,innerWidth,innerHeight);
+
+            for(let point of points) {
+                context.beginPath();
+                context.fillStyle = "blue";
+                context.arc(point.x, point.y, 15, 0, 2 * Math.PI);
+                context.fill()
+            }
+
+            for (let ball of balls) { //also apparently you can do let i in balls && let ball of balls[i] or somehait;
+                ball.x += ball.velocity.x; //can you override oporators in js if i wanted to use vector2 instead of {x,y}
+                ball.y += ball.velocity.y;
+                context.beginPath();
+                context.fillStyle = "grey";
+                context.arc(ball.x, ball.y, 10, 0, 2 * Math.PI);
+                context.fill();
+                for(let point of points) {
+                    let wholeMagnitude = Math.sqrt(((point.x-ball.x)**2) + ((point.y-ball.y)**2)); //shit this all i got
+                    console.log(wholeMagnitude);       //well according to coding train i was right about point.x-ball.x (which i have known this part works for a while) but what i was lacking was the magnitude, the force needed so F=G*(m1*m2)/d^2
+                    let F = point.strength*((100*100)/(wholeMagnitude**2));//{x: point.strength*((point.x-ball.x)/wholeMagnitude)*(100*100/(wholeMagnitude**2)), y: point.strength*((point.y-ball.y)/wholeMagnitude)*(100*100/(wholeMagnitude**2))} //damn im right
+                    let someshit = {x: (point.x-ball.x), y: (point.y-ball.y)};
+                    let final = {x: someshit.x * F / wholeMagnitude, y: someshit.x * F / wholeMagnitude};
+                    ball.velocity.x += final.x;//wholeMagnitude/(point.x-ball.x); //instead of whole magnitude i was using point.strength
+                    ball.velocity.y += final.y;//wholeMagnitude/(point.y-ball.y); //https://www.youtube.com/watch?v=GjbKsOkN1Oc
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        addEventListener("mousedown", function(event) {
+            balls.push({x: event.clientX, y: event.clientY, velocity: {x: 0, y: 0}});
+        });
+
+        animate();
+    </script>
+</body>
+</html>
