@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>chaotic magnetic attraction</title>
+    <style>
+        body {
+            display:block;
+            margin:0;
+        }
+        button:hover {
+            font-weight: bold;
+        }
+        button {
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div style="position: absolute; top: 10px; left: 10px; background-color: rgba(255,255,255,.9); padding: 5px;">
+        <label>blue strength</label><input type="number" value=".5" id="bs"><br>
+        <label>red strength</label><input type="number" value=".5" id="rs"><br>
+        <label>yellow strength</label><input type="number" value=".5" id="ys"><br>
+        <br>
+        <label>trails</label><input type="checkbox" id="trail"><br>
+        <label>sped mode</label><input type="checkbox" id="sped" checked><br> <!--lol was drawballz-->
+        <button id="erm" disabled>erm redraw</button>
+    </div>
+    <center style="position: absolute; left: 50%; top: 10px;"><h1 id="time">0.00 seconds</h1></center>
+    <canvas id="canvas" style="display: block; outline: lightblue 1px solid;">gbruh</canvas>
+    
+    <script>
+        let context = canvas.getContext('2d');
+        canvas/*.style*/.width = innerWidth;//+"px";
+        canvas/*.style*/.height = innerHeight;//+"px";
+
+        function edit(event) {
+            erm.disabled = false;
+        }
+
+        bs.onchange = edit;
+        rs.onchange = edit;
+        ys.onchange = edit;
+
+        const Vector = {sub: function(left, right) {
+            return new Vector2((right.x-left.x), (right.y-left.y));
+        }, add: function(left, right) {
+            return new Vector2((right.x+left.x), (right.y+left.y));
+        }};
+
+        class Vector2 {
+            x = 0;
+            y = 0;
+
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+            }
+
+            //add = function(right) {
+            //    this.x = right.x + this.x;
+            //    this.y = right.y + this.y;
+            //    return this;
+            //}
+
+            getMagnitude = function() {
+                return Math.sqrt(this.x * this.x + this.y * this.y);
+            }
+            setMagnitude = function(newMag) {
+                let Mag = this.getMagnitude();
+                this.x *= newMag / Mag;
+                this.y *= newMag / Mag;
+                return this;
+            }
+            divide = function(float) {
+                this.x /= float;
+                this.y /= float;
+                return this;
+            }
+
+            //sub = function(right) {
+            //    this.x = right.x - this.x;
+            //    this.y = right.y - this.y;
+            //    return this;
+            //}
+        }
+
+        //well gah dayum if you use display block on your canvas that jawn will not bloat the dom up
+        //well 1 2 buckle my shoe https://www.youtube.com/watch?v=zxGGMYZqJhk
+
+        //context.fillRect(100,100, 200,200);
+
+        let st = Date.now()/1000;
+
+        let points = [{/*x: 400, y: 400*/position: new Vector2(canvas.width/2-100, canvas.height/2-200), strength: .5, color: "yellow"}, {/*x: 400, y: 400*/position: new Vector2(canvas.width/2+200, canvas.height/2), strength: .5, color: "red"}, {/*x: 400, y: 400*/position: new Vector2(canvas.width/2-100, canvas.height/2+200), strength: .5, color: "blue"}];//, {position: new Vector2(canvas.width/2+100, canvas.height/2), strength: .5, color: "green"}];
+        let balls = [];
+        let tempBall = {position: new Vector2(0,0)};
+
+        let drag;
+
+        let cells = []; //wow i don't need new cells since im not doing any automata
+        const res = 10;
+
+        const sleep = (time) => {
+            return new Promise(resolve => setTimeout(resolve, time))
+        }; //i knew i could do it with promises but i thought i had to continue
+
+        async function spityoshit() {
+        for(let x = 0; x < canvas.width/res; x++) {
+            cells.push([]);
+            for(let y = 0; y < canvas.height/res; y++) {
+                cells[x][y] = "white";
+                balls.push({color: "grey", position: new Vector2(x*res, y*res), velocity: new Vector2(0.01,0.01), cell: {x: x, y: y}});//{x: event.clientX, y: event.clientY, velocity: {x: 0, y: 0}});
+                go();
+                //await sleep(.1);
+                //start = Date.now();
+                //while (Date.now() < start + 100) {} //stops all dom events bruh how to slow down 
+                //wow this is great but it does NOT work fast enough (16% cpu :sob: (wait a minute this thang be using lots of cpu anyway i think i should only draw the squares when i have to))
+            }
+        }
+        } spityoshit();
+
+        function go(/*x, y*/) {
+            //let discards = [];
+            //for (let ball of balls) {
+            let ball = balls[0];
+            let kys = true;
+            while (kys) {
+                ball.position = Vector.add(ball.position, ball.velocity);
+                if(!sped.checked) {
+                    context.beginPath();
+                    context.fillStyle = ball.color;
+                    context.arc(ball.position.x, ball.position.y, 10, 0, 2 * Math.PI);
+                    context.stroke();
+                    context.fill();
+                }
+                for(let point of points) { //could use geometric or arithmetic series to immediately solve it (infiity)
+                    let force = Vector.sub(ball.position, point.position);
+                    let distanceSq = force.getMagnitude()**2;
+                    let strength = Math.min(10, point.strength * (100 * 100)/ distanceSq);
+
+                    force.setMagnitude(strength);
+                    if(strength >= 10) {
+                        //cells[ball.cell.x][ball.cell.y] = point.color;
+                        if(sped.checked) {
+                            context.fillStyle = point.color;
+                            context.fillRect(ball.cell.x*res, ball.cell.y*res, res, res);
+                        }
+                        balls.splice(0,1);
+                        //discards.push(ball);
+                        kys = false;
+                        break;
+                    }
+                    ball.velocity = Vector.add(ball.velocity, force);
+                }
+            }
+            //console.log("gpoonmg");
+            //}
+
+            //for (let btmp of discards) {
+            //    balls.splice(balls.indexOf(btmp), 1);
+            //}
+        }
+
+        erm.onclick = function(event) {
+            context.clearRect(0,0,canvas.width, canvas.height);
+            points = [{/*x: 400, y: 400*/position: new Vector2(canvas.width/2-100, canvas.height/2-200), strength: ys.value, color: "yellow"}, {/*x: 400, y: 400*/position: new Vector2(canvas.width/2+200, canvas.height/2), strength: rs.value, color: "red"}, {/*x: 400, y: 400*/position: new Vector2(canvas.width/2-100, canvas.height/2+200), strength: bs.value, color: "blue"}];//, {position: new Vector2(canvas.width/2+100, canvas.height/2), strength: .5, color: "green"}];
+            st = Date.now()/1000;
+            spityoshit();
+            time.innerHTML = Math.floor((Date.now()/1000 - st)*100)/100 + " seconds";
+        }
+
+        //function animate() {
+        //    if(!trail.checked && !sped.checked) {
+        //        context.clearRect(0,0,innerWidth,innerHeight);
+        //    }
+//
+        //    if(!sped.checked) {
+        //        for(let x = 0; x < canvas.width/res; x++) {
+        //            for(let y = 0; y < canvas.height/res; y++) {
+        //                context.fillStyle = cells[x][y];
+        //                context.fillRect(x*res, y*res, res, res);
+        //            }
+        //        }
+        //    }
+//
+        //    for(let point of points) {
+        //        context.beginPath();
+        //        context.fillStyle = point.color;
+        //        context.arc(point.position.x, point.position.y, 15, 0, 2 * Math.PI);
+        //        context.stroke();
+        //        context.fill()
+        //    }
+//
+        //    context.beginPath();
+        //    context.fillStyle = "rgba(128, 128, 128, .5)";
+        //    context.arc(tempBall.position.x, tempBall.position.y, 10, 0, 2 * Math.PI);
+        //    context.stroke();
+        //    context.fill()
+//
+        //    let discards = [];
+//
+        //    for (let ball of balls) { //also apparently you can do let i in balls && let ball of balls[i] or somehait;
+        //        //ball.x += ball.velocity.x; //can you override oporators in js if i wanted to use vector2 instead of {x,y} (well in threejs they just use functions sooo)
+        //        //ball.y += ball.velocity.y;
+        //        ball.position = Vector.add(ball.position, ball.velocity);//.setMagnitude(Math.max(0, ball.velocity.getMagnitude()-.01)));
+        //        if(!sped.checked) {
+        //            context.beginPath();
+        //            context.fillStyle = ball.color;
+        //            context.arc(ball.position.x, ball.position.y, 10, 0, 2 * Math.PI);
+        //            context.stroke();
+        //            context.fill();
+        //        }
+        //        for(let point of points) { //could use geometric or arithmetic series to immediately solve it (infiity)
+        //            let force = Vector.sub(ball.position, point.position);
+        //            let distanceSq = force.getMagnitude()**2;
+        //            let strength = Math.min(10, point.strength * (100 * 100)/ distanceSq);
+        //            //console.log(strength);
+        //            force.setMagnitude(strength);//Math.min(10, strength));//Math.min(1000, strength));
+        //            if(strength >= 10) {
+        //                //ball.color = "red";
+        //                cells[ball.cell.x][ball.cell.y] = point.color;
+        //                if(sped.checked) {
+        //                //}else {
+        //                    context.fillStyle = point.color;
+        //                    context.fillRect(ball.cell.x*res, ball.cell.y*res, res, res);
+        //                }
+        //                discards.push(ball);
+        //            }
+        //            ball.velocity = Vector.add(ball.velocity, force);
+        //            //let wholeMagnitude = Math.sqrt(((point.x-ball.x)**2) + ((point.y-ball.y)**2)); //shit this all i got
+        //            //console.log(wholeMagnitude);       //well according to coding train i was right about point.x-ball.x (which i have known this part works for a while) but what i was lacking was the magnitude, the force needed so F=G*(m1*m2)/d^2
+        //            //let F = point.strength*((100*100)/(wholeMagnitude**2));//{x: point.strength*((point.x-ball.x)/wholeMagnitude)*(100*100/(wholeMagnitude**2)), y: point.strength*((point.y-ball.y)/wholeMagnitude)*(100*100/(wholeMagnitude**2))} //damn im right
+        //            //let someshit = {x: (point.x-ball.x), y: (point.y-ball.y)};
+        //            //let final = {x: someshit.x * F / wholeMagnitude, y: someshit.x * F / wholeMagnitude};
+        //            //ball.velocity.x += final.x;//wholeMagnitude/(point.x-ball.x); //instead of whole magnitude i was using point.strength
+        //            //ball.velocity.y += final.y;//wholeMagnitude/(point.y-ball.y); //https://www.youtube.com/watch?v=GjbKsOkN1Oc
+        //        }
+        //    }
+        //    
+        //    for (let btmp of discards) {
+        //        balls.splice(balls.indexOf(btmp), 1);
+        //    }
+//
+        //    requestAnimationFrame(animate);
+        //}
+
+        time.innerHTML = Math.floor((Date.now()/1000 - st)*100)/100 + " seconds";
+
+        addEventListener("mousedown", function(event) {
+            //this should probably be it's own class but i don't need functions so its just an object still (even tho i can add functions to this too)
+            balls.push({color: "grey", position: new Vector2(event.clientX,event.clientY), velocity: new Vector2(0.01,0.01), cell: {x: Math.floor(event.clientX/res), y: Math.floor(event.clientY/res)}});//{x: event.clientX, y: event.clientY, velocity: {x: 0, y: 0}});
+            go();
+            //cells[Math.floor(event.clientX/100)][Math.floor(event.clientY/100)] = "red"; //erm do not use round
+            //tempBall = {position: new Vector2(event.clientX, event.clientY)};
+            //balls.push({position: new Vector2(event.clientX,event.clientY), velocity: new Vector2(0,0)});//{x: event.clientX, y: event.clientY, velocity: {x: 0, y: 0}});
+        });
+
+        addEventListener("mouseup", function(event) {
+            //balls.push({color: "grey", position: /*new Vector2(event.clientX,event.clientY)*/tempBall.position, velocity: Vector.sub(new Vector2(event.clientX, event.clientY), tempBall.position).divide(10)});//{x: event.clientX, y: event.clientY, velocity: {x: 0, y: 0}});
+            //tempBall = {position: new Vector2(0,0)};
+        });
+
+        //animate();
+    </script>
+</body>
+</html>
