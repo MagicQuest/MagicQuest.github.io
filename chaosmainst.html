@@ -101,7 +101,7 @@
         let drag;
 
         let cells = []; //wow i don't need new cells since im not doing any automata
-        const res = 10;
+        const res = 1;
 
         const sleep = (time) => {
             return new Promise(resolve => setTimeout(resolve, time))
@@ -119,6 +119,8 @@
                 //while (Date.now() < start + 100) {} //stops all dom events bruh how to slow down 
                 //wow this is great but it does NOT work fast enough (16% cpu :sob: (wait a minute this thang be using lots of cpu anyway i think i should only draw the squares when i have to))
             }
+            await sleep(.1);
+            time.innerHTML = Math.floor((Date.now()/1000 - st)*100)/100 + " seconds";
         }
         } spityoshit();
 
