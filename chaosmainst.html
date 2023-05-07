@@ -44,9 +44,10 @@
         <label>trails</label><input type="checkbox" id="trail"><br>
         <label>sped mode</label><input type="checkbox" id="sped" checked><br> <!--lol was drawballz-->
         <label>resolution</label><input type="number" value="10" id="res" min="1" style="width: 50px;" onchange="pb(event); //restart(event);"><br>
+        <label>brightness based on time</label><input type="checkbox" id="bbot"><br>
 
         <button id="erm" disabled>erm redraw</button>
-        <button onclick='points = [
+        <button onclick='Math.random() > .5 ? points = [
         {
             "position": {
                 "x": 860,
@@ -95,7 +96,32 @@
             "strength": 0.5,
             "color": "rgb(135.23439644738255,48.98489709074092,26.19560205467128)"
         }
-    ]; restart(event);'>random magnet preset</button>
+    ]: points = [
+    {
+        "position": {
+            "x": 967,
+            "y": 489
+        },
+        "strength": 0.5,
+        "color": "yellow"
+    },
+    {
+        "position": {
+            "x": 1123,
+            "y": 493
+        },
+        "strength": 0.5,
+        "color": "red"
+    },
+    {
+        "position": {
+            "x": 814,
+            "y": 488
+        },
+        "strength": 0.5,
+        "color": "darkorange"
+    }
+]; restart(event);'>random magnet preset</button>
     </div>
     <center style="position: absolute; left: 50%; top: 10px;">
         <h1 id="time">0.00 seconds</h1>
@@ -215,7 +241,7 @@
             cells.push([]);
             for(let y = 0; y < canvas.height/res.value; y++) {
                 cells[x][y] = "white";
-                balls.push({color: "grey", position: new Vector2(x*res.value, y*res.value), velocity: new Vector2(0.01,0.01), cell: {x: x, y: y}});//{x: event.clientX, y: event.clientY, velocity: {x: 0, y: 0}});
+                balls.push({color: "grey", position: new Vector2(x*res.value, y*res.value), velocity: new Vector2(0.01,0.01), cell: {x: x, y: y}, tick: 0});//{x: event.clientX, y: event.clientY, velocity: {x: 0, y: 0}});
                 go();
                 if(!runnable) {
                     time.innerHTML = "0.00 seconds";
@@ -257,6 +283,10 @@
                         if(sped.checked) {
                             context.fillStyle = point.color;
                             context.fillRect(ball.cell.x*res.value, ball.cell.y*res.value, res.value, res.value);
+                            if(bbot.checked) {
+                                context.fillStyle = `rgba(0,0,0,${ball.tick/2000})`;
+                                context.fillRect(ball.cell.x*res.value, ball.cell.y*res.value, res.value, res.value);
+                            }
                         }
                         balls.splice(0,1);
                         //discards.push(ball);
@@ -265,6 +295,9 @@
                     }
                     ball.velocity = Vector.add(ball.velocity, force);
                 }
+                //if(bbot.checked) { 
+                    ball.tick++;
+                //}
             }
             //console.log("gpoonmg");
             //}

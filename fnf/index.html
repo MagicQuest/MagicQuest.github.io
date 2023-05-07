@@ -368,11 +368,21 @@
             }
             delete keys[event.key];
         })
+        let osumap = "[HitObjects]\n";
         function noteObj(mili,note,left,hold) {
             this.mili = mili;
             if(!left) {
                 this.mustHit = true;
                 this.row = note;
+                //console.log(note, mili, hold);
+                //let lane = (note == 0 ? 64 : note == 1 ? 192 : note == 2 ? 320 : note == 3 ? 448 : -1);
+                //let time = Math.floor(mili);
+                //let type = hold <= 0 ? 1 : 128;
+                //osumap += `${lane},192,${time},${type},0,${hold > 0 ? Math.floor(hold+time)+":" : /*"0"*/""}0:0:0:0:\n`;
+                                                                                //   ^
+                //yo this creates a the [HitObjects] header of a 4 key osu mania map | and inside this if block it is boyfriend's parts  
+
+                //osumap += //`${(note == 0 ? 64 : note == 1 ? 192 : note == 2 ? 320 : note == 3 ? 448 : -1)},192,${Math.floor(mili)},${hold <= 0 ? 1 : 128},0,${hold > 0 ? Math.floor(hold)+":" : /*"0"*/""}0:0:0:0:\n`;
             }
             this.createNote = ()=>{
                 this.htmlObj = document.createElement('img');
@@ -463,18 +473,25 @@
 
                     const K = songName == "sbskaioken" ? 6 : 4;
 
+                    //let ixcjk = 0;
+
                     if(mustmusthit) {
                         song.notes.forEach(bruh => {
                             bruh.sectionNotes.forEach(notes => {
                                 //console.log(notes);
                                 if(notes[1] < K) {
                                                                                     //yeah this cannot continue
-                                    notesArray.push(new noteObj(notes[0],notes[1]%4,!bruh.mustHitSection/* && mustmusthit*/,notes[2] == 0 ? true : false));
+                                    notesArray.push(new noteObj(notes[0],notes[1]%4,!bruh.mustHitSection/* && mustmusthit*/,notes[2])) //== 0 ? true : false));
                                 }else { //? ayo i had "6 key support" where i downgraded it??? (wait no thats how it deterfmined must hit)
                                     //console.log((bruh.mustHitSection || mustmusthit) == bruh.mustHitSection);
                                     //console.log(bruh.mustHitSection, mustmusthit, (bruh.mustHitSection && mustmusthit));
-                                    notesArray.push(new noteObj(notes[0],notes[1]%4,bruh.mustHitSection/* && mustmusthit*/,notes[2] == 0 ? true : false));
+                                    notesArray.push(new noteObj(notes[0],notes[1]%4,bruh.mustHitSection/* && mustmusthit*/,notes[2]))// == 0 ? true : false));
                                 }
+                                //ixcjk++;
+                                //if(ixcjk > 100) {
+                                //    console.log(osumap);
+                                //    throw "fuck ya;;";
+                                //}
                             });
                         });
                     }else {
@@ -492,6 +509,8 @@
                             });
                         });
                     }
+
+                    console.log(osumap);
 
                     tick();
                 }

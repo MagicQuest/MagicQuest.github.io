@@ -44,59 +44,85 @@
         <label>trails</label><input type="checkbox" id="trail"><br>
         <label>sped mode</label><input type="checkbox" id="sped" checked><br> <!--lol was drawballz-->
         <label>resolution</label><input type="number" value="10" id="res" min="1" style="width: 50px;" onchange="restart(event);"><br>
+        <label>brightness based on time</label><input type="checkbox" id="bbot"><br>
 
         <button id="erm" disabled>erm redraw</button>
-        <button onclick='points = [
-        {
-            "position": {
-                "x": 860,
-                "y": 236
+        <button onclick='Math.random() > .5 ? points = [
+            {
+                "position": {
+                    "x": 860,
+                    "y": 236
+                },
+                "strength": 0.5,
+                "color": "yellow"
             },
-            "strength": 0.5,
-            "color": "yellow"
+            {
+                "position": {
+                    "x": 1160,
+                    "y": 436
+                },
+                "strength": 0.5,
+                "color": "red"
+            },
+            {
+                "position": {
+                    "x": 860,
+                    "y": 636
+                },
+                "strength": 0.5,
+                "color": "blue"
+            },
+            {
+                "position": {
+                    "x": 980,
+                    "y": 434
+                },
+                "strength": 0.5,
+                "color": "rgb(172.3823130848049,26.97073519411836,104.11635479183263)"
+            },
+            {
+                "position": {
+                    "x": 988,
+                    "y": 411
+                },
+                "strength": 0.5,
+                "color": "rgb(177.33851347663753,100.41063779836016,117.09657283506624)"
+            },
+            {
+                "position": {
+                    "x": 1001,
+                    "y": 433
+                },
+                "strength": 0.5,
+                "color": "rgb(135.23439644738255,48.98489709074092,26.19560205467128)"
+            }
+        ]: points = [
+    {
+        "position": {
+            "x": 967,
+            "y": 489
         },
-        {
-            "position": {
-                "x": 1160,
-                "y": 436
-            },
-            "strength": 0.5,
-            "color": "red"
+        "strength": 0.5,
+        "color": "yellow"
+    },
+    {
+        "position": {
+            "x": 1123,
+            "y": 493
         },
-        {
-            "position": {
-                "x": 860,
-                "y": 636
-            },
-            "strength": 0.5,
-            "color": "blue"
+        "strength": 0.5,
+        "color": "red"
+    },
+    {
+        "position": {
+            "x": 814,
+            "y": 488
         },
-        {
-            "position": {
-                "x": 980,
-                "y": 434
-            },
-            "strength": 0.5,
-            "color": "rgb(172.3823130848049,26.97073519411836,104.11635479183263)"
-        },
-        {
-            "position": {
-                "x": 988,
-                "y": 411
-            },
-            "strength": 0.5,
-            "color": "rgb(177.33851347663753,100.41063779836016,117.09657283506624)"
-        },
-        {
-            "position": {
-                "x": 1001,
-                "y": 433
-            },
-            "strength": 0.5,
-            "color": "rgb(135.23439644738255,48.98489709074092,26.19560205467128)"
-        }
-    ]; restart(event);'>random magnet preset</button>
-    </div>
+        "strength": 0.5,
+        "color": "darkorange"
+    }
+]; restart(event);'>random magnet preset</button>
+        </div>
     <center style="position: absolute; left: 50%; top: 10px;">
         <h1 id="time">0.00 seconds</h1>
     </center>
@@ -206,7 +232,7 @@
                 cells.push([]);
                 for(let y = 0; y < canvas.height/res.value; y++) {
                     cells[x][y] = "white";
-                    balls.push({color: "grey", position: new Vector2(x*res.value, y*res.value), velocity: new Vector2(0.01,0.01), cell: {x: x, y: y}});//{x: event.clientX, y: event.clientY, velocity: {x: 0, y: 0}});
+                    balls.push({color: "grey", position: new Vector2(x*res.value, y*res.value), velocity: new Vector2(0.01,0.01), cell: {x: x, y: y}, tick: 0});//{x: event.clientX, y: event.clientY, velocity: {x: 0, y: 0}});
                     //await sleep(.1);
                     //start = Date.now();
                     //while (Date.now() < start + 100) {} //stops all dom events bruh how to slow down 
@@ -302,6 +328,10 @@
                             //}else {
                                 context.fillStyle = point.color;
                                 context.fillRect(ball.cell.x*res.value, ball.cell.y*res.value, res.value, res.value);
+                                if(bbot.checked) {
+                                    context.fillStyle = `rgba(0,0,0,${ball.tick/2000})`;
+                                    context.fillRect(ball.cell.x*res.value, ball.cell.y*res.value, res.value, res.value);
+                                }
                                 time.innerHTML = Math.floor((Date.now()/1000 - st)*100)/100 + " seconds";
                             }
                             discards.push(ball);
@@ -315,6 +345,9 @@
                         //ball.velocity.x += final.x;//wholeMagnitude/(point.x-ball.x); //instead of whole magnitude i was using point.strength
                         //ball.velocity.y += final.y;//wholeMagnitude/(point.y-ball.y); //https://www.youtube.com/watch?v=GjbKsOkN1Oc
                     }
+                    //if(bbot.checked) {
+                        ball.tick++;
+                    //}
                 }
                 
                 for (let btmp of discards) {
