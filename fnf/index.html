@@ -393,7 +393,7 @@
                 this.htmlObj = document.body.appendChild(this.htmlObj);
             }
         }
-        function tick() {
+        function tick() { //endlesstimes is at bottom in endless.json
             notesArray.forEach(note => {
                 let shit = note.mili+(song.startTime - new Date().getTime());
                 if(shit < 2500 && !note.htmlObj) {
@@ -423,6 +423,23 @@
                     }
                 }
             });
+            if(songName == "endless") {
+                for (let time of endlesstimes) {
+                    let shit = Number(time)+(song.startTime - new Date().getTime());
+                    //console.log(shit); bruh that thang was still a string
+                    if(shit <= 0) {
+                        //inversion div also in endless (ok wait i put the script in the header so taht mess is loaded before dom) although using filter on the body might work too
+                        //document.body.style.filter = "invert(1)"; //ok idk why but this shakes the entire screen for no reason
+                        document.getElementById("endlessdiv").style.background = "#fff";
+                        //can definitely use the transform rotate or something like that css property so i'll probably add that and hell notes next updatge
+                        setTimeout(() => {
+                            //document.body.style.filter = "";
+                            document.getElementById("endlessdiv").style.background = "";
+                        }, 200);
+                        endlesstimes.splice(endlesstimes.indexOf(time), 1);
+                    }
+                }
+            }
             //notesArray[0].htmlObj.src = "../img/fnf arrows.png";
             animationFrame = requestAnimationFrame(tick);
         }
@@ -472,6 +489,16 @@
                     music.play();
 
                     const K = songName == "sbskaioken" ? 6 : 4;
+
+                    if(songName == "endless") {
+                        let div = document.createElement("div");
+                        div.setAttribute("style", "height: 100vh; width: 100vw; position: absolute; top: 0; z-index: 1000; left: 0; mix-blend-mode: difference; pointer-events: none;");
+                        div.id = "endlessdiv";
+                        document.body.prepend(div);
+
+                        document.body.style.background = "#fff";
+                        document.body.style.color = "black";
+                    }
 
                     //let ixcjk = 0;
 

@@ -308,9 +308,14 @@ function animate(time) {
     let r = [];
 
     for(let avi of window.animations) {
-        let destroy = {destroy: false};
-        avi.tick(Date.now()/1000, avi.startTime, destroy);
-        if(destroy.destroy) {
+        //let destroy = {destroy: false};
+        //avi.tick(Date.now()/1000, avi.startTime, destroy);
+        //if(destroy.destroy) { //yo this is kinda weird lol i should just return bruh
+        if(!avi.tick(Date.now()/1000, avi.startTime)) {
+            if(avi.loop) {
+                avi.startTime = Date.now()/1000;
+                continue;
+            }
             r.push(avi);
         }
     }
@@ -495,7 +500,7 @@ addEventListener("mousedown", (event) => {
         console.log(intersects, object);
         if(object == shelfdoor.children[0] && !postInteraction) {
             //object.material.color.set( Math.random() * 0xffffff );
-            window.animations.push({tick: function(nowTime, startTime, kill) {
+            window.animations.push({tick: function(nowTime, startTime) {
                 //console.log(this, "log this");
                 let time = nowTime-startTime;
                 shelfdoor.rotation.y = lerp(-1.6, 0, /*kystep*/smoothstep(0,1,time)); //4.71238898038469 used by addubg 270 or 360 idk in radians (wait this still ain';t even the effect iwant)
@@ -504,10 +509,12 @@ addEventListener("mousedown", (event) => {
                 camera.updateProjectionMatrix();
                 light.intensity = lerp(1, .5, time);
                 if(time > 1) {
-                    kill.destroy = true;
+                    //kill.destroy = true;
                     postInteraction = true;
+                    return false;
                 }
-            }, /*destroy: false,*/ startTime: Date.now()/1000});
+                return true;
+            }, /*destroy: false,*/ startTime: Date.now()/1000, loop: false}); //should most certainly use a class for this so thats what imma do ina mine
         }
   
     }
