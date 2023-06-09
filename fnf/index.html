@@ -114,6 +114,7 @@
         <h1 id="score" style="display: none;">Score: 0</h1>
         <h1 id="misses" style="display: none;">Misses: 0</h1>
         <h2 id="accu" style="display: none;">Accuracy: 100%</h2>
+        <h3 id="mobiledebug">log</h3>
     </center>
     <!--div-->
     <img src="../img/fnf arrows.png" class="leftArrow left" style="top: 80%">
@@ -131,6 +132,19 @@
     <img src="../img/scores.png" id="scores" class="shit" style="position: absolute; bottom: 10%; left: 50%; z-index: -1;">
 
     <script>
+        //if("ontouchstart" in document.documentElement) {
+        //    console.rl = console.log;
+        //    console.log = (str) => {
+        //        console.rl(str);
+        //        mobiledebug.innerHTML += str + "\n";
+        //    }
+        //    for(let child of document.body.children) {
+        //        if(child.classList[0].includes("Arrow")) {
+        //            child.style.transform = "scale(.7)";
+        //        }
+        //    }
+        //}
+
         var started = false;
         var paused = false;
         var music;
@@ -321,12 +335,15 @@
             }
             if(event.key == "Enter") {
                 new sound("../sounds/textclickmodern.ogg").play();
+                console.log(paused);
                 if(!paused) { //have to negate this value because im setting it after (because i need the start time)
                     music.sound.pause();
                     cancelAnimationFrame(animationFrame);
                 }else {
                     music.sound.play();
                     song.startTime += new Date().getTime()-paused;
+                    //ok maybe when im trying to unpause the game it takes real time or sumn 
+                    console.log(new Date().getTime(), paused, new Date().getTime()-paused,song.startTime);
                     //music.sound.currentTime = (new Date().getTime() - song.startTime)/1000; //fast forwarding
                     tick();
                 }
@@ -483,6 +500,7 @@
             music.sound.addEventListener("loadeddata",function() {
                 //letsgo = true;
                 console.log(music.sound.readyState);
+                //mobiledebug.innerHTML = music.sound.readyState + " nigga";
                 if(music.sound.readyState == 4) {
                     song.startTime = new Date().getTime();
                     
@@ -544,6 +562,7 @@
                 //setInterval(()=> {
                     
                 //},1);
+                return;
             });
             //let shit = setInterval(()=> { (yeah ok i realize this looks horrible so im gonna try to use a promise (i literally didn't have to do any of this (i thought i had to because i was gonna combine the voices and the background music but i decided it was dumb,)))
                 //if(letsgo) {

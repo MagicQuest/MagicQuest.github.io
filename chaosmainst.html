@@ -42,12 +42,33 @@
         <label>yellow strength</label><input type="number" value=".5" id="ys"><br-->
         <br>
         <label>trails</label><input type="checkbox" id="trail"><br>
-        <label>sped mode</label><input type="checkbox" id="sped" checked><br> <!--lol was drawballz-->
-        <label>resolution</label><input type="number" value="10" id="res" min="1" style="width: 50px;" onchange="pb(event); //restart(event);"><br>
-        <label>brightness based on time</label><input type="checkbox" id="bbot"><br>
+        <label title="super sonic (skips drawing the balls and does things smarter)">sped mode</label><input type="checkbox" id="sped" checked title="super sonic (skips drawing the balls and does things smarter)"><br> <!--lol was drawballz-->
+        <label title="weirdly the higher the resolution = lower quality (kinda like glsl_sandbox)">resolution</label><input type="number" value="10" id="res" min="1" style="width: 50px;" onchange="pb(event); //restart(event);" title="weirdly the higher the resolution = lower quality (kinda like glsl_sandbox)"><br>
+        <label title="brightness based on amount of calculations / 2000 because thats a good enough number">brightness based on time</label><input type="checkbox" id="bbot" title="brightness based on amount of calculations / 2000 because thats a good enough number"><br>
+        <label title="amount of calculations it takes before it gives up (stops it from crashing when magnets are too close)">cutoff</label><input type="number" value="10000" id="cutoff" min="0" style="width: 50px;" onchange="pb(event); " title="amount of calculations it takes before it gives up (stops it from crashing when magnets are too close)"><br>
+
+        <label title="balls that go offscreen loop around to the other side">balls loop around<input type="checkbox" id="ballzloop"></label><br>
+
+        <p style="display: inline; font-weight: bold;">hover on these thangs for more info</p><br>
+
+                <!--yo this gone clear yo magnets if you choose sumn watch out (title attrib)-->
+        <label title="changing the preset during the generation is kinda cool">random magnet presets:</label>
+        <select onchange="randoms(event);" id="rnadompreset" title="changing the preset during the generation is kinda cool">
+            <option value="" selected>none</option>
+            <option value="rmgl">random magnets lol</option>
+            <option value="bh">probably could be a black hole with the right colors</option>
+            <option value="wp">weird patterns<!--deepest sword gameplay (using tailwind css for this stylization)--></option>
+            <option value="sixs">6 sided</option>
+            <option value="cirqul">circular pixelz</option>
+            <option value="cirquads">circular pixels + 4 magnets</option>
+            <option value="quatris">default + 4 magnets (looks better with resolution &lt;= 5)</option>
+            <option value="scp">strange checkered pattern (just remembered i could change strength)</option>
+            <option value="ncm">negative center magnet (works good with ball loop around on)</option>
+        </select>
+        <br>
 
         <button id="erm" disabled>erm redraw</button>
-        <button onclick='Math.random() > .5 ? points = [
+        <!--button onclick='Math.random() > .5 ? points = [
         {
             "position": {
                 "x": 860,
@@ -121,7 +142,7 @@
         "strength": 0.5,
         "color": "darkorange"
     }
-]; restart(event);'>random magnet preset</button>
+]; restart(event);'>random magnet preset</button-->
     </div>
     <center style="position: absolute; left: 50%; top: 10px;">
         <h1 id="time">0.00 seconds</h1>
@@ -207,6 +228,500 @@
         let balls = [];
         let tempBall = {position: new Vector2(0,0)};
 
+        function randoms(event) {
+            if(rnadompreset.value != "") {
+                switch(rnadompreset.value) {
+                    case "rmgl":
+                        console.log("thihnking of the time where i thought a bunch of websites were broken but it was just webgl being disabled from chrome not updating in 3 weeks");
+                        points = [
+        {
+            "position": {
+                "x": 860,
+                "y": 236
+            },
+            "strength": 0.5,
+            "color": "yellow"
+        },
+        {
+            "position": {
+                "x": 1160,
+                "y": 436
+            },
+            "strength": 0.5,
+            "color": "red"
+        },
+        {
+            "position": {
+                "x": 860,
+                "y": 636
+            },
+            "strength": 0.5,
+            "color": "blue"
+        },
+        {
+            "position": {
+                "x": 980,
+                "y": 434
+            },
+            "strength": 0.5,
+            "color": "rgb(172.3823130848049,26.97073519411836,104.11635479183263)"
+        },
+        {
+            "position": {
+                "x": 988,
+                "y": 411
+            },
+            "strength": 0.5,
+            "color": "rgb(177.33851347663753,100.41063779836016,117.09657283506624)"
+        },
+        {
+            "position": {
+                "x": 1001,
+                "y": 433
+            },
+            "strength": 0.5,
+            "color": "rgb(135.23439644738255,48.98489709074092,26.19560205467128)"
+        }
+    ]
+                        break;
+                    
+                    case "bh":
+                        points = [
+    {
+        "position": {
+            "x": 967,
+            "y": 489
+        },
+        "strength": 0.5,
+        "color": "yellow"
+    },
+    {
+        "position": {
+            "x": 1123,
+            "y": 493
+        },
+        "strength": 0.5,
+        "color": "red"
+    },
+    {
+        "position": {
+            "x": 814,
+            "y": 488
+        },
+        "strength": 0.5,
+        "color": "darkorange"
+    }]
+                        break;
+
+                    case "wp":
+                        points = [
+    {
+        "position": {
+            "x": 1681,
+            "y": 182
+        },
+        "strength": 0.5,
+        "color": "yellow"
+    },
+    {
+        "position": {
+            "x": 1097,
+            "y": 508
+        },
+        "strength": 0.5,
+        "color": "red"
+    },
+    {
+        "position": {
+            "x": 803,
+            "y": 511
+        },
+        "strength": 0.5,
+        "color": "blue"
+    }
+]
+                        break;
+
+                    case "sixs":
+                        points = [
+{
+    "position": {
+        "x": 1735,
+        "y": 742
+    },
+    "strength": 0.5,
+    "color": "yellow"
+},
+{
+    "position": {
+        "x": 1701,
+        "y": 173
+    },
+    "strength": 0.5,
+    "color": "red"
+},
+{
+    "position": {
+        "x": 223,
+        "y": 695
+    },
+    "strength": 0.5,
+    "color": "blue"
+},
+{
+    "position": {
+        "x": 220,
+        "y": 181
+    },
+    "strength": 0.5,
+    "color": "rgb(59.18131274015233,206.61349755448373,84.57484725715717)"
+},
+{
+    "position": {
+        "x": 991,
+        "y": 429
+    },
+    "strength": 0.5,
+    "color": "rgb(168.69885452349612,62.463807373469464,148.15310815686377)"
+},
+{
+    "position": {
+        "x": 996,
+        "y": 210
+    },
+    "strength": 0.5,
+    "color": "rgb(96.13212964035222,29.534110154026394,216.37141388290058)"
+},
+{
+    "position": {
+        "x": 981,
+        "y": 655
+    },
+    "strength": 0.5,
+    "color": "rgb(194.64136456784956,18.385603205667078,64.80444533192994)"
+},
+{
+    "position": {
+        "x": 1716,
+        "y": 453
+    },
+    "strength": 0.5,
+    "color": "rgb(167.93940554887462,3.255753982959022,93.6078542686368)"
+},
+{
+    "position": {
+        "x": 213,
+        "y": 433
+    },
+    "strength": 0.5,
+    "color": "rgb(91.40087371780477,74.3346907268837,105.13943022031826)"
+}
+]
+                        break;
+
+                    case "cirqul":
+                        points = [
+    {
+        "position": {
+            "x": 997,
+            "y": 434
+        },
+        "strength": 0.5,
+        "color": "yellow"
+    },
+    {
+        "position": {
+            "x": 1004,
+            "y": 436
+        },
+        "strength": 0.5,
+        "color": "red"
+    },
+    {
+        "position": {
+            "x": 991,
+            "y": 436
+        },
+        "strength": 0.5,
+        "color": "blue"
+    }
+]
+                        break;
+                    
+                    case "cirquads":
+                        points = [
+    {
+        "position": {
+            "x": 997,
+            "y": 434
+        },
+        "strength": 0.5,
+        "color": "yellow"
+    },
+    {
+        "position": {
+            "x": 1004,
+            "y": 436
+        },
+        "strength": 0.5,
+        "color": "red"
+    },
+    {
+        "position": {
+            "x": 991,
+            "y": 436
+        },
+        "strength": 0.5,
+        "color": "blue"
+    },
+    {
+        "position": {
+            "x": 995,
+            "y": 316
+        },
+        "strength": 0.5,
+        "color": "rgb(110.29945413203218,122.75475439431244,79.16639156734709)"
+    },
+    {
+        "position": {
+            "x": 849,
+            "y": 448
+        },
+        "strength": 0.5,
+        "color": "rgb(2.5879108498474546,164.06233458881695,238.62653533762565)"
+    },
+    {
+        "position": {
+            "x": 1144,
+            "y": 449
+        },
+        "strength": 0.5,
+        "color": "rgb(114.96098352678106,212.835647227244,112.51341681208092)"
+    },
+    {
+        "position": {
+            "x": 997,
+            "y": 579
+        },
+        "strength": 0.5,
+        "color": "rgb(247.65205662064008,215.48304199060544,239.9282398531464)"
+    }
+];
+                        break;
+                    
+                    case "quatris":
+                        points = [
+    {
+        "position": {
+            "x": 704.5,
+            "y": 264.5
+        },
+        "strength": 0.5,
+        "color": "yellow"
+    },
+    {
+        "position": {
+            "x": 1004.5,
+            "y": 464.5
+        },
+        "strength": 0.5,
+        "color": "red"
+    },
+    {
+        "position": {
+            "x": 704.5,
+            "y": 664.5
+        },
+        "strength": 0.5,
+        "color": "blue"
+    },
+    {
+        "position": {
+            "x": 1564,
+            "y": 39
+        },
+        "strength": 0.5,
+        "color": "rgb(88.87753226714621,66.96303482523957,209.35121886611225)"
+    },
+    {
+        "position": {
+            "x": 1555,
+            "y": 880
+        },
+        "strength": 0.5,
+        "color": "rgb(134.3587260093464,41.454817631853906,97.02027920463755)"
+    },
+    {
+        "position": {
+            "x": 51,
+            "y": 892
+        },
+        "strength": 0.5,
+        "color": "rgb(29.17299036471464,155.58945694380733,100.28099345438005)"
+    },
+    {
+        "position": {
+            "x": 41,
+            "y": 32
+        },
+        "strength": 0.5,
+        "color": "rgb(147.19389880834402,73.03493948830078,34.16803930756271)"
+    }
+];
+                        break;
+
+                    case "scp":
+                        points = [
+    {
+        "position": {
+            "x": 967,
+            "y": 489
+        },
+        "strength": .1,
+        "color": "red"
+    },
+    {
+        "position": {
+            "x": 1123,
+            "y": 493
+        },
+        "strength": .1,
+        "color": "black"
+    },
+    {
+        "position": {
+            "x": 814,
+            "y": 488
+        },
+        "strength": .1,
+        "color": "black"
+    },
+    {
+        "position": {
+            "x": 811,
+            "y": 316
+        },
+        "strength": .1,
+        "color": "red"
+    },
+    {
+        "position": {
+            "x": 972,
+            "y": 321
+        },
+        "strength": 2,
+        "color": "black"
+    },
+    {
+        "position": {
+            "x": 1126,
+            "y": 328
+        },
+        "strength": 2,
+        "color": "red"
+    },
+    {
+        "position": {
+            "x": 1123,
+            "y": 633
+        },
+        "strength": .1,
+        "color": "red"
+    },
+    {
+        "position": {
+            "x": 968,
+            "y": 632
+        },
+        "strength": .1,
+        "color": "black"
+    },
+    {
+        "position": {
+            "x": 813,
+            "y": 626
+        },
+        "strength": .1,
+        "color": "red"
+    },
+    {
+        "position": {
+            "x": 1049,
+            "y": 405
+        },
+        "strength": .1,
+        "color": "white"
+    },
+    {
+        "position": {
+            "x": 880,
+            "y": 401
+        },
+        "strength": .1,
+        "color": "white"
+    },
+    {
+        "position": {
+            "x": 886,
+            "y": 560
+        },
+        "strength": .1,
+        "color": "white"
+    },
+    {
+        "position": {
+            "x": 1052,
+            "y": 556
+        },
+        "strength": .1,
+        "color": "white"
+    }
+]
+                        break;
+
+                    case "ncm":
+                        points = [
+    {
+        "position": {
+            "x": 977,
+            "y": 471
+        },
+        "strength": -1.0999999999999999,
+        "color": "yellow"
+    },
+    {
+        "position": {
+            "x": 1160,
+            "y": 464.5
+        },
+        "strength": 0.5,
+        "color": "red"
+    },
+    {
+        "position": {
+            "x": 860,
+            "y": 664.5
+        },
+        "strength": 0.5,
+        "color": "blue"
+    },
+    {
+        "position": {
+            "x": 858,
+            "y": 277
+        },
+        "strength": 0.5,
+        "color": "rgb(111.32289389314631,184.59727196420926,72.87187029079796)"
+    }
+]
+                        break;
+                    
+                    default:
+                        console.warn("this probably should't be shown so uhhh i forgot to add sumn");
+                }
+            }
+        }
+
         //let drag;
 
         //sheet now that i learned bout js proxys lets apply that here for res so i don't have to edit my vars
@@ -265,6 +780,18 @@
             let kys = true;
             while (kys) {
                 ball.position = Vector.add(ball.position, ball.velocity);
+                if(ballzloop.checked) {
+                    if(ball.position.x < 0) {
+                        ball.position.x = canvas.width-(Math.abs(ball.position.x));
+                    }else {
+                        ball.position.x = ball.position.x % canvas.width;
+                    }
+                    if(ball.position.y < 0) {
+                        ball.position.y = canvas.height-(Math.abs(ball.position.y));
+                    }else {
+                        ball.position.y = ball.position.y % canvas.height;
+                    }
+                }
                 if(!sped.checked) {
                     context.beginPath();
                     context.fillStyle = ball.color;
@@ -294,6 +821,15 @@
                         break;
                     }
                     ball.velocity = Vector.add(ball.velocity, force);
+                }
+                if(ball.tick > cutoff.value) {
+                    kys = false;
+                    if(bbot.checked) {
+                        context.fillStyle = `rgba(0,0,0,${ball.tick/2000})`;
+                        context.fillRect(ball.cell.x*res.value, ball.cell.y*res.value, res.value, res.value);
+                    }
+                    balls.splice(0,1);
+                    break;
                 }
                 //if(bbot.checked) { 
                     ball.tick++;
@@ -357,7 +893,7 @@
         }
 
         function animate() {
-            console.log(animhandle);
+            //console.log(animhandle); //kys
             if(!runnable) {
                 context.clearRect(0,0,innerWidth,innerHeight);
                 canvas.style.cursor = "";
@@ -366,7 +902,7 @@
                         canvas.style.cursor = "pointer";
                         context.beginPath();
                         context.fillStyle = "rgba(173, 216, 230, .5)";
-                        context.arc(point.position.x, point.position.y, point.strength*60, 0, 2 * Math.PI);
+                        context.arc(point.position.x, point.position.y, Math.max(point.strength*60, 0), 0, 2 * Math.PI);
                         //context.stroke();
                         context.fill();
                         context.fillStyle = "black";

@@ -23,10 +23,15 @@ cube.receiveShadow = true;
 cube.castShadow = true; //shadows not working fix shaddows lkol
 cube.position.set(-0.5, .9, .6);
 cube.scale.set(.2, .2, .2);
+cube.interact = () => {
+    console.log("celebre");
+    cube.material.emissive = new THREE.Color( 0xE5B2B2 );
+};
 scene.add( cube );
 
 const light = new THREE.PointLight(0xffffff, 1, 100);
 light.position.set(0.5, 2.7, 2.2);//(0,.5,2.4);
+light.shadow.bias = -0.0001;
 scene.add(light);
 
 const lightHelper = new THREE.PointLightHelper( light, .25 );
@@ -56,6 +61,7 @@ const dL = new THREE.DirectionalLight(0xFFFFCD, .5);
 dL.position.set(0,1,3);
 dL.rotation.set(1,0,0);
 dL.castShadow = true;
+dL.shadow.bias = -0.0001; //YIPPEE https://www.reddit.com/r/threejs/comments/pans07/help_needed_weird_shadow_artifacts_on_imported/
 //var shadowCameraHelper = new THREE.CameraHelper(dL.shadow.camera);
 //shadowCameraHelper.visible = true;
 
@@ -66,6 +72,7 @@ scene.add(dL);
 //let envMap;
 
 let shelfdoor;//shelf, shelfdoor;
+let gol;
 
 //let track = Date.now();
 
@@ -174,6 +181,102 @@ await new Promise((good, bad) => {
             }
         );
 });
+
+await new Promise((good, bad) => {
+    fbxLoader.load(
+        './life.glb',
+        (object) => {
+            // object.traverse(function (child) {
+            //     if ((child as THREE.Mesh).isMesh) {
+            //         // (child as THREE.Mesh).material = material
+            //         if ((child as THREE.Mesh).material) {
+            //             ((child as THREE.Mesh).material as THREE.MeshBasicMaterial).transparent = false
+            //         }
+            //     }
+            // })
+            // object.scale.set(.01, .01, .01)
+            //shelfdoor = object.scene.children[0];
+            console.log(object, "nigger");
+            window.gol = object.scene.children[0];
+            window.gol.position.set(0.5, .9, .6);
+            window.gol.scale.set(.05, .05, .05);
+            window.gol.rotation.set(0,Math.PI/2,0);
+            window.gol.interact = () => {
+                window.gol.material.emissive = new THREE.Color(0xfff); //not sure why i thought this was white lilol
+                setTimeout(()=> {
+                    document.location.href = "https://magicquest.github.io/ca";
+                },5000);
+            }           
+            //shelfdoor.children[0].material.envMap = envMap;
+            //shelfdoor.children[1].material.envMap = envMap;
+            scene.add(object.scene);
+            good();
+        },
+        (xhr) => {
+            console.log((xhr.loaded / xhr.total) * 100 + '% loaded')
+        },
+        (error) => {
+            console.log(error)
+        }
+    );
+});
+
+await new Promise((good, bad) => {
+    fbxLoader.load(
+        './speaker3.glb',
+        (object) => {
+            // object.traverse(function (child) {
+            //     if ((child as THREE.Mesh).isMesh) {
+            //         // (child as THREE.Mesh).material = material
+            //         if ((child as THREE.Mesh).material) {
+            //             ((child as THREE.Mesh).material as THREE.MeshBasicMaterial).transparent = false
+            //         }
+            //     }
+            // })
+            // object.scale.set(.01, .01, .01)
+            //shelfdoor = object.scene.children[0];
+            //console.log(object, "nigger");
+            window.speaker = object.scene.children[0];
+            window.speaker.position.set(0.45, .20, .6);
+            window.speaker.scale.set(.1, .1, .1);
+            window.speaker.rotation.set(0,-.25,0);
+            window.speaker.interact = () => {
+                window.speaker.children[0].material.emissive.r = .3;// = new THREE.Color(0x0000ff);
+                let startup = new Audio("/music/mqstartup3.wav");
+                //startup.ontimeupdate = (event) => {
+                //    console.log(event.currentTarget.currentTime); //kinda fired every half second
+                //    window.speaker.children[0].material.emissive.r = Math.sin(event.currentTarget.currentTime)/3.33333333;
+                //}
+                //window.lol = 0;
+                let int = 0;
+                window.randomactionidkfella = () => {
+                    window.speaker.children[0].material.emissive.r = Math.abs(Math.sin(int/50)/3.33333333);
+                    int++;
+                    //window.lol++; //yo this is like a poor man's global variable :sob: (i didn't think i could use a local let right here but i gues so)
+                }
+                startup.onended = () => {
+                    document.location.href = "/music";
+                };
+                startup.play();
+                //window.speaker.children[1].material.emissive = new THREE.Color(0xff0000); material don't matter or sumn idk
+                //setTimeout(()=> {
+                //    document.location.href = "https://magicquest.github.io/music";
+                //},5000);
+                return true;
+            }           
+            //shelfdoor.children[0].material.envMap = envMap;
+            //shelfdoor.children[1].material.envMap = envMap;
+            scene.add(object.scene);
+            good();
+        },
+        (xhr) => {
+            console.log((xhr.loaded / xhr.total) * 100 + '% loaded')
+        },
+        (error) => {
+            console.log(error)
+        }
+    );
+});
     
 //});
 
@@ -274,6 +377,27 @@ let mouse = {x: 0, y: 0};
 
 window.animations = []; //using window actually exposes module vars (which is why i hate using modules because all of this debugging is locked behind the shit)
 
+window.animations.push({tick: (nowTime, startTime) => {
+    let time = nowTime-startTime;
+    cube.position.y = lerp(.9, 1, /*kystep*/cosdip(0,1,time/5)); //https://www.desmos.com/calculator/e6ww76gpur
+    if(time > 5) {
+        //postInteraction = true; //wtf is postinteraction (wait its a global nvm thats fort somer shit)
+        return false;
+    }
+    return true;
+}, startTime: Date.now()/1000+Math.random(), loop: true});
+
+window.animations.push({tick: (nowTime, startTime) => {
+    let time = nowTime-startTime;
+    window.gol.position.y = lerp(.9, 1, /*kystep*/cosdip(0,1,time/5)); //https://www.desmos.com/calculator/e6ww76gpur
+    if(time > 5) {
+        //postInteraction = true; //wtf is postinteraction (wait its a global nvm thats fort somer shit)
+        return false;
+    }
+    return true;
+}, startTime: Date.now()/1000+Math.random(), loop: true});
+
+
 function smoothstep (min, max, value) { //erm wait a minute MathUtils.smoothstep is a thing (shoot im not using that) and they got smootherstep 😭image.png (@manvel gif)
     let x = Math.max(0, Math.min(1, (value-min)/(max-min)));
     return x*x*(3 - 2*x);
@@ -295,15 +419,42 @@ function easeilo(min, max, value) { //ease in less out (https://www.desmos.com/c
     return (x**Math.E)*(3-2*x); //(-Math.cos(180**(1.21*x))+1)/2; (js used radians and not degrees like desmos so i had to upgrade the plotter to show me that);
 }
 
+//a little tom foolery (https://www.desmos.com/calculator/ul0qj1ovqn)
+
+function cosdip(min, max, value) {
+    let x = Math.max(0, Math.min(1, (value-min)/(max-min)));
+    return (Math.cos(x*2*Math.PI)/2)+.5;
+}
+
 function lerp( a, b, t ) {
     return a + t * ( b - a );
 }
 
+//class anime { //ahha thinking about animejs.com
+//    tick;
+//    startTime;
+//    loop;
+//
+//    constructor(tick, startTime = Date.now()/1000, loop = false) {
+//        this.tick = tick;
+//        this.startTime = startTime;
+//        this.loop = loop;
+//    }
+//}
+
 function animate(time) {
 	requestAnimationFrame( animate );
 
-	cube.rotation.x += 0.01;
-	cube.rotation.y += 0.01;
+	cube.rotation.x += 0.01;//+(Math.random()/100);
+	cube.rotation.y += 0.01;//+(Math.random()/100);
+
+    window.gol.rotation.x += 0.01;//+(Math.random()/100);
+    window.gol.rotation.y += 0.01;//+(Math.random()/100);
+    window.gol.rotation.z += 0.01;
+
+    window.speaker.rotation.z = Math.sin(time/400)/10;
+    //window.speaker.rotation.y = Math.cos(time/400)/10 - .25;
+    //window.speaker.rotation.z += 0.01;
 
     let r = [];
 
@@ -326,6 +477,9 @@ function animate(time) {
     //dL.target.updateMatrixWorld();
     //dL.shadow.camera.updateProjectionMatrix();
     //shadowCameraHelper.update();
+
+    window.randomactionidkfella?.();
+
 	renderer.render( scene, camera );
 
     if(!shit && shelf && shelfdoor) {
@@ -471,9 +625,11 @@ addEventListener("mousemove", (event) => {
         let object = intersects[0].object;
   
         //console.log(intersects, object);
-        if(object == shelfdoor.children[0] && !postInteraction) {
+        if(((object == shelfdoor.children[0] && !postInteraction) || object.interact) || object.parent.interact) {
             //object.material.color.set( Math.random() * 0xffffff );
             renderer.domElement.style.cursor = "pointer";
+        //}else if(object.parent.interact ){ //the moment i thought about using the ?. operator it doesn't matter lol (ok i should use it when i want to access a some shit like mozillia saysi t https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Optional_chaining)
+            //renderer.domElement.style.cursor = "pointer";
         }else {
             renderer.domElement.style.cursor = "";
         }
@@ -501,6 +657,7 @@ addEventListener("mousedown", (event) => {
         if(object == shelfdoor.children[0] && !postInteraction) {
             //object.material.color.set( Math.random() * 0xffffff );
             window.animations.push({tick: function(nowTime, startTime) {
+            //window.animations.push(new anime(() => {//i got this new anime plot
                 //console.log(this, "log this");
                 let time = nowTime-startTime;
                 shelfdoor.rotation.y = lerp(-1.6, 0, /*kystep*/smoothstep(0,1,time)); //4.71238898038469 used by addubg 270 or 360 idk in radians (wait this still ain';t even the effect iwant)
@@ -514,7 +671,12 @@ addEventListener("mousedown", (event) => {
                     return false;
                 }
                 return true;
+            //}));
             }, /*destroy: false,*/ startTime: Date.now()/1000, loop: false}); //should most certainly use a class for this so thats what imma do ina mine
+        }else if(object.interact || object.parent.interact) {
+            if(!object.parent.interact?.()) { //yo this is lit!!! (you fr need ?. if i want to interact with the other objs)
+                object.interact();
+            }
         }
   
     }

@@ -1,0 +1,1522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>bad apple test 4 (helped fix v3)</title>
+    <style>
+        body {
+            text-align : center;
+        }
+        canvas {
+            display : block;
+            /*width : 280px;
+            height : 210px;*/
+            margin : auto;
+            padding : 0;
+            border : none;
+            background-color : black;
+            cursor: pointer;
+        }
+        button {
+            display : block;
+            font-size : inherit;
+            /*margin : auto;
+            padding : 0.6em;*/
+            cursor: pointer;
+        }
+        .bubble {
+            margin: auto;
+            padding: 0.6em;
+        }
+        button:hover, input[type="file"]:hover {
+            font-weight: bold;
+        }
+        button:active {
+            font-weight: initial; /*oh yeah digital gauges bebebeapabaobababababobopoop*/
+        }
+        label {
+            display: block;
+        }
+        button:disabled, input:disabled {
+            cursor: not-allowed;
+        }
+        input:not([type="text"], [type="number"]) {
+            cursor: pointer;
+        }
+        .filter-val {
+            width: 55px;
+            /*color: black;*/
+            text-align: center;
+            background-color: lightgrey;
+            border: 2px darkgray inset;
+            padding: 3px;
+            margin: 0;
+        }
+        table {
+            margin: auto;
+        }
+        abbr {
+            border-bottom: 1px dotted;
+            text-decoration: none;
+            cursor: help;
+        }
+    </style>
+</head>
+<body>
+    <p>Hello World! Hello GLSL!</p>
+
+    <dialog id="settings" style="z-index: 1;">
+        <h3>Settings: </h3>
+        <label>inverted:<input type="checkbox" id="inverted" onchange='gl?.uniform1i(gl.getUniformLocation(program, "inverted"), inverted.checked);'></label>
+        <label>colored:<input type="checkbox" id="nbaw" checked></label>
+        <label style="margin-bottom: .5em;">
+            type of <abbr title="this some of that special stuff you feel me (more neural cellular automata examples on https://neuralpatterns.io/)">cellular automata</abbr>:
+            <select id="type" onchange='revealcustoms();// if(this.value == "conway" || this.value == "customgol") {nbaw.disabled = true; nbaw.checked = false}else {nbaw.disabled = false;}'>
+                <option value="stars">Stars</option>
+                <option value="waves" selected>Waves</option> <!--gotta make a new shader for the colors and sufs-->
+                <option value="fire">Fire</option>
+                <option value="fire2">Fire2</option>
+                <option value="conway">conway's game of life</option>
+                <option value="customgol">custom standard game of life</option>
+                <option value="customnca">custom neural cellular automata</option>
+                <option value="none">none (idk what this does)</option>
+            </select>
+        </label>
+        <label id="ckw"><abbr title="i gotta make a definition (.22 is a perfect hand greenscreen)">tolerance:</abbr><input type="range" min="0" max="1" step=".01" value=".5" onchange="this.parentElement.lastElementChild.value = this.value; gl?.uniform1f(gl.getUniformLocation(program, 'chromakeyweight'), this.value);"><input type="number" min="0" max="1" step=".01" value=".5" onchange="this.parentElement.children[1].value = this.value; gl?.uniform1f(gl.getUniformLocation(program, 'chromakeyweight'), this.value);"></label>
+        <label>blend with original video:<input type="checkbox" id="blending" onchange="bm.style.display = this.checked ? 'block' : 'none';"></label>
+        <label id="bm" style="display: none;"><abbr title="i gotta make a definition (.22 is a perfect hand greenscreen)">blending minimum:</abbr><input type="range" min="0" max="1" step=".01" value=".2" onchange="this.parentElement.lastElementChild.value = this.value;"><input type="number" min="0" max="1" step=".01" value=".2" onchange="this.parentElement.children[1].value = this.value;"></label>
+        <div id="maincustomdiv" style="outline: 2px solid black; padding: .5em; display: none;">
+            <label>custom color:<input type="color" id="coloor" onchange="maincustomdiv.style.outlineColor = this.value;"></label>
+            <div id="customsnca" style="display: none;">
+                <table>
+                    <tr id="customsncat1">
+                        <td>
+                            <input step="0.001" type="number" class="filter-val" value="0">
+                        </td>
+                        <td>
+                            <input step="0.001" type="number" class="filter-val" value="0">
+                        </td>
+                        <td>
+                            <input step="0.001" type="number" class="filter-val" value="0">
+                        </td>
+                    </tr>
+                    <tr id="customsncat2">
+                        <td>
+                            <input step="0.001" type="number" class="filter-val" value="0">
+                        </td>
+                        <td>
+                            <input step="0.001" type="number" class="filter-val" value="0">
+                        </td>
+                        <td>
+                            <input step="0.001" type="number" class="filter-val" value="0">
+                        </td>
+                    </tr>
+                    <tr id="customsncat3">
+                        <td>
+                            <input step="0.001" type="number" class="filter-val" value="0">
+                        </td>
+                        <td>
+                            <input step="0.001" type="number" class="filter-val" value="0">
+                        </td>
+                        <td>
+                            <input step="0.001" type="number" class="filter-val" value="0">
+                        </td>
+                    </tr>
+                </table>
+                <textarea style="width: 220px; height: 55px; display: block; margin: auto;" id="customsncatext">float activation(float x) {
+    return x;
+}</textarea>
+                <button style="display: inline;" onclick="hahahiddenfileshit.click();">load</button>
+                <input type="file" id="hahahiddenfileshit" style="display: none;" accept=".json" onchange="customsncareadfile(this); //im not addressing this shit by hahahiddenfileshit">
+                <button style="display: inline;">save to dropdown</button>
+            </div>
+            <div id="customsgol" style="display: none;">
+                <label>B:<input id="csgb" type="number" onchange="setglgolrules();"></label>
+                <label>S:<input id="csgs" type="number" onchange="setglgolrules();"></label>
+                <label>rulestring:<input id="wth" onchange='csgb.value=this.value.split("/")[0].split("B")[1]; csgs.value=this.value.split("/")[1].split("S")[1]; setglgolrules();'></label>
+            </div>
+        </div>
+        <div>
+            <label style="margin-top: .5em; margin-bottom: .5em;">custom video:<input type="file" accept="video/*" id="customvideo" onchange="this.parentElement.parentElement.style='outline: 2px black solid; padding: .5em;'; ccl.style.display = 'block'; cinherit.parentElement.style.display = 'block'; camvid.style.display = 'none';"></label>
+            <button id="camvid" onclick="activatecamera(); customvideo.parentElement.style.display = 'none'; this.style.display = 'none'; this.parentElement.style='outline: 2px black solid; padding: .5em;'; ccl.style.display = 'block'; cinherit.parentElement.style.display = 'block';" style="margin: auto;">use camera instead</button>
+            <!--label>color channel<br><label>r:<input type="checkbox" id="ccx" checked onchange="checkchange(this);"> </label><label>g:<input id="ccy" type="checkbox" onchange="checkchange(this);"> </label><label>b:<input id="ccz" type="checkbox" onchange="checkchange(this);"></label></label-->
+            <label id="ccl" style="display: none; margin-top: .5em; margin-bottom: .5em;">color channel:<select id="ccs" onchange="this.parentElement.parentElement.style.outlineColor = this.value; setcolorchannel();"><option value="red">Red</option><option value="green">Green</option><option value="blue">Blue</option></select></label>
+            <label style="display: none; margin-top: .5em; margin-bottom: .5em;">bright pixels inherit color:<input type="checkbox" id="cinherit" onchange='/*gl?.uniform1i(gl.getUniformLocation(program2, "cinherit"), cinherit.checked);*/ //not for current program'></label>
+        </div>
+        <button style="margin-block-start: 1em; margin-block-end: 1em;" class="bubble" onclick="fullstartnocap();">
+            ok start fr this time
+        </button>
+    </dialog>
+    <button id="start" onclick="settings.open = true;" class="bubble" style="background-color: rgba(0,0,0,0); border: 1px black solid; position: relative;">start!!<!--/cache or whatever!<div style="position: absolute; width: 0%; height: 100%; top: 0; left: 0; background-color: #00c700; z-index: -1;"></div!--></button> <!--game plan is to cache like 1000 frames then slowly delete them and get more overtime (yeah that makes sense) like a real loading video with just the frames maybe idk-->
+    <video src="badapple.mp4" id="bav" controls style="display: inline-block;" onloadstart="this.volume=0.5; //lol its kinda loud">
+        no cap <!--just learned that the caption element is for a table label (haha rhymes)-->
+    </video>
+    <canvas id="canvas" width="480" height="360" style="display: inline-block;" oncontextmenu="event.preventDefault()">Your browser does not seem to support 
+      bad apple</canvas>
+      <br>
+      
+      <!--MAKE ACTIVATION FUNCTION WITH CNNEVO TEXTURE WHITE IS TEXTURE.x*x (TEXTURE.x = 1)-->
+      <!--canvas id="canvas2" width="240" height="180" style="display: inline;">FELLA update ya browser</canvas-->
+
+
+    <script type="x-shader/x-vertex" id="vertex-shader">#version 300 es
+
+        precision mediump float;
+
+        in vec2 vertPosition;
+        //attribute vec2 res;
+
+        //uniform vec2 iResolution;
+
+        out vec4 fragColor;
+
+        void main() {
+          gl_Position = vec4(vertPosition, 0.0, 1.0);
+          //gl_PointSize = 32.0;
+        }
+    </script>
+    <script type="x-shader/x-fragment" id="ccafragment-shader">#version 300 es
+        precision mediump float;
+
+        uniform vec2 iResolution;
+
+        uniform sampler2D iChannel1;
+        uniform sampler2D iChannel0B;
+        uniform sampler2D iBadAppleFrame;
+        
+        uniform float iTime;
+        
+        float rand(float co) { return fract(sin(co*(91.3458)) * 47453.5453); }
+        float rand(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453); }
+
+        //uniform float f1[3];
+        //uniform float f2[3];
+        //uniform float f3[3];
+
+
+        //float f1[3] = float[3](0.565,-0.716,0.565);
+        //float f2[3] = float[3](-0.759, 0.627, -0.759);
+        //float f3[3] = float[3](0.565, -0.716,0.565);
+
+        //[[0.565,-0.716,0.565],[-0.716,0.627,-0.716],[0.565,-0.716,0.565]]
+
+        uniform vec3 f1;// = float[3](0.565,-0.716,0.565);
+        uniform vec3 f2;// = float[3](-0.716,0.627,-0.716);
+        uniform vec3 f3;// = float[3](0.565,-0.716,0.565);
+
+        //[[.808,.927,-.987],[-.875,-.816,.867],[.274,.272,.37]]
+
+        //float f1[3] = float[3](.808,.927,-.987);
+        //float f2[3] = float[3](-.875,-.816,.867);
+        //float f3[3] = float[3](.274,.272,.37);
+
+        //vec3 deez = vec3(1.,0.,0.);
+
+        out vec4 fragColor;
+
+        uniform vec3 iMouse;
+
+        //uniform bool baw;
+        uniform bool inverted;
+
+        uniform int colorchannel;
+
+        //float inverse_gaussian(float x) {
+        //    return -1./pow(2., (0.6*pow(x, 2.)))+1.;
+        //}
+
+        #activate
+
+        uniform float chromakeyweight;
+
+        void main() {
+            //vec2 res = vec2(280., 210.);
+            //vec2 fragmentPosition = 2.0*gl_PointCoord - 1.0;
+            vec2 uv = gl_FragCoord.xy / iResolution.xy;
+            vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
+
+            float sum = 0.0;
+    
+            for(int i = -1; i <= 1; i += 1)
+            {
+                for( int j = -1; j <= 1; j += 1)
+                {
+                    vec2 offset = vec2(i, j) / iResolution.xy;		 // Scale the offset down
+                    vec4 lookup = texture(iChannel0B, uv + offset); // Apply offset and sample
+                    //sum += lookup.x;
+                    if(i == -1) {
+                        sum += (lookup.x-lookup.y)*f1[j+1];
+                    }else if(i == 0) {
+                        sum += (lookup.x-lookup.y)*f2[j+1];
+                    }else if(i == 1) {
+                        sum += (lookup.x-lookup.y)*f3[j+1];
+                    }
+                }
+            }
+            //sum += .001;
+            //sum = clamp(sum, -1., 1.); //HOLY SHIT THIS WAS HALF THE LINE THAT STOPPED ALL TYPES OF NEURAL CELLULAR AUTOMATA TO WORK
+
+            //color = vec3(abs(sum));
+            //float cell = texture(iChannel0B, uv).x;
+    
+            /*
+                Now we just need to apply the rules to calulate the state of the cell in this iteraton.
+                It's really simple: We have already initialized the cell of this iteration to 0,
+                We therefore just have to check if we need to change that by seeing whether the
+                conditions for being alive hold:
+                Cell alive and exactly 2 or 3 _other_ neighbors (3 or 4 in total)
+                OR
+                Cell dead and exactly 2 _other_ neighbors (3 in total)
+            */
+            //if(cell > 0.0) {
+            //    if(sum >= 3.0 && sum <= 4.0) {
+            //        color = vec3(1.0);
+            //    }
+            //} else if(sum > 2.0 && sum < 4.0) {
+            //    color = vec3(1.0);
+            //}
+
+            /*(sum > .125 ? abs(uv.x-.5) + abs(uv.y-.5) : 0.)/2.*/
+
+            //if(activation(sum) < 0.0) {
+            //    color = vec4(0.0,abs(activation(sum)),0.0,1.0);
+            //}else {
+              color = vec4(activation(sum),0.0,0.0,1.0);
+            //}
+
+            if(distance(iMouse.xy, uv) < (iMouse.z == 0.0 ? .1 : .05)) {             //iMouse.x > uv.x-.025 && iMouse.x < uv.x+.025 && iMouse.y > uv.y-.025 && iMouse.y < uv.y+.025) {
+                color = vec4(iMouse.z, rand(uv)/2.5, 0.0, 1.0); //deez[0]);
+            }
+
+            //if(iTime < 0.0) {
+            //    color = vec4(texture(iChannel1, gl_FragCoord.xy / iResolution.xy).x);   //vec4(1.0,1.0,0.0,.0);             //vec4(gl_PointCoord.x, gl_PointCoord.y, 0.34, 1.0);
+            //}
+
+            vec4 ladtroller = texture(iBadAppleFrame, uv);
+
+            //if(ladtroller.x < .5 && ladtroller.y < .5 && ladtroller.z < .5) {
+            
+            if(inverted) {
+            if(ladtroller[colorchannel] < chromakeyweight) { //why was i trying to check all colors when its just black and white lol
+                //color.rgb = vec3(0.0,0.0,0.0);
+                //color.a = 0.0;
+                //if(f2[1] != -.816) {
+                //    color.rgb = vec3(1,0.5,0.0);//clamp((activate(sum)-.05), -1., 1.);
+                //}else {
+                    color.rgb = vec3(ladtroller);//clamp((activate(sum)-.05), -1., 1.);
+                //}
+            }//else {
+                //color.rgb = vec3(1.,1.,0.);
+            //}
+            }else {
+                if(ladtroller[colorchannel] > chromakeyweight) {
+                    color.rgb = vec3(ladtroller); //yeah ok make al pixels cells red
+                }
+            }
+            
+            //if(baw == 1) {
+                fragColor = vec4(color.x, color.y, color.z, 1.0);    //vec4(color, 1.0);
+            //}else {
+            //    fragColor = vec4(color.x, color.y, color.z, 1.0);    //vec4(color, 1.0);
+            //}
+        }
+    </script>
+    <script type="x-shader/x-fragment" id="gol-shader">#version 300 es
+        precision mediump float;
+
+        uniform vec2 iResolution;
+
+        uniform sampler2D iChannel1;
+        uniform sampler2D iChannel0B;
+        uniform sampler2D iBadAppleFrame;
+        
+        uniform float iTime;
+        
+        float rand(float co) { return fract(sin(co*(91.3458)) * 47453.5453); }
+        float rand(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453); }
+
+        out vec4 fragColor;
+
+        uniform vec3 iMouse;
+
+        uniform bool inverted;
+
+        uniform int colorchannel;
+
+        //float begin[9] = float[](3.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0);
+        //float stay[9] = float[](2.0, 3.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0);
+
+        //float begin[9] = float[](4.0, 5.0, 6.0, 7.0, 8.0, -1.0, -1.0, -1.0, -1.0);
+        //float stay[9] = float[](2.0, 3.0, 4.0, 5.0, -1.0, -1.0, -1.0, -1.0, -1.0);
+
+        //float begin[9] = float[](1.0, 3.0, 5.0, 7.0, -1.0, -1.0, -1.0, -1.0, -1.0);
+        //float stay[9] = float[](1.0, 3.0, 5.0, 7.0, -1.0, -1.0, -1.0, -1.0, -1.0);
+
+        //float begin[9] = float[](3.0, 6.0, 7.0, 8.0, -1.0, -1.0, -1.0, -1.0, -1.0);
+        //float stay[9] = float[](2.0, 3.0, 5.0, 6.0, 7.0, 8.0, -1.0, -1.0, -1.0);
+
+        uniform float begin[9];
+        uniform float stay[9];
+
+        uniform float chromakeyweight;
+
+        void main() {
+            vec2 uv = gl_FragCoord.xy / iResolution.xy;
+            vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
+
+            float sum = 0.0;
+    
+            for(int i = -1; i <= 1; i += 1)
+            {
+                for( int j = -1; j <= 1; j += 1)
+                {
+                    vec2 offset = vec2(i, j) / iResolution.xy;		 // Scale the offset down
+                    vec4 lookup = texture(iChannel0B, uv + offset); // Apply offset and sample
+                    sum += ceil(lookup.x); //* 1.06382979 //+.06;
+                }
+            }
+
+            float cell = texture(iChannel0B, uv).x;
+    
+            /*
+                Now we just need to apply the rules to calulate the state of the cell in this iteraton.
+                It's really simple: We have already initialized the cell of this iteration to 0,
+                We therefore just have to check if we need to change that by seeing whether the
+                conditions for being alive hold:
+                Cell alive and exactly 2 or 3 _other_ neighbors (3 or 4 in total)
+                OR
+                Cell dead and exactly 2 _other_ neighbors (3 in total)
+            */
+
+            //if(cell > 0.0) {
+            //    if(sum >= 3.0 && sum <= 4.0) {
+            //        color = vec4(0.94, 0.94, 0.94 ,1.0);
+            //    }
+            //} else if(sum > 2.0 && sum < 4.0) {
+            //    color = vec4(0.94, 0.94, 0.94 ,1.0);
+            //}
+
+            if(cell > 0.0) {
+                if(sum == stay[0]+1.0 || sum == stay[1]+1.0 || sum == stay[2]+1.0 || sum == stay[3]+1.0 || sum == stay[4]+1.0 || sum == stay[5]+1.0 || sum == stay[6]+1.0 || sum == stay[7]+1.0 || sum == stay[8]+1.0) {
+                    color = vec4(1.0,0.0,0.0,1.0);
+                }
+            } else if(sum == begin[0] || sum == begin[1] || sum == begin[2] || sum == begin[3] || sum == begin[4] || sum == begin[5] || sum == begin[6] || sum == begin[7] || sum == begin[8]) {
+                color = vec4(1.0,0.0,0.0,1.0);
+            }
+
+            if(distance(iMouse.xy, uv) < (iMouse.z == 0.0 ? .1 : .05)) {
+                color = vec4(iMouse.z, rand(uv)/2.5, 0.0, 1.0);
+            } //gotta fuq around in vr in a bit
+
+            vec4 ladtroller = texture(iBadAppleFrame, uv);
+            
+            if(inverted) {
+                if(ladtroller[colorchannel] < chromakeyweight) { //why was i trying to check all colors when its just black and white lol
+                    color.rgb = vec3(ladtroller);
+                }
+            }else {
+                if(ladtroller[colorchannel] > chromakeyweight) {
+                    color.rgb = vec3(ladtroller);
+                }
+            }
+            
+            fragColor = vec4(color.x, color.y, color.z, 1.0);    //vec4(color, 1.0);
+        }
+    </script>
+    <!--script type="x-shader/x-fragment" id="waveca-shader">#version 300 es
+        precision mediump float;
+
+        uniform vec2 iResolution;
+
+        uniform sampler2D iChannel1;
+        uniform sampler2D iChannel0B;
+        uniform sampler2D iBadAppleFrame;
+        
+        uniform float iTime;
+        
+        float rand(float co) { return fract(sin(co*(91.3458)) * 47453.5453); }
+        float rand(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453); }
+
+        vec3 f1 = float[3](0.565,-0.716,0.565);
+        vec3 f2 = float[3](-0.716,0.627,-0.716);
+        vec3 f3 = float[3](0.565,-0.716,0.565);
+
+        //float f1[3] = float[3](.808,.927,-.987);
+        //float f2[3] = float[3](-.875,-.816,.867);
+        //float f3[3] = float[3](.274,.272,.37);
+
+        out vec4 fragColor;
+
+        uniform vec3 iMouse;
+
+        uniform int baw;
+
+        //float inverse_gaussian(float x) {
+        //    return -1./pow(2., (0.6*pow(x, 2.)))+1.;
+        //}
+
+        #activate
+
+        void main() {
+            //vec2 res = vec2(280., 210.);
+            //vec2 fragmentPosition = 2.0*gl_PointCoord - 1.0;
+            vec2 uv = gl_FragCoord.xy / iResolution.xy;
+            vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
+
+            float sum = 0.0;
+    
+            for(int i = -1; i <= 1; i += 1)
+            {
+                for( int j = -1; j <= 1; j += 1)
+                {
+                    vec2 offset = vec2(i, j) / iResolution.xy;		 // Scale the offset down
+                    vec4 lookup = texture(iChannel0B, uv + offset); // Apply offset and sample
+                    //sum += lookup.x;
+                    if(i == -1) {
+                        sum += (lookup.x)*f1[j+1];
+                    }else if(i == 0) {
+                        sum += (lookup.x)*f2[j+1];
+                    }else if(i == 1) {
+                        sum += (lookup.x)*f3[j+1];
+                    }
+                }
+            }
+            //sum += .001;
+            sum = clamp(sum, -1., 1.);
+
+            //color = vec3(abs(sum));
+            //float cell = texture(iChannel0B, uv).x;
+    
+    
+            /*
+                Now we just need to apply the rules to calulate the state of the cell in this iteraton.
+                It's really simple: We have already initialized the cell of this iteration to 0,
+                We therefore just have to check if we need to change that by seeing whether the
+                conditions for being alive hold:
+                Cell alive and exactly 2 or 3 _other_ neighbors (3 or 4 in total)
+                OR
+                Cell dead and exactly 2 _other_ neighbors (3 in total)
+            */
+            //if(cell > 0.0) {
+            //    if(sum >= 3.0 && sum <= 4.0) {
+            //        color = vec3(1.0);
+            //    }
+            //} else if(sum > 2.0 && sum < 4.0) {
+            //    color = vec3(1.0);
+            //}
+
+            /*(sum > .125 ? abs(uv.x-.5) + abs(uv.y-.5) : 0.)/2.*/
+
+            if(f2[0] < -.717) {
+                color = vec4(activate(sum),(abs(sum)/2.4)  /*clamp(activate(sum)-.1,0.0,1.0)*/  /*min(f2[1],sum)*/,0., 1.);    //vec3(activate(sum),abs(sum),0.);
+            }else {
+                color = vec4(activate(sum),0.0,0., 1.);    //vec3(activate(sum),abs(sum),0.);
+            }
+            
+
+            if(distance(iMouse.xy, uv) < (iMouse.z == 0.0 ? .1 : .05)) {             //iMouse.x > uv.x-.025 && iMouse.x < uv.x+.025 && iMouse.y > uv.y-.025 && iMouse.y < uv.y+.025) {
+                color = vec4(iMouse.z, rand(uv)/2.5, 0.0, 1.0); //deez[0]);
+            }
+
+            //if(iTime < 0.0) {
+            //    color = vec4(texture(iChannel1, gl_FragCoord.xy / iResolution.xy).x);   //vec4(1.0,1.0,0.0,.0);             //vec4(gl_PointCoord.x, gl_PointCoord.y, 0.34, 1.0);
+            //}
+
+            vec4 ladtroller = texture(iBadAppleFrame, uv);
+
+            //if(ladtroller.x < .5 && ladtroller.y < .5 && ladtroller.z < .5) {
+            if(ladtroller.x < .5) { //why was i trying to check all colors when its just black and white lol
+                //color.rgb = vec3(0.0,0.0,0.0);
+                //color.a = 0.0;
+                //if(f2[1] != -.816) {
+                //    color.rgb = vec3(1,0.5,0.0);//clamp((activate(sum)-.05), -1., 1.);
+                //}else {
+                    color.rgb = vec3(ladtroller);//clamp((activate(sum)-.05), -1., 1.);
+                //}
+            }else {
+                //color.rgb = vec3(1.,1.,0.);
+            }
+            
+            if(baw == 1) {
+                fragColor = vec4(color.x, color.x, color.x, 1.0);    //vec4(color, 1.0);
+            }else {
+                fragColor = vec4(color.x, color.y, color.z, 1.0);    //vec4(color, 1.0);
+            }
+        }
+    </script-->
+    <script type="x-shader/x-fragment" id="nf-shader">#version 300 es
+        precision mediump float;
+
+        uniform vec2 iResolution;
+
+        uniform sampler2D iChannel0;
+        uniform sampler2D iChannel0B;
+
+        //uniform float iTime;
+
+        out vec4 fragColor;
+                
+        void main() {
+            vec2 uv = gl_FragCoord.xy / iResolution.xy;
+            vec4 color = texture(iChannel0, uv);
+            if(color.x < .5 && color.y < .5 && color.z < .5) {
+                //color.w = 0.;
+                color = vec4(0., 0., 1., 1.);
+            }else {
+                //color.w = 0.0;
+                //ok so this ain't gone work so i need the original frame to draw herelol
+                color = vec4(1.,1.,0.,1.);//texture(iChannel0B, uv);
+            }
+            fragColor = vec4(1.,1.,0.,1.);//color;//vec4(0.0,1.0,1.0,1.0);
+        }
+    </script>
+    <script type="x-shader/x-fragment" id="color-shader">#version 300 es
+        precision mediump float;
+
+        uniform vec2 iResolution;
+
+        uniform sampler2D iChannel0B;
+
+        //uniform float iTime;
+
+        out vec4 fragColor;
+
+        uniform int type; //shoot this my best bet cuz i don't think webgl got strings
+
+        uniform sampler2D iBadAppleFrame;
+        uniform bool cinherit;
+
+        uniform bool colored;
+
+        uniform vec3 customcolor;
+
+        uniform bool blending;
+        uniform float blendingmin;
+                
+        void main() {
+            vec2 uv = gl_FragCoord.xy / iResolution.xy;
+            vec3 bw = texture(iChannel0B, uv).xyz; //the black and white CA
+            vec3 newColor;
+            if(type == 0) {
+                newColor = vec3(1.0, 0.97254902, 0.780392157);
+            }else if(type == 1) {
+                newColor = vec3(0.0, 0.666666667, 1.0); //wait is it 255 or what
+            }else if(type == 2) {
+                newColor = vec3(1.5, 0.452941176, 0.0); //was 1.0, .3529 whatever ythen ,0.0
+            }else if(type == 3) {
+                newColor = vec3(1, 0.2784313725490196, 0.33725490196078434);
+            }else if(type == 4) {
+                newColor = vec3(0.0470588235, 0.674509804, 0.0);
+            }else if(type == 5 || type == 6) {
+                newColor = customcolor;
+            }
+            if(customcolor != vec3(0.0,0.0,0.0)) {
+                newColor = customcolor;
+            }
+            //if(bw.x > .95) {
+            //    newColor = vec3(1.0,1.0,1.0);
+            //    //if(cinherit) {
+            //    //    bw = texture(iBadAppleFrame, uv).xyz; //cha-ching (finger guns)
+            //    //}
+            //}else if(bw.x > .5 && cinherit) {
+            //    newColor = vec3(1.0,1.0,1.0);
+            //    bw = texture(iBadAppleFrame, uv).xyz; //cha-ching (finger guns)
+            //}
+            if(colored) {
+                if(bw.z != 0.0) {
+                    fragColor = vec4(vec3(bw.z), 1.0);
+                    if(cinherit) {
+                        //if(blending && bw.x < blendingmin) {
+                            fragColor = vec4(texture(iBadAppleFrame, uv).xyz, 1.0);
+                        //}
+                    }
+                }else {
+                    if(blending && bw.x < blendingmin) {
+                        fragColor = vec4(texture(iBadAppleFrame, uv).xyz, 1.0);
+                    }else {
+                        fragColor = vec4(vec3(bw.x * newColor), 1.0);
+                    }
+                }
+            }else {
+                fragColor = vec4(vec3(bw.x), 1.0);
+            }
+            //if(cinherit) {
+            //    if(bw.x < .2 || bw.z != 0.0) {
+            //        fragColor = vec4(texture(iBadAppleFrame, uv).xyz, 1.0);
+            //    }else {
+            //        fragColor = vec4(vec3(bw.x * newColor), 1.0);
+            //    }
+            //}
+        }
+    </script>
+    <script type="x-shader/x-fragment" id="blurf-shader">#version 300 es
+        precision mediump float;
+
+        uniform vec2 iResolution;
+
+        uniform sampler2D iChannel0B;
+
+        //box blur https://webgl2fundamentals.org/webgl/lessons/webgl-image-processing-continued.html
+
+        //float f1[6] = float[6](1.0, 1.0, 1.0, 1.0, 1.0, 1.0);
+        //float f2[6] = float[6](1.0, 1.0, 1.0, 1.0, 1.0, 1.0);
+        //float f3[6] = float[6](1.0, 1.0, 1.0, 1.0, 1.0, 1.0);
+        
+        out vec4 fragColor;
+
+        uniform int bSize;
+        uniform float filtah;
+        uniform float weight;
+                
+        void main() {
+            vec2 uv = gl_FragCoord.xy / iResolution.xy;
+            vec4 color;
+            for(int i = -bSize; i <= bSize; i += 1)
+            {
+                for( int j = -bSize; j <= bSize; j += 1)
+                {
+                    vec2 offset = vec2(i, j) / iResolution.xy;
+                    vec4 lookup = texture(iChannel0B, uv + offset);
+                    //if(i == -1) {
+                        color += (lookup)*filtah;//1.0;//f1[j+1];
+                    //}else if(i == 0) {
+                    //    color += (lookup)*f2[j+1];
+                    //}else if(i == 1) {
+                    //    color += (lookup)*f3[j+1];
+                    //}
+                }
+            }
+            fragColor = vec4((color/weight).xyz, 1.0); //kernal weight is .999 for box blur
+        }
+    </script>
+    <img src="../noise.png" id="image" style="display: none;">
+    <!--script src="https://raw.githubusercontent.com/bertyhell/video-to-frames/master/index.js"></script-->
+    <!--script src="video-to-frames.js"></script--> <!--took like a minute and also 2000 mb of memory 😂-->
+
+    <!--script src="canvas2init.js"></script-->
+
+    <script>
+        //window.addEventListener("load", setupWebGL, false);
+        
+        let gl;
+        let program, program2;
+
+        let rect = [
+            -1,1,
+            -1,-1,
+            1,-1,
+            1,1,
+        ];
+
+        function isPowerOf2(value) {
+            return (value & (value - 1)) === 0;
+        }
+
+        let newTexture = function(texture) {
+            return new Promise(function(resolve, reject) {
+                //let image = new Image();
+                //image.src = "./noise.png";//"someshit;"
+                //image.crossOrigin = "anonymous";
+                //image.onload = () => {
+                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+                    // WebGL1 has different requirements for power of 2 images
+                    // vs non power of 2 images so check if the image is a
+                    // power of 2 in both dimensions.
+                    if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
+                        // Yes, it's a power of 2. Generate mips.
+                        gl.generateMipmap(gl.TEXTURE_2D);
+                    } else {
+                        // No, it's not a power of 2. Turn off mips and set
+                        // wrapping to clamp to edge
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); //TWAS linear
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                    }
+                    
+                    resolve();
+                //}
+            });
+        }
+
+        /*let colorchannel;
+
+        function checkchange(element) {
+            if(element.checked) {
+                switch(element) {
+                    case ccx:
+                        colorchannel = 0;
+                        ccy.checked = false;
+                        ccz.checked = false;
+                        break;
+                    case ccy:
+                        colorchannel = 1;
+                        ccx.checked = false;
+                        ccz.checked = false;
+                        break;
+                    case ccz:
+                        colorchannel = 2;
+                        ccx.checked = false;
+                        ccy.checked = false;
+                        break;
+                    default:
+                        colorchannel = 0;
+                        ccx.checked = true;
+                        ccy.checked = false;
+                        ccz.checked = false;
+                }
+            }
+        }*/
+
+        let buffer, iChannel0, iChannel0B, iChannel1, fb, fb2;
+        let iBadAppleFrame;//, BAFB;
+
+        //let frames = [];
+
+        //const maxFrames = 300;
+
+        //function waitforimagestoload() {
+        //    return new Promise(function(resolve, reject) {
+        //        let i = 0;
+        //        frames.forEach(frame => {
+        //            frame.onload = () => {
+        //                i++;
+        //                start.firstElementChild.style.width = `${(i/(maxFrames-1))*100}%`; //actually fire
+        //                //console.log(i);
+        //                if(i == maxFrames-1) {
+        //                    resolve();
+        //                }
+        //            }
+        //        });
+        //    });
+        //}
+
+        //async function lodaimages() {
+        //    for(let i = 1; i < maxFrames; i++) {
+        //        let fi = new Image(480, 360);
+        //        let realfilenumber = i < 10 ? `000${i}` : i < 100 ? `00${i}` : i < 1000 ? `0${i}` : "oknahbruhyofuckedit";
+        //        fi.src = `./frames/${realfilenumber}.jpg`;
+        //        //console.log(fi);
+        //        //document.body.append(fi);
+        //        frames.push(fi);
+        //    }
+        //    await waitforimagestoload();
+        //    setupWebGL();
+        //}
+
+        function revealcustoms() {
+            customsgol.style.display = "none";
+            customsnca.style.display = "none";
+            //coloor.parentElement.style.display = "none";
+            maincustomdiv.style.display = "none";
+            if(type.value == "customgol") {
+                customsgol.style.display = "block";
+                coloor.parentElement.style.display = "block";
+                maincustomdiv.style.display = "block";
+                if(coloor.value == "#000000") {
+                    coloor.value = "#0cac00";
+                }
+            }else if(type.value == "customnca") {
+                customsnca.style.display = "block";
+                coloor.parentElement.style.display = "block";
+                maincustomdiv.style.display = "block";
+                if(coloor.value == "#000000") {
+                    coloor.value = "#00aaff";
+                }
+            }
+        }
+
+        function rgbToHex(r, g, b) {
+            return "#" + (1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1);
+        }
+
+        function hexToRgb(hex) {
+            let result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? [
+                parseInt(result[1], 16)/255,
+                parseInt(result[2], 16)/255,
+                parseInt(result[3], 16)/255
+            ] : null;
+        }
+
+
+        async function customsncareadfile(element) {
+            if(element.files[0]) {
+                let file = await element.files[0].text();
+                let ncajson = JSON.parse(file);
+                coloor.value = rgbToHex(ncajson.color[0]*255,ncajson.color[1]*255,ncajson.color[2]*255);
+                customsncatext.value = ncajson.activation;
+                //let elements = [];
+                let j = 0;
+                for(let i = 0; i < customsncat1.children.length; i++) {
+                    customsncat1.children[i].firstElementChild.value = ncajson.filter[j];
+                    j++;
+                }
+                for(let i = 0; i < customsncat2.children.length; i++) {
+                    customsncat2.children[i].firstElementChild.value = ncajson.filter[j];
+                    j++;
+                }
+                for(let i = 0; i < customsncat3.children.length; i++) {
+                    customsncat3.children[i].firstElementChild.value = ncajson.filter[j];
+                    j++;
+                }
+                console.log(ncajson);
+            }
+        }
+
+        function moresetuplol() {
+            console.warn("oops im calling this one twice ignore the 3 'program not linked' warnings lol");
+
+            //no cap the function was originally named activate and not activation
+            let activation = `float activation(float x) {
+                return x;
+            }`;
+
+            if(type.value == "waves") {
+                gl.uniform3fv(gl.getUniformLocation(program, "f1"), new Float32Array([0.565,-0.716,0.565]));//new Float32Array([.808,.927,-.987]));
+                gl.uniform3fv(gl.getUniformLocation(program, "f2"), new Float32Array([-0.716,0.627,-0.716]));//new Float32Array([-.875,-.816,.867]));
+                gl.uniform3fv(gl.getUniformLocation(program, "f3"), new Float32Array([0.565,-0.716,0.565]));//new Float32Array([.274,.272,.37]));
+                activation = activation.replace("x;", "abs(1.2*x);");
+            }else if(type.value == "fire") {
+                gl.uniform3fv(gl.getUniformLocation(program, "f1"), new Float32Array([.808,.927,-.987]));
+                gl.uniform3fv(gl.getUniformLocation(program, "f2"), new Float32Array([-.875,-.816,.867]));
+                gl.uniform3fv(gl.getUniformLocation(program, "f3"), new Float32Array([.274,.272,.37]));
+                activation = activation.replace("x;", "abs(x/1.5);");
+            }else if(type.value == "fire2") {
+                gl.uniform3fv(gl.getUniformLocation(program, "f1"), new Float32Array([-0.7499695420265198,0.6012653708457947,0.044445183128118515]));
+                gl.uniform3fv(gl.getUniformLocation(program, "f2"), new Float32Array([0.978209912776947,-0.6772064566612244,-0.09830864518880844]));
+                gl.uniform3fv(gl.getUniformLocation(program, "f3"), new Float32Array([-0.34638237953186035,-0.016424329951405525,0.4948813021183014]));
+                activation = activation.replace("x;", "abs(x);");
+            }else if(type.value == "stars") {
+                gl.uniform3fv(gl.getUniformLocation(program, "f1"), new Float32Array([0.565,-0.716,0.565]));
+                gl.uniform3fv(gl.getUniformLocation(program, "f2"), new Float32Array([-0.759, 0.627, -0.759]));
+                gl.uniform3fv(gl.getUniformLocation(program, "f3"), new Float32Array([0.565, -0.716,0.565]));
+                activation = activation.replace("x;", "abs(x);");
+            }else if(type.value == "customnca") {
+                let elements = [];
+                for(let i = 0; i < customsncat1.children.length; i++) {
+                    elements.push(customsncat1.children[i].firstElementChild.value);
+                }
+                for(let i = 0; i < customsncat2.children.length; i++) {
+                    elements.push(customsncat2.children[i].firstElementChild.value);
+                }
+                for(let i = 0; i < customsncat3.children.length; i++) {
+                    elements.push(customsncat3.children[i].firstElementChild.value);
+                }
+                gl.uniform3fv(gl.getUniformLocation(program, "f1"), new Float32Array([elements[0],elements[1],elements[2]]));
+                gl.uniform3fv(gl.getUniformLocation(program, "f2"), new Float32Array([elements[3],elements[4],elements[5]]));
+                gl.uniform3fv(gl.getUniformLocation(program, "f3"), new Float32Array([elements[6],elements[7],elements[8]]));
+                activation = customsncatext.value;
+            }
+            /*else if(type.value == "conway") {
+                gl.uniform3fv(gl.getUniformLocation(program, "f1"), new Float32Array([1, 1, 1]));
+                gl.uniform3fv(gl.getUniformLocation(program, "f2"), new Float32Array([1, 9, 1]));
+                gl.uniform3fv(gl.getUniformLocation(program, "f3"), new Float32Array([1, 1, 1]));
+
+                activation = activation.replace("return x;", `if (x == 3. || x == 11. || x == 12.){
+                                                                  return 1.;
+                                                              }
+                                                              return 0.;`)
+            }*/
+            
+            return activation;
+            //let source = document.querySelector("#vertex-shader").innerHTML;
+            //const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+            //gl.shaderSource(vertexShader, source);
+            //gl.compileShader(vertexShader);
+            //if(!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+            //    console.log("vertex error my dude\n", gl.getShaderInfoLog(vertexShader));
+            //}
+//
+            //source = document.querySelector("#ccafragment-shader").innerHTML;
+            //source = source.replace("#activate", activation);
+            ////console.log(source);
+            //const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+            //gl.shaderSource(fragmentShader, source);
+            //gl.compileShader(fragmentShader);
+            //if(!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+            //    console.log("CAfragment error my nice man\n", gl.getShaderInfoLog(fragmentShader));
+            //}
+//
+            //gl.attachShader(program, vertexShader);
+            //gl.attachShader(program, fragmentShader);
+//
+            //gl.detachShader(program, vertexShader);
+            //gl.detachShader(program, fragmentShader);
+//
+            //gl.deleteShader(vertexShader);
+            //gl.deleteShader(fragmentShader);
+        }
+
+        //type.addEventListener("change", setTypes);
+
+        async function activatecamera() {
+            //navigator.mediaDevices.getUserMedia({ audio: false, video: true }).then(function(stream) {
+            settings.lastElementChild.disabled = true;
+            settings.lastElementChild.title = "waiting for camera...";
+
+            let stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: true });
+            bav.srcObject = stream;
+            await new Promise(function(resolve, reject) {
+                bav.onloadedmetadata = function(e) {
+                    canvas.width = this.videoWidth;
+                    canvas.height = this.videoHeight;
+                    resolve(); //PROMISE GENIUS ROUND HERE
+                }
+            });
+            bav.play();
+            settings.lastElementChild.disabled = false;
+            settings.lastElementChild.title = "";
+            //}).catch(function(err) {
+            //    console.log(err);      
+            //});
+        }
+
+        function setcolorchannel() {
+            for(let i = 0; i < ccs.children.length; i++) {
+                if(ccs.children[i].value == ccs.value) {
+                    console.log(type.value, i);
+                    gl.uniform1i(gl.getUniformLocation(program, "colorchannel"), i);
+                    break;
+                }
+            }
+        }
+
+        function setglgolrules() {
+            let begin = [];
+            let stay = [];
+            for(let i = 0; i < 9; i++) {
+                begin.push(csgb.value[i] ?? -1.0); //awesome i can finally use the Nullish coalescing operoator https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Nullish_coalescing
+            }
+            for(let i = 0; i < 9; i++) {
+                stay.push(csgs.value[i] ?? -1.0); 
+            }
+            console.log(new Float32Array(begin), new Float32Array(stay));
+            gl?.uniform1fv(gl.getUniformLocation(program, "begin"), new Float32Array(begin));
+            gl?.uniform1fv(gl.getUniformLocation(program, "stay"), new Float32Array(stay));
+            wth.value = `B${csgb.value}/S${csgs.value}`;
+        }
+
+        function fullstartnocap() {
+            settings.open = false;
+            /* bav.play();*/
+            maincustomdiv.style.outline = "";
+            document.body.append(maincustomdiv);
+            document.body.append(ccl); //lol
+            document.body.append(cinherit.parentElement);
+            document.body.append(nbaw.parentElement);
+            document.body.append(inverted.parentElement);
+            document.body.append(ckw);
+            document.body.append(blending.parentElement);
+            document.body.append(bm);
+            maincustomdiv.style.display = "block";
+            customsncatext.disabled = true;
+            //if((customsnca.style.display == "block" || customsgol.style.display == "block") && coloor.value == "#000000") {
+            //    coloor.value = "#0cac00";
+            //}
+            setupWebGL();
+            start.style.display = 'none';
+        }
+
+        async function setupWebGL(evt) {
+
+            if(customvideo.files[0]) {
+                let blob = URL.createObjectURL(customvideo.files[0]);
+                bav.src = blob;
+                //maybe i should revoke idk (ok no the goog: https://azaa13.github.io/dom/revokeurl/best-practice/2020/03/02/why-revoke-object-url.html says that it's revoked when you reload the tab (or close it))
+                //URL.revokeObjectURL(blob);
+                
+                //tomorrow i gotta write the script for this video (AND THEN ANIMATE MY DREAMS (castle town poolrooms and random fps))
+
+                await new Promise(function(resolve, reject) {
+                    bav.onloadedmetadata = function(e) {
+                        canvas.width = this.videoWidth;
+                        canvas.height = this.videoHeight;
+                        resolve(); //PROMISE GENIUS ROUND HERE
+                    }
+                });
+
+
+            }
+
+            bav.play();
+
+            //window.removeEventListener(evt.type, setupWebGL, false);
+            if (!(gl = getRenderingContext())) return;
+
+            //let activation;
+            
+
+            let source = document.querySelector("#vertex-shader").innerHTML;
+            const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+            gl.shaderSource(vertexShader, source);
+            gl.compileShader(vertexShader);
+            if(!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+                console.warn("vertex shader error\n", gl.getShaderInfoLog(vertexShader));
+            }
+
+            //source = document.querySelector("#mfragment-shader").innerHTML;
+            //const mfragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+            //gl.shaderSource(mfragmentShader, source);
+            //gl.compileShader(mfragmentShader);
+            //if(!gl.getShaderParameter(mfragmentShader, gl.COMPILE_STATUS)) {
+            //    console.log("MAINfragment dude fella\n", gl.getShaderInfoLog(mfragmentShader));
+            //}
+
+            //source = document.querySelector("#blurf-shader").innerHTML; //blur might be too complicated
+            //const bfShader = gl.createShader(gl.FRAGMENT_SHADER);
+            //gl.shaderSource(bfShader, source);
+            //gl.compileShader(bfShader);
+            //if(!gl.getShaderParameter(bfShader, gl.COMPILE_STATUS)) {
+            //    console.log("lblurf dude fella\n", gl.getShaderInfoLog(bfShader));
+            //}
+
+            //source = document.querySelector("#nf-shader").innerHTML; //bad apple first try index.html
+            //const nextFrameShader = gl.createShader(gl.FRAGMENT_SHADER);
+            //gl.shaderSource(nextFrameShader, source);
+            //gl.compileShader(nextFrameShader);
+            //if(!gl.getShaderParameter(nextFrameShader, gl.COMPILE_STATUS)) {
+            //    console.warn("next frame sahder error feller\n", gl.getShaderInfoLog(nextFrameShader));
+            //}
+
+            program = gl.createProgram();
+
+            source = document.querySelector(`#${type.value != "conway" && type.value != "customgol" ? "ccafragment" : "gol"}-shader`).innerHTML;
+            source = source.replace("#activate", type.value != "conway" ? moresetuplol() : "");//`float activate(float x) {return abs(x*1.2);}`);
+            //console.log(source);
+            const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+            gl.shaderSource(fragmentShader, source);
+            gl.compileShader(fragmentShader);
+            if(!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+                console.warn(`${type.value != "conway" ? "cellular automata" : "conway's game of"} life shader thang error\n`, gl.getShaderInfoLog(fragmentShader));
+            }
+
+            source = document.querySelector("#color-shader").innerHTML; //i had a brain blast (when i woke up) and realized i could color it after i copied the texture
+            const colorShader = gl.createShader(gl.FRAGMENT_SHADER);
+            gl.shaderSource(colorShader, source);
+            gl.compileShader(colorShader);
+            if(!gl.getShaderParameter(colorShader, gl.COMPILE_STATUS)) {
+                console.warn("color shader error\n", gl.getShaderInfoLog(colorShader));
+            }
+
+            console.warn("shoyuld improve the error thing so it shows up on the screen nocap");
+
+            program2 = gl.createProgram();
+
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+
+            gl.attachShader(program2, vertexShader);
+            gl.attachShader(program2, colorShader);//bfShader);//nextFrameShader);
+            //gl.attachShader(program2, mfragmentShader);
+            gl.linkProgram(program2);
+
+            // let rectVBO = gl.createBuffer();
+            // gl.bindBuffer(gl.ARRAY_BUFFER, rectVBO);
+            // gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(rect), gl.STATIC_DRAW);
+
+            // let pAL = gl.getAttribLocation(program, 'vertPosition'); 
+            // gl.vertexAttribPointer(pAL, 2, gl.FLOAT, gl.FALSE, 2 * Float32Array.BYTES_PER_ELEMENT, 0);
+            // gl.enableVertexAttribArray(pAL);
+
+            gl.detachShader(program, vertexShader);
+            gl.detachShader(program, fragmentShader);
+
+            gl.detachShader(program2, vertexShader);
+            gl.detachShader(program2, colorShader);//bfShader);//nextFrameShader);
+            //gl.detachShader(program2, mfragmentShader);
+
+            gl.deleteShader(vertexShader);
+            gl.deleteShader(fragmentShader);
+            gl.deleteShader(colorShader);//bfShader);//nextFrameShader);
+            //gl.deleteShader(mfragmentShader);
+
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                const linkErrLog = gl.getProgramInfoLog(program);
+                cleanup();
+                document.querySelector(
+                "p"
+                ).textContent = `Shader program did not link successfully. Error log: ${linkErrLog}`;
+                return;
+            }
+
+            if (!gl.getProgramParameter(program2, gl.LINK_STATUS)) {
+                const linkErrLog = gl.getProgramInfoLog(program2);
+                cleanup();
+                document.querySelector(
+                "p"
+                ).textContent = `Shader program2 did not link successfully. Error log: ${linkErrLog}`;
+                return;
+            }
+
+            //initializeAttributes();
+            
+            let rectVBO = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, rectVBO);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(rect), gl.STATIC_DRAW);
+
+            //let iChannel0 = gl.createBuffer();
+            //gl.bindBuffer(gl.ARRAY_BUFFER, iChannel0);
+            //gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(rect), gl.STATIC_DRAW);
+
+            let pAL = gl.getAttribLocation(program, 'vertPosition'); 
+            gl.vertexAttribPointer(pAL, 2, gl.FLOAT, gl.FALSE, 2 * Float32Array.BYTES_PER_ELEMENT, 0);
+            gl.enableVertexAttribArray(pAL);
+
+            let pAL2 = gl.getAttribLocation(program2, 'vertPosition'); 
+            gl.vertexAttribPointer(pAL2, 2, gl.FLOAT, gl.FALSE, 2 * Float32Array.BYTES_PER_ELEMENT, 0);
+            gl.enableVertexAttribArray(pAL2);
+            
+            gl.useProgram(program);
+
+            
+            moresetuplol(); //was set types
+            // if(type.value == "waves") {
+            //     gl.uniform3fv(gl.getUniformLocation(program, "f1"), new Float32Array([0.565,-0.716,0.565]));//new Float32Array([.808,.927,-.987]));
+            //     gl.uniform3fv(gl.getUniformLocation(program, "f2"), new Float32Array([-0.716,0.627,-0.716]));//new Float32Array([-.875,-.816,.867]));
+            //     gl.uniform3fv(gl.getUniformLocation(program, "f3"), new Float32Array([0.565,-0.716,0.565]));//new Float32Array([.274,.272,.37]));
+            // }else if(type.value == "fire") {
+            //     gl.uniform3fv(gl.getUniformLocation(program, "f1"), new Float32Array([.808,.927,-.987]));
+            //     gl.uniform3fv(gl.getUniformLocation(program, "f2"), new Float32Array([-.875,-.816,.867]));
+            //     gl.uniform3fv(gl.getUniformLocation(program, "f3"), new Float32Array([.274,.272,.37]));
+            // }else if(type.value == "stars") {
+            //     gl.uniform3fv(gl.getUniformLocation(program, "f1"), new Float32Array([0.565,-0.716,0.565]));
+            //     gl.uniform3fv(gl.getUniformLocation(program, "f2"), new Float32Array([-0.759, 0.627, -0.759]));
+            //     gl.uniform3fv(gl.getUniformLocation(program, "f3"), new Float32Array([0.565, -0.716,0.565]));
+            // }
+
+            gl.uniform1i(gl.getUniformLocation(program, "inverted"), inverted.checked);
+
+            if(type.value == "customgol") {
+                setglgolrules();
+            }else if(type.value == "conway") {
+                gl.uniform1fv(gl.getUniformLocation(program, "begin"), new Float32Array([3,-1,-1,-1,-1,-1,-1,-1,-1]));
+                gl.uniform1fv(gl.getUniformLocation(program, "stay"), new Float32Array([2,3,-1,-1,-1,-1,-1,-1,-1]));
+            }
+
+            gl?.uniform1f(gl.getUniformLocation(program, 'chromakeyweight'), ckw.children[1].value);
+            
+            //gl.uniform1i(gl.getUniformLocation(program, "colorchannel"), colorchannel);
+
+            setcolorchannel();
+
+            let res = gl.getUniformLocation(program, "iResolution");
+            gl.uniform2fv(res, new Float32Array([canvas.width, canvas.height]));
+
+            //gl.uniform1i(gl.getUniformLocation(program, "baw"), +!nbaw.checked);
+            //console.log(+!nbaw.checked);
+
+            //program 2
+
+            iChannel1 = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, iChannel1);
+
+            //console.log("wait");
+            await newTexture();
+            //console.log("await");
+
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, iChannel1);
+            gl.uniform1i(gl.getUniformLocation(program, "iChannel1"), 0);
+
+            iChannel0B = gl.createTexture();
+            gl.activeTexture(gl.TEXTURE2);
+            gl.bindTexture(gl.TEXTURE_2D, iChannel0B);
+            await newTexture();
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            gl.uniform1i(gl.getUniformLocation(program, "iChannel0B"), 2);
+            
+            fb2 = gl.createFramebuffer();
+            gl.bindFramebuffer(gl.FRAMEBUFFER, fb2);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, iChannel0B, 0);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+            iBadAppleFrame = gl.createTexture();
+            gl.activeTexture(gl.TEXTURE3);
+            gl.bindTexture(gl.TEXTURE_2D, iBadAppleFrame);
+            console.log(frames[0]);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bav);//frames[0]);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); //TWAS linear
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            gl.uniform1i(gl.getUniformLocation(program, "iBadAppleFrame"), 3);
+
+            console.log(rectVBO, pAL, res); //for some reason expected memory addresses but this is just JS :joy:
+
+            gl.useProgram(program2);
+            
+            gl.uniform1i(gl.getUniformLocation(program2, "iChannel0B"), 2);
+
+            for(let i = 0; i < type.children.length; i++) {
+                if(type.children[i].value == type.value) {
+                    console.log(type.value, i);
+                    gl.uniform1i(gl.getUniformLocation(program2, "type"), i);
+                    break;
+                }
+            }
+
+            gl.uniform1i(gl.getUniformLocation(program2, "iBadAppleFrame"), 3);
+            gl.uniform1i(gl.getUniformLocation(program2, "cinherit"), cinherit.checked);
+            
+
+            //BAFB = gl.createFramebuffer();
+            //gl.bindFramebuffer(gl.FRAMEBUFFER, BAFB);
+            //gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT2, gl.TEXTURE_2D, iBadAppleFrame, 0);
+            //gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+            gl.uniform2fv(gl.getUniformLocation(program2, "iResolution"), new Float32Array([canvas.width, canvas.height]));
+            //gl.uniform1i(gl.getUniformLocation(program2, "bSize"), 1);
+            //gl.uniform1f(gl.getUniformLocation(program2, "filtah"), 1);
+            //gl.uniform1f(gl.getUniformLocation(program2, "weight"), 9);
+            gl.useProgram(program); //already using
+            //gl triangled??S
+            //gl.bindTexture(gl.TEXTURE_2D, null);
+            //gl.viewport(0, 0, 240, 180);
+
+            gl.drawArrays(gl.TRIANGLE_FAN, 0, 4); //4 verts
+
+            //gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+
+            //gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+            render2(0);
+
+        }
+
+        let i = 0;
+        //let lastFrameTime = 0;
+
+        function updateTexture() {
+            const level = 0;
+            const internalFormat = gl.RGBA;
+            const srcFormat = gl.RGBA;
+            const srcType = gl.UNSIGNED_BYTE;
+            gl.activeTexture(gl.TEXTURE3);
+            gl.bindTexture(gl.TEXTURE_2D, iBadAppleFrame);
+            gl.texImage2D(
+                gl.TEXTURE_2D,
+                level,
+                internalFormat,
+                srcFormat,
+                srcType,
+                bav
+            );
+            //gl.bindTexture(gl.TEXTURE_2D, null);
+        }
+
+        function render2(time) {
+            //if(Date.now() - lastFrameTime > (1000/30)) {
+            //if(time/1000 % .25 < .01) {
+                //console.log("goe");
+                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+            //gl.useProgram(program2);
+
+            gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+
+            //gl.activeTexture(gl.TEXTURE3);
+            //gl.bindTexture(gl.TEXTURE_2D, iBadAppleFrame);
+            //gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, frames[i]);
+            //gl.activeTexture(gl.TEXTURE2);
+
+            //gl.uniform1i(gl.getUniformLocation(program2, "iChannel0"), 3); //aw damn this is program ONE
+            //gl.uniform1i(gl.getUniformLocation(program2, "iChannel0B"), 2);
+
+            //gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+            gl.useProgram(program);
+
+            gl.uniform1f(gl.getUniformLocation(program, 'chromakeyweight'), ckw.children[1].value);
+
+            updateTexture();
+
+            //gl.activeTexture(gl.TEXTURE3);
+            //gl.bindTexture(gl.TEXTURE_2D, iBadAppleFrame);
+            //gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, frames[i]);
+            
+            //gl.uniform1i(gl.getUniformLocation(program, "iBadAppleFrame"), 3); (not required because it is set earlier)
+
+            //gl.uniform1i(gl.getUniformLocation(program, "iChannel0B"), 2);//i % 2 == 0 ? 2 : 3); (also set earlier)
+            gl.uniform1f(gl.getUniformLocation(program, "iTime"), time/1000);
+
+            gl.drawArrays(gl.TRIANGLE_FAN, 0, 4); //4 verts
+
+            gl.activeTexture(gl.TEXTURE2);
+            gl.bindTexture(gl.TEXTURE_2D,iChannel0B);
+            gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, canvas.width, canvas.height, 0);
+
+            //if(nbaw.checked) { //not black and white
+                gl.useProgram(program2);
+
+                gl.uniform1i(gl.getUniformLocation(program2, "colored"), nbaw.checked);
+
+                gl.uniform1i(gl.getUniformLocation(program2, "blending"), blending.checked);
+                gl.uniform1f(gl.getUniformLocation(program2, "blendingmin"), bm.children[1].value);
+
+                gl.uniform1i(gl.getUniformLocation(program2, "cinherit"), cinherit.checked);
+
+                //if(type.value == "customnca" || type.value == "customgol") {
+                    gl.uniform3fv(gl.getUniformLocation(program2, "customcolor"), new Float32Array(hexToRgb(coloor.value)));
+                //}
+
+                //gl.uniform1i(gl.getUniformLocation(program2, "iBadAppleFrame"), 3); //probably only need to do this once (moved to setup)
+
+                gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+                gl.useProgram(program);
+            //}
+
+            //gl.useProgram(program2);
+
+            //gl.uniform1i(gl.getUniformLocation(program2, "iChannel0B"), 2);
+
+            //gl.uniform1i(gl.getUniformLocation(program2, "bSize"), bSize.value);
+            //gl.uniform1f(gl.getUniformLocation(program2, "filtah"), filtah.value);
+            //gl.uniform1f(gl.getUniformLocation(program2, "weight"), weight.value);
+
+            //gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+            //gl.useProgram(program);
+
+            //gl.drawArrays(gl.TRIANGLE_FAN, 0, 4); //4 verts
+            
+            /*gl.bindFramebuffer(gl.FRAMEBUFFER, fb);//i % 2 == 0 ? fb : fboob);
+
+            gl.viewport(0, 0, 240, 180);
+
+            //gl.useProgram(program2);
+
+            //gl.uniform2fv(gl.getUniformLocation(program2, "iResolution"), new Float32Array([canvas.width, canvas.height]));
+
+            //gl.bindTexture(gl.TEXTURE_2D, iChannel0);
+
+            //gl.activeTexture(gl.TEXTURE1);
+            //gl.bindTexture(gl.TEXTURE_2D, fb);
+
+            //gl.viewport(0, 0, 
+            //    gl.drawingBufferWidth, gl.drawingBufferHeight);
+
+            //gl.uniform1i(gl.getUniformLocation(program2, "iChannel0"), 1);
+
+            gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+            gl.useProgram(program2);
+
+            //if(i % 2 == 0) {
+//
+            //gl.bindFramebuffer(gl.FRAMEBUFFER, fboob);
+//
+            //gl.uniform1i(gl.getUniformLocation(program2, "iChannel0"), 1);
+//
+            //gl.uniform2fv(gl.getUniformLocation(program2, "iResolution"), new Float32Array([canvas.width, canvas.height]));
+//
+            //gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+//
+            ////console.log("boob" + i + " " + i%2);
+//
+            //}else {
+                gl.bindFramebuffer(gl.FRAMEBUFFER, fb2);
+
+                gl.uniform1i(gl.getUniformLocation(program2, "iChannel0"), 1);//i % 2 == 0 ? 3 : 1);
+
+                gl.uniform2fv(gl.getUniformLocation(program2, "iResolution"), new Float32Array([canvas.width, canvas.height]));
+
+                gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+                //if(time > 1000) {
+                //    console.log(gl.checkFramebufferStatus(gl.FRAMEBUFFER) == gl.FRAMEBUFFER_COMPLETE);
+//
+                //    let pixelks = new Uint8Array(4 * canvas.width * canvas.height);
+                //    gl.readPixels(0,0,canvas.width,canvas.height,gl.RGBA, gl.UNSIGNED_BYTE, pixelks);
+                //    let context = canvas2.getContext('2d');
+                //    let ID = context.getImageData(0,0,canvas2.width,canvas2.height);
+                //    for(let i = 0; i < pixelks.length;i++) {
+                //        ID.data[i] = pixelks[i];
+                //    }
+                //    context.putImageData(ID, 0, 0);
+                //    //canvas2.getContext('2d').putImageData(new ImageData(pixelks, canvas.width, canvas.height, {colorSpace: "srgb"}), 0, 0);
+                //    
+                //    console.log(pixelks, ID.data);
+                //    return;
+                //}*/
+                
+
+
+                
+//console.log("fb2" + i + " " + i%2);
+            //}
+            //gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+            //gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+
+            //}
+            i++;
+            //lastFrameTime = Date.now();
+               // }
+            requestAnimationFrame(render2);
+
+        }
+
+        canvas.addEventListener("mousemove", function(event) {
+            //if(gl) {
+                if(event.buttons == 1 || event.buttons == 2) {
+                    let x = Math.round(event.clientX - canvas.getBoundingClientRect().left);
+                    let y = Math.round(event.clientY - canvas.getBoundingClientRect().top);
+                    //console.log(x/canvas.width,1-y/canvas.height);
+                    //HOLY MOLY IM A GENIUS THAT ?. OPERTOR IS CRAZY
+                    //GL IS UNDEFINED UNTIL YOU PRESS TART 
+                    gl?.uniform3fv(gl.getUniformLocation(program, "iMouse"), new Float32Array([x/canvas.width,1-y/canvas.height,1-(event.buttons-1)]));
+                }else {
+                    gl?.uniform3fv(gl.getUniformLocation(program, "iMouse"), new Float32Array([-1,-1,1]));
+                }
+            //}
+        });
+
+        canvas.addEventListener("touchmove", function(event) {
+            event.preventDefault();
+            //console.log(event.touches[0]);
+            let x = Math.round(event.touches[0].clientX - canvas.getBoundingClientRect().left);
+            let y = Math.round(event.touches[0].clientY - canvas.getBoundingClientRect().top);
+            //console.log(x/canvas.width,1-y/canvas.height);
+            gl?.uniform3fv(gl.getUniformLocation(program, "iMouse"), new Float32Array([x/canvas.width,1-y/canvas.height,1]));
+        });
+
+        function cleanup() {
+            gl.useProgram(null);
+            if (buffer) {
+                gl.deleteBuffer(buffer);
+            }
+            if (program) {
+                gl.deleteProgram(program);
+            }
+        }
+
+        function getRenderingContext() {
+            var canvas = document.querySelector("canvas");
+            canvas.width = canvas.clientWidth;
+            canvas.height = canvas.clientHeight;
+            var gl = canvas.getContext("webgl2"); 
+                //|| canvas.getContext("experimental-webgl");
+            if (!gl) {
+                var paragraph = document.querySelector("p");
+                paragraph.innerHTML = "Failed to get WebGL context."
+                + "Your browser or device may not support WebGL.";
+                return null;
+            }
+            gl.viewport(0, 0, 
+                gl.drawingBufferWidth, gl.drawingBufferHeight); //???he said canvas height and widrh
+            gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            return gl;
+        }
+    </script>
+</body>
+</html>
