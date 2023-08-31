@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>wegbl</title>
+    <style>
+        body {
+            text-align : center;
+        }
+        canvas {
+            display : block;
+            /*width : 280px;
+            height : 210px;*/
+            margin : auto;
+            padding : 0;
+            border : none;
+            background-color : black;
+            cursor: pointer;
+        }
+        button {
+            display : block;
+            font-size : inherit;
+            /*margin : auto;
+            padding : 0.6em;*/
+            cursor: pointer;
+        }
+        .bubble {
+            margin: auto;
+            padding: 0.6em;
+        }
+        button:hover, input[type="file"]:hover {
+            font-weight: bold;
+        }
+        button:active {
+            font-weight: initial; /*oh yeah digital gauges bebebeapabaobababababobopoop*/
+        }
+        label {
+            display: block;
+        }
+        button:disabled, input:disabled {
+            cursor: not-allowed;
+        }
+        input:not([type="text"], [type="number"]) {
+            cursor: pointer;
+        }
+        .filter-val {
+            width: 55px;
+            /*color: black;*/
+            text-align: center;
+            background-color: lightgrey;
+            border: 2px darkgray inset;
+            padding: 3px;
+            margin: 0;
+        }
+        table {
+            margin: auto;
+        }
+    </style>
+</head>
+<body>
+    <p>Hello World! Hello GLSL!</p>
+    <p>the controls are: <br>left click: draw<br>right click: erase<br>scroll: draw bigger/smaller<br>and press c to clear the screen</p>
+    
+    <canvas id="canvas" width="768" height="768" style="display: inline-block;" oncontextmenu="event.preventDefault()">Your browser does not seem to support 
+      htwml canvas (womp[ womp])</canvas>
+    <br>
+    <div id="customsgol" style="outline: 2px solid black; padding: .5em;">
+        <label>blur: </label><input type="range" min="0" max="100" oninput="this.parentElement.firstElementChild.innerHTML = `blur: ${this.value}%`" id="afloat">
+        <label>B:<input id="csgb" type="number" onchange="updateCARules();" value="3"></label>
+        <label>S:<input id="csgs" type="number" onchange="updateCARules();" value="23"></label>
+        <label><!--whole thang-->Rulestring:<input id="wth" onchange='csgb.value=this.value.split("/")[0].split("B")[1]; csgs.value=this.value.split("/")[1].split("S")[1]; updateCARules();'></label>
+    </div>
+
+    <script type="x-shader/x-vertex" id="vertex-shader">#version 300 es
+
+        precision mediump float;
+
+        in vec2 vertPosition;
+        //attribute vec2 res;
+
+        //uniform vec2 iResolution;
+
+        out vec4 fragColor;
+
+        void main() {
+          gl_Position = vec4(vertPosition, 0.0, 1.0);
+          //gl_PointSize = 32.0;
+        }
+    </script>
+    <script type="x-shader/x-fragment" id="gol-shader">#version 300 es
+        precision mediump float;
+
+        uniform vec2 iResolution;
+
+        uniform sampler2D iChannel1;
+        uniform sampler2D iChannel0B;
+        
+        uniform float iTime;
+        
+        float rand(float co) { return fract(sin(co*(91.3458)) * 47453.5453); }
+        float rand(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453); }
+
+        out vec4 fragColor;
+
+        uniform vec3 iMouse;
+
+        uniform int colorchannel;
+
+        uniform float begin[9];
+        uniform float stay[9];
+
+        uniform float mouseSize;
+
+        uniform bool clear;
+
+        void main() {
+            vec2 uv = gl_FragCoord.xy / iResolution.xy;
+            vec3 color = vec3(0.0, 0.0, 0.0);
+
+            if(clear) {
+                fragColor = vec4(color, 1.0);
+                return;
+            }
+
+            float sum = 0.0;
+    
+            for(int i = -1; i <= 1; i += 1)
+            {
+                for( int j = -1; j <= 1; j += 1)
+                {
+                    vec2 offset = vec2(i, j) / iResolution.xy;		 // Scale the offset down
+                    vec4 lookup = texture(iChannel0B, uv + offset); // Apply offset and sample
+                    sum += lookup.x; //* 1.06382979 //+.06;
+                }
+            }
+
+            float cell = texture(iChannel0B, uv).x;
+    
+            /*
+                Now we just need to apply the rules to calulate the state of the cell in this iteraton.
+                It's really simple: We have already initialized the cell of this iteration to 0,
+                We therefore just have to check if we need to change that by seeing whether the
+                conditions for being alive hold:
+                Cell alive and exactly 2 or 3 _other_ neighbors (3 or 4 in total)
+                OR
+                Cell dead and exactly 2 _other_ neighbors (3 in total)
+            */
+
+            if(cell > 0.0) {
+                if(sum == stay[0]+1.0 || sum == stay[1]+1.0 || sum == stay[2]+1.0 || sum == stay[3]+1.0 || sum == stay[4]+1.0 || sum == stay[5]+1.0 || sum == stay[6]+1.0 || sum == stay[7]+1.0 || sum == stay[8]+1.0) {
+                    color = vec3(1.0);
+                }
+            } else if(sum == begin[0] || sum == begin[1] || sum == begin[2] || sum == begin[3] || sum == begin[4] || sum == begin[5] || sum == begin[6] || sum == begin[7] || sum == begin[8]) {
+                color = vec3(1.0);
+            }
+
+            if(distance(iMouse.xy, uv) < (iMouse.z == 0.0 ? .1*mouseSize : .05*mouseSize)) {
+                if(cell == 0.0 || iMouse.z == 0.0) {
+                    color = vec3(iMouse.z, rand(uv)/2.5, 0.0);
+                }
+            }
+
+            if(iTime < 1.0) {
+                color = vec3(rand(uv), rand(uv), rand(uv));
+            }
+            
+            fragColor = vec4(color, 1.0);    //vec4(color, 1.0);
+        }
+    </script>
+    <script type="x-shader/x-fragment" id="persistence-shader">#version 300 es
+        precision mediump float;
+
+        uniform vec2 iResolution;
+
+        uniform sampler2D lastFrame;
+        uniform sampler2D nextChannel;
+
+        out vec4 fragColor;
+
+        uniform float a;
+                
+        void main() {
+            vec2 uv = gl_FragCoord.xy / iResolution.xy;
+            //vec3 txt = texture(nextChannel, uv).xyz; //the black and white CA
+
+            
+            //nextChannel->sus;
+            
+            fragColor = vec4(mix(texture(nextChannel, uv).xyz, texture(lastFrame, uv).xyz, a), 1.0);
+        }
+    </script>
+    <img src="noise.png" id="image" style="display: none;">
+
+    <script>
+        window.addEventListener("load", setupWebGL, false);
+        
+        let gl;
+        let program, program2;
+
+        let rect = [
+            -1,1,
+            -1,-1,
+            1,-1,
+            1,1,
+        ];
+
+        function isPowerOf2(value) {
+            return (value & (value - 1)) === 0;
+        }
+
+        let newTexture = function(texture) {
+            return new Promise(function(resolve, reject) {
+                //let image = new Image();
+                //image.src = "./noise.png";//"someshit;"
+                //image.crossOrigin = "anonymous";
+                //image.onload = () => {
+                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+                    // WebGL1 has different requirements for power of 2 images
+                    // vs non power of 2 images so check if the image is a
+                    // power of 2 in both dimensions.
+                    if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
+                        // Yes, it's a power of 2. Generate mips.
+                        gl.generateMipmap(gl.TEXTURE_2D);
+                    } else {
+                        // No, it's not a power of 2. Turn off mips and set
+                        // wrapping to clamp to edge
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); //TWAS linear
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                    }
+                    
+                    resolve();
+                //}
+            });
+        }
+
+        let buffer, iChannel0, iChannel0B, iChannel1, FBO2;
+
+        let size = 1;
+
+        function rgbToHex(r, g, b) {
+            return "#" + (1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1);
+        }
+
+        function hexToRgb(hex) {
+            let result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? [
+                parseInt(result[1], 16)/255,
+                parseInt(result[2], 16)/255,
+                parseInt(result[3], 16)/255
+            ] : null;
+        }
+
+        function updateCARules() {
+            let begin = [];
+            let stay = [];
+            for(let i = 0; i < 9; i++) {
+                begin.push(csgb.value[i] ?? -1.0); //awesome i can finally use the Nullish coalescing operoator https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Nullish_coalescing
+            } //or ||
+            for(let i = 0; i < 9; i++) {
+                stay.push(csgs.value[i] ?? -1.0); 
+            }
+            console.log(new Float32Array(begin), new Float32Array(stay));
+            gl.uniform1fv(gl.getUniformLocation(program, "begin"), new Float32Array(begin));
+            gl.uniform1fv(gl.getUniformLocation(program, "stay"), new Float32Array(stay));
+            wth.value = `B${csgb.value}/S${csgs.value}`;
+        }
+
+        async function setupWebGL(evt) {
+            window.removeEventListener(evt.type, setupWebGL, false);
+            if (!(gl = getRenderingContext())) return;
+
+            //let activation;
+            
+
+            let source = document.querySelector("#vertex-shader").innerHTML;
+            const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+            gl.shaderSource(vertexShader, source);
+            gl.compileShader(vertexShader);
+            if(!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+                console.warn("vertex shader error\n", gl.getShaderInfoLog(vertexShader));
+            }
+
+            program = gl.createProgram();
+
+            source = document.querySelector(`#gol-shader`).innerHTML;
+            //console.log(source);
+            const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+            gl.shaderSource(fragmentShader, source);
+            gl.compileShader(fragmentShader);
+            if(!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+                console.warn(`conway's game of life shader thang error\n`, gl.getShaderInfoLog(fragmentShader));
+            }
+
+            source = document.querySelector("#persistence-shader").innerHTML; //i had a brain blast (when i woke up) and realized i could color it after i copied the texture
+            const colorShader = gl.createShader(gl.FRAGMENT_SHADER);
+            gl.shaderSource(colorShader, source);
+            gl.compileShader(colorShader);
+            if(!gl.getShaderParameter(colorShader, gl.COMPILE_STATUS)) {
+                console.warn("persistence shader error\n", gl.getShaderInfoLog(colorShader));
+            }
+
+            console.warn("shoyuld improve the error thing so it shows up on the screen nocap");
+
+            program2 = gl.createProgram();
+
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+
+            gl.attachShader(program2, vertexShader);
+            gl.attachShader(program2, colorShader);//bfShader);//nextFrameShader);
+            //gl.attachShader(program2, mfragmentShader);
+            gl.linkProgram(program2);
+
+            gl.detachShader(program, vertexShader);
+            gl.detachShader(program, fragmentShader);
+
+            gl.detachShader(program2, vertexShader);
+            gl.detachShader(program2, colorShader);//bfShader);//nextFrameShader);
+            //gl.detachShader(program2, mfragmentShader);
+
+            gl.deleteShader(vertexShader);
+            gl.deleteShader(fragmentShader);
+            gl.deleteShader(colorShader);//bfShader);//nextFrameShader);
+            //gl.deleteShader(mfragmentShader);
+
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                const linkErrLog = gl.getProgramInfoLog(program);
+                cleanup();
+                document.querySelector(
+                "p"
+                ).textContent = `Shader program did not link successfully. Error log: ${linkErrLog}`;
+                return;
+            }
+
+            if (!gl.getProgramParameter(program2, gl.LINK_STATUS)) {
+                const linkErrLog = gl.getProgramInfoLog(program2);
+                cleanup();
+                document.querySelector(
+                "p"
+                ).textContent = `Shader program2 did not link successfully. Error log: ${linkErrLog}`;
+                return;
+            }
+
+            //initializeAttributes();
+            
+            let rectVBO = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, rectVBO);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(rect), gl.STATIC_DRAW);
+
+            let pAL = gl.getAttribLocation(program, 'vertPosition'); 
+            gl.vertexAttribPointer(pAL, 2, gl.FLOAT, gl.FALSE, 2 * Float32Array.BYTES_PER_ELEMENT, 0);
+            gl.enableVertexAttribArray(pAL);
+
+            let pAL2 = gl.getAttribLocation(program2, 'vertPosition'); 
+            gl.vertexAttribPointer(pAL2, 2, gl.FLOAT, gl.FALSE, 2 * Float32Array.BYTES_PER_ELEMENT, 0);
+            gl.enableVertexAttribArray(pAL2);
+            
+            gl.useProgram(program);
+
+            updateCARules();
+
+            gl.uniform1f(gl.getUniformLocation(program, "mouseSize"), size);
+
+            let res = gl.getUniformLocation(program, "iResolution");
+            gl.uniform2fv(res, new Float32Array([canvas.width, canvas.height]));
+
+            //program 2
+
+            iChannel1 = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, iChannel1);
+
+            //console.log("wait");
+            await newTexture();
+            //console.log("await");
+
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, iChannel1);
+            gl.uniform1i(gl.getUniformLocation(program, "iChannel1"), 0);
+
+            iChannel0B = gl.createTexture();
+            gl.activeTexture(gl.TEXTURE2);
+            gl.bindTexture(gl.TEXTURE_2D, iChannel0B);
+            await newTexture();
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            gl.uniform1i(gl.getUniformLocation(program, "iChannel0B"), 2);
+            
+            console.log(rectVBO, pAL, res); //for some reason expected memory addresses but this is just JS :joy:
+
+            gl.useProgram(program2);
+
+            FBO2 = gl.createTexture();
+            gl.activeTexture(gl.TEXTURE3);
+            gl.bindTexture(gl.TEXTURE_2D, FBO2);
+            await newTexture();
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            
+            gl.uniform1i(gl.getUniformLocation(program2, "lastFrame"), 3);
+            gl.uniform1i(gl.getUniformLocation(program2, "nextChannel"), 2);
+
+            gl.uniform2fv(gl.getUniformLocation(program2, "iResolution"), new Float32Array([canvas.width, canvas.height]));
+
+            gl.useProgram(program); //already using
+            //gl triangled??S
+            //gl.bindTexture(gl.TEXTURE_2D, null);
+            //gl.viewport(0, 0, 240, 180);
+
+            gl.drawArrays(gl.TRIANGLE_FAN, 0, 4); //4 verts
+
+            //gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+
+            //gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+            render2(0);
+
+        }
+
+        let i = 0;
+
+        function render2(time) {
+            //if(time/1000 % .25 < .01) {
+                //console.log("goe");
+                //gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+            //gl.useProgram(program2);
+
+            gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+
+            //gl.activeTexture(gl.TEXTURE3);
+            //gl.bindTexture(gl.TEXTURE_2D, iBadAppleFrame);
+            //gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, frames[i]);
+            //gl.activeTexture(gl.TEXTURE2);
+
+            //gl.uniform1i(gl.getUniformLocation(program2, "iChannel0"), 3); //aw damn this is program ONE
+            //gl.uniform1i(gl.getUniformLocation(program2, "iChannel0B"), 2);
+
+            //gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+            gl.useProgram(program);
+
+            //gl.activeTexture(gl.TEXTURE3);
+            //gl.bindTexture(gl.TEXTURE_2D, iBadAppleFrame);
+            //gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, frames[i]);
+            
+            //gl.uniform1i(gl.getUniformLocation(program, "iBadAppleFrame"), 3); (not required because it is set earlier)
+
+            //gl.uniform1i(gl.getUniformLocation(program, "iChannel0B"), 2);//i % 2 == 0 ? 2 : 3); (also set earlier)
+            gl.uniform1f(gl.getUniformLocation(program, "iTime"), time/1000);
+
+            gl.drawArrays(gl.TRIANGLE_FAN, 0, 4); //4 verts
+
+            gl.activeTexture(gl.TEXTURE2);
+            gl.bindTexture(gl.TEXTURE_2D,iChannel0B);
+            gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, canvas.width, canvas.height, 0);
+
+                gl.useProgram(program2);
+                
+                //gl.uniform3fv(gl.getUniformLocation(program2, "customcolor"), new Float32Array(hexToRgb(coloor.value)));
+                //if(i % 2 == 0) {
+                    gl.uniform1i(gl.getUniformLocation(program2, "lastFrame"), 3);
+                    gl.uniform1i(gl.getUniformLocation(program2, "nextChannel"), 2);
+                //}else {
+                    //gl.uniform1i(gl.getUniformLocation(program2, "lastFrame"), 2);
+                    //gl.uniform1i(gl.getUniformLocation(program2, "nextChannel"), 3);
+                //}
+                gl.uniform1f(gl.getUniformLocation(program2, "a"), afloat.value/100);
+
+                //gl.uniform1i(gl.getUniformLocation(program2, "iBadAppleFrame"), 3); //probably only need to do this once (moved to setup)
+
+                gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+                    //honestly i can't believe this actually works i really thought i was gonna have to break the bank for this to work
+
+                gl.activeTexture(gl.TEXTURE3);
+                gl.bindTexture(gl.TEXTURE_2D,FBO2);
+                gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, canvas.width, canvas.height, 0);
+
+                gl.useProgram(program);
+            
+            i++;
+
+            requestAnimationFrame(render2);
+
+        }
+
+        canvas.addEventListener("mousemove", function(event) {
+            //if(gl) {
+                if(event.buttons == 1 || event.buttons == 2) {
+                    let x = Math.round(event.clientX - canvas.getBoundingClientRect().left);
+                    let y = Math.round(event.clientY - canvas.getBoundingClientRect().top);
+                    //console.log(x/canvas.width,1-y/canvas.height);
+                    //HOLY MOLY IM A GENIUS THAT ?. OPERTOR IS CRAZY
+                    //GL IS UNDEFINED UNTIL YOU PRESS TART 
+                    gl?.uniform3fv(gl.getUniformLocation(program, "iMouse"), new Float32Array([x/canvas.width,1-y/canvas.height,1-(event.buttons-1)]));
+                }else {
+                    gl?.uniform3fv(gl.getUniformLocation(program, "iMouse"), new Float32Array([-1,-1,1]));
+                }
+            //}
+        });
+
+        canvas.addEventListener("touchmove", function(event) {
+            event.preventDefault();
+            //console.log(event.touches[0]);
+            let x = Math.round(event.touches[0].clientX - canvas.getBoundingClientRect().left);
+            let y = Math.round(event.touches[0].clientY - canvas.getBoundingClientRect().top);
+            //console.log(x/canvas.width,1-y/canvas.height);
+            gl?.uniform3fv(gl.getUniformLocation(program, "iMouse"), new Float32Array([x/canvas.width,1-y/canvas.height,1]));
+        });
+
+        addEventListener("keydown", function(event) {
+            if(event.key == "c") {
+                gl.uniform1i(gl.getUniformLocation(program, "clear"), true);
+            }
+        });
+
+        addEventListener("keyup", function(event) {
+            if(event.key == "c") {
+                gl.uniform1i(gl.getUniformLocation(program, "clear"), false);
+            }
+        });
+
+        canvas.addEventListener("mousedown", function(event) {
+            if(event.buttons == 1 || event.buttons == 2) {
+                    let x = Math.round(event.clientX - canvas.getBoundingClientRect().left);
+                    let y = Math.round(event.clientY - canvas.getBoundingClientRect().top);
+                    //console.log(x/canvas.width,1-y/canvas.height);
+                    //HOLY MOLY IM A GENIUS THAT ?. OPERTOR IS CRAZY
+                    //GL IS UNDEFINED UNTIL YOU PRESS TART 
+                    gl?.uniform3fv(gl.getUniformLocation(program, "iMouse"), new Float32Array([x/canvas.width,1-y/canvas.height,1-(event.buttons-1)]));
+                }else {
+                    gl?.uniform3fv(gl.getUniformLocation(program, "iMouse"), new Float32Array([-1,-1,1]));
+                }
+        });
+
+        canvas.addEventListener("mouseup", function(event) {
+            gl?.uniform3fv(gl.getUniformLocation(program, "iMouse"), new Float32Array([-1,-1,1]));
+        });
+
+        canvas.addEventListener("wheel", function(event) {
+            event.preventDefault();
+            size += -event.deltaY/1000;
+            gl.uniform1f(gl.getUniformLocation(program, "mouseSize"), size);
+            //console.log(size);
+        });
+
+        function cleanup() {
+            gl.useProgram(null);
+            if (buffer) {
+                gl.deleteBuffer(buffer);
+            }
+            if (program) {
+                gl.deleteProgram(program);
+            }
+            if (program2) {
+                gl.deleteProgram(program2);
+            }
+        }
+
+        function getRenderingContext() {
+            var canvas = document.querySelector("canvas");
+            canvas.width = canvas.clientWidth;
+            canvas.height = canvas.clientHeight;
+            var gl = canvas.getContext("webgl2"); 
+                //|| canvas.getContext("experimental-webgl");
+            if (!gl) {
+                var paragraph = document.querySelector("p");
+                paragraph.innerHTML = "Failed to get WebGL context."
+                + "Your browser or device may not support WebGL.";
+                return null;
+            }
+            gl.viewport(0, 0, 
+                gl.drawingBufferWidth, gl.drawingBufferHeight); //???he said canvas height and widrh
+            gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            return gl;
+        }
+    </script>
+</body>
+</html>

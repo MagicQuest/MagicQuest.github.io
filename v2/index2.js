@@ -202,7 +202,7 @@ await new Promise((good, bad) => {
             window.gol.scale.set(.05, .05, .05);
             window.gol.rotation.set(0,Math.PI/2,0);
             window.gol.interact = () => {
-                window.gol.material.emissive = new THREE.Color(0xfff); //not sure why i thought this was white lilol
+                window.gol.material.emissive = new THREE.Color(0xfff); //not sure why i thought this was white lilol (well ok sometimes you can have like a 3 number thang)
                 setTimeout(()=> {
                     document.location.href = "https://magicquest.github.io/ca";
                 },5000);
@@ -551,7 +551,7 @@ function animate(time) {
         wallFolder.add(wip.position, 'z', -10, 10);
         //wallFolder.open();
 
-        const cubeFolder = gui.addFolder("Cube (b2d icon)");
+        const cubeFolder = gui.addFolder("Cube (b2d icon)"); //box2d
         cubeFolder.add(cube.position, 'x', -10, 10);
         cubeFolder.add(cube.position, 'y', -10, 10);
         cubeFolder.add(cube.position, 'z', -10, 10);

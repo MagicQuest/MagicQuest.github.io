@@ -1,0 +1,1374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>chaosma WEBGPU</title>
+    <style>
+        input[type="checkbox"], button, input[type="range"] {
+            cursor: pointer;
+        }
+        button:hover {
+            font-weight: bold;
+        }
+        button:disabled {
+            cursor: not-allowed;
+            font-weight: initial;
+        }
+
+        #animspeed {
+            position: relative;
+            --speed: "1.0";
+        }
+        #animspeed::before {
+            content: 'animation speed: ' var(--speed); /*boo attr is not working with value for some reason*/
+            position: absolute;
+            display: block;
+            /*left: 50%;
+            transform: translateX(-50%);*/
+            text-align: center;
+            width: 100%;
+            bottom: -10px;
+        }
+        kbd {
+            background-color: rgb(200,200,200);
+            border: 1px solid black;
+            border-radius: 5px;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+
+        #scrubberdiv {
+            position: absolute;
+            bottom: 10%;
+            width: 75%;
+            /*height: 60px;*/
+            /* background-color: grey; */
+            left: 0;
+            right: 0;
+            margin: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #scrubberdiv>div>div>button {
+            /*padding: 10px;
+            margin-right: 10px;*/
+            font-size: 1em;
+        }
+    </style>
+    <script src="chaosmarandoms.js"></script>
+</head>
+<body>
+    <!--button style="width: 500px; height: 500px; z-index: 100; cursor: pointer; position: absolute; inset: 0; margin: auto;" onclick="/*start();*/ document.body.removeChild(this); window.renderer = (new Renderer()); renderer.init();">start bitch nigga</button-->
+    <canvas id="canvas" style="position: absolute; inset: 0; margin: auto; outline: 1px dotted violet; z-index: -3;">help i keep hiccuping</canvas>
+    <div style="position: absolute; top: 10px; left: 10px; background-color: rgba(255,255,255,.9); padding: 5px; border: 1px solid rgba(0,0,0,.25);">
+        <!--label>blue strength</label><input type="number" value=".5" id="bs"><br>
+        <label>red strength</label><input type="number" value=".5" id="rs"><br>
+        <label>yellow strength</label><input type="number" value=".5" id="ys"><br-->
+        <label title="weirdly the higher the resolution = lower quality (kinda like glsl_sandbox)">resolution: </label><input type="number" value="1" onchange="renderer.ready && (!renderer.reset() && renderer.render())" id="res" min="1" style="width: 50px;" title="weirdly the higher the resolution = lower quality (kinda like glsl_sandbox)"><br>
+        <label title="amount of calculations it takes before it gives up (stops it from crashing when magnets are too close)">cutoff: </label><input type="number" onchange="animtimeline.max = this.value;" value="10000" id="cutoff" min="0" max="100000" style="width: 100px;" title="amount of calculations it takes before it gives up (stops it from crashing when magnets are too close)"><br>
+        <label title="brightness based on amount of calculations">brightness based on time</label><input type="checkbox" oninput="renderer.bbot = this.checked; this.checked ? bbotcalcdom.style.display='block' : bbotcalcdom.style.display='none'; renderer.ready && renderer.render();" id="bbot" title="brightness based on amount of calculations / 2000 because thats a good enough number"><br>
+        <label id="bbotcalcdom" style="display: none; white-space: pre;" title="this value / each pixel's number of calculuations = brightness"> — pixels are black when time (calculations) &gt; <input oninput="renderer.ready && renderer.render();" type="number" value="1000" id="bbotcalc" min="0" style="width: 100px;"></label>
+        <label title="balls that go offscreen loop around to the other side">balls loop around<input type="checkbox" oninput="renderer.ballzloop = this.checked; renderer.ready && (!renderer.reset() && renderer.render()); //NO WAY EXECUTING TWO FUNCTIONS INLINE IS CRAZY" id="ballzloop"></label><br>
+
+        <p style="display: inline; font-weight: bold;">hover on these thangs for more info</p><br>
+
+                <!--yo this gone clear yo magnets if you choose sumn watch out (title attrib)-->
+        <label title="changing the preset during the animation will break if the preset with more magnets than before">random magnet presets:</label>
+        <select onchange="setpreset()" id="rnadompreset" title="changing the preset during the animation will break if the preset with more magnets than before">
+            <option value="" selected>none</option>
+            <option value="rmgl">(6) random magnets lol</option>
+            <option value="bh">(3) probably could be a black hole with the right colors</option>
+            <option value="wp">(3) weird patterns<!--deepest sword gameplay (using tailwind css for this stylization)--></option>
+            <option value="sixs">(9) 6 sided</option>
+            <option value="cirqul">(3) circular pixelz</option>
+            <option value="cirquads">(7) circular pixels + 4 magnets</option>
+            <option value="quatris">(7) default + 4 magnets (looks better with resolution &lt;= 5)</option>
+            <option value="scp">(9) strange checkered pattern (just remembered i could change strength)</option>
+            <option value="ncm">(3) negative center magnet (works good with ball loop around on)</option>
+        </select>
+        <br>
+        <!--button id="animationdom" onclick="scrubberdiv.display = ''; renderer.animate();//this.disabled = true; renderer.animate(function() {animationdom.disabled = false;});">play as animation!</button-->
+        
+        <!--button id="animationdom" onclick="this.disabled = true; stopanimationdom.disabled = false; renderer.animate(function() {animationdom.disabled = false;});//(async function() { await renderer.animate(); this.disabled = false;})();">play as animation!</button>
+        <input type="range" id="animspeed" value="1" max="25"  step="1" oninput="this.style.setProperty('--speed', `'${this.value}'`)"> <!--was gonna say the before element was pointless and just for show but input elements CAN'T have children-->
+        <!--button disabled id="stopanimationdom" onclick="this.disabled = true; renderer.cancelAnimation();">stop animation</button-->
+    </div>
+    <div style="position: absolute; inset: 0; margin: auto; width: 400px; display: table; text-align: center; background-color: gainsboro; border-radius: 10px; padding: 10px; z-index: -2; box-shadow: rgba(127,127,127,.9) 3px 3px 0px 0px;">
+        <h1 style="margin: .5em;">ready!~</h1>
+        <p>controls: </p>
+        <p><kbd>click + drag</kbd> the magnets (outlined in white<sup>[1]</sup>) to move them</p>
+        <p><kbd>shift + click</kbd> to place a new magnet</p>
+        <p><kbd>drag + delete</kbd> removes the selected magnet</p>
+        <p>1. magnet outlines are based on strength if <span style="background-color: white">strength > 0.0<br> the outline will be white</span> <span style="background-color: black; color: white;">but if strength is negative the outline will be the magnet's opposite color</span></p>
+        <!--table>
+            <thead>
+                <tr>
+                    <th>
+                        Controls
+                    </th>
+                    <th>
+                        Description
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <kbd>click + drag</kbd>
+                    </td>
+                    <td>
+                        the magnets (outlined in white) to move them
+                    </td>
+                </tr>
+            </tbody>
+        </table-->
+        <button onclick="this.disabled = true; window.renderer = new Renderer(); renderer.init();" style="margin: .5em; position: relative; background-color: rgba(0,0,0,0); border: 1px black solid; padding: .6em; width: 200px; border-radius: 3px;">start!<div id="start" style="position: absolute; top: 0; left: 0; width: 0%; background-color: rgb(0,200,0); height: 100%; z-index: -1;"></div></button>
+    </div>
+    <center style="position: absolute; left: 50%; top: 10px; transform: translateX(-50%); /*i could've just did left+right: 0, margin: auto*/">
+        <h1 id="time">0.00 seconds</h1>
+    </center>
+    <!--it's not my code if there is NO inline styles but this is actually taking the cake-->
+    <div style="display: none; position: absolute; bottom: 10%; left: 0; right: 0; margin: auto; width: 500px; text-align: center; background-color: rgb(200,200,200); outline: 10px solid rgba(100,100,100,.5);">
+        <h1 style="margin: 0; font-size: 1.5em; position: relative; z-index: 2; font-family: monospace;">loading: 0%</h1>
+        <div id="loader" style="position: absolute; top: 0; left: 0; width: 0%; height: 100%; background-color: rgb(0,200,0); z-index: 1;"></div>
+    </div>
+    <div id="lost" style="display: none; position: absolute; inset: 0; border-radius: 10px; border: 1px solid black; margin: auto; width: 500px; height: 500px; text-align: center; background-color: rgb(200,200,0); box-shadow: rgba(127,127,127,.9) 3px 3px 0px 0px;">
+        <h1 style="margin-top: 50%; transform: translateY(-50%);">i dunno how to say this but we "<span style="color: red;">lost</span>" your [[<kbd>GPUDevice</kbd>]] so you <bold>GOTTA</bold> [[<button onclick="document.location.reload();" style="font-size: 1em;">refresh the page</button>]] 😭</h1>
+    </div>
+    <!--suprisingly no inline styles this time!-->
+    <div id="scrubberdiv" style=" background-color: rgba(0,0,0,.5);">
+        <input type="range" id="animspeed" style="color: white; align-self: center; margin-bottom: 10px;" value="1" max="25"  step="1" oninput="this.style.setProperty('--speed', `'${this.value}'`);"> <!--was gonna say the before element was pointless and just for show but input elements CAN'T have children-->
+        <!--div style="display: flex;">
+            <h1 style="margin: 0;">Frame: 0</h1>
+            <div style="display: flex; margin: auto;">
+                <button>|&lt;&lt;</button>
+                <button>▶</button>
+                <button>&gt;&gt;|</button>
+            </div>
+        </div-->
+        <!--div style="display: flex; margin: auto;">
+            <button>|&lt;&lt;</button>
+            <button>▶</button>
+            <button>&gt;&gt;|</button>
+        </div-->
+        <div style="display: grid; grid-template-columns: 1fr 1fr;">
+            <h2 style="margin: 0; color: white;" id="animframedom">Frame: 0</h2>
+            <div style="display: flex;width: 110px;transform: translateX(-50%);"> <!--i should probably find a better technique for this but i mean it works-->
+                <button onclick="renderer.animateFrame = 1;">|&lt;&lt;</button>
+                <button id="playstatus" onclick="if(this.innerHTML == '▶') {this.innerHTML = '| |'; !renderer.cancelAnimation && renderer.animate(function() {playstatus.innerHTML = '▶'; /*USED DOUBLE ==*/ console.log('STOP IT JAYDEN HELLLLLP')},+animtimeline.value);}else {this.innerHTML = '▶'; renderer.cancelAnimation(+animtimeline.value);}">▶</button>
+                <button onclick="renderer.animateFrame = cutoff.value;">&gt;&gt;|</button>
+            </div>
+        </div>
+        <!--div style="display: grid; grid-template-columns: 1fr 1fr;">
+            <h1 style="margin: 0">choral</h1>
+            <div style="display: flex;width: 175px;transform: translateX(-50%);">
+                <button>SUS</button>
+                <button>BITCH</button>
+                <button>LOL(CAT)</button>
+            </div>
+        </div-->
+        <input type="range" style="width: 100%; background-color: rgba(255,255,255,.9);" id="animtimeline" value="0" max="10000" oninput="animframedom.innerHTML = 'Frame: '+this.value; console.log('input'); renderer.animateFrame=+this.value; if(!renderer.cancelAnimation) {renderer.ready && renderer.render();}" onmousedown="this.ps = playstatus.innerHTML == '| |';renderer.cancelAnimation?.(); /*i did NOT know this was valid and i just tried it*/" onmouseup="console.log('NIGGER'); if(this.ps) {playstatus.innerHTML = '| |';renderer.animate(()=>{animframedom.parentElement.lastElementChild.children[1].innerHTML = '▶'},+animtimeline.value)};">
+    </div>
+    <script>
+        loader.addLoad = function(incr) {
+            //console.log(this);
+            this.parentElement.style.display = "block";
+            let prev = this.parentElement.firstElementChild.innerHTML.match(/[0-9]+/g)[0]; //wow regex is actually insane
+            let val = Math.min(Number(prev)+incr, 100);
+            this.parentElement.firstElementChild.innerHTML = `loading: ${val}%`;
+            this.style.width = `${val}%`;
+        }
+        loader.hide = function() {
+            if(this.parentElement.style.display != "none") {
+                this.parentElement.style.display = "none";
+                this.parentElement.firstElementChild.innerHTML = "0%";
+                this.style.width = "0%";
+            }
+        }
+
+        const width = innerWidth;
+        const height = innerHeight;
+        let canvas = document.querySelector("#canvas");
+        let context = canvas.getContext('webgpu');
+        canvas.width=  width;
+        canvas.height= height;
+
+        //console.warn("aw man i put all this and im starting to realize i really should have made all this one Object (class)"); //lol idk if that really did anything
+        //RAY TRACING IS CRTAZY https://webgpu.github.io/webgpu-samples/samples/cornell
+        console.warn("also ALL the boilerplate code is from https://github.com/amengede/webgpu-for-beginners/blob/main/20%20Raytracing%20Triangles/finished/src/renderer.ts")
+        console.warn("also i GOTTA change the play animation buttons to a giant video scrubber that has pause and skip buttons!");
+
+        let magnets = [{strength: .5, position:{x: width/2.5, y: height/1.5}, color: {x: 1.0, y: 0.5, z: 0.0}}, {strength: .5, position:{x: width/2.5, y: height/3}, color: {x: 1.0, y: 0.0, z: 1.0}}, {strength: .5, position:{x: width/1.5, y: height/2}, color: {x: 0.0, y: 0.0, z: 1.0}}];
+        let balls = [];//[{position: {x: 0, y: 0}, velocity: {x: 0, y: 0}, colored: -1, tick: 0}];
+
+        /*let magnets = [
+    {
+        "strength": 0.5,
+        "position": {
+            "x": 568,
+            "y": 243
+        },
+        "color": {
+            "x": 1,
+            "y": 0.5,
+            "z": 0
+        }
+    },
+    {
+        "strength": -0.5,
+        "position": {
+            "x": 726,
+            "y": 472
+        },
+        "color": {
+            "x": 1,
+            "y": 0,
+            "z": 1
+        }
+    },
+    {
+        "strength": 0.5,
+        "position": {
+            "x": 1243.3333333333333,
+            "y": 462
+        },
+        "color": {
+            "x": 0,
+            "y": 0,
+            "z": 1
+        }
+    },
+    {
+        "position": {
+            "x": 541,
+            "y": 690
+        },
+        "strength": 0.5,
+        "color": {
+            "x": 0.33162238882157125,
+            "y": 0.13405443670854766,
+            "z": 0.3261883432087367
+        }
+    }
+]*/
+
+        function setpreset() {
+            loader.addLoad(25);
+            randoms(event);
+            magnets = [];
+            for(const magnet of points) {
+                d = document.createElement("div");
+                d.style.color = magnet.color;
+                document.body.appendChild(d);
+                let values = window.getComputedStyle(d).color;
+                document.body.removeChild(d);
+                
+                let [x, y, z] = values.match(/[0-9]+/g); //wow this regex stuff is good
+                x /= 255; //type coersion lowkey the goat because in python i would've had to say x = int(values.match) bla bla bla
+                y /= 255;
+                z /= 255;
+                console.log(magnet.color, values, `${x} ${y} ${z}`);
+                magnet.color = {x, y, z}; //gemus
+                magnets.push(magnet);
+            }
+            delete points; //chaosma and inst use points instead of magnets so i don't feel like chaning the whole thing i could just delete the variable after im done (i don't assign points using let or var so i can delete this)
+            console.log(renderer.ready);
+            setTimeout(() => {
+                if(!renderer.ready) {
+                    renderer.finished.push(() => {
+                        console.log("render finished!");
+                        renderer.updateMagnetSize();
+                        renderer.reset();
+                        renderer.render();
+                    });
+                }else {
+                    renderer.updateMagnetSize();
+                    renderer.reset();
+                    renderer.render();
+                }
+            }, 100);
+        }
+
+        class Renderer {
+            device; presentationFormat; //hmm i feel like if i used typescript like the raytracing guy did i'd feel better about this class
+            finished = [];
+            //magnetBuffers = [];
+
+            constructor() {
+                //return new Promise(async function(resolve, reject) {
+                    
+
+                    //resolve();
+                //});
+            }
+
+            async init() {
+                const adapter = await navigator.gpu?.requestAdapter();
+                this.device = await adapter?.requestDevice();
+                console.log(adapter, this.device);
+                if(!this.device) {
+                    //all this shit from https://webgpufundamentals.org/webgpu/lessons/webgpu-fundamentals.html
+                    document.body.innerHTML = "<h1>ok no lie your browser cannot do this webgpu stuff (or you may have to <a href='./webgpu3.html'>refresh the page</a> / restart chrome)<br>but if your using firefox you might have to enable it by going to (about:config) or (about:support) and checking <a href='https://stackoverflow.com/questions/73706354/how-to-try-webgpu-in-firefox-nightly-now-in-fall-of-2022#:~:text=To%20enable%20WebGPU%20in%20Firefox,webgpu.'>dom.webgpu.enabled</a></h1>";
+                    return; //reject();
+                }
+                this.device.lost.then(() => {
+                    lost.style.display = "block";
+                });
+                this.presentationFormat = navigator.gpu.getPreferredCanvasFormat();
+                context.configure({
+                    device: this.device, format: this.presentationFormat,
+                });
+                this.bbot = false;
+                this.ballzloop = false;
+                this.animateFrame = 0;
+                this.createAssets();
+                let i = 0;
+                //loading.innerHTML = "0%"
+                for(let x = 0; x < width; x++) {
+                    for(let y = 0; y < height; y++) {
+                        start.style.width = ((i/(width*height))*100) + "%";
+                        balls.push({position: {x: x, y: y}, velocity: {x: 0, y: 0}, colored: -1, tick: 0});
+                        i++;
+                    }
+                }
+                //loading.innerHTML = "100%";
+                this.registerCHAOSMA();
+                this.registerScreen();
+                //const [CHAOSMODULE, CHAOSPIPELINE, ballsBuffer/*, resBuffer*/, magnetLengthBuffer] = registerCHAOSMA();
+                //const [screenModule, screenPipeline, screenPassDescriptor] = registerScreen();
+                start.parentElement.parentElement.animate([{top: "0%"}, {top: "-100%"}], {duration: 100}).finished.then(() => {
+                    document.body.removeChild(start.parentElement.parentElement);
+                    this.ready && this.render();
+                });
+                this.ready = true;
+                canvas.addEventListener("mousedown", (event) => {
+                    mousePos = {x: (event.offsetX/*width*/), y: event.offsetY/*height*/};
+                    if(!event.shiftKey) {
+                        for(const magnet of magnets) {
+                            if(event.offsetX > magnet.position.x - 10 && event.offsetX < magnet.position.x + 10 && event.offsetY > magnet.position.y - 10 && event.offsetY < magnet.position.y + 10) {
+                                this.draggedMagnet = magnet; //REF!
+                                break;
+                            }
+                        }
+                        this.ready && this.render();
+                    }else {
+                        magnets.push({position: mousePos, strength: .5, color: {x: Math.random(), y: Math.random(), z: Math.random()}}); //suprisingly mousePos is not by ref
+                        if(!this.ready) {
+                            this.finished.push(() => {
+                                console.log("render finished!");
+                                this.updateMagnetSize();
+                                this.reset();
+                                this.render();
+                            });
+                        }else {
+                            this.updateMagnetSize();
+                            this.reset();
+                            this.render();
+                        }
+                    }
+                    console.log(mousePos);
+                });
+                canvas.addEventListener("mouseup", (event) => {
+                    if(this.draggedMagnet) {
+                        this.draggedMagnet = undefined;
+                        this.reset();
+                        //while(!this.ready) {} //NOT THE BUSY WATINGNI
+                        //realized a day later that i could use a callback!
+                        this.render();
+                    }
+                });
+                canvas.addEventListener("mousemove", (event) => {
+                    mousePos = {x: (event.offsetX/*width*/), y: event.offsetY/*height*/};
+                    let cursor = false;
+                    for(const magnet of magnets) {
+                        if(event.offsetX > magnet.position.x - 10 && event.offsetX < magnet.position.x + 10 && event.offsetY > magnet.position.y - 10 && event.offsetY < magnet.position.y + 10) {
+                            cursor = true;
+                        }
+                    }
+                    canvas.style.cursor = cursor ? "pointer" : "";
+                    
+                    if(this.draggedMagnet) {
+                        this.draggedMagnet.position.x = event.offsetX; //pretty cool how objects are passed by ref!
+                        this.draggedMagnet.position.y = event.offsetY;
+                        this.ready && this.render();
+                    }
+                });
+                canvas.addEventListener("wheel", (event) => {
+                    for(const magnet of magnets) {
+                        if(event.offsetX > magnet.position.x - 10 && event.offsetX < magnet.position.x + 10 && event.offsetY > magnet.position.y - 10 && event.offsetY < magnet.position.y + 10) {
+                            magnet.strength += -event.deltaY/200;
+                            this.ready && (!this.reset() && this.render());
+                            break;
+                        }
+                    }
+                });
+                addEventListener("keydown", (event) => {
+                    //console.log(event);
+                    if((event.key == "Delete" || event.key == "Backspace")) {
+                        if(this.draggedMagnet) {
+                            magnets.splice(magnets.indexOf(this.draggedMagnet), 1);
+                            this.draggedMagnet = undefined;
+                        }else {
+                            //console.log("no selected ", mousePos);
+                            for(let i in magnets) {
+                                const magnet = magnets[i];
+                                console.log(i, magnet);
+                                if(mousePos.x > magnet.position.x - 10 && mousePos.x < magnet.position.x + 10 && mousePos.y > magnet.position.y - 10 && mousePos.y < magnet.position.y + 10) {
+                                    //console.log("splice ", i);
+                                    magnets.splice(i, 1);
+                                    break;
+                                }
+                            }
+                        }
+                        if(!this.ready) {
+                            this.finished.push(() => {
+                                console.log("render finished!");
+                                this.updateMagnetSize();
+                                this.reset();
+                                this.render();
+                            });
+                        }else {
+                            this.updateMagnetSize();
+                            this.reset();
+                            this.render();
+                        }
+                    }
+                })
+            }
+
+            createAssets() {
+                this.colorbuffer = this.device.createTexture({
+                    size: {
+                        width: width,
+                        height: height
+                    },
+                    format: "rgba8unorm",
+                    usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING
+                });
+                this.colorbufferview = this.colorbuffer.createView();
+                const samplerDescripter = {
+                    addressModeU: "repeat",
+                    addressModeV: "repeat",
+                    magFilter: "linear",
+                    minFilter: "nearest",
+                    mipmapFilter: "nearest",
+                    maxAnisotropy: 1,
+                }
+                this.sampler = this.device.createSampler(samplerDescripter);
+            }
+
+            updateMagnetSize(customsize) {
+                this.magnetBufferSize = (4 + 3*4 + 2*4 + 6*4)*(customsize||magnets.length);//magnets.length;
+                console.log(this.ready, this.magnetBuffer);
+                if(this.magnetBuffer) {
+                    this.magnetBuffer.destroy(); //luckily i looked to see if you could destroy these buffers just in case memo leaks
+                    //this.magnetBuffers[0].destroy();
+                    //this.magnetBuffers.splice(0, 1);
+                    console.log("destroyed last magnet buffer");
+                }
+                this.magnetBuffer/*s[0]*/ = this.device.createBuffer({
+                    size: this.magnetBufferSize,
+                    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+                });
+
+                this.chaosBindGroup = this.device.createBindGroup({ //no destroy func for bindgroup
+                    layout: this.CHAOSPIPELINE.getBindGroupLayout(0),//chaosBindGroupLayout,
+                    entries: [
+                        {
+                            binding: 0,
+                            resource: this.colorbufferview
+                        },
+                        {
+                            binding: 1,
+                            resource: {buffer: this.ballsBuffer}
+                        },
+                        {
+                            binding: 2,
+                            resource: {buffer: this.magnetLengthBuffer}
+                        },
+                        {
+                            binding: 3,
+                            resource: {buffer: this.magnetBuffer}
+                        },
+                        {
+                            binding: 4,
+                            resource: {buffer: this.bbotBuffer}
+                        },
+                        {
+                            binding: 5,
+                            resource: {buffer: this.ballzloopBuffer}
+                        },
+                        {
+                            binding: 6,
+                            resource: {buffer: this.canvasBuffer}
+                        },
+                        {
+                            binding: 7,
+                            resource: {buffer: this.bbotCalcBuffer}
+                        },
+                        {
+                            binding: 8,
+                            resource: {buffer: this.cutoffBuffer}
+                        },
+                        {
+                            binding: 9,
+                            resource: {buffer: this.animateBuffer}
+                        },
+                        {
+                            binding: 10,
+                            resource: {buffer: this.resBuffer}
+                        }
+                    ]
+                });
+
+                //this.magnetBuffer = this.magnetBuffers[0];
+                console.log(this.magnetBuffer);
+                loader.addLoad(25);
+                //created new magnet buffer
+            }
+
+            registerCHAOSMA() {
+                this.CHAOSMODULE = this.device.createShaderModule({
+                    label: 'CHAOSMA',
+                    code: `
+                    struct Magnet {
+                        strength: f32,
+                        color: vec3f,
+                        position: vec2f,
+                    }
+
+                    struct Ball {
+                        position: vec2f,
+                        velocity: vec2f,
+                        colored: f32, //alright idk how to handle not using f32 so im not using i32 no more
+                        tick: f32,
+                    }
+
+                    @group(0) @binding(0) var color_buffer: texture_storage_2d<rgba8unorm, write>;
+                    //@group(0) @binding(1) var<storage> magnets : array<Magnet>;
+                    //@group(0) @binding(1) var<uniform> mouse : vec2f;
+                    @group(0) @binding(1) var<storage, read_write> balls : array<Ball>;
+                    @group(0) @binding(2) var<uniform> magnetLength : i32; //i was using float32arrays to set this value and since it's an i32 it might have been getting garbage values and almost crashed my gpu!
+                    @group(0) @binding(3) var<storage, read> magnets : array<Magnet>;
+                    @group(0) @binding(4) var<uniform> bbot : i32;
+                    @group(0) @binding(5) var<uniform> ballzloop : i32;
+                    @group(0) @binding(6) var<uniform> canvas : vec2f; //canvas width+height as x+y
+                    @group(0) @binding(7) var<uniform> bbotcalc : f32;
+                    @group(0) @binding(8) var<uniform> maxCutoff : i32;
+                    @group(0) @binding(9) var<uniform> animate : f32;
+                    @group(0) @binding(10) var<uniform> res : f32; //was gonna be an i32 but the math wasn't checking out and i would've had to do more float conversions
+
+                    fn getMagnitude(vec : vec2f) -> f32 {
+                        return sqrt(vec.x * vec.x + vec.y * vec.y); // had to make sure https://shinylasers.com/docs/wgsl/functions/sqrt
+                    }
+
+                    fn setMagnitude(vec : vec2f, newMag : f32) -> vec2f {
+                        let Mag : f32 = getMagnitude(vec);
+                        //temp : vec2f = vec2(vec.x * (newMag/Mag), vec.y * (newMag/Mag));
+                        //vec.x *= newMag / Mag; //prolly could combine but idk yet
+                        //vec.y *= newMag / Mag;
+                        return vec2(vec.x * (newMag/Mag), vec.y * (newMag/Mag));
+                    }
+
+                    fn dist(vec : vec2f, vec2 : vec2f) -> f32 {//yeah idk if they got a func like webgl
+                        return getMagnitude(vec2) - getMagnitude(vec);
+                    }
+
+                    @compute @workgroup_size(8,8,1)
+                    fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {                    
+                        let screen_size: vec2<i32> = vec2<i32>(textureDimensions(color_buffer));
+                        let screen_pos : vec2<i32> = vec2<i32>(i32(GlobalInvocationID.x), i32(GlobalInvocationID.y));
+
+                        let x : f32 = ((f32(screen_pos.x) - f32(screen_size.x) / canvas.x) / f32(screen_size.x))*canvas.x;
+                        let y : f32 = ((f32(screen_pos.y) - f32(screen_size.y) / canvas.y) / f32(screen_size.y))*canvas.y;
+                                                                                        //also for some reason in the ray tracing code: https://github.com/amengede/webgpu-for-beginners/blob/main/20%20Raytracing%20Triangles/finished/src/shaders/raytracer_kernel.wgsl#L74C14-L74C14
+                                                                                //he uses screen_size.x instead of y for the vertical coefficient
+                        var color : vec3<f32> = select(vec3(0.0,0.0,0.0), vec3(1.0,1.0,1.0), animate > 0.0);//vec3(0.0, 0.0, 0.0);
+                        
+                        let i : i32 = i32(floor(y/res)*res) + (screen_size.y * i32(floor(x/res)*res));// I WAS USING screen_size.x INSTEAD OF Y??? //https://www.desmos.com/calculator/z2dzaabs5g
+                        //ok comparing greatershader (chaosmaINST unity compute) i think i is correct
+                        var ball : Ball = balls[i]; //struct might be immutable
+                        //if(canvas.x > 0 || ballzloop == 1 || bbot == 0){}
+                        
+                        // ball.position = vec2f(10.0,10.0);
+                        // ball.velocity.x = 50.0;
+                        // ball.position = ball.velocity + ball.position;
+
+                        //ball.colored = 1;
+
+                        if (ball.colored != -1 || ball.colored == -2) {
+                            if (ball.colored != -2) {
+                                if(animate == 0) {
+                                    color = magnets[i32(ball.colored)].color;
+                                    if (bbot == 1) {     // || bbotcalc < 0.0) {
+                                        //if(bbotcalc > 0.0) {
+                                            //color.xyz *= 1 - (ball.tick / 1000.0);//10000.0);
+                                            color.x *= 1 - (f32(ball.tick)/bbotcalc);
+                                            color.y *= 1 - (f32(ball.tick)/bbotcalc);
+                                            color.z *= 1 - (f32(ball.tick)/bbotcalc);
+                                        //}else if(ball.tick < bbotcalc) {
+                                        //    color = magnets[i32(ball.colored)].color;
+                                        //}
+                                    }
+                                }else if(ball.tick <= animate) {
+                                    color = magnets[i32(ball.colored)].color;
+                                    if (bbot == 1) {
+                                        color.x *= 1 - (f32(ball.tick)/bbotcalc);
+                                        color.y *= 1 - (f32(ball.tick)/bbotcalc);
+                                        color.z *= 1 - (f32(ball.tick)/bbotcalc);
+                                    }
+                                }
+                            }
+                        }else {
+                            var cutoff : i32 = 0;
+                            var cancel : bool = false;
+                            while(!cancel) {
+                                cutoff++;
+                                if(cutoff > maxCutoff) {
+                                    ball.colored = -2;
+                                    cancel = true;
+                                    break;
+                                }
+                                ball.position = ball.velocity + ball.position;//Vector.add(ball.position, ball.velocity);//.setMagnitude(Math.max(0, ball.velocity.getMagnitude()-.01)));
+                                if (ballzloop == 1) {
+                                    if (ball.position.x < 0.0) {
+                                        ball.position.x = canvas.x - (abs(ball.position.x));
+                                    }
+                                    else {
+                                        ball.position.x = ball.position.x % canvas.x;
+                                    }
+                                    if (ball.position.y < 0.0) {
+                                        ball.position.y = canvas.y - (abs(ball.position.y));
+                                    }
+                                    else {
+                                        ball.position.y = ball.position.y % canvas.y;
+                                    }
+                                }
+
+                                for (var j : i32 = 0; j < magnetLength; j++) {
+                                    let magnet : Magnet = magnets[j];
+
+                                    //ball.Parent = workspace;
+
+                                    //would've drawn the balls but i might have to do that later (outside shader)
+                                    var force : vec2f = magnet.position - ball.position;
+
+                                    var distanceSq : f32 = pow(getMagnitude(force), 2.);
+                                    var strength : f32 = min(10.0, magnet.strength * (100.0 * 100.0) / distanceSq);
+
+                                    force = setMagnitude(force, strength);//Math.min(10, strength));
+                                    if (strength >= 10.0) {
+
+                                        ball.colored = f32(j);
+                                        
+                                        if(animate == 0.0) {
+                                            color = magnet.color;
+                                            if(bbot == 1) {
+                                                color.x *= 1 - (f32(ball.tick)/bbotcalc);
+                                                color.y *= 1 - (f32(ball.tick)/bbotcalc);
+                                                color.z *= 1 - (f32(ball.tick)/bbotcalc);
+                                            }
+                                        }else if(ball.tick <= animate){
+                                            color = magnet.color;
+                                            if (bbot == 1) {
+                                                color.x *= 1 - (f32(ball.tick)/bbotcalc);
+                                                color.y *= 1 - (f32(ball.tick)/bbotcalc);
+                                                color.z *= 1 - (f32(ball.tick)/bbotcalc);
+                                            }
+                                        }
+                                        cancel = true;
+                                        break;
+                                    }
+                                    ball.velocity = force + ball.velocity;//Vector.add(ball.velocity, force);
+                                }
+
+                                ball.tick += 1.0; 
+                            }
+                        }
+
+                        for (var j : i32 = 0; j < magnetLength; j++) {
+                            var magnet : Magnet = magnets[j];
+                        
+                            //ball.Parent = workspace;
+                        
+                        
+                            //if (id.x > m.position.x - (m.strength * 5) && id.x < m.position.x + (m.strength * 5) && id.y > m.position.y - (m.strength * 5) && id.y < m.position.y + (m.strength * 5)) {
+                            if (x > magnet.position.x - (5.0+abs(magnet.strength)*10.0) && x < magnet.position.x + (5.0+abs(magnet.strength)*10.0) && y > magnet.position.y - (5.0+abs(magnet.strength)*10.0) && y < magnet.position.y + (5.0+abs(magnet.strength)*10.0)) {
+                            //if(dist(vec2f(x,y), magnet.position) > 0.0001) {
+                            
+                                color = select(vec3(1.0,1.0,1.0), vec3(1.0-magnet.color.x, 1.0-magnet.color.y, 1.0-magnet.color.z), magnet.strength < 0.0);
+                                if (x > magnet.position.x - 5.0 && x < magnet.position.x + 5.0 && y > magnet.position.y - 5.0 && y < magnet.position.y + 5.0) {
+                                    color = magnet.color;
+                                }
+                            }
+                        }
+
+                        //if(magnetLength == 0 || bbot == 1 ||  ballzloop == 1) {
+                            
+                        //}
+    
+                        //if(magnets[0].position.x == 250.0) {
+                        //    color = vec3(0.0,1.0,0.0);
+                        //}else {
+                        //    color = vec3(1.0,0.0,0.0);
+                        //}
+
+                        balls[i] = ball;
+
+                        //if(ball.colored == -1) {
+                        //    color = vec3(0.0,1.0,0.0);
+                        //}else if(ball.colored == -2) {
+                        //    color = vec3(1.0,1.0,0.0);
+                        //}else if(ball.colored == 0) {
+                        //    color = vec3(1.0, 0.0 ,0.0);
+                        //}
+
+                        //if(bbot == 0) {
+                        //    color = vec3(0.0,1.0,0.0);
+                        //}else {
+                        //    color = vec3(1.0,0.0,0.0);
+                        //}
+                        //color = vec3(f32(i)/250000);
+                        //if(arrayLength(&magnets) == 3) {
+                        //    color = vec3(0.0,1.0,0.0);
+                        //}
+                        
+                        textureStore(color_buffer, screen_pos, vec4<f32>(color, 1.0));
+                    }
+                    `
+                    //code: `
+                    //struct Magnet {
+                    //    strength: f32,
+                    //    color: vec3f,
+                    //    position: vec2f,
+                    //}
+//
+                    //struct Ball {
+                    //    position: vec2f,
+                    //    velocity: vec2f,
+                    //    colored: i32,
+                    //    tick: i32,
+                    //}
+//
+                    //@group(0) @binding(0) var color_buffer: texture_storage_2d<rgba8unorm, write>;
+                    ////@group(0) @binding(1) var<storage> magnets : array<Magnet>;
+                    ////@group(0) @binding(1) var<uniform> mouse : vec2f;
+                    //@group(0) @binding(1) var<storage, read_write> balls : array<Ball>;
+                    //@group(0) @binding(2) var<uniform> magnetLength : i32; //i was using float32arrays to set this value and since it's an i32 it might have been getting garbage values and almost crashed my gpu!
+                    //@group(0) @binding(3) var<storage, read> magnets : array<Magnet>;
+                    //@group(0) @binding(4) var<uniform> bbot : i32;
+                    //@group(0) @binding(5) var<uniform> ballzloop : i32;
+                    //@group(0) @binding(6) var<uniform> canvas : vec2f;
+//
+                    //fn getMagnitude(vec : vec2f) -> f32 {
+                    //    return sqrt(vec.x * vec.x + vec.y * vec.y); // had to make sure https://shinylasers.com/docs/wgsl/functions/sqrt
+                    //}
+//
+                    //fn setMagnitude(vec : vec2f, newMag : f32) -> vec2f {
+                    //    let Mag : f32 = getMagnitude(vec);
+                    //    //temp : vec2f = vec2(vec.x * (newMag/Mag), vec.y * (newMag/Mag));
+                    //    //vec.x *= newMag / Mag; //prolly could combine but idk yet
+                    //    //vec.y *= newMag / Mag;
+                    //    return vec2(vec.x * (newMag/Mag), vec.y * (newMag/Mag));
+                    //}
+//
+                    //@compute @workgroup_size(1,1,1)
+                    //fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {                    
+                    //    let screen_size: vec2<i32> = vec2<i32>(textureDimensions(color_buffer));
+                    //    let screen_pos : vec2<i32> = vec2<i32>(i32(GlobalInvocationID.x), i32(GlobalInvocationID.y));
+//
+                    //    let x : f32 = ((f32(screen_pos.x) - f32(screen_size.x) / 500.) / f32(screen_size.x))*500.;
+                    //    let y : f32 = ((f32(screen_pos.y) - f32(screen_size.y) / 500.) / f32(screen_size.x))*500.;
+//
+                    //    var color : vec3<f32> = vec3(0.0, 0.0, 0.0);
+                    //    
+                    //    let i : i32 = i32(y) + (screen_size.x * i32(x));// + y;
+                    //    //ok comparing greatershader (chaosmaINST unity compute) i think i is correct
+                    //    var ball : Ball = balls[i]; //struct might be immutable
+                    //    
+                    //    if (ball.colored != -1 || ball.colored == -2) {
+                    //        if (ball.colored != -2) {
+                    //            color = magnets[ball.colored].color;
+                    //            if (bbot == 1) {
+                    //                //color.xyz *= 1 - (ball.tick / 1000.0);//10000.0);
+                    //                color.x *= 1 - (f32(ball.tick)/1000.0);
+                    //                color.y *= 1 - (f32(ball.tick)/1000.0);
+                    //                color.z *= 1 - (f32(ball.tick)/1000.0);
+                    //            }
+                    //        }
+                    //    }else {
+                    //        var cancel : bool = false;
+                    //        var cutoff : i32 = 0; //aw shit loop is RESERVED
+                    //        while (!cancel) {
+                    //            cutoff++;
+                    //            if (cutoff > 10000) {
+                    //                ball.colored = -2;
+                    //                cancel = true;
+                    //                break;
+                    //            }
+                    //            ball.position = ball.velocity + ball.position;//Vector.add(ball.position, ball.velocity);//.setMagnitude(Math.max(0, ball.velocity.getMagnitude()-.01)));
+                    //            if (ballzloop == 1) {
+                    //                if (ball.position.x < 0.0) {
+                    //                    ball.position.x = canvas.x - (abs(ball.position.x));
+                    //                }
+                    //                else {
+                    //                    ball.position.x = ball.position.x % canvas.x;
+                    //                }
+                    //                if (ball.position.y < 0.0) {
+                    //                    ball.position.y = canvas.y - (abs(ball.position.y));
+                    //                }
+                    //                else {
+                    //                    ball.position.y = ball.position.y % canvas.y;
+                    //                }
+                    //            }
+//
+                    //            for (var j : i32 = 0; j < magnetLength; j++) {
+                    //                let magnet : Magnet = magnets[j];
+//
+                    //                //ball.Parent = workspace;
+//
+//
+                    //                //if (id.x > m.position.x - (m.strength * 5) && id.x < m.position.x + (m.strength * 5) && id.y > m.position.y - (m.strength * 5) && id.y < m.position.y + (m.strength * 5)) {
+                    //                //if (x > magnet.position.x - 5.0 && x < magnet.position.x + 5.0 && y > magnet.position.y - 5.0 && y < magnet.position.y + 5.0) {
+                    //                //    color = magnet.color;
+                    //                //}
+//
+                    //                //would've drawn the balls but i might have to do that later (outside shader)
+                    //                var force : vec2f = magnet.position - ball.position;//Vector.sub(ball.position, magnet.position);
+//
+                    //                var distanceSq : f32 = pow(getMagnitude(force), 2.);//force.getMagnitude() **2; sqrt(force.x * force.x + force.y * force.y)
+                    //                var strength : f32 = min(10.0, magnet.strength * (100.0 * 100.0) / distanceSq);
+                    //                //console.log(strength);
+                    //                force = setMagnitude(force, strength);//Math.min(10, strength));//Math.min(1000, strength));
+                    //                if (strength >= 10.0) {
+                    //                    //ball.color = "red";
+                    //                    //cells[ball.cell.x][ball.cell.y] = magnet.color;
+                    //                    ball.colored = j;
+                    //                    color = magnet.color;
+                    //                    cancel = true;
+                    //                    break;
+                    //                }
+                    //                ball.velocity = force + ball.velocity;//Vector.add(ball.velocity, force);
+                    //                //ball.velocity.x = force.x + ball.velocity.x;
+                    //                //ball.velocity.y = force.y + ball.velocity.y;
+                    //            }
+//
+                    //            ball.tick++;
+                    //        }
+                    //    }
+//
+                    //    for (var j : i32 = 0; j < magnetLength; j++) {
+                    //        var magnet : Magnet = magnets[j];
+                    //    
+                    //        //ball.Parent = workspace;
+                    //    
+                    //    
+                    //        //if (id.x > m.position.x - (m.strength * 5) && id.x < m.position.x + (m.strength * 5) && id.y > m.position.y - (m.strength * 5) && id.y < m.position.y + (m.strength * 5)) {
+                    //        if (x > magnet.position.x - 10.0 && x < magnet.position.x + 10.0 && y > magnet.position.y - 10.0 && y < magnet.position.y + 10.0) {
+                    //            color = vec3(1.0, 1.0, 1.0);
+                    //            if (x > magnet.position.x - 5.0 && x < magnet.position.x + 5.0 && y > magnet.position.y - 5.0 && y < magnet.position.y + 5.0) {
+                    //                color = magnet.color;
+                    //            }
+                    //        }
+                    //    }
+//
+                    //    //if(magnetLength == 0 || bbot == 1 ||  ballzloop == 1) {
+                    //        
+                    //    //}
+    //
+                    //    //if(magnets[0].position.x == 250.0) {
+                    //    //    color = vec3(0.0,1.0,0.0);
+                    //    //}else {
+                    //    //    color = vec3(1.0,0.0,0.0);
+                    //    //}
+//
+                    //    balls[i] = ball;
+//
+                    //    //if(ball.colored == -1) {
+                    //    //    color = vec3(0.0,1.0,0.0);
+                    //    //}else if(ball.colored == -2) {
+                    //    //    color = vec3(1.0,1.0,0.0);
+                    //    //}else if(ball.colored == 0) {
+                    //    //    color = vec3(1.0, 0.0 ,0.0);
+                    //    //}
+//
+                    //    //if(bbot == 0) {
+                    //    //    color = vec3(0.0,1.0,0.0);
+                    //    //}else {
+                    //    //    color = vec3(1.0,0.0,0.0);
+                    //    //}
+                    //    //color = vec3(f32(i)/250000);
+                    //    //if(arrayLength(&magnets) == 3) {
+                    //    //    color = vec3(0.0,1.0,0.0);
+                    //    //}
+                    //    
+                    //    textureStore(color_buffer, screen_pos, vec4<f32>(color, 1.0));
+                    //}
+                    //`
+                });
+
+                //https://www.shadertoy.com/view/cd2BDG https://www.shadertoy.com/view/DlBcz1
+
+                this.mousePosBuffer = this.device.createBuffer({
+                    size: 2*4,
+                    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+                });
+
+                this.canvasBuffer = this.device.createBuffer({
+                    size: 2*4,
+                    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+                });
+
+                this.ballsBufferSize = (2*4 + 2*4 + 4 + 4)*balls.length;
+
+                this.ballsBuffer = this.device.createBuffer({
+                    size: this.ballsBufferSize,
+                    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
+                });
+
+                this.magnetLengthBuffer = this.device.createBuffer({
+                    size: 4,
+                    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+                });
+                
+
+                this.bbotBuffer = this.device.createBuffer({
+                    size: 4,
+                    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+                });
+
+                this.ballzloopBuffer = this.device.createBuffer({
+                    size: 4,
+                    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+                });
+
+                this.bbotCalcBuffer = this.device.createBuffer({
+                    size: 4,
+                    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+                });
+
+                this.cutoffBuffer = this.device.createBuffer({
+                    size: 4,
+                    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+                });
+
+                this.animateBuffer = this.device.createBuffer({
+                    size: 4,
+                    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+                });
+
+                this.resBuffer = this.device.createBuffer({
+                    size: 4,
+                    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+                });
+
+                this.ballsGetBack = this.device.createBuffer({
+                    size: this.ballsBufferSize,
+                    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+                });
+
+                this.CHAOSPIPELINE = this.device.createComputePipeline(
+                    {
+                        layout: "auto",//ray_tracing_pipeline_layout,
+                
+                        compute: {
+                            module: this.CHAOSMODULE,
+                            entryPoint: 'main',
+                        },
+                    }
+                );
+
+                //this.chaosBindGroup = this.device.createBindGroup({
+                //    layout: this.CHAOSPIPELINE.getBindGroupLayout(0),//chaosBindGroupLayout,
+                //    entries: [
+                //        {
+                //            binding: 0,
+                //            resource: this.colorbufferview
+                //        },
+                //        {
+                //            binding: 1,
+                //            resource: {buffer: this.ballsBuffer}
+                //        },
+                //        {
+                //            binding: 2,
+                //            resource: {buffer: this.magnetLengthBuffer}
+                //        },
+                //        {
+                //            binding: 3,
+                //            resource: {buffer: this.magnetBuffer}
+                //        },
+                //        {
+                //            binding: 4,
+                //            resource: {buffer: this.bbotBuffer}
+                //        },
+                //        {
+                //            binding: 5,
+                //            resource: {buffer: this.ballzloopBuffer}
+                //        },
+                //        {
+                //            binding: 6,
+                //            resource: {buffer: this.canvasBuffer}
+                //        }
+                //    ]
+                //});
+
+                this.updateMagnetSize();
+
+
+                //return [module, CHAOSMAPIPELINE, ballsBuffer, magnetLengthBuffer];
+            }
+
+            registerScreen() {
+                const screen_bind_group_layout = this.device.createBindGroupLayout({
+                    entries: [
+                        {
+                            binding: 0,
+                            visibility: GPUShaderStage.FRAGMENT,
+                            sampler: {}
+                        },
+                        {
+                            binding: 1,
+                            visibility: GPUShaderStage.FRAGMENT,
+                            texture: {}
+                        },
+                    ]
+                });
+
+                this.screenBindGroup = this.device.createBindGroup({
+                    layout: screen_bind_group_layout,
+                    entries: [
+                        {
+                            binding: 0,
+                            resource: this.sampler
+                        },
+                        {
+                            binding: 1,
+                            resource: this.colorbufferview
+                        }
+                    ]
+                });
+//https://webgpufundamentals.org/webgpu/lessons/webgpu-fundamentals.html
+                this.screenModule = this.device.createShaderModule({
+                    label: "drawing",
+                    code: `@group(0) @binding(0) var screen_sampler : sampler;
+                            @group(0) @binding(1) var color_buffer : texture_2d<f32>;
+
+                            struct VertexOutput {
+                                @builtin(position) Position : vec4<f32>,
+                                @location(0) TexCoord : vec2<f32>,
+                            }
+
+                            @vertex
+                            fn vs(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
+
+                                var positions = array<vec2<f32>, 6>(
+                                    vec2<f32>( 1.0,  1.0),
+                                    vec2<f32>( 1.0, -1.0),
+                                    vec2<f32>(-1.0, -1.0),
+                                    vec2<f32>( 1.0,  1.0),
+                                    vec2<f32>(-1.0, -1.0),
+                                    vec2<f32>(-1.0,  1.0)
+                                );
+
+                                var texCoords = array<vec2<f32>, 6>(
+                                    vec2<f32>(1.0, 0.0),
+                                    vec2<f32>(1.0, 1.0),
+                                    vec2<f32>(0.0, 1.0),
+                                    vec2<f32>(1.0, 0.0),
+                                    vec2<f32>(0.0, 1.0),
+                                    vec2<f32>(0.0, 0.0)
+                                );
+
+                                var output : VertexOutput;
+                                output.Position = vec4<f32>(positions[VertexIndex], 0.0, 1.0);
+                                output.TexCoord = texCoords[VertexIndex];
+                                return output;
+                            }
+
+                            @fragment
+                            fn fs(@location(0) TexCoord : vec2<f32>) -> @location(0) vec4<f32> {
+                                return textureSample(color_buffer, screen_sampler, TexCoord);
+                            }`
+                });
+                //console.log(device, module)
+                
+                const screen_pipeline_layout = this.device.createPipelineLayout({
+                    bindGroupLayouts: [screen_bind_group_layout]
+                });
+
+                this.screenPipeline = this.device.createRenderPipeline({
+                    label: 'screenpieline',
+                    layout: screen_pipeline_layout,
+                    vertex: {
+                        module: this.screenModule,
+                        entryPoint: 'vs',
+                    },
+                    fragment: {
+                        module: this.screenModule,
+                        entryPoint: 'fs',
+                        targets: [{ format: this.presentationFormat }],
+                    },
+                    primitive: {
+                        topology: "triangle-list"
+                    }
+                });
+
+                this.screenPassDescriptor = {
+                    label: 'our basic canvas renderPass',
+                    colorAttachments: [
+                        {
+                            // view: <- to be filled out when we render
+                            clearValue: [0.3, 0.3, 0.3, 1],
+                            loadOp: 'clear',
+                            storeOp: 'store',
+                        },
+                    ],
+                };
+
+                //return [module, pipeline, renderPassDescriptor];
+            }
+
+            reset() {
+                loader.addLoad(25);
+                this.animateFrame = 0;
+                balls = [];
+                this.nativeBallValues = undefined;
+                for(let x = 0; x < width; x++) {
+                    for(let y = 0; y < height; y++) {
+                        balls.push({position: {x: x, y: y}, velocity: {x: 0, y: 0}, colored: -1, tick: 0});
+                        //i++;
+                    }
+                }
+            }
+
+            render() {
+                //console.log("rendering");
+                //loader.style.display = "initial";
+                let tnow = Date.now();
+                this.ready = false;
+                const commandEncoder = this.device.createCommandEncoder();
+
+                let ballValues = this.nativeBallValues;
+                //console.log(balls.length);
+
+                if(!ballValues) {
+                    ballValues = new Float32Array(this.ballsBufferSize / 4);
+                    for(let i = 0; i < balls.length; i++) {
+                        const ball = balls[i];
+
+                        const staticOffset = i * ((2*4 + 2*4 + 4 + 4)/4); //FINALLY OH MY GOD THIS WAS PRETTY HARD TO GET
+
+                        //console.log(i, staticOffset, ballValues, this.ballsBufferSize);
+
+                        ballValues.set([ball.position.x, ball.position.y], staticOffset + 0);
+                        ballValues.set([ball.velocity.x, ball.velocity.y], staticOffset + 2);
+                        ballValues.set([ball.colored], staticOffset + 4);
+                        ballValues.set([ball.tick], staticOffset + 5);
+                        //magnetValues.set([magnet.x, magnet.y], staticOffset + 6);
+                        //magnetValues.set([magnet.x, magnet.y], staticOffset + 8);
+                    }
+                    //console.log(ballValues, ballValues[0], ballValues[1], "ball values");
+                    //}
+                }else {
+                    //console.log("using native values", ballValues[0], ballValues[1]);
+                }
+                this.device.queue.writeBuffer(this.ballsBuffer, 0, ballValues);
+
+                //const ballValues = new Float32Array((2*4+2*4+4+4)/4);
+                //ballValues.set([mousePos.x, mousePos.y], 0);
+                //ballValues.set([100, 100], 2);
+                //ballValues.set([-1], 4);
+                //ballValues.set([0], 5);
+                //console.log(ballValues);
+                //this.device.queue.writeBuffer(this.ballsBuffer, 0, ballValues);
+
+                //const magnetLengthValues = new Uint32Array((4)/4);
+                //magnetLengthValues.set([magnets.length], 0);
+                this.device.queue.writeBuffer(this.magnetLengthBuffer, 0, new Uint32Array([magnets.length]));
+
+                const magnetValues = new Float32Array(this.magnetBufferSize / 4);
+                for(let i = 0; i < magnets.length; i++) {
+                    const magnet = magnets[i];
+
+                    const staticOffset = i * ((4 + 3*4 + 2*4 + 6*4)/4); //FINALLY OH MY GOD THIS WAS PRETTY HARD TO GET
+
+                    //console.log(i, staticOffset, magnetValues, this.magnetBufferSize);
+
+                    magnetValues.set([magnet.strength], staticOffset + 0);
+                    magnetValues.set([magnet.color.x, magnet.color.y, magnet.color.z], staticOffset + 4);
+                    magnetValues.set([magnet.position.x, magnet.position.y], staticOffset + 8);
+                    //magnetValues.set([magnet.x, magnet.y], staticOffset + 6);
+                    //magnetValues.set([magnet.x, magnet.y], staticOffset + 8);
+                }
+                //console.log(magnetValues, " magnet values");
+                //}
+                this.device.queue.writeBuffer(this.magnetBuffer, 0, magnetValues);
+
+                //console.log(new Uint32Array([+this.bbot]), this.bbot, "bbot");
+                this.device.queue.writeBuffer(this.bbotBuffer, 0, new Uint32Array([+this.bbot]));
+                //console.log(new Uint32Array([+this.ballzloop]), this.ballzloop, "ballzloop");
+                this.device.queue.writeBuffer(this.ballzloopBuffer, 0, new Uint32Array([+this.ballzloop])); //haha i had everything writed for ballzloop but forgot to actually set it
+                
+                this.device.queue.writeBuffer(this.bbotCalcBuffer, 0, new Float32Array([+bbotcalc.value])); //oh wait i can say + or Number or parseInt
+
+                this.device.queue.writeBuffer(this.cutoffBuffer, 0, new Uint32Array([+cutoff.value]));
+
+                this.device.queue.writeBuffer(this.animateBuffer, 0, new Float32Array([this.animateFrame]));
+
+                this.device.queue.writeBuffer(this.resBuffer, 0, new Float32Array([+res.value]));
+
+                this.device.queue.writeBuffer(this.canvasBuffer, 0, new Float32Array([width, height]));
+
+
+                //const mPValues = new Float32Array((2*4)/4);
+                //mPValues.set([mousePos.x, mousePos.y], 0);
+                //device.queue.writeBuffer(mousePosBuffer, 0, mPValues);
+
+                //const resValues = new Float32Array((2*4)/4);
+                //resValues.set([width, height], 0);
+                //device.queue.writeBuffer(resBuffer, 0, resValues);
+
+                const chaosPass = commandEncoder.beginComputePass();
+                chaosPass.setPipeline(this.CHAOSPIPELINE);
+                chaosPass.setBindGroup(0, this.chaosBindGroup);
+                chaosPass.dispatchWorkgroups(
+                    width, 
+                    height, 1
+                );
+                chaosPass.end();
+
+                const textureView = context.getCurrentTexture().createView();
+                const renderpass = commandEncoder.beginRenderPass({
+                    colorAttachments: [{
+                        view: textureView,
+                        clearValue: {r: 0.5, g: 0.0, b: 0.25, a: 1.0},
+                        loadOp: "clear",
+                        storeOp: "store"
+                    }]
+                });
+
+                renderpass.setPipeline(this.screenPipeline);
+                renderpass.setBindGroup(0, this.screenBindGroup);
+                renderpass.draw(6, 1, 0, 0);
+
+                renderpass.end();
+
+                commandEncoder.copyBufferToBuffer(this.ballsBuffer, 0, this.ballsGetBack, 0, this.ballsGetBack.size);
+
+                this.device.queue.submit([commandEncoder.finish()]);
+
+                if(!this.nativeBallValues) {
+                    (async function() { //i KNOW this is lazy but im not making the render function async and mapAsync doesn't actually return anything    
+                        await this.ballsGetBack.mapAsync(GPUMapMode.READ);
+                        this.nativeBallValues = new Float32Array(this.ballsGetBack.getMappedRange().slice());
+                        console.log({position: {x: this.nativeBallValues[0], y: this.nativeBallValues[1]}, velocity: {x: this.nativeBallValues[2], y: this.nativeBallValues[3]}, colored: this.nativeBallValues[4], tick: this.nativeBallValues[5]}, "native ball values back");
+                        this.ballsGetBack.unmap();
+                        this.ready = true;
+                        time.innerHTML = (Date.now()-tnow)/1000 + " seconds";
+                        loader.hide();
+                        for(const callback of this.finished) {
+                            callback();
+                        }
+                        this.finished = [];
+                    }).bind(this)(); //lol i bound this but didn't call it (because i thought it automagically did)
+                }else {
+                    this.ready = true;
+                    time.innerHTML = (Date.now()-tnow)/1000 + " seconds";
+                    loader.hide();
+                    for(const callback of this.finished) {
+                        callback();
+                    }
+                    this.finished = [];
+                }
+                /*
+                function func() {
+                    console.log(this.x);
+                }
+                let shit = {x: 21, e: func.bind(shit)};
+                shit.e(); // -> 21
+                */
+                /*
+                screenPassDescriptor.colorAttachments[0].view = context.getCurrentTexture().createView();
+
+                // make a command encoder to start encoding commands
+                const encoder = device.createCommandEncoder({ label: 'our encoder' });
+
+                // make a render pass encoder to encode render specific commands
+                const pass = encoder.beginRenderPass(screenPassDescriptor);
+                pass.setPipeline(screenPipeline);
+                pass.setBindGroup(0, screenBindGroup);
+                pass.draw(6);  // call our vertex shader 3 times
+                pass.end();
+
+                const commandBuffer = encoder.finish();
+                device.queue.submit([commandBuffer]);*/
+            }
+
+            animate(callback, startFrame) {
+                console.log("ANIMATEW")
+                //let func = function(resolve, reject) {
+                //    let handle;
+//
+                //    function r() {
+//
+                //        requestAnimationFrame(r.bind(this));
+                //    }
+//
+                //    handle = requestAnimationFrame(r.bind(this));
+                //}
+                //return new Promise(func.bind(this)); //wow this is probably the only time i've ever had to use binding (because i don't use objects)
+                //this.updateMagnetSize(9); //without this an offset out of bounds errror would be thrown because i don't update magnets (for some reason even though it looks like i do (wait i do but i render at the same time soo that isn't happening))
+                    //uhh that didn't work
+                let handle = 0;
+                //let i = 0;
+                this.animateFrame = startFrame || 0;
+                function r() { //wait vscode this is not an object
+                    if(this.ready) {
+                        //i++;
+                        //console.log(this.animateFrame);
+                        this.animateFrame += +animspeed.value;
+                        animtimeline.value = this.animateFrame;
+                        animframedom.innerHTML = "Frame: "+this.animateFrame;
+                        this.render();
+                    }
+                    if(this.animateFrame < cutoff.value) {
+                        handle = requestAnimationFrame(r.bind(this));
+                    }else {
+                        this.animateFrame = 0;
+                        callback();
+                    }
+                }
+
+                this.cancelAnimation = function(resetToFrame) {
+                    console.log(this, callback);
+                    cancelAnimationFrame(handle);
+                    callback();
+                    this.animateFrame = resetToFrame;
+                    this.render();
+                    this.cancelAnimation = undefined;
+                    //if(this.ready) {
+                    //    this.render();
+                    //}else {
+                    //    this.finished.push(() => {
+                    //        this.render();
+                    //    });
+                    //}
+                }
+
+                handle = requestAnimationFrame(r.bind(this));
+                //handle = requestAnimationFrame(r.bind(this));
+            }
+        }
+        //let colorbuffer, colorbufferview, sampler, chaosPipeline, chaosBindGroup, screenPipeline, screenBindGroup, screen_bind_group_layout, chaosBindGroupLayout;
+
+        //let magnetBufferSize;
+        //let magnetBuffer;
+
+        let mousePos = {x: 0, y: 0};
+
+    </script>
+</body>
+</html>
