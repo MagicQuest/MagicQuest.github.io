@@ -178,7 +178,12 @@ class DesktopIcon extends HTMLElement { //haha this is like react
                 }
                 document.body.appendChild(explorer);
             }else if(type == "window") {
-
+                const windowelem = document.createElement("def-window");
+                windowelem.setAttribute("window-type", this.innerHTML);
+                windowelem.style = "width: 600px; height: 400px;";
+                windowelem.style.left = (mouse.x+15)+"px";
+                windowelem.style.top = (mouse.y+15)+"px";
+                document.body.appendChild(windowelem);
             }
         });
 
