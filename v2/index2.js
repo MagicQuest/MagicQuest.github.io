@@ -478,7 +478,7 @@ function animate(time) {
     //dL.shadow.camera.updateProjectionMatrix();
     //shadowCameraHelper.update();
 
-    window.randomactionidkfella?.();
+    window.randomactionidkfella?.(); //WTF IS THAT SHIT
 
 	renderer.render( scene, camera );
 
@@ -652,11 +652,11 @@ addEventListener("mousedown", (event) => {
     if (intersects.length > 0) {
       
         let object = intersects[0].object;
-  
+
         console.log(intersects, object);
         if(object == shelfdoor.children[0] && !postInteraction) {
             //object.material.color.set( Math.random() * 0xffffff );
-            window.animations.push({tick: function(nowTime, startTime) {
+            window.animations.push({tick: function(nowTime, startTime) { //uhhhh listen to music (flex) B) then watch smosh but then watch instargm
             //window.animations.push(new anime(() => {//i got this new anime plot
                 //console.log(this, "log this");
                 let time = nowTime-startTime;
@@ -678,6 +678,5 @@ addEventListener("mousedown", (event) => {
                 object.interact();
             }
         }
-  
     }
 });

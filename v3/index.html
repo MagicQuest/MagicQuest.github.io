@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MagicQuest3 IS REAL</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #taskbar {
+            position: absolute;
+            height: 100%;
+            width: 108px;
+            /*animation: loading 1s linear;*/
+            
+            /*background: linear-gradient(45deg, rgb(89, 16, 16, .75) 0%, rgb(0,0,0, .75) 100%);*/
+            background-color: rgb(24,24,24);
+            border-right: 1px solid grey;
+            display: flex;
+            flex-direction: column;
+
+            z-index: 10;
+        }
+
+        @keyframes loading {
+            0% {left: 0;}
+            50% {left: 1080px;}
+            75% {left: 1080px;}
+            100% {left: 1920px;}
+        }
+
+
+        @font-face {
+            font-family: pixel8bop;
+            src: url("OCRAEXT.TTF");
+        }
+
+        #osconsole {
+            --foreground: rgb(200,200,200);
+            --background: black;
+
+            font-family: pixel8bop, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            color: var(--foreground)/*rgb(200,200,200)*/;
+            background-color: var(--background);
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+            overflow-y: scroll;
+            cursor: text;
+            /*transition: opacity .1s;*/
+        }
+        #osconsole>p {
+            white-space: pre;
+            margin: 0;
+        }
+
+        @keyframes blinking {
+            0% {color: white;}
+            49% {color: white;} /*this doesn't really seem right BUT it works just fine*/
+            50% {color: var(--background);}
+            100% {color: var(--background);}
+        }
+
+        #osconsole::after {
+            content: "█";
+            animation: blinking 1s infinite backwards;
+            position: relative;
+            bottom: 0;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            /*z-index: 100;*/
+        }
+
+        /*desktop-icon, /*file-explorer::slotted(desktop-icon) {
+            width: 100px;
+            height: 100px;
+            position: absolute; /*relative;
+            display: flex;
+            flex-direction: column;
+            text-align: center;
+            justify-content: flex-end;
+
+            color: white;
+            text-shadow: 1px 1px 2px black;
+
+            user-select: none;
+            
+        }*/
+
+        /*desktop-icon:hover {
+            background-color: rgba(179, 220, 229, .25);
+        }
+
+        desktop-icon:active {
+            background-color: rgba(179, 220, 229, .5);
+        }*/
+
+        #hallogifs { /*hall o' gifs*/
+            position: absolute;
+            bottom: 31px;
+            /*background-image: url("/diamond plate.png");*/
+        }
+
+        #bottomsidebar {
+            right: 0;
+            left: 0;
+            margin: auto;
+            bottom: -180px;
+            width: 50px;
+            height: 200px;
+            transition: bottom .5s;
+            background-color: rgba(0,0,0,.25);
+        }
+
+        side-bar {
+            position: absolute;
+        }
+
+        div[id*="sidebar"]>button { /*YOOOO css includes*/
+            border: 1px solid black;
+            /*border-radius: 100px 100px 10px 10px;*/
+        }
+
+        #bbbtn:hover {
+            bottom: 1px !important; /*weird why did i need that*/
+        }
+
+        button {
+            cursor: pointer;
+        }
+        button:hover {
+            font-weight: bold;
+        }
+
+        
+        .expand {
+            transition: top .5s, left .5s, width .5s, height .5s;
+            left: 108px !important;
+            top: 0px !important;
+            width: calc(100% - 108px) !important;
+            height: 100% !important;
+        }
+
+        file-explorer, def-window {
+            position: absolute;
+            /*left: 300px;
+            top: 200px;*/
+            /*width: 600px;
+            height: 400px;*/
+            min-width: 150px;
+            min-height: 75px;
+            border: 1px grey solid;
+            display: flex;
+            flex-direction: column;
+            resize: both;
+            overflow: hidden;
+
+            box-shadow: 2px 2px 5px black;
+
+            /*transition: top .5s, left .5s, width .5s, height .5s;*/ /*replaced with css js animation*/
+        }
+
+        file-explorer {
+            background: linear-gradient(#FFE697, #F5D470);
+        }
+    </style>
+</head>
+<body>
+    <!--THIS V3 BOUT TO GET THE JOB DONE! (WE MAKING THIS WEBSITE GREAT AGAIN (NO TRUMP))-->
+    <div id="osconsole">
+        <p>
+    -mqstartup3</p>
+    </div>
+
+    <div id="taskbar">
+        <div style="color: white; font-size: 24px;">
+            CLOCK
+        </div>
+    </div>
+
+    <h2 style="position: absolute; top: 100px; left: 0; right: 0; color: white; font-family: Arial, sans-serif; text-align: center; display: none;">Node Graph out of Date. Rebuilding...</h2>
+
+    <canvas id="canvas">
+        get a normal browser PLEASE
+    </canvas>
+
+    <img src="checker.png" id="checker" style="display: none;">
+
+    <div id="desktop" style="position: absolute; left: 108px; width: calc(100% - 108px); height: 100%;">
+        <!--div id="bottomsidebar"></div-->
+        <!--caniuse says customElements are supported for like 97% of people (I GOT THE GREEN LIGHT)-->
+        <!--side-bar data-type="bottom" id="bottomsidebar">
+            
+        </side-bar-->
+        <marquee id="hallogifs" onmouseover="this.stop();" onmouseout="this.start();">
+            <img src="88x31/spamton.gif"> <!--wait why did i make 3 deltarune gifs and they're all related to spamton (including pipis get the lore)-->
+            <img src="88x31/mercs.gif">
+            <img src="88x31/pipis.gif">
+            <img src="88x31/faze.gif">
+            <img src="88x31/csgo.gif">
+            <img src="88x31/spamton(2).gif"> <!--yeah i had an idea of what the spamton gif should be but then i accidently made this one instead (which is still a banger) so that's why this is spamton(2)-->
+            <img src="88x31/animusic.gif"> <!--longest gif also https://www.myfonts.com/products/semibold-neuropol-x-232248-->
+            <img src="88x31/tallyhall.gif">
+        </marquee>
+    </div>
+
+    <!--div id="app" style="position: absolute; width: 100%; height: 100%"-->
+        <template id="ditemplate">
+            <style>
+                :host {
+                    /*width: 100px;*/
+                    min-width: 100px;
+                    height: 100px;
+                    /*position: absolute;*/ /*relative;*/
+                    display: flex;
+                    flex-direction: column;
+                    text-align: center;
+                    justify-content: flex-end;
+
+                    color: white;
+                    text-shadow: 1px 1px 2px black;
+
+                    user-select: none;
+                }
+
+                :host(:hover) {
+                    background-color: rgba(179, 220, 229, .25);
+                }
+
+                :host(:active) {
+                    background-color: rgba(179, 220, 229, .5);
+                }
+
+                div.bookmarked::before {
+                    content: "";
+                    width: 24px;
+                    height: 24px;
+                    background-image: url("/v3/favorite.png");
+                    background-repeat: no-repeat;
+                    background-position: center;
+                    display: block;
+                    /*position: relative;
+                    right: 0;
+                    top: 0;*/
+                }
+            </style>
+            <!--div-->
+                <!--img width="64" height="64" draggable="false" style="margin: auto;"-->
+                <div style="width: 64px; height: 64px; margin: auto; background-position: center; background-repeat: no-repeat; background-size: contain;"></div>
+                <span><slot></slot></span>
+            <!--/div-->
+        </template>
+        <desktop-icon data-icon="faze.gif">Games</desktop-icon> <!--draggable="true"-->
+        <desktop-icon>web.gif</desktop-icon>
+        <desktop-icon data-icon="/thumbnails/typing.png">typingtest.html</desktop-icon>
+        <!--desktop-icon data-icon="/thumbnails/typing.png">typing.html</desktop-icon-->
+        <desktop-icon>selfupdating.py</desktop-icon>
+        <desktop-icon data-icon="/thumbnails/prankmaker.png">prankmaker.htm</desktop-icon>
+        <desktop-icon>plotter.html</desktop-icon>
+        <desktop-icon>pathfinding.html</desktop-icon>
+        <desktop-icon>orbfarm2.html</desktop-icon>
+        <desktop-icon>lena.png</desktop-icon>
+        <desktop-icon data-icon="/index.html">mainpage</desktop-icon>
+        <desktop-icon>clickonthelink.png</desktop-icon>
+        <desktop-icon>chaosmawebgpu.html</desktop-icon>
+        <desktop-icon>chaosmainst.html</desktop-icon>
+        <desktop-icon>chaosma.html</desktop-icon>
+        <desktop-icon data-icon="/thumbnails/canvas.png">canvas.html</desktop-icon>
+        <desktop-icon data-icon="/thumbnails/awesome_card.png">awesome_card.html</desktop-icon>
+        <desktop-icon>gol5.html</desktop-icon>
+
+        <desktop-icon data-type="folder">box2d</desktop-icon>
+        <desktop-icon data-type="folder">breakapart</desktop-icon>
+        <desktop-icon data-type="folder">ca</desktop-icon>
+        <desktop-icon data-type="folder">fnf</desktop-icon>
+        <desktop-icon data-type="folder">games</desktop-icon>
+        <desktop-icon data-type="folder">gravity</desktop-icon>
+        <desktop-icon data-type="folder">img</desktop-icon>
+        <desktop-icon data-type="folder">likesio</desktop-icon>
+        <desktop-icon data-type="folder">music</desktop-icon>
+        <desktop-icon data-type="folder">rabbits</desktop-icon>
+        <desktop-icon data-type="folder">sounds</desktop-icon>
+        <desktop-icon data-type="folder">thumbnails</desktop-icon>
+        <desktop-icon data-type="folder">v2</desktop-icon>
+        <desktop-icon data-type="folder">v3</desktop-icon>
+        <desktop-icon data-type="folder">webhooks</desktop-icon>
+
+        <desktop-icon data-type="folder">favorites</desktop-icon>
+
+        <desktop-icon data-icon="settings.gif" data-type="window">settings</desktop-icon>
+    <!--/div-->
+
+    <!--data-title="title ass nigga"-->
+    <!--file-explorer data-directory="box2d" style="left: 300px; top: 200px; width: 600px; height: 400px;"-->
+        <!--div style="white-space: pre; display: flex; justify-content: space-between; cursor: move; background: linear-gradient(#FFE697, #F5D470); border-bottom: 1px solid grey;"><span style="white-space: pre;">    title</span><div><button>_</button><button>[ ]</button><button>X</button></div></div>
+        <div>
+            content
+        </div-->
+    <!--/file-explorer-->
+    <template id="fetemplate">
+        <style>
+            /*button {
+                border: none;
+                background-color: rgba(0,0,0,.15);
+            }
+            button:hover {
+                background-color: rgba(0,0,0,.25);
+            }
+            div>div>button {
+                border: revert;
+                background: revert;
+            }
+            div>div>button:hover {
+                background: revert;
+            }*/
+            .flush {
+                border: none;
+                background-color: rgba(0,0,0,.15);
+            }
+            .flush:hover {
+                background-color: rgba(0,0,0,.25);
+            }
+        </style>
+        <div style="/*white-space: pre;*/display: flex;justify-content: space-between;cursor: move;background: linear-gradient(rgb(255, 230, 151), rgb(245, 212, 112));border-bottom: 1px solid grey;user-select: none;">
+            <span style="margin-left: 25px;"></span>
+            <div><button style="background-color: red;">_</button><button>[ ]</button><button>X</button></div>
+        </div>
+        <div style="overflow: auto; height: 100%;"></div>
+        <div style="background: linear-gradient(#FFE697, #F5D470); border-top: 1px solid grey;"><button style="margin-left: 25px;" class="flush">home</button> &gt; </div>
+    </template>
+
+    <template id="windowtemplate">
+        <div style="/*white-space: pre;*/display: flex;justify-content: space-between;cursor: move;background: linear-gradient(rgb(255, 230, 151), rgb(245, 212, 112));border-bottom: 1px solid grey;user-select: none;">
+            <span style="margin-left: 25px;"></span>
+            <div><button style="background-color: red;">_</button><button>[ ]</button><button>X</button></div>
+        </div>
+        <!--slot></slot-->
+    </template>
+
+    <template id="settingstemplate">
+        <style>
+            .coolinput {
+                width: 100%;
+                height: 100px;
+                background: /*rgb(31, 31, 31)*/linear-gradient(rgb(31,31,31), rgb(15,15,15));
+                cursor: pointer;
+                position: relative;
+                display: flex;
+                justify-content: space-around;
+                user-select: none;
+            }
+            .coolinput:hover {
+                background-color: rgb(62,62,62);
+            }
+
+            /*.coolinput::after {
+                content: ">";
+                position: absolute;
+                right: 0;
+                top: 0;
+                font-size: 2em;
+                font-weight: bolder;
+            }*/
+
+            h1 {
+                margin: 0;
+                line-height: 100px;
+                color: grey;
+            }
+
+            input:checked {
+                display: block;
+            }
+            /*.coolinput:has(input:checked) {
+                display: none;
+            }*/
+            .coolinput:has(input:checked) + div {
+                display: block !important;
+            }
+            .coolinput > :last-child {
+                transition: rotate .25s;
+                rotate: 180deg;
+            }
+            .coolinput:has(input:checked) > :last-child {
+                rotate: 0deg;
+            }
+        </style>
+        <div style="height: 100%; background-color: white;">
+            <div>
+                <div class="coolinput" onclick="this.firstElementChild.click();">
+                    <input type="checkbox" style="display: none;">
+                    <h1>Background</h1>
+                    <h1 style="font-size: 50px;">˅</h1>
+                </div>
+                <!--http://howtocenterincss.com/#contentType=text&content.text.fontSize=50px&content.text.lines=1&container.width=100pct&container.height=100px&horizontal=left&vertical=middle&browser.IE=none-->
+                <div style="display: none;">
+                    backgrond shit idk nigga im not done yet
+                </div>
+            </div>
+            <!--div>
+                
+            </div-->
+        </div>
+    </template>
+
+    <def-window window-type="settings" style="left: 300px; top: 200px; width: 600px; height: 400px;"></def-window>
+
+    <script src="importantinit.js"></script> <!--now this is actually only the second time i've used different js files (the first was socketoverload which is the sibling/parent of v3)-->
+    <script>
+        let skip = (Date.now()-(+localStorage.getItem("visited") || 0)) < 8.64e+7; //skip intro
+        let nodegraph = false;
+        let startupfinished = false;
+
+        const mouse = {x: innerWidth, y: innerHeight, button: 0}; //x and y set becaques iykesfc
+
+        const bgs = ["Cliff_Rock_001_basecolor.jpg", "disturb.jpg", "awesomebackground.png", "checker.png", "/thumbnails/original_pic.png"];
+        document.body.style.backgroundImage = `url(${bgs[localStorage.getItem("bg") || 0]})`;
+
+        function updateBackground(newbg) {
+            localStorage.setItem("bg", newbg);
+            document.body.style.backgroundImage = `url(${bgs[newbg]})`;
+        }
+
+        addEventListener("keydown", (event) => {
+            if(event.key == "Enter") {
+                //if(startupfinished) {
+                    killstartup();
+                //}else {
+                //    skip = true; //skip shits
+                //}
+            }
+
+            new Audio("keydown"+Math.ceil(Math.random()*4)+".mp3").play(); //ceil makes it 1-4
+        });
+
+        addEventListener("mousemove", (event) => {
+            mouse.x = event.pageX;
+            mouse.y = event.pageY;
+            mouse.button = event.button;
+
+            if(activeObject) { //haha was activeIcon
+                //                activeObject.style.setProperty("left", (event.pageX-activeObject.offset.x)+"px", "important");
+//                activeObject.style.setProperty("top", (event.pageY-activeObject.offset.y)+"px", "important");
+
+                activeObject.style.left = (event.pageX-activeObject.offset.x)+"px";
+                activeObject.style.top = (event.pageY-activeObject.offset.y)+"px";
+            }
+        });
+
+        addEventListener("mouseup", (event) => {
+            activeObject = undefined;
+        });
+    </script>
+    <script src="startup.js"></script>
+    <script src="canvas.js"></script>
+</body>
+</html>
