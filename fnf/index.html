@@ -332,8 +332,7 @@
                 music.sound.volume -= .1;
             }else if(event.key == "+" || event.key == "=") {
                 music.sound.volume += .1;
-            }
-            if(event.key == "Enter") {
+            }else if(event.key == "Enter") {
                 new sound("../sounds/textclickmodern.ogg").play();
                 console.log(paused);
                 if(!paused) { //have to negate this value because im setting it after (because i need the start time)
@@ -469,7 +468,7 @@
             miss = new sound("miss.wav");
             song = JSON.parse(eval(songName)).song;
             songSpeed = forme.children[1].value/2;
-            window.aimassist = {checked: aimassist.checked}; //lol (prob don't hav to say window)
+            window.aimassist = {checked: aimassist.checked}; //lol (prob don't hav to say window) (window is CRAZY)
             mustmusthit = !mustmusthit.checked;
             //console.log(mustmusthit);
             forme.remove();

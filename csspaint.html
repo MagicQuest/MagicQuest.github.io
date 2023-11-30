@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>css paint</title>
+    <style>
+        .yunomiles {
+            background-image: paint(randomtesting);
+            width: 500px;
+            height: 500px;
+            box-shadow: 0px 0px 10px black;
+            border: 1px solid red;
+            border-radius: 10px;
+            position: absolute;
+            margin: auto;
+            left: 0;
+            right: 0;
+
+            --shit: 0;
+        }
+
+        .yunomiles:hover {
+            --shit: 250;
+        }
+
+        .yunomiles:active {
+            --shit: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="yunomiles"></div>
+
+    <script>
+        CSS.paintWorklet.addModule("csspaintrt.js");
+    </script>
+</body>
+</html>

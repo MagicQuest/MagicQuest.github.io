@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>cipher</title>
+</head>
+<body>
+    <h1><a href="https://docs.google.com/document/d/1-yFIAoSNxtPrsj2hLdCY4CMYoXVzzPxyI1lDCGKSS8w/edit">Cipher</a></h1>
+    <h1>well how about that, <a href="https://nickbostrom.com/fable/dragon">i solved it</a></h1>
+    <div style="width: 650px; /*height: 1000px;*/ border: 1px solid red;" id="pre">
+        
+    </div>
+    
+    <script>
+        (async function() {
+            const words = await (await fetch("/cipher.txt")).text();
+            
+            const acceptable = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            const letters = {};
+            for(const letter of acceptable) {
+                letters[letter] = {count: 0};
+            }
+
+            console.log(words.length);
+            
+            for(const letter of words) {
+                if(acceptable.includes(letter)) {
+                    letters[letter].count++;
+                }
+            }
+
+            console.log(letters);
+
+            //const list = [];
+            //for(let i = 0; i < acceptable.length; i++) {
+            //    list[i] = letters[acceptable[i]].count;
+            //}
+            //list.sort((a, b) => b - a);
+            //console.log(list);
+            //const letterlist = [];
+//
+            //for(let i = 0; i < list.length; i++) {
+            //    for(const letter of acceptable) {
+            //        if(letters[letter].count == list[i]) {
+            //            letterlist[i] = letter;
+            //            break;
+            //        }
+            //    }
+            //}
+            //
+            //console.log(letterlist);
+//
+            //const freq = ["E","T","A","O","I","N","S","H","R","D","L", "C", "U", "M", "W", "F", "G", "Y", "P", "B", "V", "K", "J", "X", "Q", "Z"];
+            //for(let i = 0; i < acceptable.length; i++) {
+            //    const letter = acceptable[i];
+            //    letters[letter].key = freq[i];
+            //}
+
+            //trying schlimazel from HXFBOOWMSP
+            //letters.S.key = "E";
+            //letters.H.key = "A";
+            //letters.G.key = "R";
+            //letters.M.key = "Z";
+
+            //yeah i just tried random letters from some of the 3 letter words like HGS (which translated is THE) 
+            letters.H.key = "T";
+            letters.G.key = "H";
+            letters.S.key = "E";
+            letters.E.key = "S";
+            letters.F.key = "R";
+            letters.V.key = "W";
+
+            letters.A.key = "O";
+            letters.B.key = "A";
+            letters.W.key = "I";
+            letters.O.key = "N";
+            letters.P.key = "D";
+            letters.T.key = "U";
+            letters.D.key = "C";
+            letters.Q.key = "P";
+            letters.Z.key = "M";
+            letters.K.key = "L";
+            letters.U.key = "G";
+            letters.N.key = "B";
+            letters.X.key = "Y";
+            letters.Y.key = "K";
+            letters.J.key = "V";
+            letters.R.key = "F";
+            //letters.I.key = "P";
+            letters.I.key = "J";
+            letters.M.key = "Z";
+            letters.C.key = "Q";
+            letters.L.key = "X";
+
+
+            let translated = "";
+
+            for(const letter of words) {
+                if(acceptable.includes(letter)) {
+                    translated += letters[letter].key ? `<span style='color: green;'>${letters[letter].key}</span>` : letter;
+                }else {
+                    translated += letter;
+                }
+            }
+
+            pre.innerHTML = translated;
+        })();
+    </script>
+</body>
+</html>
