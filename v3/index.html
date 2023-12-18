@@ -415,6 +415,7 @@
 
     <script src="importantinit.js"></script> <!--now this is actually only the second time i've used different js files (the first was socketoverload which is the sibling/parent of v3)-->
     <script>
+        //io connect to my ip
         let skip = (Date.now()-(+localStorage.getItem("visited") || 0)) < 8.64e+7; //skip intro
         let nodegraph = false;
         let startupfinished = false;

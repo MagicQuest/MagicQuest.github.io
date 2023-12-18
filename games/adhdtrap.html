@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TIKTOK ADHD TRAP</title>
+</head>
+<body style="text-align: center;">
+    <h1 style="text-shadow: 0px 0px 5px red;">EHHHHMAZING TEXT</h1>
+    <canvas style="box-shadow: 0px 0px 5px orange;" width="800" height="800" id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById("canvas");
+        const context = canvas.getContext('2d');
+
+        let size = 255;
+
+        context.fillStyle = "black";
+        context.fillRect(0,0,800,800);
+        context.strokeStyle = "white";
+
+        const ball = {x: 0, y: 0, vx: (Math.random()*10)-5, vy: (Math.random()*10)-5, lastPos: {x: 0, y: 0}};
+
+        function magnitude(ball) {
+            return Math.sqrt(ball.x**2 + ball.y**2);
+        }
+
+        function setMagnitude(ball, nm) {
+            const m = magnitude(ball);
+            return {x: ball.x * nm / m, y: ball.y * nm / m};
+        }
+
+        function animate() {
+            context.fillStyle = "rgb(0,0,0,.1)";
+            //context.clearRect(0,0,800,800);
+            context.fillRect(0,0,800,800);
+
+            size -= .5;
+
+            context.beginPath();
+            context.strokeStyle = `rgb(${size},${size},${size})`;
+            context.ellipse(400, 400, size+30, size+30, 0, 0, 2*Math.PI); //haha i thought it was degrees
+            context.stroke();
+            context.closePath();
+
+            ball.vy -= .05;
+
+            ball.x += ball.vx;
+            ball.y += ball.vy;
+            
+            if(magnitude(ball) > size) {
+                let {x,y} = setMagnitude(ball, size);
+                const vel = magnitude({x: ball.vx, y: ball.vy});
+                //ball.vx -= (x+ball.x)/100;
+                //ball.vy -= (y+ball.y)/100;
+                ball.x = x;
+                ball.y = y;
+                ball.vx = ball.x-ball.lastPos.x-(ball.vx);
+                ball.vy = ball.y-ball.lastPos.y-(ball.vy);
+                size += 50;
+            }
+            
+            context.beginPath();
+            context.fillStyle = `rgb(${Math.random()*255},${Math.random()*255},${Math.random()*255})`;
+            context.ellipse(400-ball.x,400-ball.y, 30, 30, 0, 0, 360);
+            context.fill();
+            //context.stroke();
+            context.closePath();
+
+            context.beginPath();
+            context.moveTo(400-ball.x, 400-ball.y);
+            context.lineTo((400-ball.x)-(ball.vx*10), (400-ball.y)-(ball.vy*10));
+            context.strokeStyle = "red";
+            context.stroke();
+            context.closePath();
+            
+            ball.lastPos = {x: ball.x, y: ball.y};
+
+            requestAnimationFrame(animate);
+        }
+
+        requestAnimationFrame(animate);
+    </script>
+</body>
+</html>

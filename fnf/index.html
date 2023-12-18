@@ -495,12 +495,14 @@
             //music.play();
 
             //music.sound.onload = function() {
-            
+            music.sound.addEventListener("progress", function() {
+                console.log("console.log"); //erm what the deuce why does it sometimes get stuck at 3
+            });
             music.sound.addEventListener("loadeddata",function() {
                 //letsgo = true;
                 console.log(music.sound.readyState);
                 //mobiledebug.innerHTML = music.sound.readyState + " nigga";
-                if(music.sound.readyState == 4) {
+                if(music.sound.readyState >= 3) { //OK THAT didn't do anything lol
                     song.startTime = new Date().getTime();
                     
                     music.play();

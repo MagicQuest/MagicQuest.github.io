@@ -1273,7 +1273,7 @@
                             callback();
                         }
                         this.finished = [];
-                    }).bind(this)(); //lol i bound this but didn't call it (because i thought it automagically did)
+                    }).call(this); //lol i bound this but didn't call it (because i thought it automagically did (OH i JUST learned that using call will do exactly what i thought it did))
                 }else {
                     this.ready = true;
                     time.innerHTML = (Date.now()-tnow)/1000 + " seconds";
