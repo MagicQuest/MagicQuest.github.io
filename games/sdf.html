@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SDF (per CGMATTER)</title>
+</head>
+<body>
+    <canvas id="canvas" width="800" height="800" style="box-shadow: 5px 5px 10px red; margin: auto; left: 0; right: 0; position: absolute; cursor: pointer;">signed distance function</canvas>
+    <input type="range" min="0" max="400" value="100" oninput="r=this.value; l.innerText='center ball radius: '+this.value;">
+    <label id="l">center ball radius: 100</label>
+    <br>
+    <input type="range" value="100" max="5000" min="0" oninput="rtl=this.value; tl.innerText='trail length: '+this.value; trail = [];">
+    <label id="tl">trail length: 100</label>
+    <!--label>trails</label-->
+    <!--input type="checkbox" oninput="trail = this.checked;"-->
+    <script>
+        const canvas = document.getElementById("canvas");
+        const context = canvas.getContext('2d');
+
+        let point = {x: Math.random()*400, y: Math.random()*400};
+        let vel = {x: 10, y: 0};
+
+        let r = 100;
+
+        let mouse = {x: 0, y: 0};
+        let lastMouse = {x: 0, y: 0}
+        let mu = false;
+
+        //let trail = false;
+        let trail = [];
+        let rtl = 100;
+
+        function magnitude(v) {
+            return Math.sqrt(v.x**2 + v.y**2);
+        }
+
+        function setMagnitude(v, nm) {
+            let temp = {x: v.x, y: v.y};
+            let m = magnitude(temp);
+            temp.x *= (nm/m);
+            temp.y *= (nm/m);
+            return temp;
+        }
+
+        function circle(x,y,r,pie) {
+            context.beginPath();
+            context.arc(x, y, Math.abs(r), 0, 2*Math.PI);
+            pie && context.fill();
+            context.stroke();
+        }
+
+        canvas.addEventListener("mousemove", (event) => {
+            if(event.buttons == 1) {
+                mouse = {x: event.offsetX, y: event.offsetY};
+                vel = {x: 0, y: 0};
+                
+                point.x=mouse.x-400;//allmyhomieshatewhitespace(tabsarefinetho)
+                point.y=mouse.y-400;
+
+                lastMouse = {x: mouse.x, y: mouse.y};
+            }else {
+                if(mu) {
+                    mu = false;
+                    mouse = {x: event.offsetX, y: event.offsetY};
+                    vel = {x: -(lastMouse.x-mouse.x), y: -(lastMouse.y-mouse.y)};
+                    console.log(vel);
+                }
+            }
+        });
+
+        canvas.addEventListener("mouseup", (event) => {
+            mu = true;
+        });
+
+        function animate() {
+            /*!trail && */context.clearRect(0, 0, 800, 800);
+
+            unit = setMagnitude(point, 1);
+
+            //let e=magnitude(vel);
+
+            let dist = magnitude(point);
+
+            vel.x -= unit.x/(dist/100);
+            vel.y -= unit.y/(dist/100);
+
+            //let pointemp = {x: point.x, y: point.y};
+            trail.push({x: point.x+400, y: point.y+400});
+
+            point.x += vel.x;
+            point.y += vel.y;
+            
+            //if(trail) {
+            //    context.beginPath();
+            //    context.moveTo(pointemp.x+400, pointemp.y+400);
+            //    context.lineTo(point.x+400, point.y+400);
+            //    context.stroke();
+            //}
+            if(trail.length > rtl) { //autocorrect got tl
+                trail.splice(0, 1);
+            }
+
+            context.beginPath();
+            trail[0] && context.moveTo(trail[0].x, trail[0].y);
+            for(let i = 1; i < trail.length; i++) {
+                context.lineTo(trail[i].x, trail[i].y);
+            }
+            context.stroke();
+
+            //delete pointemp;
+
+            calc = dist-r; //uh oh using magnitude(point) instead of reusing dist from before the vel calculations changes the way it bounces (which it doesn't)
+            if(calc < 0) {
+                let newp = setMagnitude(point, r);
+                let sufck = {x: (newp.x-point.x), y: (newp.y-point.y)};
+                let sfhk3m=magnitude(sufck);
+                vel = {x: vel.x+sufck.x, y: vel.y+sufck.y};
+                point = newp;
+            }
+
+            //if(!trail) {
+                circle(400, 400, r);
+                circle(400, 400, 5, true);
+                context.beginPath();
+                context.moveTo(400, 400);
+                context.lineTo(point.x+400, point.y+400);
+                context.stroke();
+                
+                circle(point.x+400, point.y+400, calc);
+                circle(point.x+400, point.y+400, 10, true);
+            //}
+
+            context.save();
+            context.beginPath();
+            context.strokeStyle = "red";
+            context.moveTo(point.x+400, point.y+400);
+            context.lineTo((point.x+400)+(vel.x*10), (point.y+400)+(vel.y*10));
+            context.stroke();
+            context.restore();
+
+            requestAnimationFrame(animate);
+        }
+
+        requestAnimationFrame(animate);
+    </script>
+</body>
+</html>

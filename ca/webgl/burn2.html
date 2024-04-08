@@ -130,65 +130,65 @@
 
             if(gol == false) {
 
-            float sum = 0.0;
-    
-            for(int i = -1; i <= 1; i += 1)
-            {
-                for( int j = -1; j <= 1; j += 1)
+                float sum = 0.0;
+        
+                for(int i = -1; i <= 1; i += 1)
                 {
-                    vec2 offset = vec2(i, j) / iResolution.xy;		 // Scale the offset down
-                    vec4 lookup = texture(iChannel0B, uv + offset); // Apply offset and sample
-                    //sum += lookup.x;
-                    if(i == -1) {
-                        sum += /*(texture(iChannel1, uv).x)**/(lookup.x)*f1[2-(j+1)]; //getting rid of (texture(iChannel1, uv).x)* on here and        look the best
-                    }else if(i == 0) {
-                        sum += /*(texture(iChannel1, uv).x)**/(lookup.x)*f2[2-(j+1)]; //2-(j+1) reflects it and make the fire go up and not down
-                    }else if(i == 1) {
-                        sum += /*(texture(iChannel1, uv).x)**/(lookup.x)*f3[2-(j+1)];                               //here 
+                    for( int j = -1; j <= 1; j += 1)
+                    {
+                        vec2 offset = vec2(i, j) / iResolution.xy;		 // Scale the offset down
+                        vec4 lookup = texture(iChannel0B, uv + offset); // Apply offset and sample
+                        //sum += lookup.x;
+                        if(i == -1) {
+                            sum += /*(texture(iChannel1, uv).x)**/(lookup.x)*f1[2-(j+1)]; //getting rid of (texture(iChannel1, uv).x)* on here and        look the best
+                        }else if(i == 0) {
+                            sum += /*(texture(iChannel1, uv).x)**/(lookup.x)*f2[2-(j+1)]; //2-(j+1) reflects it and make the fire go up and not down
+                        }else if(i == 1) {
+                            sum += /*(texture(iChannel1, uv).x)**/(lookup.x)*f3[2-(j+1)];                               //here 
+                        }
                     }
                 }
+
+                sum = clamp(sum, -1., 1.);
+
+                //color = vec3(abs(sum));
+                //float cell = texture(iChannel0B, uv).x;
+        
+        
+                /*
+                    Now we just need to apply the rules to calulate the state of the cell in this iteraton.
+                    It's really simple: We have already initialized the cell of this iteration to 0,
+                    We therefore just have to check if we need to change that by seeing whether the
+                    conditions for being alive hold:
+                    Cell alive and exactly 2 or 3 _other_ neighbors (3 or 4 in total)
+                    OR
+                    Cell dead and exactly 2 _other_ neighbors (3 in total)
+                */
+                //if(cell > 0.0) {
+                //    if(sum >= 3.0 && sum <= 4.0) {
+                //        color = vec3(1.0);
+                //    }
+                //} else if(sum > 2.0 && sum < 4.0) {
+                //    color = vec3(1.0);
+                //}
+
+
+                //color = vec3(0.,(abs(sum)/1.2),(texture(iChannel1, uv).x > .5 ? 1. : /*9.*/.84)*(activate(sum)));//vec3(activate(sum),abs(sum),0.);
+
+                color = vec3((texture(iChannel1, uv).x > .5 ? 1. : .84)*activate(sum), sum > .8 ? lerp(.91, .0, clamp((texture(iChannel1, uv).x > .5 ? 1. : .84)*activate(sum), 0., 1.)) : 0.0, 0.);
+
+                if(distance(iMouse.xy, uv) < (iMouse.z == 0.0 ? .1+(size*4.) : .025+size)) {             //iMouse.x > uv.x-.025 && iMouse.x < uv.x+.025 && iMouse.y > uv.y-.025 && iMouse.y < uv.y+.025) {
+                    color = vec3(iMouse.z, rand(uv)/2.5, 0.0); //deez[0]);
+                }
+
+                if(iTime < 1.0) {
+                    color = vec3(texture(iChannel1, gl_FragCoord.xy / iResolution.xy).x);//vec4(1.0,1.0,0.0,.0);             //vec4(gl_PointCoord.x, gl_PointCoord.y, 0.34, 1.0);
+                }
+            }else {
+                if(distance(iMouse.xy, uv) < (iMouse.z == 0.0 ? .1+(size*4.) : .025+size)) {             //iMouse.x > uv.x-.025 && iMouse.x < uv.x+.025 && iMouse.y > uv.y-.025 && iMouse.y < uv.y+.025) {
+                    color = vec3(iMouse.z, 0, 1);
+                }
             }
-
-            sum = clamp(sum, -1., 1.);
-
-            //color = vec3(abs(sum));
-            //float cell = texture(iChannel0B, uv).x;
-    
-    
-            /*
-                Now we just need to apply the rules to calulate the state of the cell in this iteraton.
-                It's really simple: We have already initialized the cell of this iteration to 0,
-                We therefore just have to check if we need to change that by seeing whether the
-                conditions for being alive hold:
-                Cell alive and exactly 2 or 3 _other_ neighbors (3 or 4 in total)
-                OR
-                Cell dead and exactly 2 _other_ neighbors (3 in total)
-            */
-            //if(cell > 0.0) {
-            //    if(sum >= 3.0 && sum <= 4.0) {
-            //        color = vec3(1.0);
-            //    }
-            //} else if(sum > 2.0 && sum < 4.0) {
-            //    color = vec3(1.0);
-            //}
-
-
-            //color = vec3(0.,(abs(sum)/1.2),(texture(iChannel1, uv).x > .5 ? 1. : /*9.*/.84)*(activate(sum)));//vec3(activate(sum),abs(sum),0.);
-
-            color = vec3((texture(iChannel1, uv).x > .5 ? 1. : .84)*activate(sum), sum > .8 ? lerp(.91, .0, clamp((texture(iChannel1, uv).x > .5 ? 1. : .84)*activate(sum), 0., 1.)) : 0.0, 0.);
-
-            if(distance(iMouse.xy, uv) < (iMouse.z == 0.0 ? .1+(size*4.) : .025+size)) {             //iMouse.x > uv.x-.025 && iMouse.x < uv.x+.025 && iMouse.y > uv.y-.025 && iMouse.y < uv.y+.025) {
-                color = vec3(iMouse.z, rand(uv)/2.5, 0.0); //deez[0]);
-            }
-
-            if(iTime < 1.0) {
-                color = vec3(texture(iChannel1, gl_FragCoord.xy / iResolution.xy).x);//vec4(1.0,1.0,0.0,.0);             //vec4(gl_PointCoord.x, gl_PointCoord.y, 0.34, 1.0);
-            }
-        }else {
-            if(distance(iMouse.xy, uv) < (iMouse.z == 0.0 ? .1+(size*4.) : .025+size)) {             //iMouse.x > uv.x-.025 && iMouse.x < uv.x+.025 && iMouse.y > uv.y-.025 && iMouse.y < uv.y+.025) {
-                color = vec3(iMouse.z, 0, 1);
-            }
-        }
 
             fragColor = vec4(color, 1.0);
         }
@@ -769,31 +769,31 @@
 
 
             if(!gol) {
-            gl.useProgram(program2);
+                gl.useProgram(program2);
 
-            gl.uniform1i(gl.getUniformLocation(program2, "iChannel0B"), 2);
+                gl.uniform1i(gl.getUniformLocation(program2, "iChannel0B"), 2);
 
-            gl.uniform1i(gl.getUniformLocation(program2, "bSize"), bSize.value);
-            gl.uniform1f(gl.getUniformLocation(program2, "filtah"), filtah.value);
-            gl.uniform1f(gl.getUniformLocation(program2, "weight"), weight.value);
+                gl.uniform1i(gl.getUniformLocation(program2, "bSize"), bSize.value);
+                gl.uniform1f(gl.getUniformLocation(program2, "filtah"), filtah.value);
+                gl.uniform1f(gl.getUniformLocation(program2, "weight"), weight.value);
 
-            gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+                gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
 
-            //gl.useProgram(program);
+                //gl.useProgram(program);
 
-            gl.useProgram(program3);
+                gl.useProgram(program3);
 
-//gl.bindTexture(gl.TEXTURE_2D,null);
+                //gl.bindTexture(gl.TEXTURE_2D,null);
 
-gl.activeTexture(gl.TEXTURE2);
-gl.bindTexture(gl.TEXTURE_2D,iChannel0B);
-gl.uniform1i(gl.getUniformLocation(program3, "iChannel0B"), 2);
+                gl.activeTexture(gl.TEXTURE2);
+                gl.bindTexture(gl.TEXTURE_2D,iChannel0B);
+                gl.uniform1i(gl.getUniformLocation(program3, "iChannel0B"), 2);
 
-gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+                gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
 
-gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+                gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
 
-gl.useProgram(program);
+                gl.useProgram(program);
 
             }
 

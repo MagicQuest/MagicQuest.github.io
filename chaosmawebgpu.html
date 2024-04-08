@@ -1269,7 +1269,7 @@
                         this.ready = true;
                         time.innerHTML = (Date.now()-tnow)/1000 + " seconds";
                         loader.hide();
-                        for(const callback of this.finished) {
+                        for(const callback of this.finished) { //cool line bro
                             callback();
                         }
                         this.finished = [];

@@ -48,15 +48,27 @@
             ball.x += ball.vx;
             ball.y += ball.vy;
             
-            if(magnitude(ball) > size) {
+            if((mb = magnitude(ball)) > size) { //i think im totally allowed to do this in js (assignments return the assigned value)
                 let {x,y} = setMagnitude(ball, size);
                 const vel = magnitude({x: ball.vx, y: ball.vy});
                 //ball.vx -= (x+ball.x)/100;
                 //ball.vy -= (y+ball.y)/100;
+                //console.log(mb, size, mb-size);
                 ball.x = x;
                 ball.y = y;
-                ball.vx = ball.x-ball.lastPos.x-(ball.vx);
-                ball.vy = ball.y-ball.lastPos.y-(ball.vy);
+
+                
+                
+                ball.vx = ball.x-ball.lastPos.x-(ball.vx);//*(mb-size);
+                ball.vy = ball.y-ball.lastPos.y-(ball.vy);//'*(mb-size);
+
+                let tempB = {x: ball.vx, y: ball.vy};
+
+                let returned = setMagnitude(tempB, 2);//magnitude(ball.lastPos)-magnitude(ball)); //i mean that's better i guess
+                //console.log(tempB, vx, vy);
+                ball.vx += returned.x;
+                ball.vy += returned.y;
+
                 size += 50;
             }
             

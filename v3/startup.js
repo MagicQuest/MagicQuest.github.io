@@ -112,7 +112,7 @@ function startupconsolespam() {
     }
 
     setTimeout(() => {
-        dot() && //yeah this is crazy but HOLD ON
+        dot() && //yeah this is crazy but HOLD ON (what happened to writing dumb code)
         setTimeout(() => {
             dot() &&
             setTimeout(() => {
