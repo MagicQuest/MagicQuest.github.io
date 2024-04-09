@@ -6,7 +6,7 @@
     <title>SDF (per CGMATTER)</title>
 </head>
 <body>
-    <canvas id="canvas" width="800" height="800" style="box-shadow: 5px 5px 10px red; margin: auto; left: 0; right: 0; position: absolute; cursor: pointer;">signed distance function</canvas>
+    <canvas id="canvas" width="800" height="800" style="box-shadow: 5px 5px 10px red; margin: auto; left: 0; right: 0; position: absolute; cursor: pointer; border: 2px orange dotted">signed distance function</canvas>
     <input type="range" min="0" max="400" value="100" oninput="r=this.value; l.innerText='center ball radius: '+this.value;">
     <label id="l">center ball radius: 100</label>
     <br>
@@ -14,6 +14,9 @@
     <label id="tl">trail length: 100</label>
     <!--label>trails</label-->
     <!--input type="checkbox" oninput="trail = this.checked;"-->
+    <!--input type="checkbox" oninput="rtc = this.checked;">
+    <label>random trail colors</label-->
+    <h1 style="text-align: center">new adhdtrap just dropped</h1>
     <script>
         const canvas = document.getElementById("canvas");
         const context = canvas.getContext('2d');
@@ -30,6 +33,7 @@
         //let trail = false;
         let trail = [];
         let rtl = 100;
+        //let rtc = false;
 
         function magnitude(v) {
             return Math.sqrt(v.x**2 + v.y**2);
@@ -102,11 +106,25 @@
             }
 
             context.beginPath();
-            trail[0] && context.moveTo(trail[0].x, trail[0].y);
-            for(let i = 1; i < trail.length; i++) {
-                context.lineTo(trail[i].x, trail[i].y);
-            }
-            context.stroke();
+            trail[0] && context.moveTo(trail[0].x, trail[0].y); //this is crazy but neccesary (wait a minute NO IT'S NOT, WAIT ANOTHER MINUTE YES IT IS)
+            //trail[0] && is important because despite a trail being added at the beginning of this function if you change the trail length slider the trail array is cleared and can sometimes happen after a trail has been added!
+            //also i could just do an if statement but f that (write dumb code)
+            //if(!rtc) {
+                context.strokeStyle = "blue";
+                for(let i = 1; i < trail.length; i++) {
+                    context.lineTo(trail[i].x, trail[i].y);
+                }
+                context.stroke();
+            //}else {
+            //    for(let i = 1; i < trail.length; i++) {
+            //        context.beginPath();
+            //        context.strokeStyle = `rgb(${Math.round(Math.random()*255)},${Math.round(Math.random()*255)},${Math.round(Math.random()*255)})`;
+            //        context.moveTo(trail[i-1].x, trail[i-1].y);
+            //        context.lineTo(trail[i].x, trail[i].y);
+            //        context.stroke();
+            //        //context.closePath();
+            //    }
+            //}
 
             //delete pointemp;
 
@@ -120,6 +138,7 @@
             }
 
             //if(!trail) {
+                context.strokeStyle = "black";
                 circle(400, 400, r);
                 circle(400, 400, 5, true);
                 context.beginPath();
@@ -131,13 +150,13 @@
                 circle(point.x+400, point.y+400, 10, true);
             //}
 
-            context.save();
+            //context.save(); //haha i just did this because i didn't feel like putting the strokeStyle back to black
             context.beginPath();
             context.strokeStyle = "red";
             context.moveTo(point.x+400, point.y+400);
             context.lineTo((point.x+400)+(vel.x*10), (point.y+400)+(vel.y*10));
             context.stroke();
-            context.restore();
+            //context.restore();
 
             requestAnimationFrame(animate);
         }

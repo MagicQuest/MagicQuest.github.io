@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>sdf webgl</title>
+    <style>
+        input[type="color"] + label {
+            text-shadow: 1px 1px 5px black;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas" width="800" height="800" style="box-shadow: 5px 5px 10px red; margin: auto; left: 0; right: 0; position: absolute; cursor: pointer; border: 2px orange dotted">signed distance function</canvas>
+    <div style="background-color: blanchedalmond; display: inline-block;">
+        <input type="range" min="0" max="200" value="40" oninput="bl.innerText = 'bands: '+this.value; gl.uniform1f(uniformLocations['bands'], this.value);"><label id="bl">bands: 40</label><br>
+        <input type="range" min="0" max="100" value="10.5" step=".1" oninput="sl.innerText = 'smoothing: '+this.value; gl.uniform1f(uniformLocations['smoothing'], this.value);"><label id="sl">smoothing: 10.5</label><br>
+        <input type="range" min="0" max=".2" value=".01" step=".001" oninput="lll.innerText = 'line width: '+this.value; gl.uniform1f(uniformLocations['linewidth'], this.value);"><label id="lll">line width: 0.01</label><br>
+        <input type="color" value="#004dff" oninput="rgb = hexToRgb(this.value); gl.uniform3fv(uniformLocations['ucolor2'], new Float32Array(rgb)); pcl.style.color = this.value;"><label id="pcl">positive color</label><br>
+        <input type="color" value="#ff0000" oninput="rgb = hexToRgb(this.value); gl.uniform3fv(uniformLocations['ucolor1'], new Float32Array(rgb)); ncl.style.color = this.value;"><label id="ncl">negative color</label><br>
+        <input type="checkbox" oninput="gl.uniform1i(uniformLocations['boring'], +this.checked);"><label>boring mode</label>
+        <p>click and drag near one of the points to grab it</p>
+        <p>scroll while dragging to increase/decrease the size of the point</p>
+        <p>literally <a href="https://www.youtube.com/watch?v=l-Zyap6bU2o">CGMatter's SDF blender video</a> but the nodes are webgl</p>
+    </div>
+    <script type="x-shader/x-vertex" id="vertex-shader">#version 300 es
+        precision mediump float;
+
+        in vec2 vertPosition;
+
+        out vec4 fragColor;
+
+        void main() {
+          gl_Position = vec4(vertPosition, 0.0, 1.0);
+        }
+    </script>
+    <script type="x-shader/x-fragment" id="sdf-fshader">#version 300 es
+        precision mediump float;
+
+        uniform vec2 iResolution;
+
+        uniform sampler2D iChannel0;
+
+        uniform float fTime;
+
+        out vec4 fragColor;
+
+        uniform vec2 cPos; //circle position
+        uniform vec2 c2Pos; //circle 2 position
+        uniform vec2 radii; //both circle radii
+        uniform float smoothing;
+        uniform float bands;
+        uniform float linewidth;
+
+        uniform vec3 ucolor1;
+        uniform vec3 ucolor2;
+
+        uniform int boring;
+
+        float smin(float a, float b, float k) { //snatched from https://github.com/glslify/glsl-smooth-min/blob/master/exp.glsl
+            float res = exp(-k * a) + exp(-k * b);
+            return -log(res) / k;
+        }
+
+        float mapRange(float x) { //maps from 0 -> 1 to -1 -> 1 
+            return x-1.0*(1.0-x);
+        }
+
+        void main() {
+            vec2 uv = gl_FragCoord.xy / iResolution.xy;
+            
+            float l = distance(uv, cPos)-radii[0];
+            float l2 = distance(uv, c2Pos)-radii[1];
+
+            //float combined = min(l, l2);
+
+            float combined = smin(l, l2, smoothing);
+
+            float compared = abs(combined) <= linewidth ? 0.0 : 1.0; //outline
+
+            float greaterThan = combined > 0.0 ? 1.0 : 0.0;
+            
+            vec3 almostfinal;
+            if(boring == 0) {
+                float mapped = mapRange(greaterThan);
+                float fractioned = fract((combined*bands)+((fTime*2.0) * mapped));
+                vec3 mixedcolor = mix(ucolor1, ucolor2,greaterThan);
+                almostfinal = mixedcolor*(fractioned); //0.5 is the factor in the blender multiply color node (ok i got rid of it but it was (mixedcolor*(fractioned*0.5))    )
+            }else {
+                //vec3 absGreater = abs(combined) > 0.0 ? 1.0 : 0.0; //lol realized this was basically just greaterThan
+                almostfinal = mix(ucolor1, ucolor2,greaterThan);
+            }
+            vec3 FINALCOLOR = almostfinal*compared;
+
+            fragColor = vec4(vec3(FINALCOLOR), 1.0);
+        }
+    </script>
+
+    <script>
+        const canvas = document.getElementById("canvas");
+        const context = canvas.getContext('webgl2');
+
+        const gl = canvas.getContext("webgl2");
+        let program;//, iChannel0;
+        const rect = [
+            -1,1,
+            -1,-1,
+            1,-1,
+            1,1,
+        ];
+        const uniformLocations = {};
+        //|| canvas.getContext("experimental-webgl");
+        if (!gl) {
+            //var paragraph = document.querySelector("p");
+            document.body.innerHTML = "Failed to get WebGL context."
+            + "Your browser or device may not support WebGL.";
+            //return;
+        }
+        
+        window.cPos = new Float32Array([0.5, 0.5]);
+        window.c2Pos = new Float32Array([0.7, 0.7]);
+        const radii = new Float32Array([0.1, 0.1]);
+
+        let dragging = false;
+
+        initGL();
+
+        function hexToRgb(hex) { //for turning input type="color" values into rgb
+            var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? [
+                parseInt(result[1], 16)/255,
+                parseInt(result[2], 16)/255,
+                parseInt(result[3], 16)/255
+            ] : undefined;
+        }
+
+        function cleanup() {
+            gl.useProgram(null);
+            if (buffer) {
+                gl.deleteBuffer(buffer);
+            }
+            if (program) {
+                gl.deleteProgram(program);
+            }
+        }
+
+        function initGL() {
+            gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight); //???he said canvas height and widrh
+            gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            //creating shaders
+
+            let source = document.querySelector("#vertex-shader").innerHTML;
+            const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+            gl.shaderSource(vertexShader, source);
+            gl.compileShader(vertexShader);
+            if(!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+                console.warn("vertex shader error\n", gl.getShaderInfoLog(vertexShader));
+            }
+
+            program = gl.createProgram();
+            
+            source = document.querySelector(`#sdf-fshader`).innerHTML;
+            //console.log(source);
+            const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+            gl.shaderSource(fragmentShader, source);
+            gl.compileShader(fragmentShader);
+            if(!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+                console.warn(`sdf fragment shader error\n`, gl.getShaderInfoLog(fragmentShader));
+            }
+
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+
+            gl.linkProgram(program);
+
+            gl.detachShader(program, vertexShader);
+            gl.detachShader(program, fragmentShader);
+
+            gl.deleteShader(vertexShader);
+            gl.deleteShader(fragmentShader);
+
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                const linkErrLog = gl.getProgramInfoLog(program);
+                cleanup();
+                document.querySelector(
+                "p"
+                ).textContent = `Shader program did not link successfully. Error log: ${linkErrLog}`;
+                return;
+            }
+
+            let rectVBO = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, rectVBO);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(rect), gl.STATIC_DRAW);
+
+            let pAL = gl.getAttribLocation(program, 'vertPosition'); 
+            gl.vertexAttribPointer(pAL, 2, gl.FLOAT, gl.FALSE, 2 * Float32Array.BYTES_PER_ELEMENT, 0);
+            gl.enableVertexAttribArray(pAL);
+
+            gl.useProgram(program);
+
+            let res = gl.getUniformLocation(program, "iResolution");
+            gl.uniform2fv(res, new Float32Array([canvas.width, canvas.height]));
+
+            //iChannel0 = gl.createTexture();
+            //gl.activeTexture(gl.TEXTURE0);
+
+            //gl.bindTexture(gl.TEXTURE_2D, iChannel0);
+            //skipped newTexture + activeTexture is after bindTexture
+            function registerUniform(type, name, value) {
+                uniformLocations[name] = gl.getUniformLocation(program, name);
+                gl[`uniform${type}`](uniformLocations[name], value);
+            }
+            //registerUniform("1i", "iChannel0", 0);
+            registerUniform("2fv", "cPos", cPos);
+            registerUniform("2fv", "c2Pos", c2Pos);
+            registerUniform("1f", "smoothing", 10.5);
+            registerUniform("2fv", "radii", radii);
+            registerUniform("1f", "bands", 40.0);
+            registerUniform("1f", "fTime", 1.0);
+            registerUniform("1f", "linewidth", 0.01);
+            registerUniform("3fv", "ucolor1", new Float32Array([1.0, 0.0, 0.0]));
+            registerUniform("3fv", "ucolor2", new Float32Array([0.0, 0.3, 1.0]));
+            registerUniform("1i", "boring", false);
+            //gl.uniform1i(gl.getUniformLocation(program, "iChannel0"), 0);
+            //gl.uniform2fv(gl.getUniformLocation(program, "cPos"), new Float32Array([0.5, 0.5])); //circle position
+            //gl.uniform2fv(gl.getUniformLocation(program, "c2Pos"), new Float32Array([0.7, 0.7])); //circle 2 position
+            //gl.uniform1f(gl.getUniformLocation(program, "smoothing"), 10.5);
+            //gl.uniform2fv(gl.getUniformLocation(program, "radii"), new Float32Array([0.1, 0.1]));
+            //gl.uniform1f(gl.getUniformLocation(program, "bands"), 40.0);
+            //gl.uniform1f(gl.getUniformLocation(program, "fTime"), 1.0);
+            //gl.uniform(gl.getUniformLocation(program, "cPos"), 0);
+
+            gl.drawArrays(gl.TRIANGLE_FAN, 0, 4); //4 verts
+
+            render();
+        }
+
+        function render(time) {
+            gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+
+            gl.uniform1f(gl.getUniformLocation(program, "fTime"), time/1000);
+
+            gl.drawArrays(gl.TRIANGLE_FAN, 0, 4); //4 verts
+            
+            //i++;
+
+            requestAnimationFrame(render);
+        }
+
+        function magnitude(x,y) {
+            return Math.sqrt(x**2 + y**2);
+        }
+
+        canvas.addEventListener("mousedown", (event) => {
+            coordinates = {x: event.offsetX/canvas.width, y: (canvas.height-event.offsetY)/canvas.height};
+            if(magnitude(coordinates.x - cPos[0], coordinates.y - cPos[1]) < magnitude(coordinates.x - c2Pos[0], coordinates.y - c2Pos[1])) { //if mouse is closer to cPos
+                dragging = "cPos";
+            }else {
+                dragging = "c2Pos";
+            }
+            window[dragging] = new Float32Array([coordinates.x, coordinates.y]);
+            gl.uniform2fv(uniformLocations[dragging], window[dragging]);
+        });
+
+        canvas.addEventListener("mousemove", (event) => {
+            coordinates = {x: event.offsetX/canvas.width, y: (canvas.height-event.offsetY)/canvas.height};
+            if(dragging) {
+                //well i could instead use window[dragging] but i'd have to declare cPos like window.cPos and i cna't be bothered so im EVALUATING (ok good god im not doing that)
+                //eval(`${dragging} = new Float32Array([${coordinates.x, coordinates.y}])`);
+                //gl.uniform2fv(uniformLocations[dragging], eval(dragging));
+                window[dragging] = new Float32Array([coordinates.x, coordinates.y]);
+                gl.uniform2fv(uniformLocations[dragging], window[dragging]);
+            }
+        });
+
+        canvas.addEventListener("wheel", (event) => {
+            if(dragging) {
+                let i = +(dragging[1] == "2"); //if dragging[1] == "2" then dragging is c2Pos meaning the radii index must be 1
+                radii[i] += (event.deltaY*-.0001);
+                console.log(radii);
+                gl.uniform2fv(uniformLocations["radii"], radii);
+            }
+        });
+
+        addEventListener("mouseup", (event) => {
+            dragging = false;
+        });
+
+    </script>
+</body>
+</html>
