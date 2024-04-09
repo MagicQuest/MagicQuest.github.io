@@ -85,7 +85,7 @@
                 float mapped = mapRange(greaterThan);
                 float fractioned = fract((combined*bands)+((fTime*2.0) * mapped));
                 vec3 mixedcolor = mix(ucolor1, ucolor2,greaterThan);
-                almostfinal = mixedcolor*(fractioned); //0.5 is the factor in the blender multiply color node (ok i got rid of it but it was (mixedcolor*(fractioned*0.5))    )
+                almostfinal = mixedcolor*(fractioned*0.5+0.5); //0.5 is the factor in the blender multiply color node
             }else {
                 //vec3 absGreater = abs(combined) > 0.0 ? 1.0 : 0.0; //lol realized this was basically just greaterThan
                 almostfinal = mix(ucolor1, ucolor2,greaterThan);
