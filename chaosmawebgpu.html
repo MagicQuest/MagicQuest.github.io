@@ -311,7 +311,7 @@
                 console.log(adapter, this.device);
                 if(!this.device) {
                     //all this shit from https://webgpufundamentals.org/webgpu/lessons/webgpu-fundamentals.html
-                    document.body.innerHTML = "<h1>ok no lie your browser cannot do this webgpu stuff (or you may have to <a href='javascript:void(document.location.reload())'>refresh the page</a> / restart chrome)<br>but if your using firefox you might have to enable it by going to (about:config) or (about:support) and checking <a href='https://stackoverflow.com/questions/73706354/how-to-try-webgpu-in-firefox-nightly-now-in-fall-of-2022#:~:text=To%20enable%20WebGPU%20in%20Firefox,webgpu.'>dom.webgpu.enabled</a></h1>";
+                    document.body.innerHTML = "<h1>ok no lie your browser cannot do this webgpu stuff (or you may have to <a href='javascript:void(document.location.reload())'>refresh the page</a> / restart chrome)<br>but if you're using firefox you might have to enable it by going to (about:config) or (about:support) and checking <a href='https://stackoverflow.com/questions/73706354/how-to-try-webgpu-in-firefox-nightly-now-in-fall-of-2022#:~:text=To%20enable%20WebGPU%20in%20Firefox,webgpu.'>dom.webgpu.enabled</a></h1>";
                     return; //reject();
                 }
                 this.device.lost.then(() => {

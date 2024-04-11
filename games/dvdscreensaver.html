@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>dvd screensaver</title>
+    <style>
+        body {
+            margin: 0;
+        }
+        canvas {
+            margin: 0;
+            padding: 0;
+            position: absolute;
+        }
+        button {
+            cursor: pointer;
+            display: block;
+        }
+        button:hover {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <img src="./phiggle.png" id="dvdimg" style="display: none;">
+    <canvas id="canvas"></canvas>
+    <div style="position: absolute; top: 10px; left: 10px; background-color: rgba(255,255,255,.25); padding: 5px; border: 1px solid rgba(0,0,0,.25);">
+        <button id="filepicker">click here to choose another image for the dvd</button>
+        <button id="bigcalc">calculate bounces left until corner hit</button>
+        <code id="stats">amongus</code>
+    </div>
+
+    <script>
+        async function initWebGPU() {
+            const adapter = await navigator.gpu?.requestAdapter();
+            let device = await adapter?.requestDevice();
+            console.log(adapter, device);
+            if(!device) {
+                return false;
+            }
+            device.lost.then(() => {
+                bigcalc.innerText = "calculate bounces left until corner hit";
+                bigcalc.disabled = true;
+            });
+            let presentationFormat = navigator.gpu.getPreferredCanvasFormat();
+            return [adapter, device, presentationFormat];
+        }
+    </script>
+    <script>
+        const canvas = document.getElementById("canvas");
+        const context = canvas.getContext('2d'); //directional 2 dimensional
+
+        canvas.width = innerWidth;
+        canvas.height = innerHeight;
+
+        let dvd = {x: 500, y: 500, vx: 0, vy: 0};
+        dvd.vx = Math.random() > .5 ? -5 : 5;
+        dvd.vy = Math.random() > .5 ? -5 : 5;
+
+        let bouncesLeft = -1;
+
+        let scale = 1;
+        let keys = {};
+
+        let webgpuspeed;
+        let jscalcspeed;
+        let lastcalc = 0;
+        
+        addEventListener("keydown", (event) => {
+            keys[event.key] = true;
+        });
+        addEventListener("keyup", (event) => {
+            keys[event.key] = false;
+        });
+
+        addEventListener("resize", (event) => {
+            canvas.width = innerWidth;
+            canvas.height = innerHeight;
+            context.fillStyle = "#313131";
+            context.strokeStyle = "white";
+            context.font = "24px comic sans ms"
+        });
+
+        context.fillStyle = "#313131";
+        context.strokeStyle = "white";
+        context.font = "24px comic sans ms"
+        context.textAlign = "center";
+
+        function render() {
+            context.fillRect(0,0, innerWidth, innerHeight);
+            let dirty = false;
+            if(keys["ArrowUp"]) {
+                scale += .1;
+
+                dirty = true;
+            }else if(keys["ArrowDown"]) {
+                scale -= .1;
+                
+                dirty = true;
+            }
+            if(keys["ArrowLeft"]) {
+                dvd.vx/=1.1;
+                dvd.vy/=1.1;
+
+                dirty = true;
+            }else if(keys["ArrowRight"]) {
+                dvd.vx*=1.1;
+                dvd.vy*=1.1;
+
+                dirty = true;
+            }
+            if(dirty) {
+                bouncesLeft = -1; //gotta recalc
+            }
+
+            dvd.x += dvd.vx;
+            dvd.y += dvd.vy;
+            let oldVel = {vx: dvd.vx, vy: dvd.vy}; //huh i forgor let
+            if(dvd.x < 0) {
+                dvd.x = 0;
+                dvd.vx *= -1;
+            }else if(dvd.x > innerWidth-(256*scale)) {
+                dvd.x = innerWidth-(256*scale);
+                dvd.vx *= -1;
+            }
+            if(dvd.y < 0) {
+                dvd.y = 0;
+                dvd.vy *= -1;
+            }else if(dvd.y > innerHeight-(256*scale)) {
+                dvd.y = innerHeight-(256*scale);
+                dvd.vy *= -1;
+            }
+            if(oldVel.vx != dvd.vx || oldVel.vy != dvd.vy) {
+                if(bouncesLeft >= 0) {
+                    bouncesLeft--;
+                    //print(bBCH + "bounces left before corner hit!");
+                }//else {
+                    //calculateBouncesToMaxWin();
+                //}
+                if(oldVel.vx != dvd.vx && oldVel.vy != dvd.vy) {
+                    console.log("CORNER HIT");
+                }
+            }
+            if(bouncesLeft != -1) {
+                context.strokeStyle = "white";
+                context.strokeText(bouncesLeft + " bounces left", dvd.x+(256*scale/2), dvd.y - 24);
+            }
+            context.drawImage(dvdimg, dvd.x, dvd.y, 256*scale, 256*scale);
+            if(Date.now() - lastcalc < 5000) {
+                let time = ((Date.now() - lastcalc)/5000);
+                context.fillStyle = `rgba(255,255,255,${1-time})`;
+                webgpuspeed && context.fillText(`WebGPU took ${webgpuspeed}ms`, innerWidth/2, 200-(time*300));
+                context.fillText(`javascript calculation took ${jscalcspeed}ms`, innerWidth/2, 224-(time*300));
+                context.fillStyle = "#313131";
+            }
+            stats.innerText = `{x: ${dvd.x}, y: ${dvd.y}, vx: ${dvd.vx}, vy: ${dvd.vy}, scale: ${scale}}`;
+            requestAnimationFrame(render);
+        }
+
+        requestAnimationFrame(render);
+
+        filepicker.addEventListener("click", (event) => {
+            //this heart gives the smallest glow
+            showOpenFilePicker({types: [{description: "images", accept: {"image/*": [".png", ".jpg"]}}]})
+                .then(files => files[0].getFile())
+                .then(file => {
+                    dvdimg.src = URL.createObjectURL(file);
+                });
+        });
+
+        initWebGPU().then(webgpu => {
+            if(!webgpu) {
+                bigcalc.addEventListener("click", (event) => {
+                    let yeoldcalc = Date.now();
+                    let calcBounces = 0;
+                    let cornerHit = false;
+                    let tempDVD = {x: dvd.x, y: dvd.y, vx: dvd.vx, vy: dvd.vy};
+                    while(calcBounces < 1000) { //yeah sometimes it just don't get it idk
+                        tempDVD.x += tempDVD.vx;
+                        tempDVD.y += tempDVD.vy;
+                        let tempOldVel = {vx: tempDVD.vx, vy: tempDVD.vy};
+                        //print(tempDVD);
+                        if(tempDVD.x < 0) {
+                            tempDVD.x = 0;
+                            tempDVD.vx *= -1;
+                        }else if(tempDVD.x > innerWidth-(256*scale)) {
+                            tempDVD.x = innerWidth-(256*scale);
+                            tempDVD.vx *= -1;
+                        }
+                        if(tempDVD.y < 0) {
+                            tempDVD.y = 0;
+                            tempDVD.vy *= -1;
+                        }else if(tempDVD.y > innerHeight-(256*scale)) {
+                            tempDVD.y = innerHeight-(256*scale);
+                            tempDVD.vy *= -1;
+                        }
+                        if(tempOldVel.vx != tempDVD.vx || tempOldVel.vy != tempDVD.vy) {
+                            calcBounces++;
+                            //print(calcBounces);
+                            if(tempOldVel.vx != tempDVD.vx && tempOldVel.vy != tempDVD.vy) {
+                                cornerHit = true;
+                                break;
+                            }
+                        }
+                    }
+                    bouncesLeft = calcBounces-1;
+                    jscalcspeed = (Date.now()-yeoldcalc);
+                    console.log((Date.now()-yeoldcalc)/1000 + "ms", "js calc", bouncesLeft);
+                    lastcalc = Date.now();
+                });
+            }else {
+                bigcalc.innerText = "precisely calculate bounces left until corner hit (webgpu)"
+                const [adapter, device, presentationFormat] = webgpu;
+                const DVDMODULE = device.createShaderModule({
+                    label: 'DVD',
+                    code: `
+                    struct DVD {
+                        position: vec2f,
+                        velocity: vec2f,
+                        scale: f32,
+                    }
+
+                    @group(0) @binding(0) var<storage, read_write> dvd : DVD; //try uniform in a min
+                    @group(0) @binding(1) var<uniform> dimensions : vec2f;
+                    @group(0) @binding(2) var<storage, read_write> bouncesLeft : i32;
+
+                    //@compute @workgroup_size(8,8,1)
+                    @compute @workgroup_size(1) //64)
+                    fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
+                        var calcBounces: i32 = 0;
+                        while(calcBounces < 100000) { //yeah sometimes it just don't get it idk
+                            dvd.position.x += dvd.velocity.x;
+                            dvd.position.y += dvd.velocity.y;
+                            var tempOldVel: vec2f = dvd.velocity;
+                            //print(tempDVD);
+                            if(dvd.position.x < 0f) {
+                                dvd.position.x = 0f;
+                                dvd.velocity.x *= -1f;
+                            }else if(dvd.position.x > dimensions.x-(256f*dvd.scale)) {
+                                dvd.position.x = dimensions.x-(256f*dvd.scale);
+                                dvd.velocity.x *= -1f;
+                            }
+                            if(dvd.position.y < 0f) {
+                                dvd.position.y = 0f;
+                                dvd.velocity.y *= -1f;
+                            }else if(dvd.position.y > dimensions.y-(256f*dvd.scale)) {
+                                dvd.position.y = dimensions.y-(256f*dvd.scale);
+                                dvd.velocity.y *= -1f;
+                            }
+                            if(tempOldVel.x != dvd.velocity.x || tempOldVel.y != dvd.velocity.y) {
+                                calcBounces++;
+                                //print(calcBounces);
+                                if(tempOldVel.x != dvd.velocity.x && tempOldVel.y != dvd.velocity.y) {
+                                    //cornerHit = true;
+                                    break;
+                                }
+                            }
+                        }
+                        bouncesLeft = calcBounces-1;
+                    }
+                    `
+                });
+
+                const dvdBufferSize = (2*4 + 2*4 + 2*4); //2*4 for position vec2f + 2*4 for velocity vec2f + 2*4 (scale f32 + padding)
+                //https://webgpufundamentals.org/webgpu/lessons/resources/wgsl-offset-computer.html#x=5d00000100eb01000000000000003d888b0237284d3025f2381bcb2888123d9ecf8af1233852ccefd58fef1d5a707b29b56fbfb1d42c2f50dddd97c9a36905166d74707d78ad7dc0208defeced2dc4305d7abbcd5870b44836eb09e54881afa89bc28e1d41e353f0b960e00ac99db3beb26d98374fe812221a0add7a6d7692213aced1b15210e1cc147cff4aad9b86f838af15a18ba365ab6d6ab55feab6c1e78d7a551d965a36b7b177b45b72028233854fcc6611a20ca8e5f970e99a561009bdb6f94fed77839450fd7a161f4643a9a27989bce78fbaace563bf011ad264ff6cf62db8498cf5d15bae300253e37a1974ac955aef22494964476decf67223951f34a94991609b8c92908e1b3c48b58f31e4ec55a65a4fd7c98cd3f3a02182d0467612a6dc43de66d605b251809dc967a73ff89eba103e515dd2fad72b86580b6656186c29dadb26fff95dadd3
+
+                const dvdBuffer = device.createBuffer({
+                    size: dvdBufferSize,
+                    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
+                    //usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+                });
+
+                const dimensionsBuffer = device.createBuffer({
+                    size: 2*4,
+                    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+                });
+
+                const bouncesLeftBuffer = device.createBuffer({
+                    size: 4,
+                    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
+                });
+
+                const bouncesGetBack = device.createBuffer({
+                    size: 4,
+                    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+                });
+
+                const DVDPIPELINE = device.createComputePipeline(
+                    {
+                        layout: "auto",//ray_tracing_pipeline_layout,
+                
+                        compute: {
+                            module: DVDMODULE,
+                            entryPoint: 'main',
+                        },
+                    }
+                );
+
+                const dvdBindGroup = device.createBindGroup({ //no destroy func for bindgroup
+                    layout: DVDPIPELINE.getBindGroupLayout(0),//chaosBindGroupLayout,
+                    entries: [
+                        {
+                            binding: 0,
+                            resource: {buffer: dvdBuffer}
+                        },
+                        {
+                            binding: 1,
+                            resource: {buffer: dimensionsBuffer}
+                        },
+                        {
+                            binding: 2,
+                            resource: {buffer: bouncesLeftBuffer}
+                        },
+                    ]
+                });
+
+                bigcalc.addEventListener("click",async (event) => {
+                    try {
+                        let webgpustart = Date.now();
+                        const commandEncoder = device.createCommandEncoder();
+
+                        device.queue.writeBuffer(dvdBuffer, 0, new Float32Array([dvd.x, dvd.y, dvd.vx, dvd.vy, scale, 0]));
+
+                        device.queue.writeBuffer(dimensionsBuffer, 0, new Float32Array([innerWidth, innerHeight]));
+
+                        device.queue.writeBuffer(bouncesLeftBuffer, 0, new Uint32Array([0]));
+
+                        const chaosPass = commandEncoder.beginComputePass();
+                        chaosPass.setPipeline(DVDPIPELINE);
+                        chaosPass.setBindGroup(0, dvdBindGroup);
+                        chaosPass.dispatchWorkgroups(1);
+                        chaosPass.end();
+
+                        commandEncoder.copyBufferToBuffer(bouncesLeftBuffer, 0, bouncesGetBack, 0, bouncesGetBack.size);
+
+                        device.queue.submit([commandEncoder.finish()]);
+
+                        await bouncesGetBack.mapAsync(GPUMapMode.READ);
+                        let bLGB = new Uint32Array(bouncesGetBack.getMappedRange().slice());
+                        //console.log(bLGB);
+                        bouncesLeft = bLGB[0];
+                        webgpuspeed = (Date.now()-webgpustart);
+                        console.log((Date.now()-webgpustart)/1000 + "ms", "webgpu", bouncesLeft);
+                        bouncesGetBack.unmap();
+                    }catch(e) {
+
+                    }
+                    let yeoldcalc = Date.now();
+                    let calcBounces = 0;
+                    let cornerHit = false;
+                    let tempDVD = {x: dvd.x, y: dvd.y, vx: dvd.vx, vy: dvd.vy};
+                    while(calcBounces < 100000) { //yeah sometimes it just don't get it idk
+                        tempDVD.x += tempDVD.vx;
+                        tempDVD.y += tempDVD.vy;
+                        let tempOldVel = {vx: tempDVD.vx, vy: tempDVD.vy};
+                        //print(tempDVD);
+                        if(tempDVD.x < 0) {
+                            tempDVD.x = 0;
+                            tempDVD.vx *= -1;
+                        }else if(tempDVD.x > innerWidth-(256*scale)) {
+                            tempDVD.x = innerWidth-(256*scale);
+                            tempDVD.vx *= -1;
+                        }
+                        if(tempDVD.y < 0) {
+                            tempDVD.y = 0;
+                            tempDVD.vy *= -1;
+                        }else if(tempDVD.y > innerHeight-(256*scale)) {
+                            tempDVD.y = innerHeight-(256*scale);
+                            tempDVD.vy *= -1;
+                        }
+                        if(tempOldVel.vx != tempDVD.vx || tempOldVel.vy != tempDVD.vy) {
+                            calcBounces++;
+                            //print(calcBounces);
+                            if(tempOldVel.vx != tempDVD.vx && tempOldVel.vy != tempDVD.vy) {
+                                cornerHit = true;
+                                break;
+                            }
+                        }
+                    }
+                    bouncesLeft = calcBounces-1;
+                    jscalcspeed = (Date.now()-yeoldcalc);
+                    console.log((Date.now()-yeoldcalc)/1000 + "ms", "js calc", bouncesLeft);
+                    lastcalc = Date.now();
+                });
+            }
+        });
+    </script>
+</body>
+</html>
