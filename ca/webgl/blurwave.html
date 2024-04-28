@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>blurwave</title>
+    <style>
+        kbd {
+            background-color:rgb(225,225,225); border: 1px solid; border-radius: 5px; padding: 2px;
+        }
+        button {
+            cursor: pointer;
+        }
+        button:hover {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas" width="800" height="800" style="box-shadow: 5px 5px 10px red; margin: auto; left: 0; right: 0; position: absolute; cursor: pointer; border: 2px orange dotted" oncontextmenu="event.preventDefault()">webgl blur wave shits</canvas>
+    <div style="background-color: blanchedalmond; display: inline-block;">
+        <input type="range" min="0" max="20" value="5" oninput="bl.innerText = 'blur: '+this.value; lastP = gl.getParameter(gl.CURRENT_PROGRAM); gl.useProgram(program2); gl.uniform1i(uniformLocations['iBlur2'], this.value); gl.useProgram(lastP);"><label id="bl">blur: 5</label><br>
+        <input type="range" min="0" max="255" value="255" oninput="fr.innerText = 'trail length: '+this.value; lastP = gl.getParameter(gl.CURRENT_PROGRAM); gl.useProgram(program); gl.uniform1f(uniformLocations['fRefrac'], this.value/255); gl.useProgram(program2); gl.uniform1f(uniformLocations['fRefrac2'], this.value/255); gl.useProgram(lastP);"><label id="fr">trail length: 0xFF</label><br>
+        <label>blur is outlined: </label><input type="checkbox" oninput="lastP = gl.getParameter(gl.CURRENT_PROGRAM); gl.useProgram(program2); gl.uniform1f(uniformLocations['bOutline2'], this.checked); gl.useProgram(lastP);"><br>
+        <label>left click to draw blur</label><br>
+        <label>right click to erase</label><br>
+        <label>press <kbd>T</kbd> to see the blur waves themselves</label><br>
+        <label>blur x + blur y -> </label>
+        <div style="border: 1px solid black; cursor: pointer; display: inline-block;" onmousemove="if(event.buttons == 1) {circle = this.children[0].children[0]; console.log(circle); circle.cx.baseVal.value = event.offsetX; circle.cy.baseVal.value = event.offsetY; lastP = gl.getParameter(gl.CURRENT_PROGRAM); gl.useProgram(program2); gl.uniform1i(uniformLocations['iBlurX2'], circle.cx.baseVal.value*8); gl.uniform1i(uniformLocations['iBlurY2'], circle.cy.baseVal.value*-8); gl.useProgram(lastP);}">
+            <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" height="100" width="100">
+                <circle cx="0" cy="0" r="2" />
+            </svg>
+        </div><br>
+        <button onclick="chooseImage();">choose a custom image</button>
+    </div>
+    <script type="x-shader/x-vertex" id="vertex-shader">#version 300 es
+        precision mediump float;
+
+        in vec2 vertPosition;
+
+        out vec4 fragColor;
+
+        void main() {
+            gl_Position = vec4(vertPosition, 0.0, 1.0);
+        }
+    </script>
+    <script type="x-shader/x-fragment" id="cawave-shader">#version 300 es
+        precision mediump float;
+
+        uniform vec2 iResolution;
+
+        uniform sampler2D iChannel0;
+
+        //uniform int iTime;
+
+        uniform float fRefrac;
+
+        uniform vec3 vMouse;
+
+        out vec4 fragColor;
+
+        void main() {
+            vec2 uv = gl_FragCoord.xy / iResolution.xy;
+
+            vec3 pixel = texture(iChannel0, uv).xyz;
+            vec3 color = texture(iChannel0, uv).xyz;
+
+            int neighbors = 0;
+
+            for(int i = -1; i <= 1; i += 1)
+            {
+                for( int j = -1; j <= 1; j += 1)
+                {
+                    vec2 offset = vec2(i, j) / iResolution.xy;		 // Scale the offset down
+                    vec3 lookup = texture(iChannel0, uv + offset).xyz;   // Apply offset and sample
+                    if(!(i == 0 && j == 0)) {
+                        neighbors += int(lookup.y >= fRefrac);
+                    }
+                }
+            }
+
+            if(pixel.y == 0.0 && neighbors > 0) {
+                color = vec3(1.0, fRefrac, 0.0);
+            }
+
+            if(color.y > 0.0 && pixel.y != 0.0) {
+                color.y -= 12.75/255.0;
+                if(color.y <= 0.0) {
+                    color = vec3(0.0);
+                }
+            }
+
+            if(distance(vMouse.xy, uv) < (vMouse.z == 0.0 ? .1 : .025)) {
+                color = vec3(vMouse.z);
+            }
+
+            fragColor = vec4(color, 1.0);
+        }
+    </script>
+    <script type="x-shader/x-fragment" id="picture-shader">#version 300 es
+        precision mediump float;
+
+        uniform vec2 iResolution;
+
+        uniform sampler2D iChannel0;
+        uniform sampler2D iChannel1;
+
+        uniform int iBlur;
+
+        uniform float fRefrac;
+
+        uniform bool bOutline;
+
+        uniform int iBlurX;
+        uniform int iBlurY;
+
+        out vec4 fragColor;
+
+        void main() {
+            vec2 uv = gl_FragCoord.xy / iResolution.xy;
+
+            vec3 FINALCOLOR = vec3(0.0);
+
+            float why = texture(iChannel0, uv).y;
+
+            if(why > 0.0) {
+
+                if(why >= fRefrac && bOutline) {
+
+                    FINALCOLOR = vec3(1.0);
+
+                }else {
+            
+                    vec3 average = vec3(0.0);
+
+                    float blurAmount = pow(float(abs(-iBlur)*2+1), 2.0); //came up with this bad boy for JBS3 when i randomly used convolutional blur
+
+                    for(int i = -iBlur; i <= iBlur; i += 1)
+                    {
+                        for( int j = -iBlur; j <= iBlur; j += 1)
+                        {
+                            vec2 offset = vec2(i+iBlurX, j+iBlurY) / iResolution.xy;		 // Scale the offset down
+                            vec3 lookup = texture(iChannel1, uv + offset).xyz;   // Apply offset and sample
+                            average += lookup;
+                        }
+                    }
+
+                    FINALCOLOR = average / blurAmount;
+
+                }
+
+            }else {
+                FINALCOLOR = texture(iChannel1, uv).xyz;
+            }
+
+            fragColor = vec4(FINALCOLOR, 1.0);
+        }
+    </script>
+    <p>_</p>
+    <img src="./cnnevo2.png" id="image" style="display: none;">
+    <img src="/v3/disturb.jpg" id="realimg" style="display: none;">
+
+    <script>
+        window.addEventListener("load", initGL, false);
+
+        const canvas = document.getElementById("canvas");
+        const gl = canvas.getContext("webgl2");
+        
+        let drawCA = false;
+        let program, program2, iChannel0, iChannel1;
+        const rect = [
+            -1,1,
+            -1,-1,
+            1,-1,
+            1,1,
+        ];
+        const uniformLocations = {};
+        //|| canvas.getContext("experimental-webgl");
+        if (!gl) {
+            //var paragraph = document.querySelector("p");
+            document.body.innerHTML = "Failed to get WebGL context."
+            + "Your browser or device may not support WebGL.";
+            //return;
+        }
+        
+        //initGL();
+
+        function hexToRgb(hex) { //for turning input type="color" values into rgb
+            var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? [
+                parseInt(result[1], 16)/255,
+                parseInt(result[2], 16)/255,
+                parseInt(result[3], 16)/255
+            ] : undefined;
+        }
+
+        function cleanup() {
+            gl.useProgram(null);
+            if (program) {
+                gl.deleteProgram(program);
+            }
+            if (program2) {
+                gl.deleteProgram(program2);
+            }
+        }
+
+        function isPowerOf2(value) {
+            return (value & (value - 1)) === 0;
+        }
+
+        function loadImage(img) {
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+            // WebGL1 has different requirements for power of 2 images
+            // vs non power of 2 images so check if the image is a
+            // power of 2 in both dimensions.
+            if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
+                // Yes, it's a power of 2. Generate mips.
+                gl.generateMipmap(gl.TEXTURE_2D);
+            } else {
+                // No, it's not a power of 2. Turn off mips and set
+                // wrapping to clamp to edge
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); //TWAS linear
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+            }
+        }
+
+        async function chooseImage() {
+            let [handle] = await showOpenFilePicker({types:[{description:'images', accept:{'image/\*': []}}]});
+            let realFile = await handle.getFile();
+            //document.getElementById("realimg").src = URL.createObjectURL(realFile);
+            let image = new Image();
+            image.src = URL.createObjectURL(realFile);
+            image.onload = () => {
+                console.log("TRADE");
+                //do i have to make another texture??? (nah)
+                //const iChannel1 = gl.createTexture();
+                gl.activeTexture(gl.TEXTURE1);
+                gl.bindTexture(gl.TEXTURE_2D, iChannel1);
+                loadImage(image);
+
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, iChannel0);
+            }
+        }
+
+        async function initGL(event) {
+            window.removeEventListener(event.type, initGL, false);
+
+            gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight); //???he said canvas height and widrh
+            gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            //creating shaders
+
+            let source = document.querySelector("#vertex-shader").innerHTML;
+            const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+            gl.shaderSource(vertexShader, source);
+            gl.compileShader(vertexShader);
+            if(!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+                console.warn("vertex shader error\n", gl.getShaderInfoLog(vertexShader));
+            }
+
+            program = gl.createProgram();
+            
+            source = document.querySelector(`#cawave-shader`).innerHTML;
+            //console.log(source);
+            const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+            gl.shaderSource(fragmentShader, source);
+            gl.compileShader(fragmentShader);
+            if(!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+                console.warn(`ca wave fragment shader error\n`, gl.getShaderInfoLog(fragmentShader));
+            }
+
+            source = document.querySelector(`#picture-shader`).innerHTML;
+            //console.log(source);
+            const pictureShader = gl.createShader(gl.FRAGMENT_SHADER);
+            gl.shaderSource(pictureShader, source);
+            gl.compileShader(pictureShader);
+            if(!gl.getShaderParameter(pictureShader, gl.COMPILE_STATUS)) {
+                console.warn(`picture  shader error\n`, gl.getShaderInfoLog(pictureShader));
+            }
+
+            program2 = gl.createProgram();
+
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.attachShader(program2, vertexShader);
+            gl.attachShader(program2, pictureShader);
+
+            gl.linkProgram(program);
+            gl.linkProgram(program2);
+
+            gl.detachShader(program, vertexShader);
+            gl.detachShader(program, fragmentShader);
+            gl.detachShader(program2, vertexShader);
+            gl.detachShader(program2, pictureShader);
+
+            gl.deleteShader(vertexShader);
+            gl.deleteShader(fragmentShader);
+            gl.deleteShader(pictureShader);
+
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                const linkErrLog = gl.getProgramInfoLog(program);
+                cleanup();
+                document.querySelector(
+                "p"
+                ).textContent = `Shader program did not link successfully. Error log: ${linkErrLog}`;
+                return;
+            }
+
+            if (!gl.getProgramParameter(program2, gl.LINK_STATUS)) {
+                const linkErrLog = gl.getProgramInfoLog(program2);
+                cleanup();
+                document.querySelector(
+                "p"
+                ).textContent = `Shader program #2 did not link successfully. Error log: ${linkErrLog}`;
+                return;
+            }
+
+            let rectVBO = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, rectVBO);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(rect), gl.STATIC_DRAW);
+
+            let pAL = gl.getAttribLocation(program, 'vertPosition'); 
+            gl.vertexAttribPointer(pAL, 2, gl.FLOAT, gl.FALSE, 2 * Float32Array.BYTES_PER_ELEMENT, 0);
+            gl.enableVertexAttribArray(pAL);
+
+            let pAL2 = gl.getAttribLocation(program2, 'vertPosition'); 
+            gl.vertexAttribPointer(pAL2, 2, gl.FLOAT, gl.FALSE, 2 * Float32Array.BYTES_PER_ELEMENT, 0);
+            gl.enableVertexAttribArray(pAL2);
+
+            gl.useProgram(program);
+
+            let res = gl.getUniformLocation(program, "iResolution");
+            gl.uniform2fv(res, new Float32Array([canvas.width, canvas.height]));
+
+            iChannel0 = gl.createTexture();
+            gl.activeTexture(gl.TEXTURE0); //oh my questions have finally been answered, and i was just about to ask chat too! (you call activeTexture first and bindTexture assigns iChannel0 to gl.TEXTURE0) https://webglfundamentals.org/webgl/lessons/webgl-2-textures.html
+            gl.bindTexture(gl.TEXTURE_2D, iChannel0);
+            //await newTexture();
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); //lol you were supposed to do this BEFORE using texImage2D
+
+            loadImage(document.getElementById("image"));
+
+            //gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 800, 800, 0, gl.RGBA, gl.UNSIGNED_BYTE, );//new Uint8Array([255,255,0,255])); //oops if i wanted to use a Uint8Array i would have to set EVERY pixel
+
+            iChannel1 = gl.createTexture();
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_2D, iChannel1);
+            loadImage(document.getElementById("realimg"));
+
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, iChannel0); //rebind as active texture
+
+            function registerUniform(type, name, value, p = program) {
+                uniformLocations[name+(p == program2 ? "2" : "")] = gl.getUniformLocation(p, name);
+                gl[`uniform${type}`](uniformLocations[name+(p == program2 ? "2" : "")], value);
+            }
+            function setUniform(type, name, value, p = program) {
+                gl[`uniform${type}`](gl.getUniformLocation(p, name), value);
+            }
+
+            setUniform("1i", "iChannel0", 0);
+            //registerUniform("1i", "iTime", 0);
+            registerUniform("1f", "fRefrac", 1.0);
+            registerUniform("3fv", "vMouse", new Float32Array([-1,-1,1]));
+
+            gl.useProgram(program2);
+
+            gl.uniform2fv(gl.getUniformLocation(program2, "iResolution"), new Float32Array([canvas.width, canvas.height]));
+
+            registerUniform("1i", "iBlur", 5, program2);
+            setUniform("1i", "iChannel0", 0, program2);
+            setUniform("1i", "iChannel1", 1, program2);
+            registerUniform("1f", "fRefrac", 1.0, program2);
+            registerUniform("1i", "bOutline", false, program2);
+            registerUniform("1i", "iBlurX", 0, program2);
+            registerUniform("1i", "iBlurY", 0, program2);
+
+            gl.useProgram(program);
+
+            gl.drawArrays(gl.TRIANGLE_FAN, 0, 4); //4 verts
+
+            render();
+        }
+
+        function render(time) {
+            gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+
+            //gl.uniform1i(uniformLocations["iTime"], time);
+
+            gl.drawArrays(gl.TRIANGLE_FAN, 0, 4); //4 verts
+
+            gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, 800, 800, 0);
+
+            if(!drawCA) {
+
+                gl.useProgram(program2);
+
+                gl.drawArrays(gl.TRIANGLE_FAN, 0, 4); //4 verts
+
+                gl.useProgram(program);
+
+            }
+            
+            //i++;
+
+            requestAnimationFrame(render);
+        }
+
+        function mouseShits(event) {
+            if(event.buttons == 1 || event.buttons == 2) {
+                let x = event.offsetX;
+                let y = event.offsetY;
+                gl.uniform3fv(uniformLocations["vMouse"], new Float32Array([x/canvas.width,1-y/canvas.height,1-(event.buttons-1)]));
+            }else {
+                gl.uniform3fv(uniformLocations["vMouse"], new Float32Array([-1,-1,1]));
+            }
+        }
+
+        canvas.addEventListener("mousedown", mouseShits);
+        canvas.addEventListener("mousemove", mouseShits);
+        addEventListener("mouseup", mouseShits);
+
+        addEventListener("keydown", (event) => {
+            if(event.key == "t") {
+                drawCA = !drawCA;
+            }
+        });
+
+    </script>
+</body>
+</html>

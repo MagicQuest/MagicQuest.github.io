@@ -92,6 +92,13 @@
         }
 
         requestAnimationFrame(animate);
+
+        canvas.addEventListener("mousemove", (event) => {
+            if(event.ctrlKey) {
+                ball.x = 400-event.offsetX;
+                ball.y = 400-event.offsetY;
+            }
+        });
     </script>
 </body>
 </html>

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>what is the dot product of 2 vectors?</title>
+    <style>
+        img {
+            position:relative;
+            width: 400px;
+            height: 300px;
+        }
+        img:hover {
+            z-index: 100;
+            border: 1px solid green;
+            box-shadow: 0px 0px 50px black;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <p>im making this because i want a visual of how dot product works</p>
+    <div style="width: 800px; height: 600px; display: inline-block;">
+        <img src="./dotproduct.png" title="the notes behind making this example">
+    </div>
+    <canvas id="canvas" width="800" height="800" style="box-shadow: 5px 5px 10px red; margin: auto; left: 0; right: 0; position: absolute; cursor: pointer; border: 2px orange dotted">HELP (canvas html5)</canvas>
+    <script>
+        const canvas = document.getElementById("canvas");
+        const context = canvas.getContext('2d');
+
+        let v1 = {x: 0, y: 300};
+        let v2 = {x: 200, y: 0};
+
+        context.font = "24px times new roman";
+
+        function round2decimals(x) {
+            return Math.round(x*100)/100;
+        }
+                
+        function drawGraph(linesX, linesY) {
+            context.lineWidth = 1;
+            context.fillStyle = "white";
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            context.strokeStyle = "grey";
+            context.beginPath();
+            for(let i = 16; i < canvas.width; i+=canvas.width/linesX) {
+                context.moveTo(0, i);
+                context.lineTo(canvas.width, i);
+            }
+            //context.stroke();
+            for(let i = 16; i < canvas.height; i+=canvas.width/linesY) {
+                //context.beginPath();
+                context.moveTo(i, 0);
+                context.lineTo(i, canvas.height);
+            }
+            context.stroke();
+        }
+
+        function drawVector(v, offsetV = {x: 0, y: 0}) {
+            context.beginPath();
+            const start = {x: canvas.width/2+offsetV.x, y: canvas.height/2-offsetV.y};
+            const realX = (start.x)+v.x;
+            const realY = (start.y)-v.y;
+            context.moveTo(start.x,start.y);
+            context.lineTo(realX, realY);
+            //somehow draw an arrow at the end
+            context.stroke();
+            if(offsetV.x != 0 || offsetV.y != 0) {
+                //let temp = {x: v.x, y: v.y};
+                //setMagnitude(temp, magnitude(temp)/4);
+                //context.fillText(`(${v.x}, ${v.y})`, (start.x)+temp.x, (start.y)-temp.y);
+                //context.fillText(`(${v.x}, ${v.y})`, realX, realY-24);
+            }else {
+                context.fillText(`(${v.x}, ${v.y})`, realX, realY); //how can i draw it 
+            }
+            const yk = magnitude(v);
+            let temp = {x: v.x, y: v.y};
+            setMagnitude(temp, yk/2);
+            context.fillText(round2decimals(yk), start.x+temp.x, start.y-temp.y);
+        }
+
+        function draw() {
+            drawGraph(50, 50);
+        
+            context.lineCap = "round";
+
+            //context-> //wtf why was i c++ pilled for a second
+            context.lineWidth = 6;
+            context.fillStyle = "green";
+            context.strokeStyle = "blue";
+            drawVector(v1);
+            context.strokeStyle = "red";
+            drawVector(v2);
+
+            //console.log(Math.tan(v1.y/v1.x));
+
+            //context.beginPath();
+            //const r = magnitude(v1);
+            //context.arc(canvas.width/2, canvas.height/2, 10, 0, Math.tanh(v1.y/v1.x)); //BRO I THOUGHT TANH WAS ATAN (IM KILLING MYSELF)
+            //context.stroke();
+            
+            const v3 = {x: v1.x-v2.x, y: v1.y-v2.y};
+            context.strokeStyle = "yellow";
+            drawVector(v3, v2);
+
+            const a = magnitude(v2);
+            const b = magnitude(v3);
+            const c = magnitude(v1);
+
+            const Btheta = Math.acos((b**2 - (a**2+c**2))/(-2*a*c)); //https://www.calculatorsoup.com/calculators/geometry-plane/triangle-law-of-cosines.php?given_data=aa&a=207.89&b=147&c=147&units_angle=deg&units_length=&sf=0&given_data_last=aa&action=solve
+
+            //console.log(Btheta, Btheta*(180/Math.PI));
+
+            context.lineCap = "butt";
+            context.beginPath();
+            context.arc(canvas.width/2, canvas.height/2, 20, (Math.PI*2)-Btheta, Btheta-Math.PI/2); //for some reason context.arc is kinda weird and idk how to do it correctly
+            context.stroke();
+
+            context.fillText("θ: "+round2decimals(Btheta*(180/Math.PI)), canvas.width/2+20, canvas.height/2-20);
+            
+            context.fillStyle = "purple";
+            context.fillText("Dot product: "+round2decimals(a*c*Math.cos(Btheta)), 150, 300);
+
+            requestAnimationFrame(draw);
+        }
+
+        requestAnimationFrame(draw);
+
+        function magnitude(v) {
+            return Math.sqrt(v.x**2 + v.y**2);
+        }
+
+        function setMagnitude(v, nm) {
+            const m = magnitude(v);
+            v.x *= (nm/m);
+            v.y *= (nm/m);
+        }
+
+        function mouseShits(event) {
+            if(event.buttons == 1) {
+                //can't be bothered to store which vector im changing so im calculating it every time (and also i don't have to make 2 different mouse funcs)
+                let mouse = {x: event.offsetX-canvas.width/2, y: canvas.height/2-event.offsetY};
+                if(magnitude({x: mouse.x - v1.x, y: mouse.y - v1.y}) < magnitude({x: mouse.x - v2.x, y: mouse.y - v2.y})) {
+                    v1 = mouse;
+                }else {
+                    v2 = mouse;
+                }
+            }
+        }
+
+        canvas.addEventListener("mousedown", mouseShits);
+        canvas.addEventListener("mousemove", mouseShits);
+    </script>
+</body>
+</html>

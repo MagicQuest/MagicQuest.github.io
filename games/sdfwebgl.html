@@ -98,7 +98,6 @@
 
     <script>
         const canvas = document.getElementById("canvas");
-        const context = canvas.getContext('webgl2');
 
         const gl = canvas.getContext("webgl2");
         let program;//, iChannel0;
@@ -136,9 +135,6 @@
 
         function cleanup() {
             gl.useProgram(null);
-            if (buffer) {
-                gl.deleteBuffer(buffer);
-            }
             if (program) {
                 gl.deleteProgram(program);
             }
@@ -240,7 +236,7 @@
         function render(time) {
             gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
 
-            gl.uniform1f(gl.getUniformLocation(program, "fTime"), time/1000);
+            gl.uniform1f(uniformLocations["fTime"], time/1000);
 
             gl.drawArrays(gl.TRIANGLE_FAN, 0, 4); //4 verts
             

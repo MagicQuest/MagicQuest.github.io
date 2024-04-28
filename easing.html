@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="theme-color" content="#00FFFF">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta property="og:title" content="easing"/>
+    <meta property="og:type" content="website"/>
+    <meta property="og:url" content="https://magicquest.github.io/easing.html"/>
+    <meta property="og:image" content="https://magicquest.github.io/thumbnails/easing.png" />
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:description" content="basically easings.net but you can actually edit the functions"/>
+    <title>easing</title>
+</head>
+<body>
+    <canvas id="canvas" width="400" height="400" style="box-shadow: 5px 5px 10px red; margin: auto; left: 0; right: 0; position: absolute; cursor: pointer; border: 2px orange dotted" onclick="start = Date.now()/1000;">HELP (canvas html5)</canvas>
+    <div style="background-color: blanchedalmond; display: inline-block;">
+        <a href="https://easings.net/">a nice list of easing functions</a><br>
+        <textarea id="code" rows="5" cols="33" oninput="updateEase()" style="background-color: lawngreen;" onkeydown="if(event.keyCode===9){var v=this.value,s=this.selectionStart,e=this.selectionEnd;this.value=v.substring(0, s)+'    '+v.substring(e);this.selectionStart=this.selectionEnd=s+4;return false;} //https://stackoverflow.com/questions/6637341/use-tab-to-indent-in-textarea">
+function ease(x) {
+    return x;
+}</textarea><br>
+        <input type="range" min=".1" step=".1" max="100" value="10" oninput="fr.innerText = 'graph fidelity: '+(100-this.value)+'%'" id="f"><label id="fr">graph fidelity: 90%</label><br>
+        <!--a href="./easing.html" id="linke">link to code</a-->
+        <textarea id="linke" rows="5" cols="33" placeholder="link to this graph" title="link to this graph"></textarea>
+    </div>
+    <script>
+        const canvas = document.getElementById("canvas");
+        const context = canvas.getContext('2d');
+
+        context.lineWidth = 3;
+        context.font = "24px arial";
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+
+        let start = Date.now()/1000;
+
+        let ease;// = function(x) {return x;};
+        code.value = new URLSearchParams((new URL(location.href)).search).get("code") ?? code.value; //OH YEAH NULLISH COALESCING FOR THE WIN (what's the difference between nullish coalescing and OR) -> https://stackoverflow.com/a/63924076
+        updateEase();
+
+        function lerp(a, b, t) {
+            return a + t * ( b - a );
+        }
+
+        function round2decimals(x) {
+            return Math.round(x*100)/100;
+        }
+
+        function drawGraph(fidelity) {
+            context.fillStyle = "white";
+            context.fillRect(0,0, canvas.width, canvas.height);
+
+            context.strokeStyle = "black"
+
+            const offset = 0;
+            
+            context.beginPath();
+            context.moveTo(20, offset);
+            context.lineTo(20, canvas.height-100+offset);
+            context.moveTo(0, canvas.height-100-20+offset);
+            context.lineTo(canvas.width, canvas.height-100-20+offset);
+            context.stroke();
+            
+            context.strokeStyle = "grey";
+            
+            context.beginPath();
+            context.moveTo((canvas.width+20)/2, offset);
+            context.lineTo((canvas.width+20)/2, canvas.height-100-20+offset);
+            context.moveTo(20, (canvas.height-120+offset)/2);
+            context.lineTo(canvas.width, (canvas.height-120+offset)/2);
+            context.stroke();
+
+            context.fillStyle = "black";
+            context.fillText("0", 20+12, canvas.height-100+offset);
+            context.fillText("1", canvas.width-24, canvas.height-100+offset);
+            context.fillText("T", (canvas.width+20)/2, canvas.height-100+offset);
+            context.fillText("X", 9, (canvas.height-120+offset)/2);
+
+            //actually draw graph now
+            context.beginPath();
+            context.strokeStyle = "blue";
+            const shit = (canvas.height-120+offset)/canvas.height;
+            for(let i = fidelity; i < canvas.width; i += fidelity) {
+                context.moveTo(i-fidelity+20, (canvas.height-(ease((i-fidelity)/(canvas.width-20))*(canvas.height)))*shit);
+                context.lineTo(i+20, (canvas.height-(ease(i/(canvas.width-20))*(canvas.height)))*shit);
+            }
+            context.stroke();
+        }
+
+        function draw() {//(time) {
+            drawGraph(+f.value);
+            
+            const t = ((Date.now()/1000 - start) % 2)/2;
+
+            context.beginPath();
+            context.fillStyle = "blue";
+            context.arc(lerp(25, canvas.width-25, ease(t)),canvas.height-50,25,0,Math.PI*2);
+            context.fill();
+
+            context.fillText("t: "+round2decimals(t), canvas.width/2, canvas.height-12);
+            
+            requestAnimationFrame(draw);
+        }
+
+        requestAnimationFrame(draw);
+
+        function updateEase() {
+            let lastEase = ease;
+            let lastLink = linke.value;
+            try {
+                ease = eval("("+code.value+")");
+                console.log("testing ease(0)", ease(0));
+                code.style.backgroundColor = "lawngreen";
+                linke.value = (location.origin+location.pathname)+"?code="+encodeURIComponent(code.value);
+            }
+            catch(e) {
+                console.warn(e);
+                ease = lastEase; //i thought that since it caught ease wouldn't still be set to the failed eval
+                linke.value = lastLink;
+                code.style.backgroundColor = "red";
+            }
+        }
+    </script>
+</body>
+</html>

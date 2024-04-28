@@ -46,7 +46,7 @@
     <input type="range" id="filtah" onchange='flstudio.innerHTML = this.value; gl.uniform1f(gl.getUniformLocation(program2, "filtah"), this.value);' min="-2" max="2" value="1" step=".01"><label id="flstudio">1</label>
     <br>
     <label>weight</label>
-    <input type="range" id="weight" onchange='wl.innerHTML = this.value; gl.uniform1f(gl.getUniformLocation(program2, "weight"), this.value);' min="0" max="1000" value="2"><label id="wl">9</label>
+    <input type="range" id="weight" onchange='wl.innerHTML = this.value; gl.uniform1f(gl.getUniformLocation(program2, "weight"), this.value);' min="0" max="1000" value="2"><label id="wl">2</label> <!--WTF WEIGHT HAS BEEN 2 THIS WHOLE TIME AND I HAD IT LABELED AS 9-->
     <br>
     <canvas id="canvas" width="810" height="810" oncontextmenu="event.preventDefault()">Your browser does not seem to support 
       HTML5 canvas.</canvas>
@@ -110,7 +110,7 @@
             return (b /*—*/- a) * t + a;
                      // - //ARE YOU FUCKING SERIOUS I GOT HIT WITH THAT GREEK QUESTION MARK BULLSHIT;;; -—- EMDASH BULSHIT
         }
-
+        
         out vec4 fragColor;
 
         uniform vec3 iMouse;
@@ -545,7 +545,7 @@
             gl.uniform2fv(gl.getUniformLocation(program2, "iResolution"), new Float32Array([canvas.width, canvas.height]));
             gl.uniform1i(gl.getUniformLocation(program2, "bSize"), 1);
             gl.uniform1f(gl.getUniformLocation(program2, "filtah"), 1);
-            gl.uniform1f(gl.getUniformLocation(program2, "weight"), 9);
+            gl.uniform1f(gl.getUniformLocation(program2, "weight"), 2);
             gl.useProgram(program); //already using
             //gl triangled??S
             //gl.bindTexture(gl.TEXTURE_2D, null);

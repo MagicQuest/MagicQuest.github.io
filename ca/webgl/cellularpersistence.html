@@ -378,7 +378,7 @@
             await newTexture();
             //console.log("await");
 
-            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); //bruh wtf i was supposed to call this BEFORE using newTexture (it's crazy that all my old webgl tests actually work)
             
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, iChannel1);
