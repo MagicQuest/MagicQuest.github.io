@@ -31,12 +31,18 @@
     <div style="background-color: blanchedalmond; display: inline-block;">
         <input type="range" min="0" max="20" value="1" oninput="bl.innerText = 'blur: '+this.value; lastP = gl.getParameter(gl.CURRENT_PROGRAM); gl.useProgram(programs[1]); gl.uniform1i(uniformLocations2['iBlur'], this.value); gl.useProgram(lastP);"><label id="bl">blur: 1</label><br>
         <input type="range" title="appears more scorched near 255" min="0" max="255" value="25.5" step=".1" oninput="br.innerText = 'fire damage: '+(255-this.value); lastP = gl.getParameter(gl.CURRENT_PROGRAM); gl.useProgram(programs[2]); gl.uniform1f(uniformLocations3['fFireDamage'], this.value); gl.useProgram(lastP);"><label id="br">fire damage: 229.5</label><br> <!--internally i named it burn rate because i didn't actually know what it would look like when i changed it (and then it became fDecaySpeed)-->
+        <input type="range" min="0" max="1" value=".5" step=".01" oninput="cl.innerText = 'fire cutoff: '+this.value; lastP = gl.getParameter(gl.CURRENT_PROGRAM); gl.useProgram(programs[0]); gl.uniform1f(uniformLocations['fCutoff'], this.value); gl.useProgram(lastP);"><label id="cl">fire cutoff: .5</label><br>
         <input type="checkbox" title="i put the checked texture behind the canvas but trust me it's real transparency" oninput="lastP = gl.getParameter(gl.CURRENT_PROGRAM); gl.useProgram(programs[1]); gl.uniform1i(uniformLocations2['bAlpha'], this.checked); gl.useProgram(programs[2]); gl.uniform1i(uniformLocations3['bAlpha'], this.checked); gl.useProgram(lastP);"><label>alpha?</label><br>
-        <label>left click to draw fire</label><br>
-        <label>right click to erase</label><br>
-        <label>press <kbd>T</kbd> a few times to cycle through the shaders working together</label><br>
-        <button onclick="chooseImage();">choose a custom image</button>
-        <button onclick="resetFire();">reset fire</button><br>
+        <div style="border: 1px solid coral;">
+            <label>left click to draw fire</label><br>
+            <label>right click to erase</label><br>
+            <label>press <kbd>T</kbd> a few times to cycle through the shaders working together</label><br>
+            <label>press <kbd>R</kbd> to reset the image</label><br>
+            <label>press <kbd>C</kbd> to clear the fire</label><br>
+        </div>
+        <button onclick="chooseImage();">choose a custom image</button><br>
+        <button onclick="reset();">reset</button>
+        <button onclick="clearFire();">clear fire</button><br>
         <button onclick="DownloadCanvasAsImage();" title="opens the canvas image in a new tab (so you can right click and save it)">save canvas image</button>
     </div>
     <script type="x-shader/x-vertex" id="vertex-shader">#version 300 es
@@ -63,6 +69,8 @@
         uniform vec3 f1;
         uniform vec3 f2;
         uniform vec3 f3;
+
+        uniform float fCutoff;
 
         out vec4 fragColor;
 
@@ -100,7 +108,7 @@
 
             sum = clamp(sum, -1., 1.);
 
-            color = vec3((texture(iChannel2, uv).x > .5 ? 1. : .84)*activate(sum), sum > .8 ? lerp(.91, .0, clamp((texture(iChannel2, uv).x > .5 ? 1. : .84)*activate(sum), 0., 1.)) : 0.0, 0.);
+            color = vec3((texture(iChannel2, uv).x > fCutoff ? 1. : .84)*activate(sum), sum > .8 ? lerp(.91, .0, clamp((texture(iChannel2, uv).x > fCutoff ? 1. : .84)*activate(sum), 0., 1.)) : 0.0, 0.);
 
             if(distance(vMouse.xy, uv) < (vMouse.z == 0.0 ? .1 : .025)) {
                 color = vec3(vMouse.z);
@@ -195,7 +203,7 @@
         window.addEventListener("load", initGL, false);
 
         const canvas = document.getElementById("canvas");
-        const gl = canvas.getContext("webgl2", {preserveDrawingBuffer: true});
+        const gl = canvas.getContext("webgl2", {preserveDrawingBuffer: true}); //i gotta do this so DownloadAsCanvasImage works
         
         let cycleDraws = 0;
         let programs = [];
@@ -274,14 +282,18 @@
             //    //gl.activeTexture(gl.TEXTURE0);
             //    //gl.bindTexture(gl.TEXTURE_2D, iChannel0);
             //    
-            //    resetFire();
+            //    reset();
             //}
         }
 
-        function resetFire() {
+        function clearFire() {
             gl.activeTexture(gl.TEXTURE0); //oh my questions have finally been answered, and i was just about to ask chat too! (you call activeTexture first and bindTexture assigns iChannel0 to gl.TEXTURE0) https://webglfundamentals.org/webgl/lessons/webgl-2-textures.html
             gl.bindTexture(gl.TEXTURE_2D, iChannel0);
             loadImage(document.getElementById("image"));
+        }
+
+        function reset() {
+            clearFire();
 
             gl.activeTexture(gl.TEXTURE1);
             gl.bindTexture(gl.TEXTURE_2D, iChannel1);
@@ -432,9 +444,11 @@
             //registerUniform("1i", "iTime", 0);
             registerUniform("3fv", "vMouse", new Float32Array([-1,-1,1]));
 
-            setUniform("3fv", "f1", new Float32Array([.808,.927,-.987]));
+            setUniform("3fv", "f1", new Float32Array([.808,.927,-.987])); //fire cca
             setUniform("3fv", "f2", new Float32Array([-.875,-.816,.867]));
             setUniform("3fv", "f3", new Float32Array([.274,.272,.37]));
+
+            registerUniform("1f", "fCutoff", .5);
 
             gl.useProgram(programs[1]);
 
@@ -469,7 +483,7 @@
                 //gl.activeTexture(gl.TEXTURE0);
                 //gl.bindTexture(gl.TEXTURE_2D, iChannel0);
 
-                resetFire();
+                reset();
             }
         }
 
@@ -528,8 +542,10 @@
         addEventListener("keydown", (event) => {
             if(event.key == "t") {
                 cycleDraws = (cycleDraws + 1) % 3;
+            }else if(event.key == "c") {
+                clearFire();
             }else if(event.key == "r") {
-                resetFire();
+                reset();
             }
         });
 
