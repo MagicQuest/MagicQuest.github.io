@@ -62,7 +62,7 @@
             return -log(res) / k;
         }
 
-        float mapRange(float x) { //maps from 0 -> 1 to -1 -> 1 
+        float mapRange(float x) { //maps from 0 -> 1 to -1 -> 1 (if i wanted to stay true to the blender nodes i would've used https://twitter.com/XorDev/status/1636769680105897986's remap function) remap(a,b,c,d,x) = (x-a)/(b-a)*(d-c)+c;
             return x-1.0*(1.0-x);
         }
 
