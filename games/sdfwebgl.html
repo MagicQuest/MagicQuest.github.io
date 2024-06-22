@@ -31,15 +31,13 @@
         out vec4 fragColor;
 
         void main() {
-          gl_Position = vec4(vertPosition, 0.0, 1.0);
+            gl_Position = vec4(vertPosition, 0.0, 1.0);
         }
     </script>
     <script type="x-shader/x-fragment" id="sdf-fshader">#version 300 es
         precision mediump float;
 
         uniform vec2 iResolution;
-
-        uniform sampler2D iChannel0;
 
         uniform float fTime;
 
@@ -101,12 +99,6 @@
 
         const gl = canvas.getContext("webgl2");
         let program;//, iChannel0;
-        const rect = [
-            -1,1,
-            -1,-1,
-            1,-1,
-            1,1,
-        ];
         const uniformLocations = {};
         //|| canvas.getContext("experimental-webgl");
         if (!gl) {
@@ -186,12 +178,19 @@
                 return;
             }
 
+            const rect = [
+                -1,1,
+                -1,-1,
+                1,-1,
+                1,1,
+            ];
+
             let rectVBO = gl.createBuffer();
             gl.bindBuffer(gl.ARRAY_BUFFER, rectVBO);
             gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(rect), gl.STATIC_DRAW);
 
             let pAL = gl.getAttribLocation(program, 'vertPosition'); 
-            gl.vertexAttribPointer(pAL, 2, gl.FLOAT, gl.FALSE, 2 * Float32Array.BYTES_PER_ELEMENT, 0);
+            gl.vertexAttribPointer(pAL, 2, gl.FLOAT, gl.FALSE, 2 * Float32Array.BYTES_PER_ELEMENT, 0); //bruh gl.FALSE is undefined and js is coercing it to false (which is funny)
             gl.enableVertexAttribArray(pAL);
 
             gl.useProgram(program);

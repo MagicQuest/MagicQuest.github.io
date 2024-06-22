@@ -172,6 +172,7 @@
             background: linear-gradient(#FFE697, #F5D470);
         }
     </style>
+    <link rel="stylesheet" href="./customclock.css">
 </head>
 <body>
     <!--THIS V3 BOUT TO GET THE JOB DONE! (WE MAKING THIS WEBSITE GREAT AGAIN (NO TRUMP))-->
@@ -181,8 +182,27 @@
     </div>
 
     <div id="taskbar">
-        <div style="color: white; font-size: 24px;">
+        <!--div style="color: white; font-size: 24px;">
             CLOCK
+        </div-->
+        <div class="clock">
+            <div class="clock-face" id="clock">
+                <time datetime="12:00">12</time>
+                <time datetime="1:00">1</time>
+                <time datetime="2:00">2</time>
+                <time datetime="3:00">3</time>
+                <time datetime="4:00">4</time>
+                <time datetime="5:00">5</time>
+                <time datetime="6:00">6</time>
+                <time datetime="7:00">7</time>
+                <time datetime="8:00">8</time>
+                <time datetime="9:00">9</time>
+                <time datetime="10:00">10</time>
+                <time datetime="11:00">11</time>
+                <span class="arm seconds"></span>
+                <span class="arm minutes"></span>
+                <span class="arm hours"></span>
+            </div>
         </div>
     </div>
 
@@ -415,6 +435,13 @@
 
     <script src="importantinit.js"></script> <!--now this is actually only the second time i've used different js files (the first was socketoverload which is the sibling/parent of v3)-->
     <script>
+        const time = new Date();
+        const hour = -3600 * (time.getHours() % 12);
+        const mins = -60 * time.getMinutes();
+        const secs = -time.getSeconds();
+        clock.style.setProperty('--_ds', `${secs}s`);
+        clock.style.setProperty('--_dm', `${mins}s`);
+        clock.style.setProperty('--_dh', `${(hour+mins)}s`);
         //io connect to my ip
         let skip = (Date.now()-(+localStorage.getItem("visited") || 0)) < 8.64e+7; //skip intro
         let nodegraph = false;

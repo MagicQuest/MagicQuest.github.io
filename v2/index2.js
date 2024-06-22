@@ -299,15 +299,17 @@ scene.add(object.scene);
 //let getPlaneImage = new Promise((good, bad) => { //eurithra i can use promises to force synchronization
 
 //});
-const wall = new THREE.TextureLoader().load( 'wall.png' ); //in the docs this is allowed!?
-const house = new THREE.TextureLoader().load( 'house2.jpg' ); //in the docs this is allowed!? (accidently had this say house2.jpg aswell so idk it don't seem to matter)
-const house2 = new THREE.TextureLoader().load( 'house2.jpg' ); //in the docs this is allowed!?
+const textureLoader = new THREE.TextureLoader();
+
+const wall = textureLoader.load( 'wall.png' ); //in the docs this is allowed!?
+const house = textureLoader.load( 'house2.jpg' ); //in the docs this is allowed!? (accidently had this say house2.jpg aswell so idk it don't seem to matter)
+const house2 = textureLoader.load( 'house2.jpg' ); //in the docs this is allowed!?
 
 function makePlane(txtr, size, position) {
     const img = new THREE.MeshPhysicalMaterial({
         map:txtr,
     });
-    img.map.needsUpdate = true;
+    img.map.needsUpdate = true; //yo i don't think you need to do this
 
     // plane
     const plane = new THREE.Mesh(new THREE.PlaneGeometry(size.x, size.y),img); // (189, 252) & (378, 504)

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>clone hero .chart to osu!mania .osu</title>
+    <style>
+        /*yeah i know i have a css file that already does this but linking them in html is kinda weird and i can't be bothered*/
+        button {
+            cursor: pointer;
+        }
+        button:hover {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>drag and drop a .chart file</h1>
+    <div id="reveal" style="display: none;">
+        <label>select difficulty: </label>
+        <select id="difficulties">
+
+        </select>
+        <button id="conv">CONVERT!</button>
+    </div>
+    <textarea id="words" rows="50" cols="100"></textarea>
+    <script src="readclonehero.js"></script>
+    <script>
+        let file = "";
+        let headers = {};
+
+        //wait this lowkey didn't work lol
+        //const getDifficultyChartName = (difficulty) => Object.keys(headers).reduce((accum, youstupid) => youstupid.includes(difficulty) && youstupid);
+
+        const getDifficultyChartName = (difficulty) => Object.keys(headers).find(youstupid => youstupid.includes(difficulty)); //oh yueah intelligent (write dumb code)
+
+        const trackRegex = /([0-9]+) = (.) (.+)/; //some tracks only have 2 args like 420 = E soloend (or tempo events)
+        const propertyRegex = /(.+) = (.+)/; //for the Song header
+
+        function prereq() {
+            headers = {};
+            let curHeader = "";
+            let readingInfo = false;
+
+            for(const line of file.split("\n")) {
+                if(line.includes("[") && line.includes("]")) {
+                    let header = line.match(/\[(.+)\]/)[1];
+                    headers[header] = [];
+                    curHeader = header;
+                }else if(line.includes("{")) {
+                    readingInfo = true;
+                }else if(line.includes("}")) {
+                    readingInfo = false;
+                }else if(readingInfo) {
+                    headers[curHeader].push(line.replace("  ", ""));
+                }
+            }
+
+            let diffnames = ["Expert", "Hard", "Medium", "Easy"];
+            difficulties.innerHTML = "";
+            console.log(Object.keys(headers));
+            for(const name of diffnames) {
+                let chartname = getDifficultyChartName(name);
+                console.log(chartname);
+                if(chartname) {
+                    let option = document.createElement("option");
+                    option.value = option.innerHTML = chartname;
+                    difficulties.append(option);
+                }
+            }
+
+            words.disabled = true;
+        }
+
+        //function parse() {
+        //    const resolution = headers["Song"][headers["Song"].findIndex(e => e.includes("Resolution"))].match(propertyRegex)[2];
+        //    print(`song resolution = ${resolution}`);
+        //    
+        //}
+
+        addEventListener('dragover', (event) => {
+            event.stopPropagation();
+            event.preventDefault();
+            // Style the drag-and-drop as a "copy file" operation.
+            event.dataTransfer.dropEffect = 'copy';
+            document.body.style = "color: royalblue; background-color: #1E1E1E";
+        });
+
+        addEventListener('drop', async (event) => {
+            event.stopPropagation();
+            event.preventDefault();
+            const fileList = event.dataTransfer.files;
+            console.log(fileList);
+            //file.value = fileList[0];
+            document.body.style = "";
+            //filei.parentElement.remove();
+            console.log(fileList[0]);
+            file = await fileList[0].text();
+            if(file.length < 1000000) {
+                words.value = file;
+            }else {
+                words.value = "This file is so big that showing it will probably cause this tab to run out of memory.";
+            }
+            prereq();
+            reveal.style.display = "";
+        });
+
+        conv.addEventListener("click", parse);
+    </script>
+</body>
+</html>

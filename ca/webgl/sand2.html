@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>sand 2</title>
+    <style>
+        input[type="color"] + label {
+            text-shadow: 1px 1px 5px black;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas" width="800" height="800" style="box-shadow: 5px 5px 10px red; margin: auto; left: 0; right: 0; position: absolute; cursor: pointer; border: 2px orange dotted">falling sand test 2</canvas>
+    <div style="background-color: blanchedalmond; display: inline-block;">
+        <input type="range" min="0" max="200" value="40" oninput="bl.innerText = 'bands: '+this.value; gl.uniform1f(uniformLocations['bands'], this.value);"><label id="bl">bands: 40</label><br>
+    </div>
+    <script type="x-shader/x-vertex" id="vertex-shader">#version 300 es
+        precision mediump float;
+
+        in vec2 vertPosition;
+
+        out vec4 fragColor;
+
+        void main() {
+            gl_Position = vec4(vertPosition, 0.0, 1.0);
+        }
+    </script>
+    <script type="x-shader/x-fragment" id="sand-fshader">#version 300 es
+        precision mediump float;
+
+        uniform vec2 iResolution;
+
+        uniform sampler2D iChannel0;
+
+        uniform float fTime;
+
+        out vec4 fragColor;
+
+        float smin(float a, float b, float k) { //snatched from https://github.com/glslify/glsl-smooth-min/blob/master/exp.glsl
+            float res = exp(-k * a) + exp(-k * b);
+            return -log(res) / k;
+        }
+
+        float lookupX(vec2 uv, float i, float j) {
+            return texture(iChannel0, uv + (vec2(i, j)/iResolution.xy)).x;
+        }
+
+        void main() {
+            vec2 uv = gl_FragCoord.xy / iResolution.xy;
+            
+            vec3 pixel = texture(iChannel0, uv).xyz;
+
+            if(pixel.x == 1.0) {
+                if(lookupX(uv, 0.0, -1.0) == 0.0) {
+                    pixel = vec3(0.0);
+                }else if(lookupX(uv, -1.0, 0.0) == 0.0 && lookupX(uv, 0.0, -1.0) == 1.0) {
+                    pixel = vec3(0.0);
+                }
+            }else {
+                if(lookupX(uv, 0.0, 1.0) == 1.0) { //positive y is up negative is down the canvas
+                    pixel = vec3(1.0);
+                }else if(lookupX(uv, 1.0, 0.0) == 1.0 && lookupX(uv, 1.0, -1.0) == 1.0) {
+                    pixel = vec3(1.0);
+                }
+            }
+
+            //float t = fTime*10.0;
+            //fragColor = vec4(floor(uv.xy*t)/t, 0.0, 1.0);
+            
+            fragColor = vec4(pixel, 1.0);
+        }
+    </script>
+    <img id="realimg" src="./cnnevo2.png" style="display: none;">
+
+    <script>
+        const canvas = document.getElementById("canvas");
+
+        const gl = canvas.getContext("webgl2");
+        let program;//, iChannel0;
+        const uniformLocations = {};
+        //|| canvas.getContext("experimental-webgl");
+        if (!gl) {
+            //var paragraph = document.querySelector("p");
+            document.body.innerHTML = "Failed to get WebGL context."
+            + "Your browser or device may not support WebGL.";
+            //return;
+        }
+        
+
+        initGL();
+
+        function hexToRgb(hex) { //for turning input type="color" values into rgb
+            var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? [
+                parseInt(result[1], 16)/255,
+                parseInt(result[2], 16)/255,
+                parseInt(result[3], 16)/255
+            ] : undefined;
+        }
+
+        function cleanup() {
+            gl.useProgram(null);
+            if (program) {
+                gl.deleteProgram(program);
+            }
+        }
+
+        function isPowerOf2(value) {
+            return (value & (value - 1)) === 0;
+        }
+
+        function loadImage(img) {
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+            // WebGL1 has different requirements for power of 2 images
+            // vs non power of 2 images so check if the image is a
+            // power of 2 in both dimensions.
+            if (isPowerOf2(img.width) && isPowerOf2(img.height)) {
+                // Yes, it's a power of 2. Generate mips.
+                gl.generateMipmap(gl.TEXTURE_2D);
+            } else {
+                // No, it's not a power of 2. Turn off mips and set
+                // wrapping to clamp to edge
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); //TWAS linear
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            }
+        }
+
+        function initGL() {
+            gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight); //???he said canvas height and widrh
+            gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            //creating shaders
+
+            let source = document.querySelector("#vertex-shader").innerHTML;
+            const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+            gl.shaderSource(vertexShader, source);
+            gl.compileShader(vertexShader);
+            if(!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+                console.warn("vertex shader error\n", gl.getShaderInfoLog(vertexShader));
+            }
+
+            program = gl.createProgram();
+            
+            source = document.querySelector(`#sand-fshader`).innerHTML;
+            //console.log(source);
+            const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+            gl.shaderSource(fragmentShader, source);
+            gl.compileShader(fragmentShader);
+            if(!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+                console.warn(`sand fragment shader error\n`, gl.getShaderInfoLog(fragmentShader));
+            }
+
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+
+            gl.linkProgram(program);
+
+            gl.detachShader(program, vertexShader);
+            gl.detachShader(program, fragmentShader);
+
+            gl.deleteShader(vertexShader);
+            gl.deleteShader(fragmentShader);
+
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                const linkErrLog = gl.getProgramInfoLog(program);
+                cleanup();
+                document.querySelector(
+                "p"
+                ).textContent = `Shader program did not link successfully. Error log: ${linkErrLog}`;
+                return;
+            }
+
+            const rect = [
+                -1,1,
+                -1,-1,
+                1,-1,
+                1,1,
+            ];
+
+            const rectVBO = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, rectVBO);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(rect), gl.STATIC_DRAW);
+
+            const pAL = gl.getAttribLocation(program, 'vertPosition'); 
+            gl.vertexAttribPointer(pAL, 2, gl.FLOAT, gl.FALSE, 2 * Float32Array.BYTES_PER_ELEMENT, 0);
+            gl.enableVertexAttribArray(pAL);
+
+            gl.useProgram(program);
+
+            const res = gl.getUniformLocation(program, "iResolution");
+            gl.uniform2fv(res, new Float32Array([canvas.width, canvas.height]));
+
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+
+            iChannel0 = gl.createTexture();
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, iChannel0);
+            loadImage(realimg);
+
+            function registerUniform(type, name, value) {
+                uniformLocations[name] = gl.getUniformLocation(program, name);
+                gl[`uniform${type}`](uniformLocations[name], value);
+            }
+            registerUniform("1i", "iChannel0", 0);
+            registerUniform("1f", "fTime", 1.0);
+            //gl.uniform1i(gl.getUniformLocation(program, "iChannel0"), 0);
+            //gl.uniform2fv(gl.getUniformLocation(program, "cPos"), new Float32Array([0.5, 0.5])); //circle position
+            //gl.uniform2fv(gl.getUniformLocation(program, "c2Pos"), new Float32Array([0.7, 0.7])); //circle 2 position
+            //gl.uniform1f(gl.getUniformLocation(program, "smoothing"), 10.5);
+            //gl.uniform2fv(gl.getUniformLocation(program, "radii"), new Float32Array([0.1, 0.1]));
+            //gl.uniform1f(gl.getUniformLocation(program, "bands"), 40.0);
+            //gl.uniform1f(gl.getUniformLocation(program, "fTime"), 1.0);
+            //gl.uniform(gl.getUniformLocation(program, "cPos"), 0);
+
+            gl.drawArrays(gl.TRIANGLE_FAN, 0, 4); //4 verts
+
+            render();
+        }
+
+        function render(time) {
+            gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+
+            gl.uniform1f(uniformLocations["fTime"], time/1000);
+
+            gl.drawArrays(gl.TRIANGLE_FAN, 0, 4); //4 verts
+            
+            gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, canvas.width, canvas.height, 0);
+            //i++;
+
+            requestAnimationFrame(render);
+        }
+    </script>
+</body>
+</html>

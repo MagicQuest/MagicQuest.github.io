@@ -54,6 +54,7 @@
                 //createCircle(state.level.world, [state.level.launcher.rect.x, state.level.launcher.rect.y], 7, "grey", false).velocity = new Float32Array([state.level.launcher.rect.x + mousePos[0], state.level.launcher.rect.y + mousePos[1]]); // * lookvector :(
                 state.level.pinball = createCircle(state.level.world, [state.level.launcher.rect.x, state.level.launcher.rect.y], 7, "grey", false);
                 state.level.pinball.velocity = new Float32Array([mousePos[0] - state.level.launcher.rect.x, mousePos[1] - state.level.launcher.rect.y]); // * lookvector :(
+                                                            //oh shoot if i really cared i should normalize this vector and multiply it by some number
             }
         });
         canvas.addEventListener("mousedown", event => {
@@ -767,7 +768,7 @@ createCircle(this.world, [-3.190000057220459, 3.0199999809265137], 10, 'rgb(36, 
                 this.pegs.forEach((peg, i) => {
                     if(peg.time && Date.now()/1000 > peg.time) {
                         console.log(peg.time);
-                        deleted.push([peg, i]);
+                        deleted.push([peg, i]); //ayo this is not a good idea
                         //this.world.removeBody(peg);
                         //this.pegs.splice(i, 1);
                         //does it really matter if i delete it but still draw it? we will see
@@ -778,7 +779,7 @@ createCircle(this.world, [-3.190000057220459, 3.0199999809265137], 10, 'rgb(36, 
                 });
                 deleted.forEach(info => {
                     this.world.removeBody(info[0]);
-                    this.pegs.splice(info[1], 1);
+                    this.pegs.splice(info[1], 1); //when i splice the index from info[1] could be wrong!
                 });
                 let deleted2 = [];
                 this.effects.forEach((effect,i) => {
