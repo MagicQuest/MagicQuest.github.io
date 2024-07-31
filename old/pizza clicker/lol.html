@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<head>
+	<style>
+		.click {
+			cursor:pointer;
+		}
+		.lol {
+			width:100px;
+			background-color:gray;
+			cursor:pointer;
+		}
+	</style>
+	<title>PIZZA CLICKER!</title>
+</head>
+<body>
+	<script src = "../oof.js"></script>
+	<script>
+		clicks=0
+		glob=0
+		function oof(amount) {
+			//if (glob==1) {
+			//	amount = 4;
+			//}
+			clicks=clicks+amount+1+glob
+			title=document.getElementById("lol")
+			title.innerHTML="Pizza Slices:" + clicks
+		}
+		function setSlices(Slices,OMG) {
+			title=document.getElementById("lol")
+			if (OMG=='sub') {
+				if((clicks-Slices)<0) {
+					console.log("not enough slices")
+					return "not enough slices"
+				}
+				//console.log(numb2)
+				numb2=clicks-Slices
+				console.log(numb2)
+				title.innerHTML="Pizza Slices:" + numb2;
+				clicks=numb2;
+			}else if(OMG=='add') {
+				numb=clicks+Slices
+				title.innerHTML="Pizza Slices:" + numb;
+				clicks=numb;
+			}
+		}
+		function Buy(ProductName,Price,Amount) {
+			if (setSlices(Price*Amount,'sub')=="not enough slices") {
+				return "not enough slices"
+			}
+			//if (ProductName=='+4Clicks') && if(setSlices(Price,'sub') != "not enough slices")) {
+			if (ProductName=='+Clicks') {
+				glob = glob + (1 * Amount);
+				glob2 = glob + 1
+				get("EMINEM").innerHTML = "pizzas per click:" + glob2;
+				//if (glob >= 2) {
+				//if(glob == 1) {
+						//good			glob2 = glob+2;
+
+				//}
+				//if(glob != 1) {
+				//									glob2 = glob+1;
+
+				//}
+				
+					
+					//good get("bruh").innerHTML = "increase the amount of slices per click by "+glob2+"\n (25 Slices)";
+				//}
+			}
+		}
+	</script>
+	<h1 id="lol" style="user-select:none;border-radius:17px ;border:5px solid red;outline-style:double;width:300px;margin-top: 10px;margin-bottom: 10px;padding-left: 0px;">
+		Pizza Slices:0
+	</h1>
+	<div id = "EMINEM" style = "padding-bottom:10px;user-select:none;">
+		pizzas per click:1
+	</div>
+	<div id="bruh" class="lol" onclick = "Buy('+Clicks',25,1)" style = "user-select:none;padding-top: 10px;padding-bottom: 10px;padding-right: 10px;padding-left: 10px;">
+		increase the amount of slices per click by 1<br>(25 Slices)
+	</div>
+	<input size="12" id="gob" style = "padding-left: 3px;">
+		
+	</input>
+	<div onclick = "Buy('+Clicks',25,get('gob').value)" class="lol" style="user-select:none;padding-left: 25px;width: 95px;" id="div2">
+		Buy this amount
+	</div>
+	<img style ="-webkit-user-drag:none;user-select:none;" alt="pizza" class="click" onclick="oof(0)" src="https://tse4.mm.bing.net/th?id=OIP.r8FF06I2kkOygLHIvWFejQHaE7&pid=Api&dpr=1">
+
+	</img>
+	<!--<button onclick="oof()">lol</button-->
+</body>

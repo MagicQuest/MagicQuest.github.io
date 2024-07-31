@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+	<title id = titlee>Page Title</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+	<style>
+	<!--button {
+		color:red;
+		font-family:comicsans;
+	}-->
+	</style>
+	<script>oof = 0</script>
+	<audio id="sound">
+		<source src="gay.mp3" type="audio/mp3">
+	</audio>
+	<h1 style="font-size:500%;" id = "PIZZA" title=""></h1>
+	<a href="#oof" style = "border:0px;">
+		<!--<button onclick="change()" style="background-color:white;border:0px">-->
+			<img id="LOLZ" onclick = "change()" title = "look at this dood"src="lol.png" alt="lol" width="200" height="200">
+		<!--</button>-->
+	</a>
+	<!--<input type="text"></input>-->
+	<a title = "My great discord server :P" href=https://discord.gg/aUM7Zgw>lol</a>
+	<h2>My Second Heading</h2>	
+	<h3>My Third Heading</h3>
+	<p>My first paragraph.</p> 
+	<script>
+	function getRndInteger(min, max) {
+		return Math.floor(Math.random() * (max - min)) + min;
+	}
+	function jeez() {      
+		tang = document.getElementById("oof")
+		//console.log(Math.floor(Math.random() * 351) + "%")
+		rand = getRndInteger(150,400)
+		tang.style = "font-size:" + rand + "%;color:red;background-color:powderblue;font-family:comicsans;"
+		lol = prompt('what is your desired title?')
+		<!--pizza = document.createElement('number')-->
+		<!--pizza.innerHTML = lol   -->   
+		<!--document.body.appendChild(pizza)-->
+		<!--pizza = document.getElementById("PIZZA")-->
+		
+		pizza = document.getElementById("titlee")
+		pizza.innerHTML = lol
+		//pizza.title = lol
+	}
+	function change() {
+		if(oof==0) {
+			oof= 1
+			pizza2 = document.getElementById("LOLZ")
+			pizza2.src = "https://cdn.discordapp.com/attachments/417176228865376268/469755543544922122/magik.png"
+			pizza2.title = "BRUH"
+			pizza2.style = "width:300px;height:168.5"
+		}else if(oof==1) {
+			oof= 0
+			pizza2 = document.getElementById("LOLZ")
+			pizza2.src = "lol.png"
+			pizza2.title = "look at this dood"
+			pizza2.style = "width:200px;height:200px"
+		}
+		oo = document.getElementById("sound")
+		//oo.src = "gay.mp3"
+		oo.play()
+	}
+
+	</script>
+	<h2>An Unordered HTML List</h2>
+
+	<ul>
+		<li>Coffee</li>
+		<li>Tea</li>
+		<li>Milk</li>
+	</ul>  
+
+	<h2>An Ordered HTML List</h2>
+
+	<ol>
+		<li>Coffee</li>
+		<li>Tea</li>
+		<li>Milk</li>
+	</ol> 
+	<hr>
+	<pre>																													lol<pre>
+	<button id="oof" style="background-color:powderblue;
+	color:red;
+	text-align:center;
+	font-family:comicsans;
+	font-size:300%;"
+	title = "lol" onclick = "jeez()">what do <br> you want the title to be</button>
+	<!--<iframe id = "frame" src= "#oof" width=1000 height = 500></iframe>-->
+</html>

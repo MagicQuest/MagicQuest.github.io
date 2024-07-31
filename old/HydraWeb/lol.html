@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<head>
+<script src = "oof.js"></script>
+<title>Hydra</title>
+</head>
+<body>
+<script>
+clicks = 0
+oof = 0
+dog = 0
+function newButton() {
+	clicks++;
+	if (oof==1) {
+		dog = dog + 2
+		document.getElementById("title2").innerHTML = "buttons: " + dog
+	}else {
+		dog = 3
+		document.getElementById("title2").innerHTML = "buttons: " + dog
+	}
+	document.getElementById("title").innerHTML = "clicks: " + clicks
+	
+	console.log(random(100))
+	nb = create("button")
+	SetAt(nb,'newButton()')
+	nb.style = "background-color:cyan;cursor:pointer;padding-top:" + random(100) + "px;padding-bottom:" + random(100) + "px;padding-left:" + random(100) + "px;padding-right:" + random(100) + "px;margin-top:" + random(100) + "px;margin-bottom:" + random(100) + "px;margin-left:" + random(100) + "px;margin-right:" + random(100) + "px;"
+	nb.innerHTML = "click me to spawn 2 more buttons lol!"
+	place(nb)
+	nb2 = create("button")
+	SetAt(nb2,'newButton()')
+	nb2.style = "background-color:red;cursor:pointer;padding-top:" + random(100) + "px;padding-bottom:" + random(100) + "px;padding-left:" + random(100) + "px;padding-right:" + random(100) + "px;margin-top:" + random(100) + "px;margin-bottom:" + random(100) + "px;margin-left:" + random(100) + "px;margin-right:" + random(100) + "px;"
+	Trans(nb2.style,nb2)
+	randomColor(nb2.style,nb2,3)
+	nb2.innerHTML = "click me to spawn 2 more buttons lol!"
+	place(nb2)
+	//place(clone(nb))
+	//place(nb2)
+	oof = 1
+}
+</script>
+<h1 id = "title">clicks: </h1>
+<br>
+<h1 id = "title2">buttons: 1</h1>
+<button style = "cursor:pointer" onclick = "newButton()">click me to spawn 2 more buttons lol!</button>
+</body>
