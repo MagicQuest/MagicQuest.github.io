@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+	<title id = titlee>Page Title</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css?family=Chilanka&display=swap" rel="stylesheet">
+
+	<style>
+		@font-face {
+			font-family: 'Chilanka';
+			font-style: normal;
+			font-weight: 400;
+			font-display: swap;
+			src: local('Chilanka Regular'), local('Chilanka-Regular'), url(https://fonts.gstatic.com/s/chilanka/v6/WWXRlj2DZQiMJYaYRoJPKdAwZg.woff2) format('woff2');
+			unicode-range: U+0307, U+0323, U+0964-0965, U+0D02-0D7F, U+200C-200D, U+20B9, U+25CC;
+		}
+		/* latin */
+		@font-face {
+			font-family: 'Chilanka';
+			font-style: normal;
+			font-weight: 400;
+			font-display: swap;
+			src: local('Chilanka Regular'), local('Chilanka-Regular'), url(https://fonts.gstatic.com/s/chilanka/v6/WWXRlj2DZQiMJYaYRoJXKdA.woff2) format('woff2');
+			unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+		}
+		#windowofshits {
+			border: 1px solid #00FF00;
+			box-shadow: 0px 0px 10px black;
+			position: absolute;
+			right: 100px;
+			width: 1400px;
+			height: 500px;
+			overflow: auto;
+			font-family: Chilanka;
+			font-weight: bold;
+			text-align: center;
+		}
+		#windowofshits > div {
+			text-align: center;
+			margin: 30px;
+		}
+		#windowofshits > div > iframe {
+			box-shadow: 0 0 10px orangered;
+			border: 1px solid salmon;
+		}
+		/* this goof ass line fucks up all the highlighting in vscode lmao
+		<!--button {
+			color:red;
+			font-family:comicsans;
+		}-->
+		*/
+	</style>
+</head>
+<body>
+	<div id="windowofshits">
+		<div style="display: inline-block;">
+			<iframe src="CanvasTesting/canvas.html"></iframe><br>
+			<a href="CanvasTesting/canvas.html">CanvasTesting</a>
+		</div>
+		<div style="display: inline-block;">
+			<iframe src="HydraWeb/"></iframe><br>
+			<a href="HydraWeb/">HydraWeb</a>
+		</div>
+		<div style="display: inline-block;">
+			<iframe src="pizza clicker/lol.html"></iframe><br>
+			<a href="pizza clicker/lol.html">pizza clicker</a>
+		</div>
+		<div style="display: inline-block;">
+			<iframe src="RockPaperScissors/oof.html"></iframe><br>
+			<a href="RockPaperScissors/oof.html">RockPaperScissors</a>
+		</div>
+		<div style="display: inline-block;">
+			<iframe src="WebGame/bruh.html"></iframe><br>
+			<a href="WebGame/bruh.html">WebGame</a>
+		</div>
+		<div style="display: inline-block;">
+			<iframe src="Website93/dogs.html"></iframe><br>
+			<a href="Website93/dogs.html">Website93</a>
+		</div>
+	</div>
+	<script>oof = 0</script>
+	<audio id="sound">
+		<source src="gay.mp3" type="audio/mp3">
+	</audio>
+	<h1 style="font-size:500%;" id = "PIZZA" title=""></h1>
+	<a href="#oof" style = "border:0px;">
+		<!--<button onclick="change()" style="background-color:white;border:0px">-->
+			<img id="LOLZ" onclick = "change()" title = "look at this dood"src="lol.png" alt="lol" width="200" height="200">
+		<!--</button>-->
+	</a>
+	<!--<input type="text"></input>-->
+	<a title = "My great discord server :P" href=https://discord.gg/aUM7Zgw>lol</a>
+	<h2>My Second Heading</h2>	
+	<h3>My Third Heading</h3>
+	<p>My first paragraph.</p> 
+	<script>
+	function getRndInteger(min, max) {
+		return Math.floor(Math.random() * (max - min)) + min;
+	}
+	function jeez() {      
+		tang = document.getElementById("oof")
+		//console.log(Math.floor(Math.random() * 351) + "%")
+		rand = getRndInteger(150,400)
+		tang.style = "font-size:" + rand + "%;color:red;background-color:powderblue;font-family:comicsans;"
+		lol = prompt('what is your desired title?')
+
+		//somehow i forgot you could do this until recently
+		<!--pizza = document.createElement('number')-->
+		<!--pizza.innerHTML = lol-->
+		<!--document.body.appendChild(pizza)-->
+		<!--pizza = document.getElementById("PIZZA")-->
+		
+		pizza = document.getElementById("titlee")
+		pizza.innerHTML = lol
+		//pizza.title = lol
+	}
+	function change() {
+		if(oof==0) {
+			oof= 1
+			pizza2 = document.getElementById("LOLZ")
+			pizza2.src = "https://cdn.discordapp.com/attachments/417176228865376268/469755543544922122/magik.png" //aw idk what this picture was
+			pizza2.title = "BRUH"
+			pizza2.style = "width:300px;height:168.5"
+		}else if(oof==1) {
+			oof= 0
+			pizza2 = document.getElementById("LOLZ")
+			pizza2.src = "lol.png"
+			pizza2.title = "look at this dood"
+			pizza2.style = "width:200px;height:200px"
+		}
+		oo = document.getElementById("sound")
+		//oo.src = "gay.mp3"
+		oo.play()
+	}
+
+	</script>
+	<h2>An Unordered HTML List</h2>
+
+	<ul>
+		<li>Coffee</li>
+		<li>Tea</li>
+		<li>Milk</li>
+	</ul>  
+
+	<h2>An Ordered HTML List</h2>
+
+	<ol>
+		<li>Coffee</li>
+		<li>Tea</li>
+		<li>Milk</li>
+	</ol> 
+	<hr>
+	<pre>																													lol<pre>
+	<button id="oof" style="background-color:powderblue;
+	color:red;
+	text-align:center;
+	font-family:comicsans;
+	font-size:300%;"
+	title = "lol" onclick = "jeez()">what do <br> you want the title to be</button>
+	<!--<iframe id = "frame" src= "#oof" width=1000 height = 500></iframe>-->
+</html>
