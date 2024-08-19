@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>fluid simulation</title>
+    <style>
+        kbd {
+            background-color: rgb(200,200,200);
+            border: 1px solid black;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <p>lowkey watching <a href="https://www.youtube.com/watch?v=alhpH6ECFvQ">a video</a> about making a fluid simulation and im gonna try to make it before i finish watching it</p>
+    <p>anyways i think i'm done now so this is what i got from using the flocking (boid) mentality (i just got the average velocity of each cell's neighbor (but couldn't figure out how to make it diffuse))</p>
+    <canvas width="800" height="800" id="canvas" style="box-shadow: 5px 5px 10px red; margin: auto; left: 0; right: 0; position: absolute; cursor: pointer; border: 2px orange dotted">brug</canvas>
+    <p><kbd>click and drag</kbd> to affect the "fluid"</p>
+    <p><kbd>ctrl + click</kbd> to add a ball that is affected by the "fluid"</p>
+    <script src="./Vectors.js"></script>
+    <img src="./fluidsimgif_sigma400.gif">
+    <script>
+        const canvas = document.getElementById("canvas");
+        const context = canvas.getContext('2d');
+
+        context.strokeStyle = "white";
+
+        const res = 10;
+        const pixels = 800/res;
+
+        let grid = [];
+        let balls = [];
+        let lastMouse = {};
+        let mouse = {x: 0, y: 0, v: new Vector2(0, 0), buttons: 0};
+
+        const moves = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+
+        class Cell {
+            constructor() {
+                this.v = new Vector2(0, 0);
+            }
+
+            Update(x, y) {
+                let avg = new Vector2(0, 0);
+                //yo hold on the paper says it's direct neighbors
+                for(let [i, j] of moves) { //damn this is crazy
+                //for(let i = -1; i <= 1; i++) {
+                //    for(let j = -1; j <= 1; j++) {
+                //        if(i == 0 && j == 0) { //haha i was about to do i+j == 0 but luckily i realized that that could happen like 3 different times
+                //            continue;
+                //        }
+                        let realX = x+i; //just incase x+i is bigger or smaller than 0 or whatever i gotta loop it around to the other side ig idk
+                        let realY = y+j;
+                        //if(x+i < 0 || x+i > pixels-1) {
+                        //    realX = (pixels)-Math.abs(x+i); //damn im a geniusx
+                        //}
+                        //if(y+j < 0 || y+j > pixels-1) {
+                        //    realY = (pixels)-Math.abs(y+j); //damn im a geniusx
+                        //}
+                        //what if i didn't loop it to the other side lol
+                        //let realX = Math.min(pixels-1, Math.max(0, x+i));
+                        //let realY = Math.min(pixels-1, Math.max(0, y+j));
+                        //ok lets just do if it don't work it don't work
+                        if(realX < 0 || realX > pixels-1 || realY < 0 || realY > pixels-1) {
+                            continue;
+                        }
+                        //console.log(x+i, y+j, realX, realY);
+                        avg.x += grid[realX][realY].v.x;
+                        avg.y += grid[realX][realY].v.y;
+                    }
+                //}
+                
+                avg.x /= 8; //dividing by 8 because im checking surrounding cells not including this one (which would be 8)
+                avg.y /= 8;
+
+                //if(avg.magnitude > 1) {
+                //    avg.magnitude = 1;
+                //}
+
+                this.v.x += avg.x;
+                this.v.y += avg.y;
+                
+                if(this.v.magnitude > 1) {
+                    this.v.magnitude = 1;
+                }
+
+                //this.v.magnitude = Math.max(0, this.v.magnitude-.1);//this.v.magnitude-.3); //some how accidently made some type of life
+                //ok i think i should set everythings magnitude down a touch AFTER they've updated
+            }
+        }
+
+        class Ball {
+            constructor(x, y, v) {
+                //console.log(x,y,v.x, v.y,"what");
+                this.x = x;
+                this.y = y;
+                this.v = new Vector2(v.x, v.y);
+            }
+
+            Update() {
+                //if(!this.x) return;
+                let cell = grid[Math.floor(this.x/res)][Math.floor(this.y/res)];
+                this.v.x += cell.v.x;
+                this.v.y += cell.v.y;
+                cell.v.x = this.v.x;//*= 0;
+                cell.v.y = this.v.y;//*= 0;
+
+                this.x += this.v.x;
+                this.y += this.v.y;
+
+                if(this.x > 799) {
+                    this.x = 799;
+                    this.v.x *= -1;
+                }else if(this.x < 0){
+                    this.x = 0;
+                    this.v.x *= -1;
+                }
+                if(this.y > 799) {
+                    this.y = 799;
+                    this.v.y *= -1;
+                }else if(this.y < 0){
+                    this.y = 0;
+                    this.v.y *= -1;
+                }
+
+                if(this.v.magnitude > 25) {
+                    this.v.magnitude = 25;
+                }
+                this.v.x /= 1.05;
+                this.v.y /= 1.05;
+
+                context.beginPath();
+                context.fillStyle = "red";
+                context.strokeStyle = "black";  
+                context.arc(this.x, this.y, 10, 0, 2*Math.PI, false);
+                context.fill();
+                context.stroke();
+            }
+        }
+
+        for(let i = 0; i < pixels; i++) {
+            grid.push([]);
+            for(let j = 0; j < pixels; j++) {
+                grid[i][j] = new Cell();
+            }
+        }
+
+        function updatemaxx(i, j) {
+            const cell = grid[i][j];
+            cell.Update(i, j);
+            context.fillStyle = `rgb(${cell.v.x*255}, ${cell.v.y*255}, ${cell.v.magnitude*25/*cell.v.magnitude*((i/pixels)*50)*/})`;
+            context.fillRect(i*res, j*res, (i*res)+res, (j*res)+res);
+            context.beginPath();
+            context.moveTo(i*res+(res/2), j*res+(res/2));
+            //const vel = Vector2.setMagnitude(cell.v, 5);
+            context.lineTo(i*res+(res/2+cell.v.x*5), j*res+(res/2+cell.v.y*5));
+            context.stroke();
+            //context.fillText(k, i*res, j*res); //well now we know that im updating from top -> down left -> right
+            //k++;
+        }
+
+        let k = 0;
+
+        function draw() {
+            //context.fillStyle = "black";
+            //context.fillRect(0, 0, 800, 800);
+            //context.fillStyle = "grey";
+            context.strokeStyle = "white";
+            if(mouse.buttons) {
+                console.log(mouse.x, mouse.y);
+                let realX = Math.min(pixels-1, Math.max(0, Math.floor(mouse.x/res)));
+                let realY = Math.min(pixels-1, Math.max(0, Math.floor(mouse.y/res)));
+                //if(realX < 0 || realX > pixels-1) {
+                //    realX = (pixels)-Math.abs(realX); //damn im a geniusx
+                //}
+                //if(realY < 0 || realY > pixels-1) {
+                //    realY = (pixels)-Math.abs(realY); //damn im a geniusx
+                //}
+
+                let hovered = grid[realX][realY];
+                hovered.v.x = mouse.v.x;
+                hovered.v.y = mouse.v.y;
+            }
+            //let k = 0;
+            for(let i = 0; i < pixels; i++) {
+                for(let j = 0; j < pixels; j++) {
+                    updatemaxx(i, j);
+                }
+            }
+
+            for(let ball of balls) {
+                ball.Update();
+            }
+            //if(k%4 == 0) {
+            //    for(let i = 0; i < pixels; i++) {
+            //        for(let j = 0; j < pixels; j++) {
+            //            updatemaxx(i, j);
+            //        }
+            //    }
+            //}else if(k%4==1) {
+            //    for(let i = 0; i < pixels; i++) {
+            //        for(let j = pixels-1; j > 0; j--) {
+            //            updatemaxx(i, j);
+            //        }
+            //    }
+            //}else if(k%4==2) {
+            //    for(let i = pixels-1; i > 0; i--) {
+            //        for(let j = pixels-1; j > 0; j--) {
+            //            updatemaxx(i, j);
+            //        }
+            //    }
+            //}else if(k%4==3) {
+            //    for(let i = pixels-1; i > 0 ; i--) {
+            //        for(let j = 0; j < pixels; j++) {
+            //            updatemaxx(i, j);
+            //        }
+            //    }
+            //}
+
+            //for(let i = 0; i < pixels; i++) {
+            //    for(let j = 0; j < pixels; j++) {
+            //        const cell = grid[i][j];
+            //        cell.v.magnitude = Math.max(0, cell.v.magnitude-.1);
+            //        //cell.v.x /= 3;
+            //        //cell.v.y /= 3;
+            //    }
+            //}
+
+            k++;
+
+            requestAnimationFrame(draw);
+        }
+
+        draw();
+
+        canvas.addEventListener("mousemove", event => {
+            mouse.x = event.offsetX;
+            mouse.y = event.offsetY;
+            mouse.buttons = event.buttons;
+            mouse.v = new Vector2(mouse.x-lastMouse.x, mouse.y-lastMouse.y);
+            //mouse.ctrl = event.ctrlKey;
+            //console.log(mouse);
+            lastMouse = {x: event.offsetX, y: event.offsetY};
+            //console.log(event.button, event.buttons); //wait what how have i not known this WHOLE time that event.buttons was a bit whatchamacallit thingy yk
+        });
+        canvas.addEventListener("mousedown", event => {
+            mouse.x = event.offsetX;
+            mouse.y = event.offsetY;
+            mouse.buttons = event.buttons;
+            mouse.v = new Vector2(mouse.x-lastMouse.x, mouse.y-lastMouse.y);
+
+            if(event.ctrlKey) {
+                console.log("new ball", mouse.x, mouse.y, mouse.v);
+                balls.push(new Ball(mouse.x, mouse.y, mouse.v));
+            }
+            lastMouse = {x: event.offsetX, y: event.offsetY};
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>boids</title>
+    <style>
+        input[type="checkbox"], button, input[type="range"] {
+            cursor: pointer;
+        }
+        button:hover {
+            font-weight: bold;
+        }
+        button:disabled {
+            cursor: not-allowed;
+            font-weight: initial;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas" style="position: absolute; inset: 0; margin: auto; outline: 1px dotted violet; z-index: -3;">bout to see some <a href="https://www.youtube.com/watch?v=TOEi6T2mtHo">2d raycasting</a> in a bit</canvas>
+    <div style="position: absolute; top: 10px; left: 10px; background-color: rgba(255,255,255,.9); padding: 5px; border: 1px solid rgba(0,0,0,.25);">
+        <label id="bc">boids: 50</label><br>
+        <label title="default value: 1">separation magnitude:</label><input min="-1" max="15" step=".01" value="1" oninput="sm.innerHTML = this.value; dm = this.value;" type="range"><label id="sm">1</label><br>
+        <label title="default value: 1">alignment magnitude:</label><input min="-1" max="15" step=".01" value="1" oninput="am.innerHTML = this.value; adm = this.value;" type="range"><label id="am">1</label><br>
+        <label title="default value: 1">cohesion magnitude:</label><input min="-1" max="15" step=".01" value="1" oninput="cm.innerHTML = this.value; cdm = this.value;" type="range"><label id="cm">1</label><br>
+        <label title="default value: 3.5355339059327378, (max magnitude of velocity)">max speed</label><input min="-5" max="100" step=".01" value="3.53" oninput="ms.innerHTML = this.value; maxspeed = this.value;" type="range"><label id="ms">3.53</label><br>
+        <label title="default value: 10, i lowkey don't know if this really does anything">separation radius</label><input min="0" max="1000" step="1" value="10" oninput="sr.innerHTML = this.value; separationRadius = this.value;" type="range"><label id="sr">10</label><br>
+        <label title="default value: 50, lol i can't make the minimum value for the slider go to -1 because drawing a negative radius arc will error out">radius for all boids</label><input title="you gotta release to apply your changes for this one lol" min="0" max="1000" step="1" value="50" oninput="rfab.innerHTML = this.value;" onchange="rfab.innerHTML = this.value; newRadius = this.value; for(const boid of boidObjs) {boid.radius = newRadius;}" type="range"><label id="rfab">50</label><br>
+        <button title="the randomization will be from 0 to whatever the radius slider is at right now" onclick="for(const boid of boidObjs) {boid.radius = random(newRadius)}">randomize radius for all boids</button>
+    </div>
+    <script src="./Vectors.js"></script>
+    <script>
+        //lol most of this code was written for iconboids.js (JBS3 fam)
+        //let width = innerWidth;
+        //let height = innerHeight;
+        const canvas = document.getElementById("canvas");
+        const context = canvas.getContext('2d');
+        canvas.width = innerWidth;
+        canvas.height = innerHeight;
+
+        context.fillStyle = "rgb(37, 37, 37)";
+        context.strokeStyle = "white";
+
+        const boidObjs = [];
+        let separationRadius = 10; //not totally sure if this really does anything
+        let newRadius = 50;
+
+        function random(x) {
+            return Math.floor(Math.random()*x);
+        }
+
+        function getMagnitude(x, y) {
+            return Math.sqrt(x**2 + y**2);
+        }
+
+        //vector2 moved to Vectors.js
+
+        let maxspeed = Math.sqrt((2.5**2)*2);
+
+        const size = 8;
+
+        let dm = 1; //dir (separation) magnitude
+        let adm = 1; //alignment magnitude
+        let cdm = 1; //cohesion magnitude;
+
+        class Boid {
+            constructor(i, nx = random(canvas.width), ny = random(canvas.height)) {
+                this.i = i;
+                this.x = nx;
+                this.y = ny;
+                //this.vx = random(10)-5; //lol i can't be bothered to do nothing special so this makes it a random value from -5 to 5
+                //this.vy = random(10)-5;
+                //this.vx = Math.random() > .5 ? 5 : -5;
+                //this.vy = Math.random() > .5 ? 5 : -5;
+                this.velocity = new Vector2(Math.random() > .5 ? 2.5 : -2.5, Math.random() > .5 ? 2.5 : -2.5);
+                this.color = `rgb(${random(255)}, ${random(255)}, ${random(255)})`;
+                this.radius = 50; //view radius
+            }
+
+            //SteerMyShit(iconsInRange) {
+            DoAllMyShit(boidsInRange) {
+                //let mousepresent = false;
+                let dir = new Vector2(0, 0);
+                if(boidsInRange.length == 0) {
+                    return dir;
+                }
+                let aligndir = new Vector2(0, 0);
+                let coheredir = new Vector2(0, 0);
+                for(let boid of boidsInRange) {
+                    let vec = new Vector2(boid.x-this.x, boid.y-this.y);
+                    let ratio = Math.min(1, Math.max(0, (vec.magnitude)/separationRadius)); //yeah this was some weird math i got from a video so lemme do my own thing rq (yeah idk bruhh)
+                    //let ratio = +(vec.magnitude < separationRadius);
+                    //if(boid.i == -1) {
+                    //    ratio = ratio*50;
+                    //    print(ratio, "ratio");
+                    //    mousepresent = true;
+                    //}
+                    dir.x -= ratio*(vec.x);
+                    dir.y -= ratio*(vec.y);
+
+                    aligndir.x += boid.velocity.x;
+                    aligndir.y += boid.velocity.y;
+
+                    coheredir.x += boid.x;
+                    coheredir.y += boid.y;
+                }
+                aligndir.x /= boidsInRange.length;
+                aligndir.y /= boidsInRange.length;
+
+                coheredir.x /= boidsInRange.length;
+                coheredir.y /= boidsInRange.length;
+
+                coheredir = new Vector2(coheredir.x-this.x, coheredir.y-this.y);
+
+                if(dir.magnitude > dm) {
+                    dir.magnitude = dm;
+                }
+                if(aligndir.magnitude > adm) {
+                    aligndir.magnitude = adm;
+                }
+                if(coheredir.magnitude > cdm) {
+                    coheredir.magnitude = cdm;
+                }
+                //dir.magnitude = dm;//mousepresent ? 5000 : 1; //amazing...
+                //aligndir.magnitude = adm;
+                //coheredir.magnitude = cdm;
+
+                dir.x += aligndir.x + coheredir.x;
+                dir.y += aligndir.y + coheredir.y;
+                if(this.i == 0) {
+                    console.log(dir);
+                }
+                return dir;
+            }
+
+            //AlignMyShit(iconsInRange, dir) {
+            //    let localDir = new Vector2(0, 0);
+            //    for(let icon of iconsInRange) {
+            //        
+            //    }
+            //    dir.x += localDir.x;
+            //    dir.y += localDir.y;
+            //    //no return dir because im directly modifying it (and objects are by reference)
+            //}
+
+            WithinVision(boidx, boidy) {
+                //let us = new Vector2(this.vx, this.vy);
+                let them = new Vector2(boidx-this.x, boidy-this.y);
+                const something = -100;
+                //if(this.i == 0) {
+                //    print(us, them, Vector2.Dot(us, them));
+                //}
+                return Vector2.Dot(this.velocity, them) > something;
+            }
+
+            Update() {
+                this.x += this.velocity.x;
+                this.y += this.velocity.y;
+                if(this.x+size < 0 || this.x > canvas.width) {
+                    this.x = canvas.width-(this.x+size); //damn im a geniusx
+                }
+                if(this.y+size < 0 || this.y > canvas.height) {
+                    this.y = canvas.height-(this.y+size); //damn im a geniusx
+                }
+                
+                //d2d.DrawBitmap(, this.x, this.y, this.x+size, this.y+size);
+                context.save();
+
+                context.fillStyle = this.color;
+                context.strokeStyle = "black";
+
+                context.translate(this.x, this.y);
+                let normalvel = Vector2.setMagnitude(this.velocity, 1);
+                context.rotate(Math.atan2(normalvel.y, normalvel.x)); //bruh im mad i couldn't remember how to find the angle with the given points on a unit circle (oh, i had to use atan2 because atan only has a range of -pi/2 to pi/2)
+
+                context.beginPath();
+                context.moveTo(-size,-size);
+                context.lineTo(size, 0);
+                context.lineTo(-size, size);
+                context.lineTo(-size, -size);
+                context.fill();
+                context.stroke();
+
+                context.restore();
+                if(this.i == 0) {
+                    context.strokeStyle = "yellow";
+                    context.beginPath();
+                    //with(Math) { //lol just playing around haha
+                    context.arc(this.x, this.y, this.radius, 0, 2*Math.PI, false);
+                    //}
+                    context.stroke();
+
+                    context.strokeStyle = "blue";
+                    context.beginPath()
+                    context.arc(this.x, this.y, separationRadius, 0, 2*Math.PI, false);
+                    context.stroke();
+                    context.strokeStyle = "white";
+                    //brush.SetColor(1.0, 1.0, 0.0);
+                    //d2d.DrawEllipse(this.x, this.y, this.radius, this.radius, brush);
+                    //brush.SetColor(0.0, 0.2, 1.0);
+                    //d2d.DrawEllipse(this.x, this.y, separationRadius, separationRadius, brush);
+                    //brush.SetColor(1.0, 1.0, 1.0);
+                }
+                //DrawIconEx(dc, this.x, this.y, this.i == 0 ? troll : iconIcons[this.iconIndex], size, size, 0, NULL, DI_COMPAT | DI_NORMAL);
+
+                //if(this.i == 0) {
+                //    MoveTo(dc, this.x, this.y);
+                //    LineTo(dc, this.x+this.vx, this.y+this.vy);
+                //}
+
+                let boidsInRange = [];
+
+                for(let boid of boidObjs) {
+                    if(boid.i == this.i) {
+                        continue;
+                    }
+                    if(getMagnitude(boid.x - this.x, boid.y - this.y) <= this.radius && this.WithinVision(boid.x, boid.y)) {
+                        //some how some way i think i've actually done this correctly and it might be working!
+                        //bruh it took me so long to do this dot product shit that i'm mad there's still 11 minutes left of the video dawg FDUCK
+                        //here's the part where i do steering separation (well hold on i need every boid in range)
+                        //MoveTo(dc, this.x, this.y);
+                        //LineTo(dc, icon.x, icon.y);
+                        boidsInRange.push(boid);
+                        if(boid.i == -1 || this.i == 0) {
+                            //d2d.DrawLine(this.x, this.y, boid.x, boid.y, brush);
+                            context.beginPath();
+                            context.moveTo(this.x, this.y);
+                            context.lineTo(boid.x, boid.y);
+                            context.stroke();
+                        }
+                    }
+                }
+                let dir = this.DoAllMyShit(boidsInRange);//SteerMyShit(iconsInRange);
+                //this.AlignMyShit(iconsInRange, dir);
+                //this.CohereMyShit(iconsInRange, dir); //i didn't even know this was a word
+                this.velocity.x += dir.x;
+                this.velocity.y += dir.y;
+                if(this.velocity.magnitude > maxspeed) {
+                    this.velocity.magnitude = maxspeed;
+                }
+                //this.velocity.magnitude = Math.sqrt((5**2)*2); //i thinks
+                //[this.vx, this.vy] = this.SteerMyShit(iconsInRange); //there's no way you can do that (you can!)
+            }
+        }
+
+        let lastMouse = {x: 0, y: 0};
+        let mouse = {x: 0, y: 0, velocity: new Vector2(0, 0), Update: ()=>{}, i: -1};
+
+        for(let i = 0; i < 50; i++) {
+            boidObjs.push(new Boid(i));
+        }
+
+        boidObjs.push(mouse);
+
+        addEventListener("mousemove", event => {
+            mouse.x = event.offsetX;
+            mouse.y = event.offsetY;
+            console.log(mouse.x, mouse.y);
+            mouse.velocity = new Vector2(mouse.x-lastMouse.x, mouse.y-lastMouse.y);
+
+            lastMouse = {x: event.offsetX, y: event.offsetY};
+        });
+
+        canvas.addEventListener("mousedown", event => {
+            mouse.buttons = event.buttons;
+        });
+
+        addEventListener("mouseup", event => {
+            mouse.buttons = event.buttons;
+        });
+
+        function draw() {
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            if(mouse.buttons) {
+                boidObjs.push(new Boid(boidObjs.length, mouse.x, mouse.y));
+                bc.innerHTML = "boids: "+boidObjs.length;
+            }
+            for(const boid of boidObjs) {
+                boid.Update();
+            }
+
+            requestAnimationFrame(draw);
+        }
+
+        draw();
+
+        addEventListener("resize", event => {
+            canvas.width = innerWidth;
+            canvas.height = innerHeight;
+            context.fillStyle = "rgb(37, 37, 37)";
+        });
+    </script>
+</body>
+</html>
