@@ -19,7 +19,7 @@
     <p><kbd>click and drag</kbd> to affect the "fluid"</p>
     <p><kbd>ctrl + click</kbd> to add a ball that is affected by the "fluid"</p>
     <script src="./Vectors.js"></script>
-    <img src="./fluidsimgif_sigma400.gif">
+    <img src="./fluidsimgif_sigma400.gif" title="a gif i made of the old version where every 'pixel' took the average of its neighbors velocity">
     <script>
         const canvas = document.getElementById("canvas");
         const context = canvas.getContext('2d');
@@ -42,8 +42,10 @@
             }
 
             Update(x, y) {
-                let avg = new Vector2(0, 0);
+                //let avg = new Vector2(0, 0);
                 //yo hold on the paper says it's direct neighbors
+
+                /*
                 for(let [i, j] of moves) { //damn this is crazy
                 //for(let i = -1; i <= 1; i++) {
                 //    for(let j = -1; j <= 1; j++) {
@@ -71,7 +73,7 @@
                     }
                 //}
                 
-                avg.x /= 8; //dividing by 8 because im checking surrounding cells not including this one (which would be 8)
+                avg.x /= 8; //dividing by 8 because im checking surrounding cells not including this one (which would be 8) (ok well it would be 4 now because im only taking the ajacent tiels but you feel me)
                 avg.y /= 8;
 
                 //if(avg.magnitude > 1) {
@@ -79,7 +81,26 @@
                 //}
 
                 this.v.x += avg.x;
-                this.v.y += avg.y;
+                this.v.y += avg.y;*/
+
+                //ok i just had a brain blast what if instead of taking the average of its neighbors i GIVE my neighbors some of my velocity (i mean it works kinda better? the diffusion is there but that's it (i need to make it biased towards the direction it's facing (somehow (tomorrow))))
+                const px = this.v.x/(moves.length);
+                const py = this.v.y/(moves.length);
+                for(let [i, j] of moves) {
+                    this.v.x -= px;
+                    this.v.y -= py;
+                    
+                    let realX = x+i;
+                    let realY = y+j;
+
+                    if(realX < 0 || realX > pixels-1 || realY < 0 || realY > pixels-1) {
+                        continue;
+                    }
+
+                    const cell = grid[realX][realY];
+                    cell.v.x += px;
+                    cell.v.y += py;
+                }
                 
                 if(this.v.magnitude > 1) {
                     this.v.magnitude = 1;
@@ -148,7 +169,6 @@
 
         function updatemaxx(i, j) {
             const cell = grid[i][j];
-            cell.Update(i, j);
             context.fillStyle = `rgb(${cell.v.x*255}, ${cell.v.y*255}, ${cell.v.magnitude*25/*cell.v.magnitude*((i/pixels)*50)*/})`;
             context.fillRect(i*res, j*res, (i*res)+res, (j*res)+res);
             context.beginPath();
@@ -156,6 +176,7 @@
             //const vel = Vector2.setMagnitude(cell.v, 5);
             context.lineTo(i*res+(res/2+cell.v.x*5), j*res+(res/2+cell.v.y*5));
             context.stroke();
+            cell.Update(i, j);
             //context.fillText(k, i*res, j*res); //well now we know that im updating from top -> down left -> right
             //k++;
         }
@@ -168,7 +189,7 @@
             //context.fillStyle = "grey";
             context.strokeStyle = "white";
             if(mouse.buttons) {
-                console.log(mouse.x, mouse.y);
+                console.log(mouse.x, mouse.y, mouse.v.x, mouse.v.y);
                 let realX = Math.min(pixels-1, Math.max(0, Math.floor(mouse.x/res)));
                 let realY = Math.min(pixels-1, Math.max(0, Math.floor(mouse.y/res)));
                 //if(realX < 0 || realX > pixels-1) {
@@ -177,10 +198,11 @@
                 //if(realY < 0 || realY > pixels-1) {
                 //    realY = (pixels)-Math.abs(realY); //damn im a geniusx
                 //}
+                let sped = mouse.shift ? 5 : 1;
 
                 let hovered = grid[realX][realY];
-                hovered.v.x = mouse.v.x;
-                hovered.v.y = mouse.v.y;
+                hovered.v.x = mouse.v.x*sped;
+                hovered.v.y = mouse.v.y*sped;
             }
             //let k = 0;
             for(let i = 0; i < pixels; i++) {
@@ -239,6 +261,7 @@
             mouse.y = event.offsetY;
             mouse.buttons = event.buttons;
             mouse.v = new Vector2(mouse.x-lastMouse.x, mouse.y-lastMouse.y);
+            mouse.shift = event.shiftKey;
             //mouse.ctrl = event.ctrlKey;
             //console.log(mouse);
             lastMouse = {x: event.offsetX, y: event.offsetY};
@@ -249,6 +272,7 @@
             mouse.y = event.offsetY;
             mouse.buttons = event.buttons;
             mouse.v = new Vector2(mouse.x-lastMouse.x, mouse.y-lastMouse.y);
+            mouse.shift = event.shiftKey;
 
             if(event.ctrlKey) {
                 console.log("new ball", mouse.x, mouse.y, mouse.v);
