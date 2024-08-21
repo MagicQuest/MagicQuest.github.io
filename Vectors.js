@@ -20,13 +20,22 @@ class Vector2 { //snatched from JBS3's iconboids.js
         return Math.atan2(this.y,this.x);
     }
 
-    static Dot(v1, v2) { //yo dot, i gotchu!
-        const v3 = new Vector2(v1.x-v2.x, v1.y-v2.y);
-        const a = v1.magnitude;
-        const b = v2.magnitude;
-        const c = v3.magnitude;//Math.sqrt(a**2 + b**2); //a^2 + b^2 = c^2 (wait what the fuck you could say im getting the magnitude of these magnitudes) (nah for some reason this wont work (and shoot i still don't know why))
-        const cTheta = Math.acos((a**2 + b**2 - c**2)/(2*a*b));
-        return a*b*Math.cos(cTheta); //oh boy im hoping that's right
+    //static Dot(v1, v2) { //yo dot, i gotchu!
+    //    const v3 = new Vector2(v1.x-v2.x, v1.y-v2.y);
+    //    const a = v1.magnitude;
+    //    const b = v2.magnitude;
+    //    const c = v3.magnitude;//Math.sqrt(a**2 + b**2); //a^2 + b^2 = c^2 (wait what the fuck you could say im getting the magnitude of these magnitudes) (nah for some reason this wont work (and shoot i still don't know why))
+    //    const cTheta = Math.acos((a**2 + b**2 - c**2)/(2*a*b));
+    //    return a*b*Math.cos(cTheta); //oh boy im hoping that's right
+//
+    //    //yo what the fuck p5js' implementation is 1000x simpler??/
+    //}
+
+    Dot(x, y) {
+        if(x instanceof Vector2) {
+            return this.Dot(x.x, x.y);
+        }
+        return this.x * (x || 0) + this.y * (y || 0); //yo what the fuck is this shit (joe reference) (im actually flabbergasted)
     }
 
     static setMagnitude(v, value) {

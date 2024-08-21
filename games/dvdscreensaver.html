@@ -54,9 +54,9 @@
         canvas.width = innerWidth;
         canvas.height = innerHeight;
 
-        let dvd = {x: 500, y: 500, vx: 0, vy: 0};
-        dvd.vx = Math.random() > .5 ? -5 : 5;
-        dvd.vy = Math.random() > .5 ? -5 : 5;
+        let dvd = {x: 1664-256, y: 350-256, vx: 0, vy: 0}; //{x: 500, y: 500, vx: 0, vy: 0};
+        dvd.vx = 5;//Math.random() > .5 ? -5 : 5;
+        dvd.vy = 5;//Math.random() > .5 ? -5 : 5;
 
         let bouncesLeft = -1;
 
@@ -65,8 +65,70 @@
 
         let webgpuspeed;
         let jscalcspeed;
+        let jsefficentcalcspeed;
         let lastcalc = 0;
+
+        function makeWalls() {
+            return [[0, 0, canvas.width-(256*scale), 0], [0, 0, 0, canvas.height-(256*scale)], [canvas.width-(256*scale), 0, canvas.width-(256*scale), canvas.height-(256*scale)], [0, canvas.height-(256*scale), canvas.width-(256*scale), canvas.height-(256*scale)]];
+        }
+
+        let walls = makeWalls();
         
+        class Ray { //snatched from /raycasting.html (which was somewhat snatched from the coding train's video)
+            constructor(pos, x, y) {//(x, y) {
+                this.pos = pos;//new Vector2(x, y);
+                this.dir = {};//new Vector2(Math.cos(rad), Math.sin(rad)); //haha imma geniuis
+                //console.log(pos, x, y);
+                this.lookAt(x, y);
+            }
+
+            lookAt(x, y) {
+                this.dir.x = x;// - this.pos.x;
+                this.dir.y = y;// - this.pos.y;
+                //this.dir.magnitude = 1; //hahan o normalizr funcitogkn this is all we got
+                const old = Math.sqrt(this.dir.x**2 + this.dir.y**2);
+                const ratio = 1/old;
+                this.dir.x *= ratio;
+                this.dir.y *= ratio;
+            }
+
+            cast(x1, y1, x2, y2) {
+                //const x1 = bound.a.x;
+                //const y1 = bound.a.y;
+                //const x2 = bound.b.x;
+                //const y2 = bound.b.y;
+                const x3 = this.pos.x; //haha
+                const y3 = this.pos.y;
+                const x4 = this.pos.x+this.dir.x;
+                const y4 = this.pos.y+this.dir.y;
+
+                const den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+                if(den == 0) {
+                    return;
+                }
+
+                const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den;
+                const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / den;
+
+                //console.log(t, u);
+            
+                if(t > 0 && t < 1 && u > 0) {
+                    return /*new Vector2*/[x1+t*(x2-x1), y1+t*(y2-y1)];
+                }else {
+                    return;
+                }
+            }
+
+            draw() {
+                context.beginPath();
+                context.moveTo(this.pos.x, this.pos.y);
+                context.lineTo(this.pos.x+(this.dir.x*20), this.pos.y+(this.dir.y*20));
+                context.stroke();
+            }
+        }
+
+        dvd.ray = new Ray(dvd, dvd.vx, dvd.vy); //haha pos = dvd
+
         addEventListener("keydown", (event) => {
             keys[event.key] = true;
         });
@@ -80,6 +142,7 @@
             context.fillStyle = "#313131";
             context.strokeStyle = "white";
             context.font = "24px comic sans ms";
+            walls = makeWalls();
             bouncesLeft = -1; //recalc
         });
 
@@ -113,11 +176,13 @@
             }
             if(dirty) {
                 bouncesLeft = -1; //gotta recalc
+                walls = makeWalls();
             }
 
             dvd.x += dvd.vx;
             dvd.y += dvd.vy;
             let oldVel = {vx: dvd.vx, vy: dvd.vy}; //huh i forgor let
+            let oldpos = {x: dvd.x, y: dvd.y};
             if(dvd.x < 0) {
                 dvd.x = 0;
                 dvd.vx *= -1;
@@ -132,7 +197,10 @@
                 dvd.y = innerHeight-(256*scale);
                 dvd.vy *= -1;
             }
+            //console.log(dvd.x, dvd.y);
             if(oldVel.vx != dvd.vx || oldVel.vy != dvd.vy) {
+                //console.log(dvd.x-oldpos.x, dvd.y-oldpos.y);
+                console.log("bounce1");
                 if(bouncesLeft >= 0) {
                     bouncesLeft--;
                     //print(bBCH + "bounces left before corner hit!");
@@ -141,6 +209,7 @@
                 //}
                 if(oldVel.vx != dvd.vx && oldVel.vy != dvd.vy) {
                     console.log("CORNER HIT");
+                    //quit;
                 }
             }
             if(bouncesLeft != -1) {
@@ -148,11 +217,27 @@
                 context.strokeText(bouncesLeft + " bounces left", dvd.x+(256*scale/2), dvd.y - 24);
             }
             context.drawImage(dvdimg, dvd.x, dvd.y, 256*scale, 256*scale);
+            dvd.ray.lookAt(dvd.vx, dvd.vy);
+            dvd.ray.draw();
+            for(let wall of walls) {
+                let pt = dvd.ray.cast(...wall);
+                if(pt) {
+                    context.beginPath();
+                    context.arc(...pt, 10, 0, 2*Math.PI, false); //WRITE DUMB CODE (this line seems like im 110% in the game but really why would you do actually do this)
+                    context.fill();
+                    context.stroke();
+                }
+                context.beginPath();
+                context.moveTo(wall[0], wall[1]);
+                context.lineTo(wall[2], wall[3]);
+                context.stroke();
+            }
             if(Date.now() - lastcalc < 5000) {
                 let time = ((Date.now() - lastcalc)/5000);
                 context.fillStyle = `rgba(255,255,255,${1-time})`;
-                webgpuspeed && context.fillText(`WebGPU took ${webgpuspeed}ms`, innerWidth/2, 200-(time*300));
+                webgpuspeed && context.fillText(`WebGPU took ${webgpuspeed}ms`, innerWidth/2, 200-(time*300)); //honestly it's kinda funny how i thought this would really do something but webgpu just has too much overhead for this dumb calculation (too complicated for js to do quick but not complicated enough for webgpu to solo it)
                 context.fillText(`javascript calculation took ${jscalcspeed}ms`, innerWidth/2, 224-(time*300));
+                context.fillText(`javascript raycasting calculation took ${jsefficentcalcspeed}ms`, innerWidth/2, 248-(time*300));
                 context.fillStyle = "#313131";
             }
             stats.innerText = `{x: ${dvd.x}, y: ${dvd.y}, vx: ${dvd.vx}, vy: ${dvd.vy}, scale: ${scale}}`;
@@ -170,45 +255,159 @@
                 });
         });
 
+        function tolerate(num, acceptableTolerance) { //https://stackoverflow.com/questions/53798730/how-to-round-to-nearest-integer-given-a-tolerance
+            const nearestRoundNumber = Math.round(num);
+            const difference = Math.abs(nearestRoundNumber - num);
+            if (difference <= acceptableTolerance) {
+                num = nearestRoundNumber;
+            }
+
+            return num;
+        }
+
+        function jsCalcBounces() {
+            let yeoldcalc = Date.now();
+            let calcBounces = 0;
+            let cornerHit = false;
+            let tempDVD = {x: dvd.x, y: dvd.y, vx: dvd.vx, vy: dvd.vy};
+            while(calcBounces < 100000) { //yeah sometimes it just don't get it idk
+                tempDVD.x += tempDVD.vx;
+                tempDVD.y += tempDVD.vy;
+                let tempOldVel = {vx: tempDVD.vx, vy: tempDVD.vy};
+                //print(tempDVD);
+                if(tempDVD.x < 0) {
+                    tempDVD.x = 0;
+                    tempDVD.vx *= -1;
+                }else if(tempDVD.x > innerWidth-(256*scale)) {
+                    tempDVD.x = innerWidth-(256*scale);
+                    tempDVD.vx *= -1;
+                }
+                if(tempDVD.y < 0) {
+                    tempDVD.y = 0;
+                    tempDVD.vy *= -1;
+                }else if(tempDVD.y > innerHeight-(256*scale)) {
+                    tempDVD.y = innerHeight-(256*scale);
+                    tempDVD.vy *= -1;
+                }
+                if(tempOldVel.vx != tempDVD.vx || tempOldVel.vy != tempDVD.vy) {
+                    calcBounces++;
+                    //print(calcBounces);
+                    if(tempOldVel.vx != tempDVD.vx && tempOldVel.vy != tempDVD.vy) {
+                        cornerHit = true;
+                        break;
+                    }
+                }
+            }
+            bouncesLeft = calcBounces-1;
+            jscalcspeed = (Date.now()-yeoldcalc);
+            console.log((Date.now()-yeoldcalc)/1000 + "ms", "js calc", bouncesLeft);
+            lastcalc = Date.now();
+        }
+
+        function jsCalcBouncesEfficiently() {
+            let yeoldcalc = Date.now();
+            let calcBounces = 0;
+            //let cornerHit = false;
+            let tempDVD = {x: dvd.x, y: dvd.y, vx: dvd.vx, vy: dvd.vy};
+            tempDVD.ray = new Ray(tempDVD, tempDVD.vx, tempDVD.vy);
+
+            const wallinfo = [[1, -1], [-1, 1], [-1, 1], [1, -1]];
+
+            let lastPos = {x: dvd.x, y: dvd.y};
+
+            const maxwidth = canvas.width-(256*scale);
+            const maxheight = canvas.height-(256*scale);
+
+            loophaha: while(calcBounces < 100000) { //yeah sometimes it just don't get it idk
+                //let p = false;
+
+                for(let i = 0; i < walls.length; i++) { //techically i only have to loop through 2 of these depending on which direction it is facing but that might take longer to calculate plus 4 ain't that bad
+                    let pt = tempDVD.ray.cast(...walls[i]);
+                    if(pt) {
+                        //p = true;
+
+                        tempDVD.x = pt[0];
+                        tempDVD.y = pt[1];
+                        
+                        //if(i == 0 || i == 3) {
+                        //    tempDVD.x += tempDVD.vx;
+                        //}else {
+                        //    tempDVD.y += tempDVD.vy;
+                        //}
+
+                        tempDVD.x = Math.max(0, Math.min(maxwidth, tempDVD.x+=tempDVD.vx));
+                        tempDVD.y = Math.max(0, Math.min(maxheight, tempDVD.y+=tempDVD.vy));
+
+                        if((tempDVD.x == 0 || tempDVD.x == maxwidth) && (tempDVD.y == 0 || tempDVD.y == maxheight)) {
+                            console.log("MATCH");
+                            break loophaha;
+                        }
+
+                        //if(calcBounces < 5) {
+                            //console.log("calc",tempDVD.x, tempDVD.y);
+                        //}
+
+                        if(tolerate(lastPos.x, 0.0001) == tolerate(tempDVD.x, 0.0001) && tolerate(lastPos.y, 0.0001) == tolerate(tempDVD.y, 0.0001)) { //bruh this raycasting gives VERY VERY SLIGHTLY IMPRECISE VALUES 
+                            console.log("BREAK NIGGA", calcBounces);
+                            break loophaha;
+                        }
+
+                        lastPos.x = tempDVD.x;
+                        lastPos.y = tempDVD.y;
+
+                        tempDVD.vx *= wallinfo[i][0];
+                        tempDVD.vy *= wallinfo[i][1];
+
+                        tempDVD.ray.lookAt(tempDVD.vx, tempDVD.vy);
+                        break;
+                    }
+                }
+
+                //if(!p) {
+                //    console.log("TECH BREAK");
+                //    break loophaha;
+                //}
+
+                calcBounces++;
+                //tempDVD.x += tempDVD.vx;
+                //tempDVD.y += tempDVD.vy;
+                //let tempOldVel = {vx: tempDVD.vx, vy: tempDVD.vy};
+                ////print(tempDVD);
+                //if(tempDVD.x < 0) {
+                //    tempDVD.x = 0;
+                //    tempDVD.vx *= -1;
+                //}else if(tempDVD.x > innerWidth-(256*scale)) {
+                //    tempDVD.x = innerWidth-(256*scale);
+                //    tempDVD.vx *= -1;
+                //}
+                //if(tempDVD.y < 0) {
+                //    tempDVD.y = 0;
+                //    tempDVD.vy *= -1;
+                //}else if(tempDVD.y > innerHeight-(256*scale)) {
+                //    tempDVD.y = innerHeight-(256*scale);
+                //    tempDVD.vy *= -1;
+                //}
+                //if(tempOldVel.vx != tempDVD.vx || tempOldVel.vy != tempDVD.vy) {
+                //    calcBounces++;
+                //    //print(calcBounces);
+                //    if(tempOldVel.vx != tempDVD.vx && tempOldVel.vy != tempDVD.vy) {
+                //        cornerHit = true;
+                //        break;
+                //    }
+                //}
+            }
+            console.log("js bounces vs", bouncesLeft, calcBounces-1);
+            bouncesLeft = calcBounces-1;
+            jsefficentcalcspeed = (Date.now()-yeoldcalc);
+            console.log((Date.now()-yeoldcalc)/1000 + "ms", "js raycasted calc", bouncesLeft);
+            lastcalc = Date.now();
+        }
+
         initWebGPU().then(webgpu => {
             if(!webgpu) {
                 bigcalc.addEventListener("click", (event) => {
-                    let yeoldcalc = Date.now();
-                    let calcBounces = 0;
-                    let cornerHit = false;
-                    let tempDVD = {x: dvd.x, y: dvd.y, vx: dvd.vx, vy: dvd.vy};
-                    while(calcBounces < 1000) { //yeah sometimes it just don't get it idk
-                        tempDVD.x += tempDVD.vx;
-                        tempDVD.y += tempDVD.vy;
-                        let tempOldVel = {vx: tempDVD.vx, vy: tempDVD.vy};
-                        //print(tempDVD);
-                        if(tempDVD.x < 0) {
-                            tempDVD.x = 0;
-                            tempDVD.vx *= -1;
-                        }else if(tempDVD.x > innerWidth-(256*scale)) {
-                            tempDVD.x = innerWidth-(256*scale);
-                            tempDVD.vx *= -1;
-                        }
-                        if(tempDVD.y < 0) {
-                            tempDVD.y = 0;
-                            tempDVD.vy *= -1;
-                        }else if(tempDVD.y > innerHeight-(256*scale)) {
-                            tempDVD.y = innerHeight-(256*scale);
-                            tempDVD.vy *= -1;
-                        }
-                        if(tempOldVel.vx != tempDVD.vx || tempOldVel.vy != tempDVD.vy) {
-                            calcBounces++;
-                            //print(calcBounces);
-                            if(tempOldVel.vx != tempDVD.vx && tempOldVel.vy != tempDVD.vy) {
-                                cornerHit = true;
-                                break;
-                            }
-                        }
-                    }
-                    bouncesLeft = calcBounces-1;
-                    jscalcspeed = (Date.now()-yeoldcalc);
-                    console.log((Date.now()-yeoldcalc)/1000 + "ms", "js calc", bouncesLeft);
-                    lastcalc = Date.now();
+                    jsCalcBounces();
+                    jsCalcBouncesEfficiently();
                 });
             }else {
                 bigcalc.innerText = "precisely calculate bounces left until corner hit (webgpu)"
@@ -347,42 +546,8 @@
                     }catch(e) {
 
                     }
-                    let yeoldcalc = Date.now();
-                    let calcBounces = 0;
-                    let cornerHit = false;
-                    let tempDVD = {x: dvd.x, y: dvd.y, vx: dvd.vx, vy: dvd.vy};
-                    while(calcBounces < 100000) { //yeah sometimes it just don't get it idk
-                        tempDVD.x += tempDVD.vx;
-                        tempDVD.y += tempDVD.vy;
-                        let tempOldVel = {vx: tempDVD.vx, vy: tempDVD.vy};
-                        //print(tempDVD);
-                        if(tempDVD.x < 0) {
-                            tempDVD.x = 0;
-                            tempDVD.vx *= -1;
-                        }else if(tempDVD.x > innerWidth-(256*scale)) {
-                            tempDVD.x = innerWidth-(256*scale);
-                            tempDVD.vx *= -1;
-                        }
-                        if(tempDVD.y < 0) {
-                            tempDVD.y = 0;
-                            tempDVD.vy *= -1;
-                        }else if(tempDVD.y > innerHeight-(256*scale)) {
-                            tempDVD.y = innerHeight-(256*scale);
-                            tempDVD.vy *= -1;
-                        }
-                        if(tempOldVel.vx != tempDVD.vx || tempOldVel.vy != tempDVD.vy) {
-                            calcBounces++;
-                            //print(calcBounces);
-                            if(tempOldVel.vx != tempDVD.vx && tempOldVel.vy != tempDVD.vy) {
-                                cornerHit = true;
-                                break;
-                            }
-                        }
-                    }
-                    bouncesLeft = calcBounces-1;
-                    jscalcspeed = (Date.now()-yeoldcalc);
-                    console.log((Date.now()-yeoldcalc)/1000 + "ms", "js calc", bouncesLeft);
-                    lastcalc = Date.now();
+                    jsCalcBounces();
+                    jsCalcBouncesEfficiently();
                 });
             }
         });

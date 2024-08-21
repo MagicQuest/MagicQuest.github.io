@@ -151,7 +151,7 @@
                 //if(this.i == 0) {
                 //    print(us, them, Vector2.Dot(us, them));
                 //}
-                return Vector2.Dot(this.velocity, them) > something;
+                return this.velocity.Dot(them) > something;//Vector2.Dot(this.velocity, them) > something;
             }
 
             Update() {

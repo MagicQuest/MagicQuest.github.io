@@ -18,7 +18,11 @@
     <canvas width="800" height="800" id="canvas" style="box-shadow: 5px 5px 10px red; margin: auto; left: 0; right: 0; position: absolute; cursor: pointer; border: 2px orange dotted">brug</canvas>
     <p><kbd>click and drag</kbd> to affect the "fluid"</p>
     <p><kbd>ctrl + click</kbd> to add a ball that is affected by the "fluid"</p>
+    <label title="weirdly enough making alot of motion and turning this on ALMOST gives (what i think) is the right effect (until it falls apart)">(more fluid-like) unstable version: <input type="checkbox" id="unstable"> &lt;-----</label><br>
+    <label title="haha setting this value to 1 will blow the simulation up">unstable speed: <input type="range" min="1" max="16" step="1" value="2" oninput="unstable.checked = true; this.parentElement.lastElementChild.innerHTML = this.value;" id="uspeed"><span>2</span></label><br>
+    <label title="it will fall apart the moment any 1 vector's magnitude goes over 1">100% instability: <input type="checkbox" oninput="unstable.checked = true;" id="insta"></label><br>
     <script src="./Vectors.js"></script>
+    <script src="./linedrawing.js"></script> <!--hahga stoplen from https://www.redblobgames.com/grids/line-drawing.html thank yiou-->
     <img src="./fluidsimgif_sigma400.gif" title="a gif i made of the old version where every 'pixel' took the average of its neighbors velocity">
     <script>
         const canvas = document.getElementById("canvas");
@@ -84,9 +88,24 @@
                 this.v.y += avg.y;*/
 
                 //ok i just had a brain blast what if instead of taking the average of its neighbors i GIVE my neighbors some of my velocity (i mean it works kinda better? the diffusion is there but that's it (i need to make it biased towards the direction it's facing (somehow (tomorrow))))
-                const px = this.v.x/(moves.length);
-                const py = this.v.y/(moves.length);
-                for(let [i, j] of moves) {
+                const mag = this.v.magnitude;
+                let normalized, diff;
+                
+                let px;
+                let py;
+
+                if(unstable.checked && mag > 1) {
+                    normalized = Vector2.setMagnitude(this.v, 1);
+                    diff = new Vector2(this.v.x-normalized.x, this.v.y-normalized.y); //oh diff is just this.v.magnitude - 1
+
+                    px = normalized.x/(moves.length);
+                    py = normalized.y/(moves.length);
+                }else {
+                    px = this.v.x/(moves.length);
+                    py = this.v.y/(moves.length);
+                }
+
+                for(const [i, j] of moves) {
                     this.v.x -= px;
                     this.v.y -= py;
                     
@@ -100,14 +119,30 @@
                     const cell = grid[realX][realY];
                     cell.v.x += px;
                     cell.v.y += py;
-                }
-                
-                if(this.v.magnitude > 1) {
-                    this.v.magnitude = 1;
+
+                    if(unstable.checked && mag > 1) { //unfortunately this solution doesn't work because i don't use 2 arrays for the old grid and the new grid but even if i did i don't think this would work the way i wanted it to
+                        const dot = Math.max(normalized.Dot(i, j)/uspeed.value, insta.checked ? -1 : 0); //it looks like you are casting tons of lightning with the clamp 
+                        //console.log(dot);
+                        this.v.x -= diff.x*dot;
+                        this.v.y -= diff.y*dot;
+                        //console.log(this.v);
+
+                        cell.v.x += diff.x*dot;
+                        cell.v.y += diff.y*dot;
+                    }
                 }
 
+                //console.log(this.v.x);
+
+                //this.v.x = 0;
+                //this.v.y = 0;
+                
+                //if(this.v.magnitude > 1) {
+                //    this.v.magnitude = 1;
+                //}
+
                 //this.v.magnitude = Math.max(0, this.v.magnitude-.1);//this.v.magnitude-.3); //some how accidently made some type of life
-                //ok i think i should set everythings magnitude down a touch AFTER they've updated
+                //ok i think i should set everythings magnitude down a touch AFTER they've updated (nah that did something weird)
             }
         }
 
@@ -188,22 +223,36 @@
             //context.fillRect(0, 0, 800, 800);
             //context.fillStyle = "grey";
             context.strokeStyle = "white";
-            if(mouse.buttons) {
-                console.log(mouse.x, mouse.y, mouse.v.x, mouse.v.y);
-                let realX = Math.min(pixels-1, Math.max(0, Math.floor(mouse.x/res)));
-                let realY = Math.min(pixels-1, Math.max(0, Math.floor(mouse.y/res)));
-                //if(realX < 0 || realX > pixels-1) {
-                //    realX = (pixels)-Math.abs(realX); //damn im a geniusx
-                //}
-                //if(realY < 0 || realY > pixels-1) {
-                //    realY = (pixels)-Math.abs(realY); //damn im a geniusx
-                //}
-                let sped = mouse.shift ? 5 : 1;
-
-                let hovered = grid[realX][realY];
-                hovered.v.x = mouse.v.x*sped;
-                hovered.v.y = mouse.v.y*sped;
-            }
+            //if(mouse.buttons) {
+            //    let sped = mouse.shift ? 5 : 1;
+//
+            //    let alignedMouse = {x: Math.floor(mouse.x/res), y: Math.floor(mouse.y/res)};
+            //    let alignedLastMouse = {x: Math.floor(lastMouse.x/res), y: Math.floor(lastMouse.y/res)};
+            //    line(alignedLastMouse, alignedMouse).forEach(point => {
+            //        let realX = point.x;//Math.floor(point.x/res);
+            //        let realY = point.y;//Math.floor(point.y/res);
+//
+            //        console.log(point);
+//
+            //        const hovered = grid[realX][realY];
+            //        hovered.v.x = mouse.v.x*sped;
+            //        hovered.v.y = mouse.v.y*sped;
+            //    });
+            //    //console.log(mouse.x, mouse.y, mouse.v.x, mouse.v.y);
+            //    //let realX = Math.min(pixels-1, Math.max(0, Math.floor(mouse.x/res)));
+            //    //let realY = Math.min(pixels-1, Math.max(0, Math.floor(mouse.y/res)));
+            //    ////if(realX < 0 || realX > pixels-1) {
+            //    ////    realX = (pixels)-Math.abs(realX); //damn im a geniusx
+            //    ////}
+            //    ////if(realY < 0 || realY > pixels-1) {
+            //    ////    realY = (pixels)-Math.abs(realY); //damn im a geniusx
+            //    ////}
+            //    //let sped = mouse.shift ? 5 : 1;
+////
+            //    //let hovered = grid[realX][realY];
+            //    //hovered.v.x = mouse.v.x*sped;
+            //    //hovered.v.y = mouse.v.y*sped;
+            //}
             //let k = 0;
             for(let i = 0; i < pixels; i++) {
                 for(let j = 0; j < pixels; j++) {
@@ -262,6 +311,21 @@
             mouse.buttons = event.buttons;
             mouse.v = new Vector2(mouse.x-lastMouse.x, mouse.y-lastMouse.y);
             mouse.shift = event.shiftKey;
+
+            if(mouse.buttons) {
+                const sped = mouse.shift ? 5 : 1;
+            
+                const alignedMouse = {x: Math.floor(mouse.x/res), y: Math.floor(mouse.y/res)};
+                const alignedLastMouse = {x: Math.floor(lastMouse.x/res), y: Math.floor(lastMouse.y/res)};
+                line(alignedLastMouse, alignedMouse).forEach(point => {
+                    let realX = point.x;//Math.floor(point.x/res);
+                    let realY = point.y;//Math.floor(point.y/res);
+                    console.log(point);
+                    const hovered = grid[realX][realY];
+                    hovered.v.x = mouse.v.x*sped;
+                    hovered.v.y = mouse.v.y*sped;
+                });
+            }
             //mouse.ctrl = event.ctrlKey;
             //console.log(mouse);
             lastMouse = {x: event.offsetX, y: event.offsetY};
