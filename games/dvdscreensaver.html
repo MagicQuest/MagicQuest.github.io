@@ -68,6 +68,9 @@
         let jsefficentcalcspeed;
         let lastcalc = 0;
 
+        let jscalcpositions = [];
+        let jsraycalcpositions = [];
+
         function makeWalls() {
             return [[0, 0, canvas.width-(256*scale), 0], [0, 0, 0, canvas.height-(256*scale)], [canvas.width-(256*scale), 0, canvas.width-(256*scale), canvas.height-(256*scale)], [0, canvas.height-(256*scale), canvas.width-(256*scale), canvas.height-(256*scale)]];
         }
@@ -232,6 +235,37 @@
                 context.lineTo(wall[2], wall[3]);
                 context.stroke();
             }
+            context.beginPath();
+            context.moveTo(dvd.x, dvd.y);
+            for(let i = 0; i < jscalcpositions.length; i++) {
+                const pos = jscalcpositions[i];
+                //if(i == 0) {
+                    context.lineTo(...pos);
+                    if(i > 100000) {
+                        break;
+                    }
+                //}else {
+                    //context.moveTo()
+                //}
+            }
+            context.stroke();
+            context.beginPath();
+            context.moveTo(dvd.x, dvd.y);
+            context.strokeStyle = "yellow";
+            for(let i = 0; i < jsraycalcpositions.length; i++) {
+                const pos = jsraycalcpositions[i];
+                //if(i == 0) {
+                    context.lineTo(...pos);
+                    if(i > 10) {
+                        break;
+                    }
+                //}else {
+                    //context.moveTo()
+                //}
+            }
+            context.stroke();
+
+            context.strokeStyle = "white";
             if(Date.now() - lastcalc < 5000) {
                 let time = ((Date.now() - lastcalc)/5000);
                 context.fillStyle = `rgba(255,255,255,${1-time})`;
@@ -270,7 +304,9 @@
             let calcBounces = 0;
             let cornerHit = false;
             let tempDVD = {x: dvd.x, y: dvd.y, vx: dvd.vx, vy: dvd.vy};
+            jscalcpositions = [];
             while(calcBounces < 100000) { //yeah sometimes it just don't get it idk
+                jscalcpositions.push([tempDVD.x, tempDVD.y]);
                 tempDVD.x += tempDVD.vx;
                 tempDVD.y += tempDVD.vy;
                 let tempOldVel = {vx: tempDVD.vx, vy: tempDVD.vy};
@@ -310,6 +346,7 @@
             //let cornerHit = false;
             let tempDVD = {x: dvd.x, y: dvd.y, vx: dvd.vx, vy: dvd.vy};
             tempDVD.ray = new Ray(tempDVD, tempDVD.vx, tempDVD.vy);
+            jsraycalcpositions = [];
 
             const wallinfo = [[1, -1], [-1, 1], [-1, 1], [1, -1]];
 
@@ -320,14 +357,14 @@
 
             loophaha: while(calcBounces < 100000) { //yeah sometimes it just don't get it idk
                 //let p = false;
-
                 for(let i = 0; i < walls.length; i++) { //techically i only have to loop through 2 of these depending on which direction it is facing but that might take longer to calculate plus 4 ain't that bad
                     let pt = tempDVD.ray.cast(...walls[i]);
                     if(pt) {
                         //p = true;
 
-                        tempDVD.x = pt[0];
-                        tempDVD.y = pt[1];
+                        tempDVD.x = tolerate(pt[0], 0.0001);
+                        tempDVD.y = tolerate(pt[1], 0.0001);
+                        jsraycalcpositions.push([tempDVD.x, tempDVD.y]);
                         
                         //if(i == 0 || i == 3) {
                         //    tempDVD.x += tempDVD.vx;
@@ -335,10 +372,24 @@
                         //    tempDVD.y += tempDVD.vy;
                         //}
 
-                        tempDVD.x = Math.max(0, Math.min(maxwidth, tempDVD.x+=tempDVD.vx));
-                        tempDVD.y = Math.max(0, Math.min(maxheight, tempDVD.y+=tempDVD.vy));
+                        //const step1 = (Math.round(tempDVD.x) == 0 || Math.round(tempDVD.x) == maxwidth) && (Math.round(tempDVD.y) == 0 || Math.round(tempDVD.y) == maxheight);
 
-                        if((tempDVD.x == 0 || tempDVD.x == maxwidth) && (tempDVD.y == 0 || tempDVD.y == maxheight)) {
+                        let last = {x: tempDVD.x, y: tempDVD.y};
+
+                        tempDVD.x = Math.max(0, Math.min(maxwidth, tempDVD.x+=tempDVD.vx));
+                        if(i == 1 || i == 2) {
+                            //tempDVD.y = Math.max(0, Math.min(maxheight, tempDVD.y+=tempDVD.vy));
+                            tempDVD.y += (tempDVD.vy/5); //what the fuck why was this a solution
+                        }
+                        jsraycalcpositions.push([tempDVD.x, tempDVD.y]);
+
+                        console.log(tempDVD.x, tempDVD.y, last.x, last.y, tempDVD.x-last.x, tempDVD.y-last.y);
+
+                        //const step2 = Math.abs(tempDVD.x-last.x) > 1 || Math.abs(tempDVD.y-last.y) > 1;
+
+                        //console.log(lastPos.x, lastPos.y, tempDVD.x, tempDVD.y);
+
+                        if(/*step2 &&*//*!step1 && */(tempDVD.x == 0 || tempDVD.x == maxwidth) && (tempDVD.y == 0 || tempDVD.y == maxheight)) {
                             console.log("MATCH");
                             break loophaha;
                         }
@@ -346,6 +397,7 @@
                         //if(calcBounces < 5) {
                             //console.log("calc",tempDVD.x, tempDVD.y);
                         //}
+
 
                         if(tolerate(lastPos.x, 0.0001) == tolerate(tempDVD.x, 0.0001) && tolerate(lastPos.y, 0.0001) == tolerate(tempDVD.y, 0.0001)) { //bruh this raycasting gives VERY VERY SLIGHTLY IMPRECISE VALUES 
                             console.log("BREAK NIGGA", calcBounces);
@@ -364,8 +416,11 @@
                 }
 
                 //if(!p) {
-                //    console.log("TECH BREAK");
-                //    break loophaha;
+                //    //break loophaha;
+                //    tempDVD.vx *= -1;
+                //    tempDVD.vy *= -1;
+                //    console.log("TECH BREAK", tempDVD.vx, tempDVD.vy);
+                //    tempDVD.ray.lookAt(tempDVD.vx, tempDVD.vy);
                 //}
 
                 calcBounces++;
