@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>genetic colors</title>
+</head>
+<body>
+    <p id="gen">generations: 0</p>
+    <p id="avg">average fitness: 0</p>
+    <p id="mpl">mating pool len: 0</p>
+    <button id="filepicker">choose an image</button><br>
+    <img src="" id="customfile" style="display: none;" onload="doalotofimportantstuffwhenloadingimage()">
+    <canvas id="canvas" width="200" height="200" style="border: 1px solid black;">html5 canvas buddy</canvas>
+    <img id="sixband" style="display: none;" src="">
+    <script>
+        const size = 200;
+        let wh = 4;//width height
+
+        const canvas = document.getElementById("canvas");
+        const context = canvas.getContext('2d');
+
+        const colorpallete = [[0, 0, 0], [0, 0, 128], [0, 128, 0], [0, 128, 128], [128, 0, 0], [128, 0, 128], [128, 128, 0], [170, 170, 170], [85, 85, 85], [0, 0, 255], [0, 255, 0], [0, 255, 255], [255, 0, 0], [255, 0, 255], [255, 255, 0], [255, 255, 255]];
+
+        function random(min, max) {
+            if(!max) { //haha don't put max a 0
+                return Math.floor(Math.random()*min);
+            }
+            return Math.floor(Math.random() * (max - min + 1) ) + min;
+        }
+
+        class ColorDNA {
+            constructor(blank) {
+                this.colors = [];
+
+                if(!blank) {
+                    for(let i = 0; i < wh; i++) {
+                        this.colors.push([]);
+                        for(let j = 0; j < wh; j++) {
+                            this.colors[i][j] = random(colorpallete.length);
+                        }
+                    }
+                }
+            }
+
+            crossover(other) {
+                let split = random(1, wh-1);
+                let child = new ColorDNA(true);
+
+                for(let i = 0; i < wh; i++) {
+                    child.colors.push([]);
+                    for(let j = 0; j < wh; j++) {
+                        let mutate = Math.random() < mutation;
+                        if(mutate) {
+                            child.colors[i][j] = random(colorpallete.length);
+                        }else {
+                            child.colors[i][j] = i >= split ? other.colors[i][j] : this.colors[i][j];
+                        }
+                    }
+                }
+                return child;
+            }
+        }
+
+        class Color3 { //that's fun... (roblox lua reference) (snatched wintilemanager.js (JBS3))
+            constructor(r, g, b, setmagnitude) {
+                this.r = r;
+                this.g = g;
+                this.b = b;
+                
+                //if(!setmagnitude && this.magnitude > 0) {
+                //    this.magnitude = 1;
+                //}
+            }
+            new(r, g, b) {
+                this.r = r;
+                this.g = g;
+                this.b = b;
+            }
+            rgb() {
+                return [this.r, this.g, this.b];
+            }
+            get magnitude() {
+                return Math.sqrt(this.r**2 + this.g**2 + this.b**2);
+            }
+            set magnitude(value) {
+                let old = this.magnitude;
+                let ratio = value/old;
+                this.r = this.r*ratio; //Math.min(this.r*ratio, 1);
+                this.g = this.g*ratio; //Math.min(this.g*ratio, 1);
+                this.b = this.b*ratio; //Math.min(this.b*ratio, 1);
+                //return this; //haha only because im using some dumb way (actually imma normalize it when icreate it)
+            }
+            Dot(r, g, b) {
+                if(r instanceof Color3) {
+                    return this.Dot(r.r, r.g, r.b);
+                }
+                return this.r * (r || 0) + this.g * (g || 0) + this.b * (b || 0); //yo what the fuck is this shit (joe reference) (im actually flabbergasted)
+            }
+            Sub(r, g, b) {
+                if(r instanceof Color3) {
+                    return this.Sub(r.r, r.g, r.b);
+                }
+                let color = new Color3(this.r-r, this.g-g, this.b-b, true);
+                //this.r -= r;
+                //this.g -= g;
+                //this.b -= b;
+                return color;
+            }
+        }
+
+        function doalotofimportantstuffwhenloadingimage() {
+            const offscreen = new OffscreenCanvas(size, size);
+            const offcontext = offscreen.getContext('2d');
+
+            const width = Math.min(customfile.width, 200);
+
+            offcontext.drawImage(customfile, 0, 0, width, width);
+
+            const image = offcontext.getImageData(0, 0, width, width);
+
+            const vectorcolors = colorpallete.map(cp => new Color3(...cp.map(m => m/255))); //SOME BULLSHIT (WRITE DUMB CODE PLRASE);
+            //console.log(image.data[0], image.data[1], image.data[2] ,image.data[3]);
+            //console.log(image.data[4], image.data[5], image.data[6] ,image.data[7]);
+            //console.log(image);
+            //let l = 0;
+            wh = width;
+            fit = [];
+            population = [];
+            for(let i = 0; i < 200; i++) {
+                population.push(new ColorDNA());
+            }
+            let y = 0;
+            let x = 0;
+            for(let i = 0; i < image.data.length; i+=4) { //image.data returns pixels from left -> right, top -> bottom while all my for loops go top -> bottom, then left to right (so i gotta translate)
+                const r = image.data[i];
+                const g = image.data[i+1];
+                const b = image.data[i+2];
+                
+                const color = new Color3(r/255, g/255, b/255);
+                
+                let min = Infinity;
+                let k = 0;
+                for(let j = 0; j < vectorcolors.length; j++) {
+                    //let dot = vectorcolors[j].Dot(color); //accidently put a colon like luahahahananainfgaingiagn
+                    let dist = vectorcolors[j].Sub(color).magnitude;
+                    //console.log(dist);
+                    if(dist < min) {
+                        min = dist;
+                        k = j;
+                    }
+                }
+                if(y > wh-1) {
+                    y = 0;
+                    x++;
+                }
+                //console.log(y, x);
+                if(fit[y] == undefined) {
+                    fit.push([]);
+                }
+                fit[y][x] = k;
+                y++;
+                //l++;
+            }
+
+            for(let i = 0; i < wh; i++) {
+                for(let j = 0; j < wh; j++) {
+                    const [r, g, b] = colorpallete[fit[i][j]];
+                    offcontext.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                    offcontext.fillRect(i*(size/wh), j*(size/wh), size/wh, size/wh);
+                }
+            }
+
+            //honestly the whole "genetic" part kinda falls apart when you get more than 4 pixels wide and across but im kinda proud about my colorpallete (if i messed up one more time i was actually about to google it but luckily i got it)
+            offscreen.convertToBlob().then(blob => {
+                sixband.src = URL.createObjectURL(blob);
+                sixband.style.display = "initial";
+            });
+        }
+//sc create wintestdvr binPath="E:\Users\megal\source\repos\windologydrivermachinations\x64\Debug\windologydrivermachinations.sys" type=kernel
+        filepicker.addEventListener("click", (event) => {
+            //this heart gives the smallest glow (think that i can see it show...)
+            showOpenFilePicker({types: [{description: "images", accept: {"image/*": [".png", ".jpg"]}}]})
+                .then(files => files[0].getFile())
+                .then(file => {
+                    customfile.src = URL.createObjectURL(file);
+                    //converting the image to "color pallete space"
+                    //doalotofimportantstuffwhenloadingimage();
+                });
+        });
+
+
+        let generations = 0;
+        let population = [];
+        let mutation = .01;
+        
+        //init
+        for(let i = 0; i < 200; i++) {
+            population.push(new ColorDNA());
+        }
+        
+        let best = population[random(population.length)];
+
+        let fit = 
+        [
+            [9, 1, 1, 10],
+            [1, 0, 13, 3],
+            [1, 13, 0, 3],
+            [10, 3, 3, 11],         
+        ];
+
+        function calcFitness(dna) {
+            let f = 0;
+            for(let i = 0; i < wh; i++) {
+                for(let j = 0; j < wh; j++) {
+                    f += dna.colors[i][j] == fit[i][j];
+                }
+            }
+            
+            return f/(wh*wh);
+        }
+    
+        let pool = [];
+
+        function draw() {
+            pool = [];
+
+            let avgfitness = 0;
+            let maxFitness = 0;
+            for(let i = 0; i < population.length; i++) {
+                const dna = population[i];
+                dna.fitness = calcFitness(dna);
+                avgfitness += dna.fitness;
+                if(dna.fitness > maxFitness) {
+                    maxFitness = dna.fitness;
+                    best = dna;
+                }
+            }
+
+            for(let i = 0; i < population.length; i++) {
+                let fitness = population[i].fitness/maxFitness;
+                let n = Math.floor(fitness*100);
+
+                for(let j = 0; j < n; j++) {
+                    pool.push(population[i]);
+                }
+            }
+
+            for (let i = 0; i < population.length; i++) {
+                let a = random(pool.length);
+                let b = random(pool.length);
+                let partnerA = pool[a];
+                let partnerB = pool[b];
+                let child = partnerA.crossover(partnerB);
+                //child.mutate(this.mutationRate);
+                population[i] = child;
+            }
+
+            gen.innerHTML = `generations: ${generations}`;
+            avg.innerHTML = `average fitness: ${(avgfitness/population.length)*100}%`;
+            mpl.innerHTML = `mating pool len: ${pool.length}`;
+
+            for(let i = 0; i < wh; i++) {
+                for(let j = 0; j < wh; j++) {
+                    const [r, g, b] = colorpallete[best.colors[i][j]];
+                    context.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                    context.fillRect(i*(size/wh), j*(size/wh), size/wh, size/wh);
+                }
+            }
+
+            generations++;
+            requestAnimationFrame(draw);
+        }
+
+        draw();
+    </script>
+</body>
+</html>
