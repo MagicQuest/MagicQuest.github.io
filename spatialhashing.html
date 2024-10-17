@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!--i just learned about the meta redirect tag like yesterday-->
+    <title>using spatial hashing</title>
+</head>
+<body>
+    <canvas id="canvas" style="position: absolute; inset: 0; margin: auto; outline: 1px dotted violet; z-index: -3;">twenty kills i done <a href="https://www.youtube.com/watch?v=RvgHv6PM61U">fragged ahttttt</a></canvas>
+    <div style="position: absolute; top: 10px; left: 10px; background-color: rgba(255,255,255,.9); padding: 5px; border: 1px solid rgba(0,0,0,.25);">
+        <label id="bllz">ballz: 0</label><br>
+        <label id="fps">fps: 0</label><br>
+        <label id="avgfps" title="(of the last second)">average fps: 0</label><br>
+        <label title="haha .9 is pretty fluid like">dampening: <input id="damp" type="number" min="0" max="1" value=".99"></label><br>
+        <label>center gravity: <input id="grav" type="checkbox"></label><br>
+        <label title="set dampening to .8 or .9 and check this">water display: <input id="watr" type="checkbox"></label><br>
+        <label>spatial hashing: <input id="hashing" type="checkbox"></label><br>
+        <label>res: <input id="resykimean" min="0" value="50" type="number" onchange="res = +this.value; ncellsw = Math.ceil(canvas.width/res); ncellsh = Math.ceil(canvas.height/res);"></label><br>
+        <label>draw cells: <input id="showcells" type="checkbox"></label><br>
+        <button onclick="for(let i = 0; i < 100; i++) {ballz.push(new Ball(Math.random()*canvas.width, Math.random()*canvas.height))}; bllz.innerHTML = `ballz: ${ballz.length}`;">more ballz</button>
+    </div>
+    <script src="./Vectors.js"></script>
+    <script>
+        const canvas = document.getElementById("canvas");
+        const context = canvas.getContext('2d');
+        canvas.width = innerWidth;
+        canvas.height = innerHeight;
+
+        const mouse = {x: 0, y: 0, buttons: 0};
+
+        Vector2.add = function(vec1, vec2) {
+            return new Vector2(vec1.x + vec2.x, vec1.y + vec2.y);
+        }
+        Vector2.sub = function(vec1, vec2) {
+            return new Vector2(vec1.x - vec2.x, vec1.y - vec2.y);
+        }
+        Vector2.div = function(vec1, s) {
+            return new Vector2(vec1.x/s, vec1.y/s);
+        }
+
+        //const neighbors = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]
+
+        //function compileNeighborsInArrayToo(cx, cy) { //i don't gotta do all this
+        //    let arr = [];
+        //    //for(const [x, y] of neighbors) { //only doing the neighbors touching the position causes weird glitches at the corners so we gotta go all the way
+        //    for(let x = -1; x <= 1; x++) {
+        //        for(let y = -1; y <= 1; y++) {
+        //            let valid = hash[(cx+x)*(cy+y)];
+        //            //well i was gonna try to do sumn smart like ...Object.values(valid) but if valid is undefined not only does Object.values throw an error but if not it would return undefined and push uindefiend nfienvdkxsvm
+        //            if(valid) {
+        //                arr.push(...valid);
+        //            }
+        //        }
+        //    }
+        //    return arr;
+        //}
+
+        class Ball {
+            constructor(x, y) {
+                this.pos = new Vector2(x, y);
+                this.vel = new Vector2(0, 0);
+                this.acc = new Vector2(0, 0);
+                this.radius = 10;
+            }
+
+            docheckcollisions(ball) {
+                const vec = Vector2.sub(this.pos, ball.pos);
+                if(vec.magnitude > 0 && vec.magnitude < this.radius*2) {
+                    //const inverse = Vector2.sub(ball.pos, this.pos);
+                    //inverse.magnitude = ball.radius*2;
+                    this.acc = Vector2.add(this.acc, Vector2.div(vec.normalize(), 1));
+                    //ball.pos = Vector2.add(ball.pos, inverse);
+                    context.fillStyle = "green";
+                }
+            }
+
+            update() {
+                //no spatial hashinbg
+                context.fillStyle = "red";
+
+                if(grav.checked) {
+                    this.acc = Vector2.div(Vector2.sub(new Vector2(canvas.width/2, canvas.height/2), this.pos).normalize(), 2);
+                }else {
+                    this.acc = new Vector2(0, 0.5);
+                }
+
+                const cx = Math.ceil(this.pos.x/res);
+                const cy = Math.ceil(this.pos.y/res);
+
+                //let arr = hashing.checked ? compileNeighborsInArrayToo(cx, cy) : ballz;
+
+                if(hashing.checked) {
+                    for(let x = -1; x <= 1; x++) {
+                        for(let y = -1; y <= 1; y++) {
+                            //nah bruh i was working on d2dxupdatelayeredwindow.js for JBS3 (i still haven't pushed either of these) and i realized that this is not how you do this
+                            //you gotta do x + (y*width) for this to work the way i wanted it to
+                            const valid = hash[(cx+x) + (cy+y)*ncellsw]//hash[(cx+x)*(cy+y)]; //nah nah what the fuck is this hash bruh this shit couldn't've been working correctly
+                            if(valid) {
+                                for(const ball of valid) {
+                                    this.docheckcollisions(ball);
+                                }
+                            }
+                        }
+                    }
+                }else {
+                    //for(const ball of arr) {
+                    for(const ball of ballz) {
+                        this.docheckcollisions(ball);
+                    }
+                }
+
+                this.vel.x += this.acc.x;
+                this.vel.y += this.acc.y;
+
+                this.vel.x *= damp.value; //damping
+                this.vel.y *= damp.value;
+
+                this.pos.x += this.vel.x;
+                this.pos.y += this.vel.y;
+
+                if(this.pos.y > canvas.height-(this.radius)) {
+                    this.pos.y = canvas.height-(this.radius);
+                    this.vel.y*=-.8;
+                }
+                if(this.pos.x > canvas.width-this.radius) {
+                    this.pos.x = canvas.width-this.radius;
+                    this.vel.x*=-.8;
+                }else if(this.pos.x < this.radius) {
+                    this.pos.x = this.radius;
+                    this.vel.x*=-.8;
+                }
+                
+                //this.vel.x *= damp.value; //damping
+                //this.vel.y *= damp.value;
+
+                //lowkey doing this the lazy way...
+                if(watr.checked) {
+                    //context.fillStyle = `rgb(${this.vel.magnitude*10}, 0, ${255-this.vel.magnitude*10})`;
+                    context.fillStyle = `rgb(${255-this.vel.magnitude*25}, ${255-this.vel.magnitude*25}, 255)`;
+                }
+
+                context.beginPath();
+                context.arc(this.pos.x, this.pos.y, this.radius + (watr.checked*2), 0, 2*Math.PI, false);
+                context.fill();
+            }
+        }
+
+        let ballz = [];
+
+        let res = 50;
+        let ncellsw = Math.ceil(canvas.width/res);
+        let ncellsh = Math.ceil(canvas.height/res);
+        let hash = [];
+
+        let lastms = 0;
+
+        let time = Date.now(); //for average fps
+        let fpsps = []; //frames per second per second
+        
+        //study just in case
+        //https://carmencincotti.com/2022-10-31/spatial-hash-maps-part-one/
+        //https://conkerjo.wordpress.com/2009/06/13/spatial-hashing-implementation-for-fast-2d-collisions/
+
+        function draw(tms) {
+            const dt = 1000/(tms-lastms);
+            //console.log(dt, tms-lastms);
+            fpsps.push(Math.floor(dt));
+            fps.innerHTML = `fps: ${Math.floor(dt)}`; //that's probably right
+            if(Date.now()-time > 1000) {
+                time = Date.now();
+                const avg = fpsps.reduce((ski, bidi) => ski+bidi)/fpsps.length;
+                avgfps.innerHTML = `average fps: ${Math.floor(avg*10)/10}`;
+                fpsps = [];
+            }
+            hash = [];
+            context.fillStyle = "rgb(37, 37, 37)";
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            //if(mouse.buttons) {
+            //    ballz.push(new Ball(mouse.x, mouse.y));
+            //    mouse.buttons = 0;
+            //}
+
+            if(hashing.checked) {
+                let nloop = performance.now();
+                for(const ball of ballz) {
+                    let cx = Math.ceil(ball.pos.x/res);//cell x
+                    let cy = Math.ceil(ball.pos.y/res);//cell y
+                    /*let res*/ //damn bruh i had defined res (result) here and was confused why it kept telling me i was using res before initalization (res for resolution was used for the cells)
+                    let result = hash[cx + (cy*ncellsw)]?.push(ball); //hash[cx*cy]?.push(ball); //haha im doing this like a com function or something in windos c++
+                    //optional chaining because if hash[cx*cy] is undefined then i need to give it an array or i don't lol
+                    if(!result) {
+                        hash[cx + (cy*ncellsw)/*cx*cy*/] = [ball];
+                    }
+                }
+                console.log(`nloop diff: ${performance.now()-nloop}`);
+            }
+
+            let n2loop = performance.now();
+            for(const ball of ballz) { //oh yeah i also just learned about for await
+                ball.update();
+            }
+            console.log(`n2loop diff: ${performance.now()-n2loop}`);
+
+            if(showcells.checked) {
+                context.strokeStyle = "white";
+                for(let i = 0; i < ncellsw*res; i+=res) {
+                    context.beginPath();
+                    context.moveTo(i, 0);
+                    context.lineTo(i, canvas.height);
+                    context.stroke();
+                }
+                for(let i = 0; i < ncellsh*res; i+=res) {
+                    context.beginPath();
+                    context.moveTo(0, i);
+                    context.lineTo(canvas.width, i);
+                    context.stroke();
+                }
+            }
+
+            lastms = tms;
+            requestAnimationFrame(draw);
+        }
+
+        draw();
+
+        addEventListener("mousemove", event => {
+            mouse.x = event.offsetX;
+            mouse.y = event.offsetY;
+            //console.log(mouse.x, mouse.y);
+            //mouse.velocity = new Vector2(mouse.x-lastMouse.x, mouse.y-lastMouse.y);
+
+            //lastMouse = {x: event.offsetX, y: event.offsetY};
+        });
+
+        canvas.addEventListener("mousedown", event => {
+            mouse.x = event.offsetX;
+            mouse.y = event.offsetY;
+            mouse.buttons = event.buttons;
+            ballz.push(new Ball(mouse.x, mouse.y));
+            bllz.innerHTML = `ballz: ${ballz.length}`;
+        });
+
+        addEventListener("mouseup", event => {
+            mouse.buttons = event.buttons;
+        });
+
+        addEventListener("resize", event => {
+            canvas.width = innerWidth;
+            canvas.height = innerHeight;
+            ncellsw = canvas.width/res;
+            ncellsh = canvas.height/res;
+        });
+    </script>
+</body>
+</html>

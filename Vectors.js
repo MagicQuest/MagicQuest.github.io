@@ -20,6 +20,11 @@ class Vector2 { //snatched from JBS3's iconboids.js
         return Math.atan2(this.y,this.x);
     }
 
+    normalize() {
+        this.magnitude = 1;
+        return this;
+    }
+
     //static Dot(v1, v2) { //yo dot, i gotchu!
     //    const v3 = new Vector2(v1.x-v2.x, v1.y-v2.y);
     //    const a = v1.magnitude;
