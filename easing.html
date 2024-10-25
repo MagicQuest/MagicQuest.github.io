@@ -112,7 +112,8 @@ function ease(x) {
                 ease = eval("("+code.value+")");
                 console.log("testing ease(0)", ease(0));
                 code.style.backgroundColor = "lawngreen";
-                linke.value = (location.origin+location.pathname)+"?code="+encodeURIComponent(code.value);
+                linke.value = (location.origin + location.pathname) + "?code=" + encodeURIComponent(code.value);
+                code.title = "green fn";
             }
             catch(e) {
                 console.warn(e);
