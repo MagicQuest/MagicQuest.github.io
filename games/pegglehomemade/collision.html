@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>circular collision</title>
+    <style>
+        body {
+            margin: 0;
+        }
+        .sigma {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            margin: auto;
+            width: max-content;
+            height: max-content;
+        }
+        canvas {
+            border: 1px dotted cornflowerblue;
+            box-shadow: 5px 5px 5px burlywood;
+        }
+    </style>
+</head>
+<body>
+    <center>
+        <p>hey kid i remember you're <span style="filter: blur(1px) drop-shadow(0px 0px 5px red) drop-shadow(2px 4px 6px red); text-shadow: 0px 0px 5px red; color: red; font-family: cursive;">genocides</span></p>
+    </center>
+    <div class="sigma">
+        <h1 style="font-family: monospace; text-shadow: 0px 0px 5px; cursor: pointer;" id="ctext">collision: off</h1>
+        <canvas id="canvas" width="800" height="600">html5 canvas BUDDY</canvas>
+    </div>
+    <script>
+        const canvas = document.getElementById("canvas");
+        const context = canvas.getContext('2d');
+
+        let collision = false;
+
+        function getMagnitude(x, y) {
+            return Math.sqrt(x ** 2 + y ** 2);
+        }
+
+        class Ball {
+            x = 0;
+            y = 0;
+            radius = 6.0;
+            touching = false;
+            constructor(x, y, radius = 6) {
+                this.x = x;
+                this.y = y;
+                this.radius = radius;
+            }
+
+            draw() {
+                context.beginPath();
+                context.fillStyle = this.touching ? "green" : "red";
+                context.arc(this.x, this.y, this.radius, 0, Math.PI*2, false);
+                context.fill();
+            }
+        }
+
+        const balls = [new Ball(0, 0), new Ball(33, 41, 32.66666737309209),new Ball(292, 183, 6),new Ball(224, 191, 6),new Ball(157, 281, 6),new Ball(271, 274, 6),new Ball(398, 298, 6),new Ball(390, 184, 6),new Ball(265, 190, 6),new Ball(227, 208, 6),new Ball(285, 271, 6),new Ball(248, 197, 6),new Ball(302, 266, 6),new Ball(380, 319, 6),new Ball(419, 316, 6),new Ball(474, 329, 6),new Ball(484, 291, 6),new Ball(470, 280, 6),new Ball(462, 293, 6),new Ball(381, 361, 6),new Ball(344, 450, 6),new Ball(213, 299, 6),new Ball(143, 387, 6),new Ball(167, 482, 6),new Ball(228, 496, 6),new Ball(251, 486, 6),new Ball(NaN, NaN, 6),new Ball(278, 189, 6),new Ball(239, 287, 6),new Ball(237, 486, 6),new Ball(259, 279, 6),new Ball(NaN, NaN, 6),new Ball(277, 458, 6),new Ball(137, 427, 6),new Ball(155, 345, 6),new Ball(NaN, NaN, 6),new Ball(383, 331, 6),new Ball(363, 278, 6),new Ball(336, 284, 6),new Ball(401, 331, 6),new Ball(259, 465, 6),new Ball(289, 453, 6),new Ball(186, 433, 6),new Ball(168, 399, 6),new Ball(193, 314, 6),new Ball(226, 292, 6),new Ball(324, 281, 6),new Ball(358, 301, 6),new Ball(241, 462, 6),new Ball(170, 371, 6),new Ball(173, 346, 6),new Ball(214, 451, 6),new Ball(227, 453, 6),new Ball(249, 473, 6),new Ball(176, 418, 6),new Ball(202, 305, 6),new Ball(296, 278, 6),new Ball(205, 461, 6),new Ball(197, 443, 6),new Ball(183, 329, 6),new Ball(222, 309, 6),new Ball(310, 278, 6),new Ball(271, 472, 6),new Ball(346, 295, 6),new Ball(280, 282, 6),new Ball(186, 303, 6),new Ball(289, 293, 6),new Ball(365, 312, 6),new Ball(231, 471, 6),new Ball(300, 461, 6),new Ball(382, 387, 6),new Ball(376, 398, 6),new Ball(344, 424, 6),new Ball(330, 433, 6),new Ball(324, 446, 6),new Ball(312, 438, 6),new Ball(359, 415, 6),new Ball(372, 412, 6),new Ball(383, 373, 6),new Ball(380, 347, 6),new Ball(392, 339, 6),new Ball(393, 354, 6),new Ball(362, 401, 6),new Ball(332, 421, 6),new Ball(311, 450, 6),new Ball(299, 444, 6),new Ball(238, 443, 6),new Ball(350, 404, 6),new Ball(392, 321, 6),new Ball(377, 306, 6),new Ball(369, 325, 6)];
+
+        canvas.addEventListener("mousemove", function(event) {
+            const ball = balls[0];
+            ball.x = event.offsetX;
+            ball.y = event.offsetY;
+        });
+
+        canvas.addEventListener("mousedown", function(event) {
+            const ball = new Ball(event.offsetX, event.offsetY);
+            balls.push(ball);
+        });
+
+        canvas.addEventListener("wheel", function({deltaY: y}) { //insane tech
+            y /= -100;
+            balls[0].radius += y;
+        });
+
+        addEventListener("keydown", function(event) {
+            if(event.key == "c") {
+                collision = !collision;
+                if(collision) {
+                    ctext.innerText = `collision: on`;
+                    ctext.style.textShadowColor = "green"
+                    ctext.style.color = "green"
+                }else {
+                    ctext.innerText = `collision: off`;
+                    ctext.style.textShadowColor = "black";
+                    ctext.style.color = "black";
+                }
+            }
+        });
+
+        function draw() {
+            context.clearRect(0, 0, 800, 600);
+            for(let i = 0; i < balls.length; i++) {
+                const ball = balls[i];
+                ball.touching = false;
+                for(const ball2 of balls) {
+                    if(ball != ball2) {
+                        const offsets = {x: ball2.x - ball.x, y: ball2.y - ball.y};
+                        const mag = getMagnitude(offsets.x, offsets.y);
+                        //console.log(offsets, mag);
+                        //const biggest = Math.max(ball.radius, ball2.radius);
+                        if(mag < ball.radius+ball2.radius) {
+                            ball.touching = true;
+                            //if(i == 0 && collision) {
+                            if(collision) {
+                                //console.log(offsets, mag);
+                                //const rad = ball2.radius/2;
+                                //offsets.x *= rad/mag;
+                                //offsets.y *= rad/mag;
+                                const intersection = ball.radius+ball2.radius - mag;
+                                offsets.x *= intersection/mag;
+                                offsets.y *= intersection/mag;
+                                ball2.x += offsets.x;
+                                ball2.y += offsets.y;
+                            }
+                        }
+                    }
+                }
+                ball.draw();
+            }
+            requestAnimationFrame(draw);
+        }
+
+        draw();
+    </script>
+</body>
+</html>

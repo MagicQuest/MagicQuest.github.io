@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>load peeggle level daeta</title>
+    <style>
+        body {
+            margin: 0;
+        }
+        canvas {
+            border: 1px dotted cornflowerblue;
+            box-shadow: 5px 5px 5px burlywood;
+            /*position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            margin: auto;*/
+        }
+        button {
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <center style="margin-top: 20px;">
+        <button onclick="readLevelFormat();" title="load a peggle level">hey kid i remember you're <span style="filter: blur(1px) drop-shadow(0px 0px 5px orange) drop-shadow(2px 4px 6px orange); text-shadow: 0px 0px 5px orange; color: orange; font-family: cursive;">peggle</span> levels</button>
+        <button onclick="physobjs.forEach(obj => obj.enableMover=true);" title="some levels have pegs that can move but they're disabled for some reason (so click here to enable them)">enable all movers</button>
+        <p>peggle levels are zipped up in the main.pak file in the same directory as the exe</p>
+        <p><a href="https://www.vogons.org/viewtopic.php?t=26992">click here</a> for a tutorial on how to extract the files (yep you gotta download some old tool)</p>
+        <!--p>the levels are stored in the pak/levels directory!</p-->
+        <hr>
+        <p>lowkey not only does peggle run at 100 fps (instead of the 60fps granted by requestAnimationFrame) but also i don't know how to load the bricks (too complicated lol!)</p>
+        <hr>
+        <p>press <kbd>Left Click</kbd> to spawn a ball</p>
+        <p>press <kbd>Ctrl+Left Click</kbd> to spawn a peg</p>
+        <canvas id="canvas" width="800" height="600">html5 canvas BUDDY</canvas>
+    </center>
+    <img style="display: none;" id="image_ball" src="./ball.png">
+    <img style="display: none;" id="image_ballpeg" src="./ballpeg.png">
+    <script>
+        const canvas = document.getElementById("canvas");
+        const context = canvas.getContext('2d');
+
+        context.font = "12px monospace";
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+
+        const gravity = 0.05;
+        let global_idk;
+        //let checkRadius = 50;
+
+        class Board {
+            static viewX = 75;
+            static viewY = 40;
+            static waitingToPopPegs = 0;
+            static timeSinceLastHit = 0;
+            static currentHitPegs = [];
+            static popping = [];
+            static ff = false;
+        }
+
+        class DataReader {
+            data = undefined;
+            byteLength = 0;
+            position = 0;
+            bitField = 0; //0x19
+            bitFieldPosition = 0; //0x1C
+            
+            //this parseFloat function snatched from https://stackoverflow.com/a/14090278
+            //i did a benchmark on this function vs using an arraybuffer and this function actually won ( https://jsbenchmark.com/#eyJjYXNlcyI6W3siaWQiOiJBSE5ELXhkdkhCSzJMVVNqTFRSSk8iLCJjb2RlIjoiY29uc3Qgc3BsaXQgPSBbREFUQSA-PiAyNCwgREFUQSA-PiAxNiAmIDB4RkYsIERBVEEgPj4gOCAmIDB4RkYsIERBVEEgJiAweEZGXVxuY29uc3QgdSA9IG5ldyBVaW50OEFycmF5KHNwbGl0KTtcbmNvbnN0IGQgPSBuZXcgRGF0YVZpZXcodS5idWZmZXIpO1xucmV0dXJuIGQuZ2V0RmxvYXQzMigwLCBmYWxzZSk7IiwiZGVwZW5kZW5jaWVzIjpbXSwibmFtZSI6InRha2UgMSJ9LHsiaWQiOiJXX3YteWJpRTBnaDFZUHBSRFBOMHUiLCJjb2RlIjoiLy9jb25zdCBzcGxpdCA9IFtEQVRBID4-IDI0LCBEQVRBID4-IDE2ICYgMHhGRiwgREFUQSA-PiA4ICYgMHhGRiwgREFUQSAmIDB4RkZdXG4vL2NvbnN0IHUgPSBuZXcgVWludDhBcnJheShzcGxpdCk7XG4vL2NvbnN0IGEgPSBuZXcgQXJyYXlCdWZmZXIoNCk7XG5jb25zdCBkID0gbmV3IERhdGFWaWV3KG5ldyBBcnJheUJ1ZmZlcig0KSk7XG5kLnNldEludDMyKDAsIERBVEEsIGZhbHNlKTtcbnJldHVybiBkLmdldEZsb2F0MzIoMCwgZmFsc2UpOyIsImRlcGVuZGVuY2llcyI6W10sIm5hbWUiOiJ0YWtlIDIifSx7ImlkIjoiRXFzR09RQm5WT1BqQVR0YVRtTjZ3IiwiY29kZSI6InJldHVybiBwYXJzZUZsb2F0KERBVEEpOyIsImRlcGVuZGVuY2llcyI6W10sIm5hbWUiOiJzdGFja292ZXJmbG93IChzaWdtYSkifV0sImNvbmZpZyI6eyJuYW1lIjoic3RhY2tvdmVyZmxvdyBwYXJzZUZsb2F0IHZzIEFycmF5QnVmZmVyIHRlY2huaXF1ZSDwn5GAIiwicGFyYWxsZWwiOnRydWUsImRhdGFDb2RlIjoiZnVuY3Rpb24gcGFyc2VGbG9hdChzdHIpIHsgLy9oYWhhIG9vcHMgZm9yIG15IGZpcnN0IHRlc3QgaSB3YXMgdXNpbmcgdGhlIHdyb25nIHBhcnNlRmxvYXQgKHRoZXkgYm90aCBkaWQgaXQgYXQgdGhlIHNhbWUgc3BlZWQgdGhvdWdoKVxuICAgIHZhciBmbG9hdCA9IDAsIHNpZ24sIG9yZGVyLCBtYW50aXNzYSwgZXhwLFxuICAgIGludCA9IDAsIG11bHRpID0gMTtcbiAgICBpZiAoL14weC8uZXhlYyhzdHIpKSB7XG4gICAgICAgIGludCA9IHBhcnNlSW50KHN0ciwgMTYpO1xuICAgIH1cbiAgICBlbHNlIHtcbiAgICAgICAgZm9yICh2YXIgaSA9IHN0ci5sZW5ndGggLTE7IGkgPj0wOyBpIC09IDEpIHtcbiAgICAgICAgICAgIGlmIChzdHIuY2hhckNvZGVBdChpKSA-IDI1NSkge1xuICAgICAgICAgICAgICAgIGNvbnNvbGUubG9nKCdXcm9uZyBzdHJpbmcgcGFyYW1ldGVyJyk7XG4gICAgICAgICAgICAgICAgcmV0dXJuIGZhbHNlO1xuICAgICAgICAgICAgfVxuICAgICAgICAgICAgaW50ICs9IHN0ci5jaGFyQ29kZUF0KGkpICogbXVsdGk7XG4gICAgICAgICAgICBtdWx0aSAqPSAyNTY7XG4gICAgICAgIH1cbiAgICB9XG4gICAgc2lnbiA9IChpbnQgPj4-IDMxKSA_IC0xIDogMTtcbiAgICBleHAgPSAoaW50ID4-PiAyMyAmIDB4ZmYpIC0gMTI3O1xuICAgIG1hbnRpc3NhID0gKChpbnQgJiAweDdmZmZmZikgKyAweDgwMDAwMCkudG9TdHJpbmcoMik7XG4gICAgZm9yIChpPTA7IGk8bWFudGlzc2EubGVuZ3RoOyBpKz0xKSB7XG4gICAgICAgIGZsb2F0ICs9IHBhcnNlSW50KG1hbnRpc3NhW2ldKSA_IE1hdGgucG93KDIsIGV4cCkgOiAwO1xuICAgICAgICBleHAtLTtcbiAgICB9XG4gICAgcmV0dXJuIGZsb2F0KnNpZ247XG59XG5yZXR1cm4gMHg0MjAwMDAwMDsiLCJnbG9iYWxUZXN0Q29uZmlnIjp7ImRlcGVuZGVuY2llcyI6W119fX0 )
+            static parseFloat(int) {
+                let float = 0, sign, order, mantissa, exp,
+                multi = 1;
+                /*if (/^0x/.exec(str)) {
+                    int = parseInt(str, 16);
+                }
+                else {
+                    for (var i = str.length -1; i >=0; i -= 1) {
+                        if (str.charCodeAt(i) > 255) {
+                            console.log('Wrong string parameter');
+                            return false;
+                        }
+                        int += str.charCodeAt(i) * multi;
+                        multi *= 256;
+                    }
+                }*/
+                sign = (int >>> 31) ? -1 : 1;
+                exp = (int >>> 23 & 0xff) - 127;
+                mantissa = ((int & 0x7fffff) + 0x800000).toString(2);
+                for (let i=0; i<mantissa.length; i+=1) {
+                    float += parseInt(mantissa[i]) ? Math.pow(2, exp) : 0;
+                    exp--;
+                }
+                return float*sign;
+            }
+
+            static async getDataFromFile(file) {
+                const contents = await file.arrayBuffer();
+                console.log(contents);
+                return new DataReader(contents);
+            }
+
+            read(bytes, littleendian = true) {
+                const result = this.data.getInt32(this.position, littleendian); //lowkey after running that benchmark it's apparent that (at least) the dataview class is kinda "slow" (obviously speed doesn't matter here though lol)
+                this.position += bytes;
+                return result;
+            }
+
+            nextByte() {
+                return this.read(1) & 0xFF;
+            }
+
+            nextSignedByte() {
+                return ((this.read(1) & 0xFF) << 24) >> 24;
+            }
+
+            isNextByteNotZero() {
+                return this.nextByte() != 0;
+            }
+
+            nextWord() {
+                return this.read(2) & 0xFFFF;
+            }
+
+            nextSignedWord() {
+                return ((this.read(2) & 0xFFFF) << 16) >> 16;
+            }
+
+            nextDword() {
+                return this.read(4);
+            }
+
+            nextFloat() {
+                const float = this.read(4);
+                console.log("reading float", float, float.toString(16));
+                return DataReader.parseFloat(float);
+            }
+
+            nextEmbeddedText() {
+                let string = "";
+                console.log("getting next embedded text");
+                const addedLength = this.nextWord();
+                console.log("length ->", addedLength);
+                for(let i = 0; i < addedLength; i++) {
+                    string += this.nextByte();
+                }
+                console.log(string);
+                return string;
+            }
+
+            nextByteInBitfield() {
+                if(this.bitFieldPosition == 0) {
+                    this.bitField = this.nextByte();
+                    console.log("reading bit field ", this.bitField.toString(16));
+                }
+                let eax = 1;
+                eax <<= this.bitFieldPosition;
+                const al = ((this.bitField & eax) != 0);
+                console.log(`bit ${this.bitFieldPosition}: ${al.toString(16)}`);
+                this.bitFieldPosition++;
+                if(this.bitFieldPosition > 8) {
+                    this.bitFieldPosition = 0;
+                }
+                return al;
+            }
+
+            resetBitFieldPosition() {
+                this.bitFieldPosition = 0;
+            }
+
+            constructor(arrayBuffer) {
+                this.data = new DataView(arrayBuffer);
+                this.byteLength = this.data.byteLength;
+                this.position = 0;
+                this.bitField = 0;
+                this.bitFieldPosition = 0;
+            }
+        }
+        
+        class RefCount {
+            refCount = 0;
+            constructor() {
+
+            }
+            placeReference(obj, property) {
+                this.refCount++;
+                obj[property] = this;
+            }
+        }
+
+        class EditValObj extends RefCount {
+            unknown1 = 0;
+            unknown2 = 0;
+            constructor() {
+                super();
+            }
+        }
+
+        class PegInfo extends EditValObj {
+            type = 1;
+            hit = 0;
+            _0x15_ = 0;
+            _0x16_ = 0;
+            _0x17_ = 0;
+            timeSinceHit = 0;
+            hitCount = 0;
+            animationPercent = 0;
+            animationId = 0;
+            constructor() {
+                super();
+            }
+            loadProperties(reader) {
+                this.timeSinceHit = 0;
+                this.animationId = 0;
+                this.animationPercent = 0;
+                this.hitCount = 0;
+                console.log("load peg info begin");
+                this.type = reader.nextByte();
+                console.log("peg type = ", this.type);
+                this.hit = reader.nextByteInBitfield();
+                console.log("peg hit = ", this.hit);
+                this._0x15_ = reader.nextByteInBitfield();
+                let ebp_pB = reader.nextByteInBitfield();
+                this._0x16_ = reader.nextByteInBitfield();
+                let ebp_m1 = reader.nextByteInBitfield();
+                let ebp_m2 = reader.nextByteInBitfield(); //has animation id
+                this._0x17_ = reader.nextByteInBitfield();
+                let ebp_m3 = reader.nextByteInBitfield();
+                reader.resetBitFieldPosition();
+                if(ebp_pB) { //check +B
+                    //sets DWORD PegInfo+18
+                    this.timeSinceHit = reader.nextDword();
+                    console.log("peg timeSinceHit =", this.timeSinceHit);
+                }
+                if(ebp_m1) { //check -1
+                    //sets DWORD PegInfo+20
+                    this.animationPercent = reader.nextDword();
+                    console.log("peg animationPercent =", this.animationPercent);
+                }
+                if(ebp_m2) { //check -2
+                    //sets DWORD this+24
+                    this.animationId = reader.nextByte();
+                    console.log("peg animationId =", this.animationId);
+                }
+                if(ebp_m3) {
+                    //sets DWORD this+1C
+                    this.hitCount = reader.nextByte();
+                    console.log("peg hitCount = ", this.hitCount);
+                }
+            }
+        }
+
+        class Mover extends EditValObj {
+            type = 0;
+            offset = 0;
+            amplitude = 0;
+            speedDivisor = 0;
+            timingOffset = 0.0;
+            x = 0.0;
+            y = 0.0;
+            originX = 0.0;
+            originY = 0.0;
+            _0x28_ = 0;
+
+            constructor() {
+                super();
+            }
+            
+            loadProperties(reader) {
+                console.log("loading mover properties");
+                this.type = reader.nextSignedByte();
+                this.originX = reader.nextFloat();
+                this.originY = reader.nextFloat();
+                this.speedDivisor = reader.nextWord();
+
+                let ebp_m7 = reader.nextByteInBitfield();
+                let ebp_m8 = reader.nextByteInBitfield();
+                let ebp_pB = reader.nextByteInBitfield();
+                let ebp_m1 = reader.nextByteInBitfield();
+                let ebp_m9 = reader.nextByteInBitfield();
+                let ebp_mA = reader.nextByteInBitfield();
+                let ebp_mB = reader.nextByteInBitfield();
+                let ebp_mC = reader.nextByteInBitfield();
+                reader.resetBitFieldPosition();
+
+                let ebp_mD = reader.nextByteInBitfield();
+                let ebp_m2 = reader.nextByteInBitfield();
+                let ebp_m3 = reader.nextByteInBitfield();
+                let ebp_m4 = reader.nextByteInBitfield();
+                let ebp_mE = reader.nextByteInBitfield();
+                let ebp_m6 = reader.nextByteInBitfield();
+                let ebp_m5 = reader.nextByteInBitfield();
+                reader.resetBitFieldPosition();
+
+                if(ebp_m7 != 0) {
+                    this.offset = reader.nextSignedWord();
+                }
+                if(ebp_m8 != 0) {
+                    this.amplitude = reader.nextSignedWord();
+                }
+                if(ebp_pB != 0) {
+                    this.timingOffset = reader.nextFloat();
+                    console.log("timingOffset ->", this.timingOffset);
+                }
+                if(ebp_m1 != 0) {
+                    this._0x24_ = reader.nextFloat();
+                }
+                if(ebp_m9 != 0) {
+                    this._0x28_ = reader.nextSignedWord();
+                }
+                if(ebp_mA != 0) {
+                    this._0x2C_ = reader.nextWord();
+                }
+                if(ebp_mB != 0) {
+                    this._0x34_ = reader.nextWord();
+                }
+                if(ebp_mC != 0) {
+                    this._0x30_ = reader.nextSignedByte();
+                }
+                if(ebp_mD != 0) {
+                    this._0x38_ = reader.nextSignedByte();
+                }
+                if(ebp_m2 != 0) {
+                    this._0x40_ = reader.nextFloat();
+                }
+                if(ebp_m3 != 0) {
+                    this._0x3C_ = reader.nextFloat();
+                }
+                if(ebp_m4 != 0) {
+                    this._0x64_ = reader.nextFloat();
+                }
+                if(ebp_m5 != 0) {
+                    this._0x44_ = reader.nextFloat();
+                }
+                if(ebp_mE != 0) {
+                    this._0x4C_ = reader.nextFloat();
+                    this._0x50_ = reader.nextFloat();
+                    //this->_0x48_ = 
+                    debugger; //__debugbreak();
+                }
+                if(ebp_m6 != 0) {
+                    this.x = reader.nextFloat();
+                    console.log("mover x ->", this.x);
+                    this.y = reader.nextFloat();
+                    console.log("mover y ->", this.y);
+                }
+            }
+
+            timeScaled(time) {
+                if(this._0x2C_) {
+                    //honestly who knows what happens when this is true
+                }else {
+                    const floatstuff = this.timingOffset * this.speedDivisor + this.offset + time; //ok wait why did they do this it was legit for nothing? (WAIT I READ IT WRONG)
+                    //console.log(floatstuff); //should be big number because of time
+                    const trunc = Math.trunc(floatstuff); //cast to int
+                    //oh wait it happens the other way
+                    // return (this.speedDivisor % Math.trunc(floatstuff))/this.speedDivisor; //the cast floatstuff to a DWORD but obviously this is js lol
+                    const allat = (trunc % this.speedDivisor);
+                    return allat/this.speedDivisor;
+                }
+            }
+
+            update(time, unknown = 0) {
+                const tau = Math.PI*2;
+                //this.x = 0;
+                //this.y = 0;
+                const positive = Math.abs(this.type);
+                const sign = Math.sign(this.type);
+                //const slowmo = unknown / this.speedDivisor; //honestly a giant guess from me
+                const realtime = (unknown / this.speedDivisor) + this.timeScaled(time);
+                let verticalAmplitude = this.amplitude; // this._0x28_ || this.amplitude;
+                if(this._0x28_) {
+                    verticalAmplitude = this._0x28_;
+                }
+                switch(positive) {
+                    case 1: {
+                        //this.y = (Math.cos((time+this.offset)/(this.speedDivisor/10)+this.timingOffset*tau)*this.amplitude)*sign; //that's gotta be right
+                        this.y = this.originY - (Math.sin(realtime * tau * sign)*verticalAmplitude);
+                        break;
+                    }
+                    case 3: {
+                        //this.y = (Math.cos((time+this.offset)/(this.speedDivisor/10)+this.timingOffset*tau)*this.amplitude)*sign; //that's gotta be right
+                        const result = (realtime * tau * sign);
+                        this.x = this.originX + Math.cos(result) * this.amplitude;
+                        this.y = this.originY - (Math.sin(result) * verticalAmplitude);
+                        break;
+                    }
+                    case 2: {
+                        //this.x = (Math.sin((time+this.offset)/(this.speedDivisor/10)+this.timingOffset*tau)*this.amplitude)*sign; //that's gotta be right
+                        const local = realtime * tau * sign;
+                        const result = Math.cos(local) * this.amplitude;
+                        this.x = this.originX + result; //it then actually adds originX and then sets x but whatever
+                        //then it sets y to originY
+                        //then it sets [Mover+64] = [Mover+44] ?
+                        break;
+                    }
+                    case 12: {
+                        //const realtime = this.timeScaled(time)+this._0x28_;
+                        const trunc = Math.trunc(realtime);
+                        const st0 = realtime-trunc;
+                        this.x = this.amplitude*st0*sign;
+                        this.x += this.originX;
+                        this.y = this.originY;
+                        //this._0x64_ = this._0x44_;
+                        break;
+                    }
+                }
+                //this.x += this.originX;
+                //this.y += this.originY;
+                //if(this._0x24_ == 0.0) { //something like this idk
+                    //call some function
+                //}
+            }
+        }
+
+        class PhysObj extends EditValObj {
+            collision = 1;
+            visible = 1;
+            //_0x26_ = 1;
+            enableMover = 1; //no way! (0x26)
+            _0x27_ = 0;
+            _0x2E_ = 0;
+            type = 0;
+            time = 0;
+            pegInfo = undefined;
+            mover = undefined;
+            imgname = "";
+            img = undefined;
+            defaultColor = 0xFFFFFF;
+
+            static BALL = 2;
+            static BRICK = 3;
+            static LINE = 4;
+            static POLY = 5;
+
+            constructor() {
+                super();
+            };
+            loadImgIfValidPath() {
+                if(this.imgname) {
+                    console.log("load img", this.imgname);
+                }
+            }
+            loadProperties(reader) {
+                console.log("physobj load properties inner begin");
+                let ebp_pB = reader.nextByteInBitfield(); //not exactly what happens but i don't feel like getting epb_pB by reference for all of them
+                let ebp_mD = reader.nextByteInBitfield();
+                let ebp_m1D = reader.nextByteInBitfield(); //controls peginfo!
+                let ebp_m1E = reader.nextByteInBitfield();
+                let ebp_m12 = reader.nextByteInBitfield();
+                this.collision = reader.nextByteInBitfield(); //1
+                this.visible = reader.nextByteInBitfield(); //1
+                this.enableMover = reader.nextByteInBitfield(); //1
+                reader.resetBitFieldPosition();
+                //read
+                let ebp_m13 = reader.nextByteInBitfield();
+                let ebp_m14 = reader.nextByteInBitfield();
+                let ebp_m15 = reader.nextByteInBitfield();
+                let ebp_mE = reader.nextByteInBitfield();
+                let ebp_mF = reader.nextByteInBitfield();
+                let ebp_m10 = reader.nextByteInBitfield();
+                this._0x27_ = reader.nextByteInBitfield();
+                this._0x2A_ = reader.nextByteInBitfield();
+                reader.resetBitFieldPosition();
+                //read
+                let ebp_m16 = reader.nextByteInBitfield();
+                let ebp_m17 = reader.nextByteInBitfield();
+                let ebp_m18 = reader.nextByteInBitfield();
+                let ebp_m19 = reader.nextByteInBitfield();
+                this._0x2B_ = reader.nextByteInBitfield();
+                let ebp_m1A = reader.nextByteInBitfield();
+                this._0x28_ = reader.nextByteInBitfield();
+                let ebp_m11 = reader.nextByteInBitfield();
+                reader.resetBitFieldPosition();
+                //read
+                this._0x2C_ = reader.nextByteInBitfield();
+                this._0x29_ = reader.nextByteInBitfield();
+                let ebp_m1B = reader.nextByteInBitfield();
+                let ebp_m1C = reader.nextByteInBitfield();
+                this._0x2D_ = reader.nextByteInBitfield();
+                this._0x30_ = reader.nextByteInBitfield();
+                reader.resetBitFieldPosition();
+                
+                //if(ebp_pB != 0) {
+                //    //call some datasync func
+                //}
+                //if(ebp_mD != 0) {
+                //
+                //}
+                //if(ebp_m12 != 0) {
+                //
+                //}
+                if(ebp_pB != 0) { //check +B
+                    this._0x38_ = reader.nextFloat();
+                }
+                if(ebp_mD != 0) { //check -D
+                    this._0x34_ = reader.nextFloat();
+                }
+                if(ebp_m12 != 0) { //check -12
+                    this.time = reader.nextDword();
+                    console.log("time =", this.time);
+                }
+                if(ebp_m13 != 0) { //check -13
+                    this._0x40_ = reader.nextDword();
+                }
+                if(ebp_m14 != 0) { //check -14
+                    this.defaultColor = reader.nextDword();
+                }
+                if(ebp_m15 != 0 ) { //check -15
+                    //this->_0x94_ = ???;
+                    this.imgname = reader.nextEmbeddedText();
+                }
+                if(ebp_mE != 0) { //check -E
+                    this._0xB8_ = reader.nextFloat();
+                }
+                if(ebp_mF != 0) { //check -F
+                    this._0xBC_ = reader.nextFloat();
+                }
+                if(ebp_m10 != 0) { //check -10
+                    this._0xC0_ = reader.nextFloat();
+                }
+                if(ebp_m16 != 0) { //check -16
+                    this._0xC8_ = reader.nextDword();
+                }
+                if(ebp_m17 != 0) { //check -17
+                    // this->_0x5C_ = ???;
+                    this.textidk = reader.nextEmbeddedText();
+                }
+                if(ebp_m18 != 0) { //check -18
+                    this._0x50_ = reader.nextDword();
+                }
+                if(ebp_m19 != 0) { //check -19
+                    this._0x54_ = reader.nextByte();
+                }
+                if(ebp_m1A != 0) { //check -1A
+                    // this->_0x78_ = ???;
+                    this.textidk2 = reader.nextEmbeddedText();
+                }
+                if(ebp_m11 != 0) { //check -11
+                    this._0x3C_ = reader.nextFloat();
+                }
+                if(ebp_m1B != 0) { //check -1B
+                    this._0xB0_ = reader.nextDword();
+                }
+                if(ebp_m1C != 0) { //check -1C
+                    this._0xCC_ = reader.nextByte();
+                }
+                if(ebp_m1D != 0) { //check -1D (peginfo)
+                    const pegInfo = new PegInfo();
+                    //InterlockedIncrement(&this->pegInfo->refCount);
+                    pegInfo.loadProperties(reader);
+                    pegInfo.placeReference(this, "pegInfo");
+                }
+                if(ebp_m1E != 0) { //check -1E
+                    //a mover?!
+                    //this->_0x48_ = ???
+                    //this->mover = ???
+                    if(reader.nextDword() == 1) {
+                        //this.mover = new Mover();
+                        //InterlockedIncrement(&this->mover->refCount);
+                        const mover = new Mover();
+                        mover.loadProperties(reader);
+                        mover.placeReference(this, "mover");
+                    }
+                }
+                if(global_idk == 2) {
+                    //idk
+                }
+                let cl = this._0x2D_;
+                this._0x2E_ = cl;
+                if(this.mover) {
+                    //idk yet lol prolly do more position shjit
+                    let type = Math.abs(this.mover.type);
+                    if(type == 8 || type == 9 || type == 0xD) {
+                        this._0x2E_ = 1;
+                    }
+                }
+                if(global_idk != 0) {
+                    //call method
+                    this.loadImgIfValidPath();
+                }
+            }
+            setVelocity() {
+
+            }
+            setPosition() {
+
+            }
+            update() {
+
+            }
+            draw() {
+                return this.visible;
+            }
+        }
+
+        class Ball extends PhysObj {
+            x = 0;
+            y = 0;
+            vx = 0;
+            vy = 0;
+            radius = 6.0;
+            anchored = 0;
+            constructor(isPeg) {
+                super();
+                this.anchored = isPeg;
+                if(isPeg) {
+                    this.type = 3;
+                    this.radius = 10.0;
+                }else {
+                    this.type = 2;
+                    this.radius = 6.0;
+                }
+            }
+            loadProperties(reader) {
+                super.loadProperties(reader);
+                console.log("load ball properties begin!");
+                this.anchored = reader.nextByteInBitfield();
+                let ebp_pB = reader.nextByteInBitfield(); //controls x position
+                let ebp_mD = reader.nextByteInBitfield();
+                this._0x160_ = reader.nextByteInBitfield();
+                this._0x163_ = reader.nextByteInBitfield();
+                let ebp_mE = reader.nextByteInBitfield();
+                let ebp_mF = reader.nextByteInBitfield();
+                this.fireball = reader.nextByteInBitfield();
+                reader.resetBitFieldPosition();
+
+                if(ebp_pB != 0) {//check ebp_pB
+                    //x and y position!
+                    this.x = reader.nextFloat();
+                    console.log("x ->", this.x);
+                    this.y = reader.nextFloat();
+                    console.log("y ->", this.y);
+                }else {
+                    //something else happens lol
+                    if(this.mover) {
+                        this.x = this.mover.x;
+                        this.y = this.mover.y;
+                        //that's it
+                    }
+                }
+                
+                this.radius = reader.nextFloat();
+                console.log("radius ->", this.radius);
+
+                if(this.type == 2) {
+                    //i haven't actually seen this happen yet but here's what i've glanced at
+
+                    //this->_0xF4_ = reader.nextFloat();
+                    //this->_0xF8_ = reader.nextFloat();
+                    //this->vx = reader.nextFloat(); //0xFC
+                    //this->vy = reader.nextFloat(); //0x100
+                    //this->drawX = reader.nextFloat();
+                    //this->drawY = reader.nextFloat();
+                    //this->_0xE4_ = reader.nextFloat();
+                    //this->_0x10C_ = reader.nextFloat();
+                    //this->_0x110_ = reader.nextFloat();
+                }
+
+                if(this.refCount != 0) {
+                    //do extra init with the bounds shit idgaf
+                    if(this.fireball != 0) {
+                        //call sumn
+                    }
+                }
+            }
+            getVelocity() {
+                return {x: this.vx, y: this.vy};
+            }
+            setVelocity(vx, vy) {
+                this.vx = vx;
+                this.vy = vy;
+            }
+            setPosition(x, y) {
+                this.x = x;
+                this.y = y;
+            }
+            update() {
+                this.vy += gravity;
+                const mag = Math.sqrt(this.vx**2 + this.vy**2);
+                if(mag >= 225.0) {
+                    //normalize
+                    const nmg = 225/mag;
+                    this.vx *= nmg;
+                    this.vy *= nmg;
+                }
+                if(!this.anchored) {
+                    this.time++;
+                    this.x += this.vx;
+                    this.y += this.vy;
+                }else if(this.enableMover && this.mover) {
+                    this.time++;
+                    this.mover.update(this.time);
+                    this.x = this.mover.x;
+                    this.y = this.mover.y;
+                }
+            }
+            draw() {
+                if(super.draw()) {
+                    if(!this._0x27_) {
+                        context.beginPath();
+                        context.fillStyle = "rgba(1.0, 1.0, 1.0, 0.5)";
+                        context.arc(this.x-4, this.y+4, this.radius, 0, Math.PI*2, false);
+                        context.fill();
+                    }
+                    if(this.anchored && this.pegInfo) {
+                        const maf = ((this.pegInfo.type-1 + (4*this.pegInfo.hit))*20);
+                        context.drawImage(image_ballpeg, 0, maf, 20, 20, this.x-this.radius, this.y-this.radius, 20, 20);
+                        context.fillStyle = "black";
+                        context.fillText(this.pegInfo.hitCount, this.x, this.y);
+                    }else {
+                        //context.beginPath();
+                        //context.fillStyle = "rgba(0.0, 127, 0.0, 0.5)";
+                        //context.arc(this.x+10, this.y+10, checkRadius-10, 0, Math.PI*2, false);
+                        //context.fill();
+                        context.drawImage(image_ball, this.x-this.radius, this.y-this.radius);
+                    }
+                }
+            }
+        }
+
+        class Line extends PhysObj {
+            left = 0;
+            top = 0;
+            right = 0;
+            bottom = 0;
+            constructor() {
+                super();
+                this.type = 4;
+            }
+            draw() {
+                if(super.draw()) {
+                    context.beginPath();
+                    context.moveTo(this.left, this.top);
+                    context.lineTo(this.right, this.bottom);
+                    context.stroke();
+                }
+            }
+            loadProperties(reader) {
+                super.loadProperties(reader);
+                let ebp_pB = reader.nextByteInBitfield();
+                let ebp_m1 = reader.nextByteInBitfield();
+                this._0x111_ = reader.nextByteInBitfield();
+                reader.resetBitFieldPosition();
+
+                this.left = reader.nextFloat();
+                this.top = reader.nextFloat();
+                this.right = reader.nextFloat();
+                this.bottom = reader.nextFloat();
+
+                if(ebp_pB != 0) {
+                    this._0xFC_ = reader.nextFloat();
+                }
+                if(ebp_m1 != 0) {
+                    this._0x100_ = reader.nextFloat();
+                }
+                if(global_idk == 3) {
+
+                }
+                //this.setPosition(this.left, this.top, this.right, this.bottom);
+            }
+        }
+
+        class Poly extends PhysObj {
+            loadProperties(reader) {
+                super.loadProperties(reader);
+                console.log("loadinmg poly properties");
+                const unknown = (global_idk == 3);//technically this should be a parameter but hush
+                this._0x12C_ = reader.nextByteInBitfield();
+                let ebp_m3 = reader.nextByteInBitfield();
+                let ebp_pB = reader.nextByteInBitfield();
+                let ebp_m1 = reader.nextByteInBitfield();
+                let ebp_m4 = reader.nextByteInBitfield();
+                let ebp_m2 = reader.nextByteInBitfield();
+                this._0x12F_ = reader.nextByteInBitfield();
+                this._0x130_ = reader.nextByteInBitfield();
+                reader.resetBitFieldPosition();
+
+                let ebp_m5 = reader.nextByteInBitfield();
+                let ebp_m6 = reader.nextByteInBitfield();
+                let ebp_m7 = reader.nextByteInBitfield();
+                this._0x144_ = reader.nextByteInBitfield();
+                reader.resetBitFieldPosition();
+
+                if(ebp_pB != 0) {
+                    this._0x11C_ = reader.nextFloat();
+                }
+                if(ebp_m1 != 0) {
+                    this._0x120_ = reader.nextFloat();
+                }
+                if(ebp_m2 != 0) {
+                    this._0x124_ = reader.nextFloat();
+                }
+                if(ebp_m3 != 0) {
+                    this._0x134_ = reader.nextSignedByte();
+                }
+                if(ebp_m4 != 0) {
+                    this.x = reader.nextFloat(); //probably x and y
+                    console.log("poly x -> " << this.x);
+                    this.y = reader.nextFloat();
+                    console.log("poly y -> " << this.y);
+                }
+                if(this.mover) {
+                    this._0x11C_ = this.mover._0x64_; //rotation???!
+                    this.x = this.mover.x;
+                    this.y = this.mover.y;
+                }
+                this._0x128_ = this._0x11C_;
+                if(unknown) {
+                    //do more initialization but this might not usually happen
+                }
+                if(ebp_m5 != 0) {
+                    this._0x138_ = reader.nextByte();
+                }
+                if(ebp_m6 != 0) {
+                    this._0x13C_ = reader.nextDword();
+                }
+                if(ebp_m7 != 0) {
+                    this._0x140_ = reader.nextWord();
+                }
+            }
+        }
+
+        class BlendedImage {
+            _0x4_ = 0;
+            //0x8
+            _0x8_ = 0;
+            _0xC_ = 0;
+            _0x10_ = 0;
+            _0x14_ = 0;
+            _0x18_ = 0;
+            _0x1C_ = 0;
+            _0x20_ = 0;
+            _0x24_ = 0;
+            _0x28_ = 0;
+            _0x2C_ = 0;
+            _0x30_ = 0;
+            _0x34_ = 0;
+            _0x38_ = 0;
+            _0x3C_ = 0;
+            _0x40_ = 0;
+            _0x44_ = 0;
+            _0x4C_ = 0;
+            _0x50_ = 0;
+            _0x54_ = 0;
+        }
+
+        class Brick extends Poly {
+            loadProperties(reader) {
+                super.loadProperties(reader);
+                console.log("loading BRICK proplertories");
+                this._0x181_ = reader.nextByteInBitfield();
+                this._0x182_ = reader.nextByteInBitfield();
+                let ebp_m6 = reader.nextByteInBitfield(); //1
+                let ebp_m3 = reader.nextByteInBitfield();
+                let ebp_m7 = reader.nextByteInBitfield();
+                let ebp_m4 = reader.nextByteInBitfield();
+                let ebp_pB = reader.nextByteInBitfield();
+                let ebp_m5 = reader.nextByteInBitfield();
+                reader.resetBitFieldPosition();
+                
+                let ebp_m1 = reader.nextByteInBitfield();
+                let ebp_m2 = reader.nextByteInBitfield();
+                this._0x180_ = reader.nextByteInBitfield();
+                reader.resetBitFieldPosition();
+
+                if(ebp_m1 != 0) {
+                    this._0x160_ = reader.nextFloat();
+                }
+                if(ebp_m2 != 0) {
+                    this._0x164_ = reader.nextFloat();
+                }
+                if(ebp_m6 != 0) {
+                    this._0x16C_ = reader.nextByte(); //5
+                }
+                if(ebp_m3 != 0) {
+                    this._0x168_ = reader.nextByte();
+                }
+                if(ebp_m4 != 0) {
+                    this._0x150_ = reader.nextFloat();
+                }
+                if(ebp_pB != 0) {
+                    //for some reason they check ebp+B twice? (im not including that because im 99% sure it's redundant)
+                    this._0x154_ = reader.nextFloat();
+                    //if(ebp_pb != 0) {
+                        //um wait a second something weird happens around here
+                        //either im reading it wrong or it reads two floats and puts them both into _0x154_
+                        this._0x154_ = reader.nextFloat();
+                    //}
+                }
+                if(ebp_m7 != 0) {
+                    this._0x14C_ = reader.nextFloat();
+                }
+                if(ebp_m5 != 0) {
+                    this._0x158_ = reader.nextFloat();
+                }
+
+                this._0x148_ = reader.nextFloat();
+                this._0x15C_ = reader.nextFloat();
+                //this._0x170_ = (DWORD)reader.nextByte();
+                //oh boy hold on this part gets weird
+                //DWORD* base = &this._0x170_;
+                //for(int i = 4; i != 0; i--) {
+                //    *base = (DWORD)reader.nextByte();
+                //    printf("setting brick+%X -> %d\n", (ULONG_PTR)base - (ULONG_PTR)this, *base);
+                //    base++;
+                //}
+                //oh i gotta do some javascript bs for this to work
+                let base = 0x170;
+                for(let i = 4; i != 0; i--) {
+                    const hexname = base.toString(16).toUpperCase();
+                    this[`_${hexname}_`] = reader.nextByte();
+                    console.log(`setting brick+0x${hexname} (_${hexname}_) -> ${this[`_${hexname}_`]}`);
+                    base += 4;
+                }
+
+                if(global_idk != 3) {
+                    //call some member function
+                }
+            }
+        }
+
+        function createObjectByType(type) {
+            let obj;
+            type--;
+            switch(type) {
+                case 0:
+                    obj = new PhysObj();
+                    break;
+                case 1:
+                    obj = new Line();
+                    break;
+                case 2:
+                    obj = new Poly();
+                    break;
+                case 3:
+                    obj = new Ball(false);
+                    break;
+                case 4:
+                    obj = new Ball(true);
+                    break;
+                case 5:
+                    obj = new Brick();
+                    break;
+                case 6:
+                    // obj = new Gun();
+                    break;
+                default:
+                    break;
+            }
+            return obj;
+        }
+
+        const physobjs = [];
+        const balls = [];
+
+        async function readLevelFormat(file) {
+            if(!file) {
+                const [handle] = await showOpenFilePicker({multiple: false, types: [{description:"sigma", accept: {"application/octet-stream": [".dat"]}}]});
+                file = await handle.getFile();
+            }
+            const reader = await DataReader.getDataFromFile(file);
+            const version = reader.nextDword();
+            console.log(version.toString(16));
+            if(version > 0x42) {
+                console.log("this file was made for a newer version of peggle (apparently)");
+                return;
+            }
+
+            global_idk = reader.isNextByteNotZero();
+            console.log("hlobal", global_idk);
+
+            const physObjCount = reader.nextDword();
+            console.log("physObjCount", physObjCount.toString(16));
+
+            for(let i = 0; i < physObjCount; i++) {
+                const sumn = reader.nextDword(); //usually 1
+                console.log(sumn);
+                if(!sumn) {
+                    continue;
+                }
+
+                if(sumn == 1) {
+                    const type = reader.nextDword();
+                    console.log(type);
+                    const obj = createObjectByType(type);
+                    console.log(obj);
+                    obj.loadProperties(reader);
+                    obj.placeReference(physobjs, physobjs.length);
+                }
+                //break;
+            }
+        }
+
+        canvas.addEventListener("mousedown", function(event) {
+            const ball = new Ball(event.ctrlKey);
+            if(event.ctrlKey) {
+                ball.setPosition(event.offsetX-Board.viewX, event.offsetY-Board.viewY);
+                const peginfo = new PegInfo();
+                peginfo.placeReference(ball, "pegInfo");
+            }else if (event.buttons == 1) {
+                //ball.setVelocity(-0.5, -3.0);
+                ball.setPosition(event.offsetX-Board.viewX, event.offsetY-Board.viewY);
+                ball.placeReference(balls, balls.length);
+            }else if(event.buttons == 2) {
+                Board.ff = true;
+            }
+            console.log(ball);
+            ball.placeReference(physobjs, physobjs.length);
+        });
+
+        canvas.addEventListener("mouseup", function(event) {
+            if(event.buttons == 2) {
+                Board.ff = false;
+            }
+        });
+
+        function draw() {
+            context.fillStyle = "black";
+            context.fillRect(10, 10, 110, 110);
+            context.save();
+            context.translate(Board.viewX, Board.viewY);
+            context.clearRect(0, 0, 800-Board.viewX*2, 600-Board.viewY);
+            const delarr = [];
+            //efficient watch this
+            Board.timeSinceLastHit++;
+            if(Board.timeSinceLastHit > 2.5*60 && !Board.waitingToPopPegs) {
+                console.log(`initiate popping  over ${Board.currentHitPegs.length*5} frames`);
+                Board.waitingToPopPegs = Board.currentHitPegs.length*5;
+                Board.popping = Board.currentHitPegs;
+                Board.currentHitPegs = [];
+                Board.timeSinceLastHit = 0;
+            }
+            if(Board.waitingToPopPegs) {
+                if(Board.waitingToPopPegs%5 == 0) {
+                    const peg = Board.popping.pop(); //lol
+                    console.log("popping", peg);
+                    peg.visible = false;
+                    peg.collision = false;
+                }
+                Board.waitingToPopPegs--;
+            }
+            for(const phys of physobjs) {
+                phys.draw(); //honestly i have no idea how they're drawn lol
+                phys.update();
+                //kinda efficient?
+                //if(phys.type == 3) {
+                if(phys.collision) {
+                    for(let i = 0; i < balls.length; i++) {
+                        const ball = balls[i];
+                        if(ball == phys) {
+                            continue;
+                        }
+                        const vec = {x: phys.x - ball.x, y: phys.y - ball.y};
+                        const mag = Math.sqrt(vec.x ** 2 + vec.y ** 2);
+                        if(mag < phys.radius+ball.radius) {
+                            if(phys.pegInfo) {
+                                if(!phys.pegInfo.hit) {
+                                    Board.currentHitPegs.push(phys);
+                                    Board.timeSinceLastHit = 0;
+                                }
+                                phys.pegInfo.hit = 1;
+                                phys.pegInfo.hitCount++;
+                            }
+                            // const ratio = 1;
+                            // const adjustedVec = {x: vec.x * ratio, y: vec.y * ratio};
+                            // console.log(vec, mag, adjustedVec, Math.sqrt(adjustedVec.x ** 2 + adjustedVec.y ** 2));
+                            const intersection = phys.radius + ball.radius - mag; //GENIUS!!! THIS IS WHAT I NEEDED IN MY SPACIALHASHING.HTML!
+                            const normalized = {x: vec.x * intersection/mag, y: vec.y * intersection/mag};
+                            //console.log(intersection, vec, mag, normalized, Math.sqrt(normalized.x ** 2 + normalized.y ** 2));
+                            //const adjustedVec = {x: normalized.x * vec.x+(phys.radius/2), y: normalized.y * vec.y+(phys.radius/2)};
+                            ball.x -= normalized.x;
+                            ball.y -= normalized.y;
+                            const velmag = Math.min(Math.sqrt(ball.vx ** 2 + ball.vy ** 2), 2);
+                            // ball.vx -= normalized.x*1.8;//*velmag;
+                            // ball.vy -= normalized.y*1.8;//*velmag;
+                            //ball.vx *= -normalized.x;
+                            //ball.vy *= -normalized.y;
+                            //const adjusted = {x: normalized.x - ball.x, y: normalized.y - ball.y};
+                            //console.log(vec, normalized, adjusted);
+                            //ball.vx -= vec.x;
+                            //ball.vy -= vec.y;
+
+                            ball.vx -= vec.x * (intersection*2)/mag;
+                            ball.vy -= vec.y * (intersection*2)/mag;
+                        }
+                    }
+                }
+                if(phys.type == PhysObj.BALL) {
+                    if(phys.x < 0) {
+                        phys.x = 0;
+                        phys.vx *= -.9;
+                    }else if(phys.x > 800-(Board.viewX*2)) {
+                        phys.x = 800-(Board.viewX*2);
+                        phys.vx *= -.9;
+                    }
+                    if(phys.y < 0) {
+                        phys.y = 0;
+                        phys.vy *= -.9;
+                    }
+                    if(phys.y > 600-Board.viewY) {
+                        delarr.push(phys);
+                    }
+                }
+            }
+            for(const del of delarr) {
+                console.log("deleting");
+                del.refCount = 0;
+                physobjs.splice(physobjs.findIndex(element => element.refCount == 0), 1); //should actually be the only object with a refCount of 0
+                if(del.type == PhysObj.BALL) {
+                    balls.splice(balls.findIndex(element => element.refCount == 0), 1);
+                }
+            }
+            context.restore();
+            requestAnimationFrame(draw);
+        }
+        
+        draw();
+
+        fetch("./bunches.dat", {method: "GET"}).then(res => readLevelFormat(res));
+    </script>
+</body>
+</html>
