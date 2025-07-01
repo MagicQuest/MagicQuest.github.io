@@ -27,9 +27,12 @@
     <center style="margin-top: 20px;">
         <button onclick="readLevelFormat();" title="load a peggle level">hey kid i remember you're <span style="filter: blur(1px) drop-shadow(0px 0px 5px orange) drop-shadow(2px 4px 6px orange); text-shadow: 0px 0px 5px orange; color: orange; font-family: cursive;">peggle</span> levels</button>
         <button onclick="physobjs.forEach(obj => obj.enableMover=true);" title="some levels have pegs that can move but they're disabled for some reason (so click here to enable them)">enable all movers</button>
-        <p>peggle levels are zipped up in the main.pak file in the same directory as the exe</p>
-        <p><a href="https://www.vogons.org/viewtopic.php?t=26992">click here</a> for a tutorial on how to extract the files (yep you gotta download some old tool)</p>
-        <!--p>the levels are stored in the pak/levels directory!</p-->
+        <p><a style="text-decoration: underline dotted 1px; cursor: help;" href="javascript:void()" onclick="let d=details.style.display;details.style.display = d == 'none' ? 'inline' : 'none'">where can i find peggle level files?</a></p>
+        <span id="details" style="display: none;">
+            <p>if you have peggle, the levels are zipped up in the main.pak file in the same directory as the exe</p>
+            <p>click <a href="https://www.vogons.org/viewtopic.php?t=26992">here</a> or <a href="https://mobeigi.com/blog/gaming/modifying-the-peggle-deluxe-game/">here</a> for a tutorial on how to extract the main.pak file (yep you gotta download some old tool)</p>
+            <!--p>the levels are stored in the pak/levels directory!</p-->
+        </span>
         <hr>
         <p>lowkey not only does peggle run at 100 fps (instead of the 60fps granted by requestAnimationFrame) but also i don't know how to load the bricks (too complicated lol!)</p>
         <hr>
