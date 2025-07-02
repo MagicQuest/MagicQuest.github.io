@@ -956,13 +956,15 @@
             return obj;
         }
 
-        const physobjs = [];
-        const balls = [];
+        let physobjs = [];
+        let balls = [];
 
         async function readLevelFormat(file) {
             if(!file) {
                 const [handle] = await showOpenFilePicker({multiple: false, types: [{description:"sigma", accept: {"application/octet-stream": [".dat"]}}]});
                 file = await handle.getFile();
+                physobjs = [];
+                balls = [];
             }
             const reader = await DataReader.getDataFromFile(file);
             const version = reader.nextDword();
