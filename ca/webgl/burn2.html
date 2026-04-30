@@ -549,7 +549,7 @@
             }
         });
 
-        async function DownloadCanvasAsImage(){ //https://stackoverflow.com/a/58652379 + https://stackoverflow.com/questions/45221542/html-save-webgl-canvas-as-image
+        async function DownloadCanvasAsImage() { //https://stackoverflow.com/a/58652379 + https://stackoverflow.com/questions/45221542/html-save-webgl-canvas-as-image
             let tempCanvas = new OffscreenCanvas(canvas.width, canvas.height);
             let tempContext = tempCanvas.getContext('2d');
             tempContext.drawImage(canvas, 0, 0);

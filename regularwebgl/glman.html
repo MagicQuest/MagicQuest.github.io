@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>i'm about to be the gl guy</title>
+    <style>
+        #canvas {
+            border-image: url("./frameBorder.png") round;
+            border-image-slice: 3;
+            border-image-width: 3px;
+        }
+    </style>
+</head>
+<body>
+    <center>
+        <h1 id="errtext" style="display:none;color:red;font-family: monospace;"></h1>
+        <canvas id="canvas" width="512" height="512"></canvas>
+        <br/>
+        <!--clav-->
+        <!--img id="clav" src=".\HAiH-lpW0AA0bLL.jpg" style="width: 64px; height: 64px;"/-->
+    </center>
+    <script id="vertex-shader" type="glsl">
+        attribute vec4 a_position;
+        attribute vec3 a_vertexColor;
+        attribute vec2 a_textureCoord;
+        varying vec3 v_color; //layout (location = 0) in vec3 v_color;
+        varying vec2 v_textureCoord;
+        void main() { 
+            v_color = a_vertexColor;
+            v_textureCoord = a_textureCoord;
+            gl_Position = a_position;
+        }
+    </script>
+    <script id="fragment-shader" type="glsl">precision highp float;
+        varying vec3 v_color;
+        varying vec2 v_textureCoord;
+        uniform vec2 iResolution;
+        uniform sampler2D iChannel0;
+        void main() {
+            vec2 uv = gl_FragCoord.xy/iResolution.xy;
+            // gl_FragColor = vec4(v_color, 1.0);
+            gl_FragColor = vec4(texture2D(iChannel0, v_textureCoord).xyz, 1.0);
+        }
+    </script>
+    <script id="vertex-shader2" type="glsl">
+        attribute vec4 a_position;
+        void main() {
+            gl_Position = a_position;
+        }
+    </script>
+    <script id="fragment-shader2" type="glsl">precision highp float;
+        uniform vec2 iResolution;
+        uniform sampler2D iChannel0;
+        void main() {
+            vec2 uv = gl_FragCoord.xy/iResolution.xy;
+            gl_FragColor = vec4(texture2D(iChannel0, uv).xyz, 1.0);
+        }
+    </script>
+    <script>
+        /*
+            //@Target(ElementType.METHOD)
+            public @interface Bound {
+                Object actingUpon();
+            }
+        */
+        
+        const errtext = document.getElementById("errtext");
+        const canvas = document.getElementById("canvas");
+        //const clav = document.getElementById("clav");
+        const gl = canvas.getContext('webgl'); //by default, gl operates on a special system created framebuffer that cannot really be queried like an application created framebuffer can lol (https://registry.khronos.org/OpenGL/specs/es/2.0/es_full_spec_2.0.pdf)
+        let program, program2;
+
+        function displayError(err) {
+            errtext.innerHTML = err;
+            errtext.style.display = "";
+            // document.scrollingElement.scrollTo(0, 0);
+        }
+
+        if(!gl) {
+            //fack.
+            displayError("yo for some reason we couldn't get the webgl context?");
+            quit;
+        }//else {
+            function createProgram(vertex, fragment) {
+                const vshader = gl.createShader(gl.VERTEX_SHADER);
+                gl.shaderSource(vshader, vertex);
+                gl.compileShader(vshader);
+                if(!gl.getShaderParameter(vshader, gl.COMPILE_STATUS)) {
+                    displayError(gl.getShaderInfoLog(vshader));
+                    gl.deleteShader(vshader);
+                    return false;
+                }
+
+                const fshader = gl.createShader(gl.FRAGMENT_SHADER);
+                gl.shaderSource(fshader, fragment);
+                gl.compileShader(fshader);
+                if(!gl.getShaderParameter(fshader, gl.COMPILE_STATUS)) {
+                    displayError(gl.getShaderInfoLog(fshader));
+                    gl.deleteShader(vshader);
+                    gl.deleteShader(fshader);
+                    return false;
+                }
+
+                const program = gl.createProgram();
+                gl.attachShader(program, vshader);
+                gl.attachShader(program, fshader);
+                gl.linkProgram(program);
+                if(!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                    displayError(gl.getProgramInfoLog(program));
+                    gl.deleteProgram(program);
+                    gl.deleteShader(vshader);
+                    gl.deleteShader(fshader);
+                    return false;
+                }
+
+                return program;
+            }
+
+            program = createProgram(document.getElementById("vertex-shader").innerText, document.getElementById("fragment-shader").innerText);
+            if(!program) {
+                //displayError("createProgram failed?");
+                //fack.
+                quit;
+            }
+
+            gl.useProgram(program); //techincally is like bind
+
+            const attribLocations = {};
+            attribLocations["a_position"] = gl.getAttribLocation(program, "a_position");
+            attribLocations["a_vertexColor"] = gl.getAttribLocation(program, "a_vertexColor");
+            attribLocations["a_textureCoord"] = gl.getAttribLocation(program, "a_textureCoord");
+
+            const uniformLocations = {};
+            uniformLocations["iResolution"] = gl.getUniformLocation(program, "iResolution");
+            uniformLocations["iChannel0"] = gl.getUniformLocation(program, "iChannel0");
+            //@Bound(program)
+            gl.uniform2fv(uniformLocations["iResolution"], new Float32Array([gl.canvas.width, gl.canvas.height])); //ah, tried to call this method before calling use program >:[ (yet another gripe)
+
+            //for some reason, you can set individual elements of arrays when getting the uniform location of the index gl.getUniformLocation(program, "u_fArr[0]")
+            //you can also set fields of a custom struct (which also implies you may set a uniform to a struct?) by using the dot gl.getUniformLocation(program, "u_struct.field")
+
+            // const positionAttribute = gl.getAttribLocation(program, "a_position");
+            const attribBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, attribBuffer);
+            const bufferDat = [
+              //x    y        r    g    b
+                //triangle (gl.TRIANGLES)
+                // 0.0, 0.0,     0.5, 0.5, 0.5,
+                // 0.0, 0.5,     0.0, 1.0, 0.0,
+                // 0.7, 0.0,     1.0, 0.0, 1.0
+
+                //square (gl.TRIANGLE_FAN)
+                // 0.0, 0.0,     1.0, 0.5, 0.5,
+                // 0.5, 0.0,     0.0, 1.0, 0.0,
+                // 0.5, 0.5,     0.0, 0.0, 1.0,
+                // 0.0, 0.5,     1.0, 0.0, 0.0,
+
+                //square (gl.TRIANGLE_STRIP)    u    v
+                /*-0.5, -0.5,*/     1.0, 0.5, 0.5,    0.0, 0.0,
+                /*-0.5, 0.5, */    0.0, 1.0, 0.0,    0.0, 1.0,
+                /*0.5, -0.5, */    0.0, 0.0, 1.0,    1.0, 0.0,
+                /*0.5, 0.5,  */   1.0, 0.0, 0.0,    1.0, 1.0
+            ];
+            //@Bound(attribBuffer)
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(bufferDat), gl.STATIC_DRAW); //buffer must be bound in order to use this function
+
+            //technically related to the current program
+            gl.enableVertexAttribArray(attribLocations["a_position"]);
+            gl.enableVertexAttribArray(attribLocations["a_vertexColor"]);
+            gl.enableVertexAttribArray(attribLocations["a_textureCoord"]);
+
+            //@Bound(attribBuffer)
+            // gl.vertexAttribPointer(attribLocations["a_position"], 2, gl.FLOAT, false, 5*4, 0); //buffer must be bound in order to use this function
+            //@Bound(attribBuffer)
+            gl.vertexAttribPointer(attribLocations["a_vertexColor"], 3, gl.FLOAT, false, 5*4, 0); //buffer must be bound in order to use this function
+            //@Bound(attribBuffer)
+            gl.vertexAttribPointer(attribLocations["a_textureCoord"], 2, gl.FLOAT, false, 5*4, 3*4); //buffer must be bound in order to use this function
+
+            const vertexPosBuffer = gl.createBuffer();
+            let vertexPositions = [ //updated by the mousemove event listener
+                -0.5, -0.5,
+                -0.5, 0.5,
+                0.5, -0.5,
+                0.5, 0.5,
+            ];
+            gl.bindBuffer(gl.ARRAY_BUFFER, vertexPosBuffer);
+            //@Bound(vertexPosBuffer)
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexPositions), gl.STREAM_DRAW); //dynamic = occasionally, stream = probably every frame, static = once (per https://www.reddit.com/r/opengl/comments/57i9cl/comment/d8s8wnq/)
+            //using stream here because we'll probably only draw it when i change the vertex positions lol
+
+            ////@Bound(vertexPosBuffer) (actually technically not)
+            gl.vertexAttribPointer(attribLocations["a_position"], 2, gl.FLOAT, false, 0, 0); //buffer must be bound in order to use this function
+
+            // he created two different buffers but do you really have to ? https://jameshfisher.com/2017/10/19/glsl-varying/
+            // the answer is no! i knew it!!
+
+            // const colorBuffer = gl.createBuffer();
+            // gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+            // gl.enableVertexAttribArray(attribLocations["a_vertexColor"]);
+            // const colors = [
+
+            // ]
+            // gl.vertexAttribPointer(attribLocations["a_vertexColor"], 3, gl.FLOAT, false, 0, )
+
+            const iChannel0 = gl.createTexture();
+            gl.activeTexture(gl.TEXTURE0); //activeTexture sets the texture id of any subsequent bound textures
+            //@Bound(gl.TEXTURE0)
+            gl.bindTexture(gl.TEXTURE_2D, iChannel0); //iChannel0 now bound to gl.TEXTURE_2D[gl.TEXTURE0] or something? https://stackoverflow.com/questions/8866904/differences-and-relationship-between-glactivetexture-and-glbindtexture
+
+            console.log("iChannel0 ACTIVE TEXTURE:", gl.getParameter(gl.ACTIVE_TEXTURE) - gl.TEXTURE0);
+            console.log("iChannel0 TEXTURE_2D:", gl.getParameter(gl.TEXTURE_BINDING_2D));
+
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); //must happen before texImage2D!
+
+            const clav = new Image();
+            clav.onload = function(event) {
+                //forgot these two lines and for some reason i had to call activeTexture(gl.TEXTURE0) for things to start working (still don't know why...)
+                gl.activeTexture(gl.TEXTURE0);
+                //@Bound(gl.TEXTURE0)
+                gl.bindTexture(gl.TEXTURE_2D, iChannel0);
+
+                //@Bound(iChannel0)
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, clav); //not related to active texture i think?
+
+                //@Bound(iChannel0)
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+
+                //@Bound(iChannel0)
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+                //@Bound(iChannel0)
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+
+                //console.log("we did it gang");
+                draw();
+            }
+            clav.src = "./HAiH-lpW0AA0bLL.jpg";
+
+            //@Bound(program)
+            gl.uniform1i(uniformLocations["iChannel0"], gl.TEXTURE0 - gl.TEXTURE0);
+
+            const tempFramebuffer = gl.createFramebuffer();
+            gl.bindFramebuffer(gl.FRAMEBUFFER, tempFramebuffer);
+
+            const tempTextureForFramebuffer = gl.createTexture();
+            gl.activeTexture(gl.TEXTURE1);
+            //@Bound(program, gl.TEXTURE1)
+            gl.bindTexture(gl.TEXTURE_2D, tempTextureForFramebuffer);
+            //@Bound(tempTextureForFramebuffer)
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            //@Bound(tempTextureForFramebuffer)
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            //@Bound(tempTextureForFramebuffer)
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+
+            // gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, 1, 1, 0, gl.RGB, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0]));
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.canvas.width, gl.canvas.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
+            //@Bound(tempFramebuffer)
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tempTextureForFramebuffer, 0);
+
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+            //const whatistheproblem = gl.createTexture();
+            //gl.activeTexture(gl.TEXTURE1);
+            //gl.bindTexture(gl.TEXTURE_2D, whatistheproblem);
+
+
+            /*program2 = createProgram(document.getElementById("vertex-shader2").innerText, document.getElementById("fragment-shader2").innerText);
+            if(!program2) {
+                //fack.
+                quit;
+            }
+
+            gl.useProgram(program2);
+
+            const attribLocations2 = {};
+            attribLocations2["a_position"] = gl.getAttribLocation(program2, "a_position");
+
+            const uniformLocations2 = {};
+            uniformLocations2["iResolution"] = gl.getUniformLocation(program2, "iResolution");
+            uniformLocations2["iChannel0"] = gl.getUniformLocation(program2, "iChannel0");
+
+            const buffer2 = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffer2);
+            //@Bound(buffer2)
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+                -1.0, 1.0,
+                -1.0, -1.0,
+                1.0, 1.0,
+                1.0, -1.0,
+            ]), gl.STATIC_DRAW);
+
+            //@Bound(program2)
+            gl.uniform2fv(uniformLocations2["iResolution"], new Float32Array([gl.canvas.width, gl.canvas.height]));
+            //@Bound(program2)
+            gl.uniform1i(uniformLocations2["iChannel0"], gl.TEXTURE0 - gl.TEXTURE0);
+
+            //apparently not related to any programs so wtf?
+            gl.enableVertexAttribArray(attribLocations2["a_position"]);
+
+            //@Bound(buffer2)
+            gl.vertexAttribPointer(attribLocations2["a_position"], 2, gl.FLOAT, false, 0, 0);
+
+            gl.activeTexture(gl.TEXTURE0);
+            //@Bound(program2, gl.TEXTURE0)
+            gl.bindTexture(gl.TEXTURE_2D, iChannel0);
+
+            gl.useProgram(program);
+
+            function doUseProgram2() {
+                gl.useProgram(program2);
+                gl.enableVertexAttribArray(attribLocations2["a_position"]);
+                gl.bindBuffer(gl.ARRAY_BUFFER, buffer2);
+                //@Bound(buffer2)
+                gl.vertexAttribPointer(attribLocations2["a_position"], 2, gl.FLOAT, false, 0, 0);
+            }*/
+
+            // gl.activeTexture(gl.TEXTURE0);
+            //@Bound(program, gl.TEXTURE0)
+            // gl.bindTexture(gl.TEXTURE_2D, iChannel0);
+
+            // gl.activeTexture(gl.TEXTURE1);
+            //@Bound(program, gl.TEXTURE1)
+            // gl.bindTexture(gl.TEXTURE_2D, tempTextureForFramebuffer);
+
+            function draw() {
+                console.log("drawring");
+
+                /*gl.useProgram(program2);
+
+                gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+                gl.clearColor(0, 0, 0, 0);
+                gl.clear(gl.COLOR_BUFFER_BIT);
+
+                gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);*/
+
+                gl.useProgram(program);
+                gl.enableVertexAttribArray(attribLocations["a_position"]);
+                gl.bindBuffer(gl.ARRAY_BUFFER, vertexPosBuffer);
+                //@Bound(vertexPosBuffer)
+                gl.vertexAttribPointer(attribLocations["a_position"], 2, gl.FLOAT, false, 0, 0);
+
+                //technically bound to the framebuffer now?
+
+                gl.viewport(0, 0, gl.canvas.width, gl.canvas.height); //the canvas size could change and this will automagically resize it
+
+                //gl.activeTexture(gl.TEXTURE1); //technically i need this line just in case the current activeTexture is 0 since it would be mad
+                ////@Bound(gl.TEXTURE1)
+                //gl.bindTexture(gl.TEXTURE_2D, tempTextureForFramebuffer); //if you call bindTexture willy nilly you may bind it to gl.TEXTURE0 which could be bad!
+                //gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, gl.canvas.width, gl.canvas.height, 0);
+
+                // gl.clearColor(1.0, 0.0, 1.0, 1.0); //sets the color to be cleared when calling clear (for some reason)
+                gl.clearColor(0.0, 0.0, 0.0, 0.0);
+                gl.clear(gl.COLOR_BUFFER_BIT);
+
+                console.log("ACTIVE TEXTURE:", gl.getParameter(gl.ACTIVE_TEXTURE) - gl.TEXTURE0);
+                console.log("TEXTURE_2D:", gl.getParameter(gl.TEXTURE_BINDING_2D));
+
+                //gl.activeTexture(gl.TEXTURE0);
+                //gl.bindTexture(gl.TEXTURE_2D, iChannel0);
+                //gl.activeTexture(gl.TEXTURE1);
+                //gl.bindTexture(gl.TEXTURE_2D, whatistheproblem);
+
+                gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); //allegedly, triangle strip is the most efficient for drawing a square, but you must use a zigzag pattern!
+
+                /*gl.bindFramebuffer(gl.FRAMEBUFFER, tempFramebuffer); //draw to framebuffer texture
+
+                gl.viewport(0, 0, gl.canvas.width, gl.canvas.height); //setting le viewport for the frame buffer apparently
+
+                //gl.clearColor(0, 0, 0, 0);
+                //gl.clear(gl.COLOR_BUFFER_BIT);
+
+                // gl.enable(gl.CULL_FACE);
+
+                // gl.enableVertexAttribArray(attribLocations["a_position"]);
+
+                // gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+
+                // gl.vertexAttribPointer(attribLocations["a_position"], 2, gl.FLOAT, false, 0, 0);
+
+                //why do i have to do this?
+                //wait do i have to do this because i call bindFramebuffer?
+                console.log("FBO ACTIVE TEXTURE:", gl.getParameter(gl.ACTIVE_TEXTURE) - gl.TEXTURE0);
+                console.log("FBO TEXTURE_2D:", gl.getParameter(gl.TEXTURE_BINDING_2D));
+                // gl.activeTexture(gl.TEXTURE0);
+                //@Bound(program, gl.TEXTURE0)
+                //gl.bindTexture(gl.TEXTURE_2D, iChannel0);
+
+                //@Bound(program)
+                gl.uniform1i(uniformLocations["iChannel0"], gl.TEXTURE0 - gl.TEXTURE0); //use regular texture
+
+                gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); //allegedly, triangle strip is the most efficient for drawing a square, but you must use a zigzag pattern!
+
+                gl.bindFramebuffer(gl.FRAMEBUFFER, null); //draw to screen
+
+                //doUseProgram2();
+
+                //gl.activeTexture(gl.TEXTURE1);
+                ////@Bound(program, gl.TEXTURE0)
+                //gl.bindTexture(gl.TEXTURE_2D, tempTextureForFramebuffer);
+
+                //@Bound(program)
+                gl.uniform1i(uniformLocations["iChannel0"], gl.TEXTURE1 - gl.TEXTURE0); //use framebuffer texture
+
+                gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); //allegedly, triangle strip is the most efficient for drawing a square, but you must use a zigzag pattern!
+
+
+                 */
+                /*///@Bound(program)
+                //gl.uniform1i(uniformLocations["iChannel0"], gl.TEXTURE0 - gl.TEXTURE0); //use regular texture
+                //
+                //gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); //allegedly, triangle strip is the most efficient for drawing a square, but you must use a zigzag pattern!*/
+            }
+
+            //if(!setup()) {
+            //    //fack.
+            //}
+            //draw();
+
+            function grabVertex(event) {
+                //if(event.buttons) {
+                    //we gotta calculate which vertex our mouse is closest to (which is a kind of problem i've solved like 30 times already)
+                    //we need vectors, stat! (wait a second, what am i talking about let's just . wait nevermind yeah let's get the magnitude lol!)
+                    //debugger;
+                    const halfwidth = gl.canvas.width/2;
+                    const halfheight = gl.canvas.height/2;
+
+                    const clipspaceX = (event.offsetX-halfwidth)/halfwidth;
+                    const clipspaceY = (halfheight-event.offsetY)/halfheight;
+
+                    let closestPos;
+                    let closestMag = Infinity;
+                    for(let i = 0; i < vertexPositions.length; i+=2) {
+                        const fx = vertexPositions[i];
+                        const fy = vertexPositions[i+1];
+                        const mag = Math.sqrt((fx-clipspaceX)**2 + (fy-clipspaceY)**2);
+                        if(mag < closestMag) {
+                            closestMag = mag;
+                            closestPos = i;
+                        }
+                    }
+
+                    //unfortunately we now gotta put our mouse position into clip space
+                    vertexPositions[closestPos] = clipspaceX;
+                    vertexPositions[closestPos+1] = clipspaceY;
+
+                    //gl.useProgram(program);
+
+                    gl.bindBuffer(gl.ARRAY_BUFFER, vertexPosBuffer);
+
+                    //@Bound(vertexPosBuffer)
+                    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexPositions), gl.STREAM_DRAW);
+                    draw();
+                //}
+            }
+
+            canvas.addEventListener("mousemove", function(event) {
+                if(event.buttons) {
+                    grabVertex(event);
+                }
+            });
+            canvas.addEventListener("mousedown", function(event) {
+                if(event.button == 0) {
+                    grabVertex(event);
+                }
+            });
+        //}
+    </script>
+</body>
+</html>
