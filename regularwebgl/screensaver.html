@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>webgl /canvas.html screensaver</title>
+    <style>
+        canvas {
+            border: 2px solid red;
+        }
+        html, body {
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas">https://youtu.be/7d2HrYxl17Y?list=RD8AyLrtimUmk&t=141</canvas>
+    <script id="vertex-shader" type="glsl">
+        attribute vec4 a_position;
+        attribute vec2 a_texCoord;
+
+        attribute vec2 ai_offset; //instanced offset
+
+        uniform mat4 u_matrix;
+
+        varying vec2 v_texCoord;
+        varying vec4 v_position;
+        void main() {
+            //i could use points here but points are a little weird lol
+            //gl_PointSize = 12.0;
+            v_texCoord = a_texCoord;
+            gl_Position = u_matrix*(a_position+vec4(ai_offset, 0.0, 0.0));
+            v_position = gl_Position;
+        }
+    </script>
+    <script id="fragment-shader" type="glsl">precision highp float;
+        uniform float iTime;
+        varying vec2 v_texCoord;
+        varying vec4 v_position;
+        void main() {
+            const float tolerance = 0.1; //0.05;
+            float x = (fract(iTime/(255.0*2.0))*2.0);
+            float color = abs(mod(x-1.0, 2.0)-1.0); //https://www.desmos.com/calculator/cjsex4p7ee
+
+            //if(v_texCoord.x < tolerance || v_texCoord.x > 1.0-tolerance || v_texCoord.y < tolerance || v_texCoord.y > 1.0-tolerance) {
+            //    gl_FragColor = vec4(v_texCoord, color, 1.0);
+            //    //gl_FragColor = vec4(vec3(0.0), 1.0);
+            //    //gl_FragColor = vec4(1.0, 1.0, color, 1.0);
+            //}else {
+            //    gl_FragColor = vec4(color, v_position.x/2.0 + 0.5, v_position.y/2.0 + 0.5, 1.0);
+            //}
+
+            gl_FragColor = vec4(v_texCoord, color, 1.0);
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/lil-gui@0.21"></script>
+    <script src="./glwrapperex.js"></script>
+    <script>
+        const canvas = document.getElementById("canvas");
+
+        const gl = canvas.getContext("webgl2", {antialias: false}); //had to turn off le multisampling for the default framebuffer so blitFramebuffer worked lo
+        if(!gl) {
+            document.body.innerText = "apparently your browser can't do allat webgl2 shi";
+            quit;
+        }
+
+        //debugger;
+        const program = glProgram.fromShaders(document.getElementById("vertex-shader").innerText, document.getElementById("fragment-shader").innerText);
+        const vertexBuffer = new glBuffer(gl, gl.ARRAY_BUFFER);
+        vertexBuffer.set(new Float32Array([
+          //x    y     u    v
+            -1.0, 1.0, 0.0, 1.0,
+            -1.0, -1.0,0.0, 0.0,
+            1.0, 1.0,  1.0, 1.0,
+            1.0, -1.0, 1.0, 0.0,
+        ]), gl.STATIC_DRAW);
+        const instancedPositionBuffer = new glBuffer(gl, gl.ARRAY_BUFFER);
+        instancedPositionBuffer.set(new Float32Array([
+            0.0, 0.0,
+        ]), gl.DYNAMIC_DRAW);
+        program.registerAttrib("a_position", vertexBuffer);
+        program.registerAttrib("a_texCoord", vertexBuffer);
+        program.registerAttrib("ai_offset", instancedPositionBuffer);
+        program.describeAttribLayout("a_position", 2, gl.FLOAT, false, 4*4, 0);
+        program.describeAttribLayout("a_texCoord", 2, gl.FLOAT, false, 4*4, 2*4);
+        program.describeAttribLayout("ai_offset", 2, gl.FLOAT, false, 0, 0);
+        program.setAttribDivisor("ai_offset", 1);
+        program.enableAttrib("a_position");
+        program.enableAttrib("a_texCoord");
+        program.enableAttrib("ai_offset");
+
+        program.makeCurrent(); //...
+
+        program.registerUniform("u_matrix", "Matrix4fv");
+
+        let time = 0.0;
+
+        program.registerUniform("iTime", "1f", time);
+
+        class Square {
+            velocity = {};
+            constructor(x, y) {
+                const speed = 0.125;
+                this.x = x;
+                this.y = y;
+                this.velocity.x = Math.random() > 0.5 ? speed : -speed;
+                this.velocity.y = Math.random() > 0.5 ? speed : -speed;
+            }
+        }
+
+        var objectCount = 1;
+
+        const scale = 0.0325;
+
+        let positionArr = [0.0, 0.0];
+
+        const gui = new lil.GUI();
+        gui.add(window, "objectCount").onChange(function() {
+            //...
+            /*instancedPositionBuffer.set(new Float32Array(
+                Array(objectCount*2).fill(0).map(v=>(0.5-Math.random())*2/scale),
+            ), gl.STATIC_DRAW);*/
+            //debugger;
+            const wscale = gl.canvas.height/gl.canvas.width*scale;
+            if(objectCount > objects.length) {
+                //these were 2 different objects because i wanted to know where the stack overflow was coming from lol
+                //const temp = Array(objectCount-objects.length).fill(0); //hey what the fuck! this creates a holey array (and that makes it like 0.1% slower!) i KNEW the padStart method was better! (doesn't create a holey array!)
+                // const full = temp.map(v=>new Square((0.5-Math.random())*2*(1.0/wscale), (0.5-Math.random())*2*(1.0/scale)));
+                const full = "".padStart(objectCount-objects.length-1, " ").split(" ").map(v=>new Square((0.5-Math.random())*2*(1.0/wscale), (0.5-Math.random())*2*(1.0/scale)));
+                // objects.push(...full); //alright bro.
+                for(const element of full) {
+                    //ouuuuhhh that spread operator be talm bout some stack overflow so we'll have to iterate through them manually
+                    objects.push(element);
+                }
+            }else {
+                objects.splice(objectCount, objects.length-objectCount);
+            }
+            //https://v8.dev/blog/elements-kinds#performance-tips
+            
+            // positionArr = [];
+            //if i were to leave this array empty, would the next call to updatePositions be slower because i'm setting properties that didn't exist before?
+            //we'll just initialize it lol
+
+            positionArr = "".padStart(objectCount*2 - 1, " ").split(" ").map(v=>-0.0); //we know they'll be floats so no point in delaying that transition
+
+            //objects.push(new Square(Math.random(), Math.random()));
+        });
+
+        const objects = [
+            new Square(0.0, 0.0),
+        ];
+
+        const framebuffer = new glFramebuffer(gl, gl.FRAMEBUFFER);
+        //const bufferTexture = new glTexture(gl, gl.TEXTURE0, gl.TEXTURE_2D);
+        //bufferTexture.setTexImage2DWithData(0, gl.RGBA, gl.canvas.width, gl.canvas.height, 0, gl.UNSIGNED_BYTE, null);
+        //framebuffer.setTexture(bufferTexture, gl.COLOR_ATTACHMENT0, 0);
+
+        const renderbuffer = new glRenderbuffer(gl, gl.RENDERBUFFER);
+        renderbuffer.setStorage(gl.RGBA8, gl.canvas.width, gl.canvas.height);
+        //renderbuffer.setStorageMultisample(4, gl.RGBA4, gl.canvas.width, gl.canvas.height);
+        framebuffer.setRenderbuffer(renderbuffer, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER);
+
+        //hold on the google says a renderbuffer is actually what i should use here.
+
+        function updateCanvasSize() {
+            canvas.width = innerWidth;
+            canvas.height = innerHeight;
+            renderbuffer.setStorage(gl.RGBA8, gl.canvas.width, gl.canvas.height);
+        }
+
+        addEventListener("resize", updateCanvasSize);
+
+        updateCanvasSize();
+
+        //using a func here for profiling
+        //definitely a hotspot here lol, let's try to calculate this on the gpu! (we could actually do this whole thang with webgpu but we're glmaxxing rn)
+        //hold on couldn't we optimize this by not creating a new array each time? (enter positionArr!)
+        //wtf? that was a crazy optimization! (it runs like 2x smoother at 1,000,000 than it did before)
+        function updatePositions(wscale) {
+            // const arr = [];
+            //for(const obj of objects) {
+            //debugger;
+            for(let i = 0; i < objects.length; i++) {
+                const obj = objects[i];
+                obj.x += obj.velocity.x;
+                obj.y += obj.velocity.y;
+                if(obj.y > 1.0/scale) {
+                    obj.y = 1.0/scale;
+                    obj.velocity.y *= -1;
+                }else if(obj.y < -1.0/scale) {
+                    obj.y = -1.0/scale;
+                    obj.velocity.y *= -1;
+                }else if(obj.x > 1.0/wscale) {
+                    obj.x = 1.0/wscale;
+                    obj.velocity.x *= -1;
+                }else if(obj.x < -1.0/wscale) {
+                    obj.x = -1.0/wscale;
+                    obj.velocity.x *= -1;
+                }
+                // arr.push(obj.x, obj.y);
+                positionArr[i*2] = obj.x;
+                positionArr[i*2 + 1] = obj.y;
+            }
+            instancedPositionBuffer.set(new Float32Array(positionArr), gl.DYNAMIC_DRAW);
+        }
+
+        function draw() {
+            framebuffer.makeCurrent();
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+            //gl.clearColor(1.0, 0.0, 1.0, 0.5);
+            //gl.clear(gl.COLOR_BUFFER_BIT);
+            //yo wait a second i could totally copy minecraft and make like a whole 2d webgl framework for le browser by taking all textures and slapping them into an atlas (regardless of size) and i'd just pass the size of the texure and the position of it in the atlas (we could be like minecraft in this shit)
+            const wscale = gl.canvas.height/gl.canvas.width*scale;
+            program.setUniformMatrix("u_matrix", false, new Float32Array([
+                wscale, 0.0, 0.0, 0.0, //to make le verts square
+                0.0, 1.0*scale, 0.0, 0.0,
+                0.0, 0.0, 1.0*scale, 0.0,
+                0.0, 0.0, 0.0, 1.0,
+            ]));
+            program.setUniform("iTime", time);
+            updatePositions(wscale);
+            // instancedPositionBuffer.setSub(0, new Float32Array(arr));
+            glPolyfill.drawArraysInstanced(gl, gl.TRIANGLE_STRIP, 0, 4, objectCount);
+            gl.bindFramebuffer(gl.READ_FRAMEBUFFER, framebuffer.get());
+            gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+            //gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            gl.blitFramebuffer(0, 0, gl.canvas.width, gl.canvas.height, 0, 0, gl.canvas.width, gl.canvas.height, gl.COLOR_BUFFER_BIT, gl.NEAREST); //webgl2 only! https://stackoverflow.com/questions/65480462/how-to-draw-a-texture-to-the-screen-without-using-shader-in-opengl-3-3-or-above https://stackoverflow.com/questions/2213030/whats-the-concept-of-and-differences-between-framebuffer-and-renderbuffer-in-op
+            //gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+            time += 0.5;
+            requestAnimationFrame(draw);
+        }
+
+        draw();
+    </script>
+</body>
+</html>

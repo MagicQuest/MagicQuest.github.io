@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>opengl 2d graphics like minecraft</title>
+    <style>
+        canvas {
+            border: 2px solid red;
+        }
+    </style>
+</head>
+<body>
+    <center>
+        <canvas id="canvas" width="512" height="512">well a canvas would go here but your browser must be too old! (anyways... hai.)<canvas>
+    </center>
+    <!--we doing this one raw for old time's sake (actually, just in case i want to use this elsewhere), no glwrapperex (well ok i took the createProgram function from it lol!)-->
+    <script>
+        function showError(message) {
+            document.write(message);
+        }
+
+        function createProgram(vertex, fragment) {
+            let fshader = null;
+            let program = null;
+            const vshader = gl.createShader(gl.VERTEX_SHADER);
+            gl.shaderSource(vshader, vertex);
+            gl.compileShader(vshader);
+            if(!gl.getShaderParameter(vshader, gl.COMPILE_STATUS)) {
+                // displayError(gl.getShaderInfoLog(vshader));
+                showError(gl.getShaderInfoLog(vshader));
+                gl.deleteShader(vshader);
+                return {vshader, fshader, program};
+            }
+
+            fshader = gl.createShader(gl.FRAGMENT_SHADER);
+            gl.shaderSource(fshader, fragment);
+            gl.compileShader(fshader);
+            if(!gl.getShaderParameter(fshader, gl.COMPILE_STATUS)) {
+                // displayError(gl.getShaderInfoLog(fshader));
+                showError(gl.getShaderInfoLog(fshader));
+                gl.deleteShader(vshader);
+                gl.deleteShader(fshader);
+                return {vshader, fshader, program};
+            }
+
+            program = gl.createProgram();
+            gl.attachShader(program, vshader);
+            gl.attachShader(program, fshader);
+            gl.linkProgram(program);
+            if(!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                // displayError(gl.getProgramInfoLog(program));
+                showError(gl.getProgramInfoLog(program));
+                gl.deleteProgram(program);
+                gl.deleteShader(vshader);
+                gl.deleteShader(fshader);
+                return {vshader, fshader, program};
+            }
+
+            return {vshader, fshader, program};
+        }
+    </script>
+    <script>
+        const canvas = document.getElementById("canvas");
+        const gl = canvas.getContext("webgl2");
+        if(!gl) {
+            document.body.innerText = "apparently your browser can't do allat webgl2 shi";
+            quit;
+        }
+
+        function createBltProgram() {
+            const vertex_text = `#version 300 es
+                layout(location=0) in vec4 a_position;
+                in vec2 a_texCoord;
+
+                //using a matrix could slow this thang down (64 bytes per instance) but since i'm not instancing more than like 200 of these it should be fine?
+                in mat4 ai_matrix;
+                in vec4 ai_atlasBounds;
+
+                uniform mat4 u_normalizationMatrix;
+
+                out vec2 v_texCoord;
+                out vec4 v_atlasBounds;
+
+                void main() {
+                    v_texCoord = a_texCoord;
+                    v_atlasBounds = ai_atlasBounds;
+
+                    gl_Position = ai_matrix * (u_normalizationMatrix * a_position);
+                }
+            `;
+            const fragment_text = `#version 300 es
+                precision highp float;
+
+                uniform sampler2D u_texAtlas;
+                uniform vec2 u_atlasSize;
+
+                in vec2 v_texCoord;
+                in vec4 v_atlasBounds;
+
+                out vec4 fragColor;
+
+                void main() {
+                    //bruh i used divide here instead of multiply :(
+                    fragColor = texture(u_texAtlas, v_texCoord*v_atlasBounds.zw + vec2(v_atlasBounds.x, v_atlasBounds.y - v_atlasBounds.w));
+                }
+            `;
+            const {vshader, fshader, program} = createProgram(vertex_text, fragment_text);
+            if(!program) {
+                throw Error("Failed to create program!");
+            }
+
+            gl.detachShader(program, vshader);
+            gl.detachShader(program, fshader);
+
+            gl.deleteShader(vshader);
+            gl.deleteShader(fshader);
+
+            return program;
+        }
+
+        const bltProgram = createBltProgram();
+        
+        debugger;
+
+        const attribLocations = {};
+        attribLocations["a_position"] = gl.getAttribLocation(bltProgram, "a_position");
+        attribLocations["a_texCoord"] = gl.getAttribLocation(bltProgram, "a_texCoord");
+        attribLocations["ai_matrix"] = gl.getAttribLocation(bltProgram, "ai_matrix");
+        attribLocations["ai_atlasBounds"] = gl.getAttribLocation(bltProgram, "ai_atlasBounds");
+
+        const vertexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        //@Bound(vertexBuffer)
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+            //triangle strip LO!
+          //x     y    u    v
+            -1.0, 1.0, 0.0, 1.0,
+            -1.0, -1.0,0.0, 0.0,
+            1.0, 1.0,  1.0, 1.0,
+            1.0, -1.0, 1.0, 0.0,
+        ]), gl.STATIC_DRAW);
+        //@Bound(vertexBuffer)
+        gl.vertexAttribPointer(attribLocations["a_position"], 2, gl.FLOAT, false, 4*4, 0);
+        //@Bound(vertexBuffer)
+        gl.vertexAttribPointer(attribLocations["a_texCoord"], 2, gl.FLOAT, false, 4*4, 2*4);
+
+        const matrixBuffer = gl.createBuffer(); //populated later lol
+        gl.bindBuffer(gl.ARRAY_BUFFER, matrixBuffer);
+        //@Bound(matrixBuffer)
+        /*gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+            200.0, 0.0, 0.0, 0.0,
+            0.0, 20.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0,
+        ]), gl.STATIC_DRAW);*/
+
+        //gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+        //    200.0, 0.0, 0.0, 0.0,
+        //    0.0, 20.0, 0.0, 0.0,
+        //    0.0, 0.0, 1.0, 0.0,
+        //    0.0, 1.0, 0.0, 1.0,
+        //]), gl.DYNAMIC_DRAW);
+
+        for(let i = 0; i < 4; i++) {
+            //@Bound(matrixBuffer)
+            gl.vertexAttribPointer(attribLocations["ai_matrix"]+i, 4, gl.FLOAT, false, 4*4*4, 4*4*i);
+            gl.vertexAttribDivisor(attribLocations["ai_matrix"]+i, 1); //per instance
+            gl.enableVertexAttribArray(attribLocations["ai_matrix"]+i);
+        }
+
+        //at some point i might use gl to stitch images together to make my own atlas and at that point i'll populate this object while stitching (instead of manually putting the values here) (and then also i wouldn't need normalizeAtlasInfo)
+        const atlasInfo = {
+            "button_disabled": {x: 0, y: 46, width: 200, height: 20}, //coordinates are in normal pixel numbers (so y: 46 means 46 pixels down from the top of the image)
+            "button": {x: 0, y: 66, width: 200, height: 20},
+            "button_hover": {x: 0, y: 86, width: 200, height: 20},
+            "language": {x: 0, y: 106, width: 20, height: 20},
+            "language_hover": {x: 0, y: 126, width: 20, height: 20},
+            "locked": {x: 0, y: 146, width: 20, height: 20},
+            "locked_hover": {x: 0, y: 166, width: 20, height: 20},
+            "hotbar": {x: 0, y: 0, width: 182, height: 22},
+            "hotbar_selected": {x: 0, y: 22, width: 24, height: 24},
+        };
+
+        function normalizeAtlasInfo({width: atlasWidth, height: atlasHeight}) {//{atlasWidth: width, atlasHeight: height}) {
+            for(const texName in atlasInfo) {
+                const info = atlasInfo[texName];
+                info.x /= atlasWidth;
+                info.y = (atlasHeight-info.y)/atlasHeight; //invert since gl texture coords have the y component starting from the bottom and not the top
+                info.width /= atlasWidth;
+                info.height /= atlasHeight;
+            }
+        }
+
+        const atlasBoundsBuffer = gl.createBuffer(); //populated later lol
+        gl.bindBuffer(gl.ARRAY_BUFFER, atlasBoundsBuffer);
+        //@Bound(atlasBoundsBuffer)
+        //gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+        //    //0, 0, atlasInfo["button"].width/256, atlasInfo["button"].height/256,
+        //    atlasInfo["button"].x/256, (256-atlasInfo["button"].y)/256, atlasInfo["button"].width/256, atlasInfo["button"].height/256,
+        //]), gl.DYNAMIC_DRAW);
+
+        //@Bound(atlasBoundsBuffer)
+        gl.vertexAttribPointer(attribLocations["ai_atlasBounds"], 4, gl.FLOAT, false, 0, 0);
+        gl.vertexAttribDivisor(attribLocations["ai_atlasBounds"], 1); //per instance
+
+        gl.enableVertexAttribArray(attribLocations["a_position"]);
+        gl.enableVertexAttribArray(attribLocations["a_texCoord"]);
+        gl.enableVertexAttribArray(attribLocations["ai_atlasBounds"]);
+
+        let atlasSize = {width: 0, height: 0};
+        const atlas = gl.createTexture();
+        gl.activeTexture(gl.TEXTURE0);
+        //@Bound(gl.TEXTURE0)
+        gl.bindTexture(gl.TEXTURE_2D, atlas);
+
+        //@Bound(atlas)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        //@Bound(atlas)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        //@Bound(atlas)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        //@Bound(atlas)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+        //the program must be in use before setting uniforms!
+
+        gl.useProgram(bltProgram);
+
+        const uniformLocations = {};
+        uniformLocations["u_texAtlas"] = gl.getUniformLocation(bltProgram, "u_texAtlas");
+        uniformLocations["u_atlasSize"] = gl.getUniformLocation(bltProgram, "u_atlasSize");
+        uniformLocations["u_normalizationMatrix"] = gl.getUniformLocation(bltProgram, "u_normalizationMatrix");
+        gl.uniform1i(uniformLocations["u_texAtlas"], gl.TEXTURE0 - gl.TEXTURE0);
+
+        {
+            const atlasImg = new Image();
+            atlasImg.onload = function(event) {
+                //just in case ...
+                gl.activeTexture(gl.TEXTURE0);
+                //@Bound(gl.TEXTURE0)
+                gl.bindTexture(gl.TEXTURE_2D, atlas);
+                //@Bound(atlas)
+                gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+                //@Bound(atlas)
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, atlasImg);
+
+                atlasSize = {width: event.target.naturalWidth, height: event.target.naturalHeight};
+                normalizeAtlasInfo(atlasSize);
+                gl.uniform2fv(uniformLocations["u_atlasSize"], new Float32Array([event.target.naturalWidth, event.target.naturalHeight]));
+
+                draw();
+            }
+            atlasImg.src = "./widgets.png";
+        }
+
+        let commands = [];
+        
+        //uhhh this'll probably be the only command lol
+        class BltCommand {
+            constructor(atlasBounds, matrix) {
+                this.atlasBounds = atlasBounds;
+                this.matrix = matrix;
+            }
+        }
+
+        //unlike the minecraft version, this function takes in the texture name in the atlas as a parameter
+        /*function blit(textureName, destX, destY, destWidth, destHeight, srcX, srcY, srcWidth, srcHeight) {
+            commands.push(new BltCommand(
+                
+            ));
+        }*/
+
+        //arguments in normal pixels so in a 256 by 256 atlas, 128x128 is the center (and that's 128 pixels from the left x 128 pixels from the top)
+        function blit(textureName, x, y, width, height, srcX, srcY, srcWidth = undefined, srcHeight = undefined) {
+            //debugger;
+            const deref = atlasInfo[textureName];
+            if(srcWidth == undefined) {
+                srcWidth = deref.width;
+            }else {
+                srcWidth /= atlasSize.width;
+            }
+            if(srcHeight == undefined) {
+                srcHeight = deref.height;
+            }else {
+                srcHeight /= atlasSize.height;
+            }
+            //const atlasBounds = [(deref.x+srcX)/atlasSize.width, (atlasSize.height-(deref.y+srcY))/atlasSize.height, deref.width/atlasSize.width, deref.height/atlasSize.height];
+            const atlasBounds = [deref.x+srcX/atlasSize.width, deref.y - srcY/atlasSize.height, srcWidth, srcHeight];
+            //const matrix = [
+            //    width, 0.0, 0.0, 0.0,
+            //    0.0, height, 0.0, 0.0,
+            //    0.0, 0.0, 1.0, 0.0,
+            //    -1.0 + deref.width/2 + srcX/atlasSize.width, 1.0 + deref.height/2 + srcY/atlasSize.height, 0.0, 1.0,
+            //];
+            //since we scale the matrix we gotta do this bs calculation to make sure it goes in the right position after (or i guess i could just multiply two matrices but uhhhh, too late)
+            const ratioW = (width/atlasSize.width)/srcWidth;
+            const ratioH = (height/atlasSize.height)/srcHeight;
+            const matrix = [
+               width, 0.0, 0.0, 0.0,
+               0.0, height, 0.0, 0.0,
+               0.0, 0.0, 1.0, 0.0,
+               //-1.0 + deref.width/2, 1.0 - deref.height/2, 0.0, 1.0,
+               //-1.0 + (deref.width)/2 + x/atlasSize.width, 1.0 - deref.height/2 - y/atlasSize.height, 0.0, 1.0,
+               -1.0 + ((srcWidth)/2)*ratioW + x/atlasSize.width, 1.0 - (srcHeight/2)*ratioH - y/atlasSize.height, 0.0, 1.0,
+            ];
+            commands.push(new BltCommand(atlasBounds, matrix));
+        }
+
+        let lastMatrixBufferLen;
+        let lastAtlasBoundsBufferLen;
+
+        let mouse = {x: -1, y: -1};
+
+        canvas.addEventListener("mousemove", function(event) {
+            mouse = {x: event.offsetX, y: event.offsetY};
+            draw();
+        });
+
+        //divinecontrols based
+        class Positionable {
+            x;
+            y;
+            width;
+            height;
+            constructor(x, y, width, height) {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+            }
+            withinBounds(x, y) {
+                return x > this.x && y > this.y && x < this.x+this.width && y < this.y+this.height;
+            }
+        }
+
+        const hovered = new Map();
+
+        class Button extends Positionable {
+            defaultTexture = "";
+            hoveredTexture = "";
+            constructor(x, y, width, height) {
+                super(x, y, width, height);
+            }
+            setDefaultTexture(name) {
+                this.defaultTexture = name;
+                return this;
+            }
+            setHoveredTexture(name) {
+                this.hoveredTexture = name;
+                return this;
+            }
+            draw() {
+                //instead of the fancy d2d stuff we'll just use blit like minecraft!
+                const texName = hovered.has(this) ? this.hoveredTexture : this.defaultTexture;
+                /*this.*/blit(texName, this.x, this.y, this.width, this.height, 0, 0);
+            }
+        }
+
+        const buttons = [
+            new Button(5, gl.canvas.height/2, 400, 40, 0, 0).setDefaultTexture("button").setHoveredTexture("button_hover"),
+            new Button(5, 5, 400, 40, 0, 0).setDefaultTexture("button").setHoveredTexture("button_hover"),
+            new Button(5+400+5, 5, 40, 40, 0, 0).setDefaultTexture("language").setHoveredTexture("language_hover"),
+            new Button(5, 50, 400, 40, 0, 0).setDefaultTexture("button").setHoveredTexture("button_hover"),
+            new Button(5+400+5, 5+40+5, 40, 40, 0, 0).setDefaultTexture("locked").setHoveredTexture("locked_hover"),
+            new Button(5, 95, 400, 40, 0, 0).setDefaultTexture("button").setHoveredTexture("button_hover"),
+            new Button(100, 300, 200, 20, 0, 0).setDefaultTexture("button").setHoveredTexture("button_hover"),
+            new Button(12, 310, 200, 40, 0, 0).setDefaultTexture("button").setHoveredTexture("button_hover"),
+            new Button(0, gl.canvas.height-(gl.canvas.width*(22/182)), gl.canvas.width, gl.canvas.width*(22/182), 0, 0).setDefaultTexture("hotbar").setHoveredTexture("button_hover"),
+            new Button(-1, gl.canvas.height-(gl.canvas.width*(24/182))+1, gl.canvas.width*(24/182), gl.canvas.width*(24/182), 0, 0).setDefaultTexture("hotbar_selected").setHoveredTexture("locked_hover"),
+        ];
+
+        function draw() {
+            //debugger;
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+            // gl.clearColor(1.0, 0.0, 1.0, 1.0);
+            // gl.clearColor(0.3, 0.3, 0.3, 0.5);
+            gl.clearColor(204/255, 204/255, 204/255, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            gl.uniformMatrix4fv(uniformLocations["u_normalizationMatrix"], false, new Float32Array([
+                1.0/gl.canvas.width, 0.0, 0.0, 0.0,
+                0.0, 1.0/gl.canvas.height, 0.0, 0.0,
+                0.0, 0.0, 1.0, 0.0,
+                0.0, 0.0, 0.0, 1.0,
+            ]));
+
+            gl.enable(gl.BLEND);
+            gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); //first time using blending in gl! (deep dive SOON + stencils)
+
+            hovered.clear();
+
+            //starting from the end since they'll be drawn such that the last button has the highest z order (i mean technically)
+            for(let i = buttons.length-1; i >= 0; i--) {
+                const button = buttons[i];
+                if(button.withinBounds(mouse.x, mouse.y)) {
+                    hovered.set(button, true);
+                    //break;
+                }
+            }
+
+            for(const button of buttons) {
+                button.draw();
+            }
+
+            //fancy blit
+            blit("locked", 160, 160, 80, 80, 0, 0, 40, 40);
+
+            //{
+            //    let buttonTypeName = "button";
+            //    if(mouse.x > 5 && mouse.x < 5+400 && mouse.y > gl.canvas.height/2 && mouse.y < (gl.canvas.width/2 + 40)) {
+            //        buttonTypeName = "button_hover";
+            //    }
+            //    blit(buttonTypeName, 5, gl.canvas.height/2, 400, 40, 0, 0);
+            //}
+
+            const matrixBufferArr = "".padStart(16*commands.length-1, " ").split(" ");
+            const atlasBoundsBufferArr = "".padStart(4*commands.length-1, " ").split(" ");
+
+            for(let i = 0; i < commands.length; i++) {
+                const command = commands[i];
+                for(let j = 0; j < 16; j++) {
+                    matrixBufferArr[i*16 + j] = command.matrix[j];
+                }
+                for(let j = 0; j < 4; j++) {
+                    atlasBoundsBufferArr[i*4 + j] = command.atlasBounds[j];
+                }
+            }
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, matrixBuffer);
+            if(matrixBufferArr.length == lastMatrixBufferLen) {
+                //@Bound(matrixBuffer)
+                gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(matrixBufferArr));
+            }else {
+                //@Bound(matrixBuffer)
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(matrixBufferArr), gl.DYNAMIC_DRAW);
+            }
+
+            lastMatrixBufferLen = matrixBufferArr.length;
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, atlasBoundsBuffer);
+            if(atlasBoundsBufferArr.length == lastAtlasBoundsBufferLen) {
+                //@Bound(atlasBoundsBuffer)
+                gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(atlasBoundsBufferArr));
+            }else {
+                //@Bound(atlasBoundsBuffer)
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(atlasBoundsBufferArr), gl.DYNAMIC_DRAW);
+            }
+
+            lastAtlasBoundsBufferLen = atlasBoundsBufferArr.length;
+
+            // matrixBuffer.set(new Float32Array(matrixBufferArr), gl.DYNAMIC_DRAW);
+            // atlasBoundsBuffer.set(new Float32Array(atlasBoundsBufferArr), gl.DYNAMIC_DRAW);
+
+            gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, commands.length);
+
+            commands = [];
+        }
+    </script>
+</body>
+</html>

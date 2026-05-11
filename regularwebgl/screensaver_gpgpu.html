@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>webgl /canvas.html screensaver that calculates positions with webgl</title>
+    <style>
+        canvas {
+            border: 2px solid red;
+        }
+        html, body {
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas">https://youtu.be/7d2HrYxl17Y?list=RD8AyLrtimUmk&t=141</canvas>
+    <script id="vertex-shader" type="glsl">#version 300 es
+        //using these defines because i'm LAZY!
+        #define attribute in
+        #define varying out
+        #define texture2D texture
+
+        attribute vec4 a_position;
+        attribute vec2 a_texCoord;
+
+        uniform mat4 u_matrix;
+        uniform sampler2D objectTex;
+        uniform float objectCount;
+        uniform float u_maxTextureSize;
+
+        varying vec2 v_texCoord;
+        varying vec4 v_position;
+
+        flat out int v_id;
+        void main() {
+            //i could use points here but points are a little weird lol
+            //gl_PointSize = 12.0;
+
+            //vec2 offset = texture2D(objectTex, vec2(float(gl_InstanceID)/objectCount, 0.0)).xy;
+            vec2 offset = texelFetch(objectTex, ivec2(int(min(float(gl_InstanceID), u_maxTextureSize-1.0)), int(floor(float(gl_InstanceID)/u_maxTextureSize))), 0).xy;
+
+            v_texCoord = a_texCoord;
+            gl_Position = u_matrix*(a_position) + vec4((offset-0.5)*2.0, 0.0, 0.0);
+            v_position = gl_Position;
+            v_id = gl_InstanceID;
+        }
+    </script>
+    <script id="fragment-shader" type="glsl">#version 300 es
+        precision highp float;
+
+        //using these defines because i'm LAZY!
+        #define varying in
+        #define gl_FragColor fragColor
+
+        uniform float iTime;
+        varying vec2 v_texCoord;
+        varying vec4 v_position;
+        
+        flat in int v_id;
+
+        out vec4 gl_FragColor;
+
+        void main() {
+            const float tolerance = 0.1; //0.05;
+            float x = (fract(iTime/(255.0*2.0))*2.0);
+            float color = abs(mod(x-1.0, 2.0)-1.0); //https://www.desmos.com/calculator/cjsex4p7ee
+
+            //if(v_texCoord.x < tolerance || v_texCoord.x > 1.0-tolerance || v_texCoord.y < tolerance || v_texCoord.y > 1.0-tolerance) {
+            //    gl_FragColor = vec4(v_texCoord, color, 1.0);
+            //    //gl_FragColor = vec4(vec3(0.0), 1.0);
+            //    //gl_FragColor = vec4(1.0, 1.0, color, 1.0);
+            //}else {
+            //    gl_FragColor = vec4(color, v_position.x/2.0 + 0.5, v_position.y/2.0 + 0.5, 1.0);
+            //}
+
+            gl_FragColor = vec4(v_texCoord, color, 1.0);
+        }
+    </script>
+    <script id="vertex-shader-gpgpu" type="glsl">#version 300 es
+        //using these defines because i'm LAZY!
+        #define attribute in
+
+        attribute vec4 a_position;
+
+        void main() {
+            gl_Position = a_position;
+        }
+    </script>
+    <script id="fragment-shader-gpgpu" type="glsl">#version 300 es
+        precision highp float;
+
+        //using these defines because i'm LAZY!
+        #define gl_FragColor fragColor
+        #define texture2D texture
+
+        //uniform sampler2D positionTex;
+        //uniform sampler2D velocityTex;
+
+        //actually we can just use one texture and have the position in the xy and the velocity in the zw
+        uniform sampler2D objectTex;
+
+        uniform vec2 iResolution;
+
+        out vec4 gl_FragColor;
+ 
+        void main() {
+            //vec2 uv = gl_FragCoord.xy / iResolution.xy;
+            //vec4 data = texture2D(objectTex, uv + (0.5 / iResolution.xy));
+            //vec2 pos = (data.xy-0.5) + (data.zw-0.5); //(0.5-data.zw)*2.0;
+
+            vec4 data = texelFetch(objectTex, ivec2(gl_FragCoord.xy), 0);
+
+            vec2 pos = data.xy + (0.5-data.zw)/2.0;
+
+            if(pos.x < 1.0/255.0) {
+                pos.x = 1.0/255.0;
+                data.z = 1.0-data.z;
+                //data.z *= -1.0;
+            }else if(pos.x > 254.0/255.0) {
+                pos.x = 254.0/255.0;
+                data.z = 1.0-data.z;
+                //data.z *= -1.0;
+            }else if(pos.y < 1.0/255.0) {
+                pos.y = 1.0/255.0;
+                data.w = 1.0-data.w;
+                //data.w *= -1.0;
+            }else if(pos.y > 254.0/255.0) {
+                pos.y = 254.0/255.0;
+                data.w = 1.0-data.w;
+                //data.w *= -1.0;
+            }
+
+            //outputting new position
+            //gl_FragColor = vec4(pos + 0.5, data.zw);
+            gl_FragColor = vec4(pos, data.zw);
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/lil-gui@0.21"></script>
+    <script src="./glwrapperex.js"></script>
+    <script>
+        const canvas = document.getElementById("canvas");
+
+        const gl = canvas.getContext("webgl2", {antialias: false}); //had to turn off le multisampling for the default framebuffer so blitFramebuffer worked lo
+        if(!gl) {
+            document.body.innerText = "apparently your browser can't do allat webgl2 shi";
+            quit;
+        }
+
+        let program, squareVAO, instancedPositionBuffer, updateProgram, updateVAO;
+        let time = 0.0;
+        var objectCount = 2;
+        let lastObjectCount = objectCount;
+        const MAX_TEXTURE_SIZE = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+
+        debugger;
+
+        function createMainProgram() {
+            //debugger;
+            program = glProgram.fromShaders(document.getElementById("vertex-shader").innerText, document.getElementById("fragment-shader").innerText, true, true);
+            squareVAO = glPolyfill.createVertexArray(gl);
+            glPolyfill.bindVertexArray(gl, squareVAO);
+            const vertexBuffer = new glBuffer(gl, gl.ARRAY_BUFFER);
+            vertexBuffer.set(new Float32Array([
+              //x    y     u    v
+                -1.0, 1.0, 0.0, 1.0,
+                -1.0, -1.0,0.0, 0.0,
+                1.0, 1.0,  1.0, 1.0,
+                1.0, -1.0, 1.0, 0.0,
+            ]), gl.STATIC_DRAW);
+            instancedPositionBuffer = new glBuffer(gl, gl.ARRAY_BUFFER);
+            instancedPositionBuffer.set(new Float32Array([
+                0.0, 0.0,
+            ]), gl.DYNAMIC_DRAW);
+            program.registerAttrib("a_position", vertexBuffer);
+            program.registerAttrib("a_texCoord", vertexBuffer);
+            //program.registerAttrib("ai_offset", instancedPositionBuffer);
+            program.describeAttribLayout("a_position", 2, gl.FLOAT, false, 4*4, 0);
+            program.describeAttribLayout("a_texCoord", 2, gl.FLOAT, false, 4*4, 2*4);
+            //program.describeAttribLayout("ai_offset", 2, gl.FLOAT, false, 0, 0);
+            //program.setAttribDivisor("ai_offset", 1);
+            program.enableAttrib("a_position");
+            program.enableAttrib("a_texCoord");
+            //program.enableAttrib("ai_offset");
+
+            program.makeCurrent(); //...
+
+            program.registerUniform("u_matrix", "Matrix4fv");
+            program.registerUniform("iTime", "1f", time);
+            program.registerUniform("objectTex", "1i");
+            program.registerUniform("u_maxTextureSize", "1f", MAX_TEXTURE_SIZE);
+            //program.registerUniform("objectCount", "1f", objectCount);
+
+            gl.useProgram(null);
+        }
+
+        function createUpdateProgram() {
+            updateProgram = glProgram.fromShaders(document.getElementById("vertex-shader-gpgpu").innerText, document.getElementById("fragment-shader-gpgpu").innerText, true, true);
+            updateVAO = glPolyfill.createVertexArray(gl);
+            glPolyfill.bindVertexArray(gl, updateVAO);
+            const vertexBuffer = new glBuffer(gl, gl.ARRAY_BUFFER);
+            vertexBuffer.set(new Float32Array([
+               //x    y
+                //full triangle strip here so we'll use gl.viewport to set real size
+                -1.0, 1.0,
+                -1.0, -1.0,
+                1.0, 1.0,
+                1.0, -1.0,
+            ]), gl.STATIC_DRAW);
+            
+            updateProgram.registerAttrib("a_position", vertexBuffer);
+            updateProgram.describeAttribLayout("a_position", 2, gl.FLOAT, false, 0, 0);
+            updateProgram.enableAttrib("a_position");
+
+            updateProgram.makeCurrent();
+
+            updateProgram.registerUniform("objectTex", "1i");
+            updateProgram.registerUniform("iResolution", "2fv", new Float32Array([Math.min(objectCount, MAX_TEXTURE_SIZE), Math.ceil(objectCount/16384)]));
+
+            gl.useProgram(null);
+        }
+
+        //class Square {
+        //    velocity = {};
+        //    constructor(x, y) {
+        //        const speed = 0.125;
+        //        this.x = x;
+        //        this.y = y;
+        //        this.velocity.x = Math.random() > 0.5 ? speed : -speed;
+        //        this.velocity.y = Math.random() > 0.5 ? speed : -speed;
+        //    }
+        //}
+
+        let scale = 0.0325;
+
+        //const objects = [
+        //    new Square(0.0, 0.0),
+        //];
+
+        const framebuffer = new glFramebuffer(gl, gl.FRAMEBUFFER);
+        //const bufferTexture = new glTexture(gl, gl.TEXTURE0, gl.TEXTURE_2D);
+        //bufferTexture.setTexImage2DWithData(0, gl.RGBA, gl.canvas.width, gl.canvas.height, 0, gl.UNSIGNED_BYTE, null);
+        //framebuffer.setTexture(bufferTexture, gl.COLOR_ATTACHMENT0, 0);
+
+        const renderbuffer = new glRenderbuffer(gl, gl.RENDERBUFFER);
+        renderbuffer.setStorage(gl.RGBA8, gl.canvas.width, gl.canvas.height);
+        //renderbuffer.setStorageMultisample(4, gl.RGBA4, gl.canvas.width, gl.canvas.height);
+        framebuffer.setRenderbuffer(renderbuffer, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER);
+
+        createMainProgram();
+        createUpdateProgram();
+
+        //hold on the google says a renderbuffer is actually what i should use here.
+
+        function updateCanvasSize() {
+            canvas.width = innerWidth;
+            canvas.height = innerHeight;
+            renderbuffer.setStorage(gl.RGBA8, gl.canvas.width, gl.canvas.height);
+        }
+
+        addEventListener("resize", updateCanvasSize);
+
+        updateCanvasSize();
+
+        let objectTex = new glTexture(gl, gl.TEXTURE0, gl.TEXTURE_2D);
+        objectTex.setTexImage2DWithData(0, gl.RGBA, objectCount, 1, 0, gl.UNSIGNED_BYTE, new Uint8Array([
+          //x   y  vx vy
+            //128, 128, 127, 128, //0.01*255, 0.01*255,
+            //alright fuck all that normalization shit
+            128, 128, 130, 124,
+            //128, 128, 124, 130,
+            128, 128, 122, 120,
+        ]));
+        /*objectTex.makeCurrent();
+		gl.texImage2D(objectTex.target, 0, gl.RGBA8_SNORM, objectCount, 1, 0, gl.RGBA, gl.BYTE, new Int8Array([
+            0, 0, 255, 1,
+        ]));*/
+
+        const tempTex = new glTexture(gl, gl.TEXTURE1, gl.TEXTURE_2D);
+        tempTex.setTexImage2DWithData(0, gl.RGBA, objectCount, 1, 0, gl.UNSIGNED_BYTE, null);
+        // gl.texImage2D(objectTex.target, 0, gl.RGBA8_SNORM, objectCount, 1, 0, gl.RGBA, gl.BYTE, null);
+
+        const backFramebuffer = new glFramebuffer(gl, gl.FRAMEBUFFER);
+        backFramebuffer.setTexture(tempTex, gl.COLOR_ATTACHMENT0, 0);
+
+        const gui = new lil.GUI();
+        gui.add(window, "objectCount").onChange(function() {
+            debugger;
+            const tempTempTex = new glTexture(gl, gl.TEXTURE0, gl.TEXTURE_2D);
+            const fullTextureSize = Math.min(objectCount, MAX_TEXTURE_SIZE)*Math.ceil(objectCount/16384);
+            const arr = "".padStart(fullTextureSize*4-1, " ").split(" ").map(v=>-0.0);
+            for(let i = 0; i < objectCount; i++) {
+                //arr.push(Math.random()*255);
+                //arr.push(Math.random()*255);
+                ////arr.push(127 + Math.ceil((0.5-Math.random())*2.0*4.0));
+                ////arr.push(127 + Math.ceil((0.5-Math.random())*2.0*4.0));
+                //arr.push(130);
+                //arr.push(130);
+                const offset = i*4;
+                arr[offset] = Math.random()*255;
+                arr[offset+1] = Math.random()*255;
+                // const signvx = (0.5-Math.round(Math.random()))*2.0;
+                // const signvy = (0.5-Math.round(Math.random()))*2.0;
+                //arr[offset+2] = 129+signvx*Math.ceil(Math.random()*8.0);
+                //arr[offset+3] = 129+signvy*Math.ceil(Math.random()*8.0);
+
+                //how the FUCK is this still only moving in one direction
+                //const vx = (0.5-Math.random())*2.0;
+                //const vy = (0.5-Math.random())*2.0;
+                //const mag = Math.sqrt(vx**2 + vy**2);
+                //const ratio = 4/mag;
+                //arr[offset+2] = 127 + vx*ratio;
+                //arr[offset+3] = 127 + vy*ratio;
+
+                //god damn
+                let vx = 2*Math.sign(0.5-Math.random());
+                let vy = 2*Math.sign(0.5-Math.random());
+                arr[offset+2] = 127 + vx;
+                arr[offset+3] = 127 + vy;
+            }
+            //const arr = [128, 128, 130, 124];
+            //const uint8arr = new Uint8Array("".padStart(objectCount*4 - 1, " ").split(" ").map((v, i)=>arr[i%4]+Math.random()*2.0));
+            const uint8arr = new Uint8Array(arr);
+            tempTempTex.setTexImage2DWithData(0, gl.RGBA, Math.min(objectCount, MAX_TEXTURE_SIZE), Math.ceil(objectCount/16384), 0, gl.UNSIGNED_BYTE, uint8arr);
+            /*backFramebuffer.setTexture(objectTex, gl.COLOR_ATTACHMENT0, 0); //lowkey this thang ain't working
+            if(lastObjectCount > objectCount) {
+                lastObjectCount = objectCount;
+            }
+            */
+
+            const temp = objectCount;
+            objectCount = lastObjectCount;
+            objectTex.makeCurrent(); //oops...
+            draw(undefined, true);
+            objectCount = temp;
+
+            //yo why does it seem like this isn't working
+            tempTempTex.copyTexSubImage2D(0, 0, 0, 0, 0, Math.min(lastObjectCount, MAX_TEXTURE_SIZE), Math.ceil(lastObjectCount/16384)); //copies from current framebuffer
+
+            //let outArr = new Uint8Array(objectCount*1*4);
+            //gl.readPixels(0, 0, objectCount, 1, gl.RGBA, gl.UNSIGNED_BYTE, outArr);
+            //console.log(outArr);
+
+            objectTex.destroy();
+
+            //backFramebuffer.setTexture(tempTex, gl.COLOR_ATTACHMENT0, 0);
+
+            objectTex = tempTempTex;
+
+            tempTex.setTexImage2DWithData(0, gl.RGBA, Math.min(objectCount, MAX_TEXTURE_SIZE), Math.ceil(objectCount/16384), 0, gl.UNSIGNED_BYTE, null); //update tempTex size
+
+            //objectTex.makeCurrent();
+            //...
+            /*instancedPositionBuffer.set(new Float32Array(
+                Array(objectCount*2).fill(0).map(v=>(0.5-Math.random())*2/scale),
+            ), gl.STATIC_DRAW);*/
+            //const wscale = gl.canvas.height/gl.canvas.width*scale;
+            //if(objectCount > objects.length) {
+            //    const temp = Array(objectCount-objects.length).fill(0);
+            //    const full = temp.map(v=>new Square((0.5-Math.random())*2*(1.0/wscale), (0.5-Math.random())*2*(1.0/scale)));
+            //    // objects.push(...full); //alright bro.
+            //    //ouuuuhhh that spread operator be talm bout some stack overflow so we'll have to iterate through them manually
+            //    for(const element of full) {
+            //        objects.push(element);
+            //    }
+            //}else {
+            //    objects.splice(objectCount, objects.length-objectCount);
+            //}
+            
+            //program.setUniform("objectCount", objectCount);
+            //updateProgram.setUniform("iResolution", new Float32Array([objectCount, 1]));
+            updateProgram.setUniform("iResolution", new Float32Array([Math.min(objectCount, MAX_TEXTURE_SIZE), Math.ceil(objectCount/16384)]));
+            //objects.push(new Square(Math.random(), Math.random()));
+            lastObjectCount = objectCount;
+        });
+
+        program.makeCurrent();
+
+        program.setUniform("objectTex", gl.TEXTURE0 - gl.TEXTURE0);
+
+        updateProgram.makeCurrent();
+
+        updateProgram.setUniform("objectTex", gl.TEXTURE0 - gl.TEXTURE0);
+
+        debugger;
+
+        function draw(t, beginning_only = false) {
+            updateProgram.makeCurrent();
+            backFramebuffer.makeCurrent();
+
+            gl.viewport(0, 0, Math.min(objectCount, MAX_TEXTURE_SIZE), Math.ceil(objectCount/16384));
+
+            glPolyfill.bindVertexArray(gl, updateVAO);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+            if(beginning_only) return;
+
+            objectTex.copyTexSubImage2D(0, 0, 0, 0, 0, Math.min(objectCount, MAX_TEXTURE_SIZE), Math.ceil(objectCount/16384)); //copies from current framebuffer
+
+            //let outArr = new Uint8Array(objectCount*1*4);
+            //gl.readPixels(0, 0, objectCount, 1, gl.RGBA, gl.UNSIGNED_BYTE, outArr);
+            //console.log(outArr);
+
+            program.makeCurrent();
+            framebuffer.makeCurrent();
+
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+            const wscale = gl.canvas.height/gl.canvas.width*scale;
+            program.setUniformMatrix("u_matrix", false, new Float32Array([
+                wscale, 0.0, 0.0, 0.0, //to make le verts square
+                0.0, 1.0*scale, 0.0, 0.0,
+                0.0, 0.0, 1.0*scale, 0.0,
+                0.0, 0.0, 0.0, 1.0,
+            ]));
+            program.setUniform("iTime", time);
+
+            glPolyfill.bindVertexArray(gl, squareVAO);
+            glPolyfill.drawArraysInstanced(gl, gl.TRIANGLE_STRIP, 0, 4, objectCount);
+
+            gl.bindFramebuffer(gl.READ_FRAMEBUFFER, framebuffer.get());
+            gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+
+            gl.blitFramebuffer(0, 0, gl.canvas.width, gl.canvas.height, 0, 0, gl.canvas.width, gl.canvas.height, gl.COLOR_BUFFER_BIT, gl.NEAREST); //webgl2 only! https://stackoverflow.com/questions/65480462/how-to-draw-a-texture-to-the-screen-without-using-shader-in-opengl-3-3-or-above https://stackoverflow.com/questions/2213030/whats-the-concept-of-and-differences-between-framebuffer-and-renderbuffer-in-op
+            
+            time += 0.5;
+            requestAnimationFrame(draw);
+        }
+
+        draw();
+
+        /*function draw() {
+            framebuffer.makeCurrent();
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+            //gl.clearColor(1.0, 0.0, 1.0, 0.5);
+            //gl.clear(gl.COLOR_BUFFER_BIT);
+            //yo wait a second i could totally copy minecraft and make like a whole 2d webgl framework for le browser by taking all textures and slapping them into an atlas (regardless of size) and i'd just pass the size of the texure and the position of it in the atlas (we could be like minecraft in this shit)
+            const wscale = gl.canvas.height/gl.canvas.width*scale;
+            program.setUniformMatrix("u_matrix", false, new Float32Array([
+                wscale, 0.0, 0.0, 0.0, //to make le verts square
+                0.0, 1.0*scale, 0.0, 0.0,
+                0.0, 0.0, 1.0*scale, 0.0,
+                0.0, 0.0, 0.0, 1.0,
+            ]));
+            program.setUniform("iTime", time);
+            updatePositions(wscale);
+            // instancedPositionBuffer.setSub(0, new Float32Array(arr));
+            glPolyfill.drawArraysInstanced(gl, gl.TRIANGLE_STRIP, 0, 4, objectCount);
+            gl.bindFramebuffer(gl.READ_FRAMEBUFFER, framebuffer.get());
+            gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+            //gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            gl.blitFramebuffer(0, 0, gl.canvas.width, gl.canvas.height, 0, 0, gl.canvas.width, gl.canvas.height, gl.COLOR_BUFFER_BIT, gl.NEAREST); //webgl2 only! https://stackoverflow.com/questions/65480462/how-to-draw-a-texture-to-the-screen-without-using-shader-in-opengl-3-3-or-above https://stackoverflow.com/questions/2213030/whats-the-concept-of-and-differences-between-framebuffer-and-renderbuffer-in-op
+            //gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+            time += 0.5;
+            requestAnimationFrame(draw);
+        }
+
+        draw();*/
+    </script>
+</body>
+</html>

@@ -8,7 +8,7 @@ function showError(message) {
 	if(globalThis["document"]) {
 		document.write(message);
 	}else {
-		print(message);
+		print(message); //jbs3
 	}
 }
 
@@ -532,13 +532,15 @@ class glTexture extends IHasBinding {
 	}
 	copyTexImage2D(level, format, x, y, width, height, border) {
 		this.makeCurrent();
+		//copies from current framebuffer
 		//@Bound(this._texture)
 		this.gl.copyTexImage2D(this.target, level, format, x, y, width, height, border);
 	}
 	copyTexSubImage2D(level, xoffset, yoffset, x, y, width, height) {
 		this.makeCurrent();
+		//copies from current framebuffer
 		//@Bound(this._texture)
-		this.gl.copyTexSubImage2D(this.target, xoffset, yoffset, x, y, width, height);
+		this.gl.copyTexSubImage2D(this.target, level, xoffset, yoffset, x, y, width, height);
 	}
 	destroy() {
 		this.gl.deleteTexture(this._texture);
@@ -572,16 +574,56 @@ class glFramebuffer extends IHasBinding {
 	makeCurrent() {
 		this.gl.bindFramebuffer(this.target, this._framebuffer);
 	}
+	get() {
+		return this._framebuffer;
+	}
 	setTexture(textureObj, attachment, level) {
 		GL.pushFramebufferBinding(this.gl, this.target);
 		this.makeCurrent();
-		textureObj.makeCurrent();
+		textureObj.makeCurrent(); //wait do you have to bind the texture? (uhhhh let's do it just in case lol)
 		//@Bound(textureObj)
 		this.gl.framebufferTexture2D(this.target, attachment, textureObj.target, textureObj.get(), level);
 		GL.popFramebufferBinding(this.gl, this.target);
 	}
+	setRenderbuffer(renderBufferObj, attachment, renderBufferTarget) { //i guess i don't need the renderBufferTarget parameter since the obj stores it anyways
+		GL.pushFramebufferBinding(this.gl, this.target);
+		this.makeCurrent();
+		renderBufferObj.makeCurrent();
+		//@Bound(renderBufferobj)
+		this.gl.framebufferRenderbuffer(this.target, attachment, renderBufferTarget, renderBufferObj.get());
+		GL.popFramebufferBinding(this.gl, this.target);
+	}
 	destroy() {
 		this.gl.deleteFramebuffer(this._framebuffer);
+	}
+}
+
+class glRenderbuffer extends IHasBinding {
+	_renderbuffer;
+	target;
+	constructor(gl, target) {
+		super(gl);
+		this._renderbuffer = gl.createRenderbuffer();
+		this.target = target;
+	}
+	setStorage(internalFormat, width, height) {
+		this.makeCurrent();
+		//@Bound(this._renderbuffer)
+		this.gl.renderbufferStorage(this.target, internalFormat, width, height);
+	}
+	setStorageMultisample(samples, internalFormat, width, height) {
+		this.makeCurrent();
+		//@Bound(this._renderbuffer)
+		this.gl.renderbufferStorageMultisample(this.target, samples, internalFormat, width, height);
+	}
+	makeCurrent() {
+		this.gl.bindRenderbuffer(this.target, this._renderbuffer);
+	}
+	get() {
+		return this._renderbuffer;
+	}
+	destroy() {
+		this.gl.deleteRenderbuffer(this._renderbuffer);
 	}
 }
 
@@ -705,5 +747,6 @@ if(!globalThis["window"]) {
 	globalThis.glAttribute = glAttribute;
 	globalThis.glTexture = glTexture;
 	globalThis.glFramebuffer = glFramebuffer;
+	globalThis.glRenderbuffer = glRenderbuffer;
 	globalThis.glProgram = glProgram;
 }
