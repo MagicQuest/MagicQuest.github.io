@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>copyTexImage2D</title>
+	<style>
+		#canvas {
+			border: red 2px solid;
+			display: block;
+		}
+	</style>
+</head>
+<body>
+    <center>
+        <canvas id="canvas" width="480" height="270">cosmic embassy</canvas>
+		<span>x</span>
+		<input id="input_x" type="range" min="-2" max="2" step="0.1">
+		<label for="input_x">0.0</label><br>
+		<span>y</span>
+		<input id="input_y" type="range" min="-2" max="2" step="0.1">
+		<label for="input_y">0.0</label><br>
+		<span>rot</span>
+		<input id="input_rot" type="range" min="0" max="3.14159265358979323846264338327950" step="0.01">
+		<label for="input_rot">0.0</label><br>
+    </center>
+    <script id="vertex-shader" type="glsl">
+        attribute vec4 a_position;
+        void main() {
+            gl_Position = a_position;
+        }
+    </script>
+    <script id="fragment-shader" type="glsl">precision highp float;
+		uniform vec2 fResolution;
+		uniform sampler2D iChannel0;
+        void main() {
+			vec2 uv = gl_FragCoord.xy / fResolution.xy;
+			int neighbors = 0;
+			int alive = int(floor(texture2D(iChannel0, uv).x + 0.5));
+			//if(alive) neighbors--;
+			//neighbors -= int(alive);
+			neighbors -= alive;
+			for(float i = -1.0; i <= 1.0; i++) {
+				for(float j = -1.0; j <= 1.0; j++) {
+					// neighbors += int(round(texture2D(iChannel0, uv + vec2(i / fResolution.x, j / fResolution.y)).x));
+					neighbors += int(floor(texture2D(iChannel0, uv + vec2(i / fResolution.x, j / fResolution.y)).x + 0.5));
+				}
+			}
+			//SIMD GOD
+			//float color = floor(float(3-neighbors)/2.0);
+			float color = 1.0;
+			if(alive != 0) {
+				//if(neighbors > 3 || neighbors < 2) /*[[LIKELY]]*/ {
+				//	color = 0.0;
+				//}
+				color = 1.0-abs(floor(float(3-neighbors)/2.0)); //branchless!!
+			}else {
+				if(neighbors != 3) {
+					color = 0.0;
+				}
+			}
+            // gl_FragColor = vec4(uv, rngdat, 1.0);
+			gl_FragColor = vec4(vec3(color), 1.0);
+        }
+    </script>
+	<script id="vertex-shader-show" type="glsl">
+		attribute vec4 a_position;
+		attribute vec2 a_texCoord;
+		varying vec2 v_texCoord;
+		uniform vec2 u_translation;
+		uniform float u_rotation;
+		#define PI 3.141592653589793238462643383279502884197169399375
+		vec2 my_rotation_solution() {
+			float angle;
+			float originalMagnitude = length(vec2(a_position));
+			vec2 normalized = normalize(vec2(a_position));
+			if(a_position.y > 0.0) {
+				angle = acos(normalized.x);
+			}else {
+				angle = acos(-normalized.x) + PI;
+			}
+			angle += u_rotation;
+			float x = cos(angle)*(originalMagnitude/1.0);
+			float y = sin(angle)*(originalMagnitude/1.0);
+			return vec2(x, y);
+		}
+		void main() {
+			v_texCoord = a_texCoord;
+			vec2 rotationVec = vec2(cos(u_rotation), sin(u_rotation));
+			vec2 rotated = vec2(a_position.x * rotationVec.y + a_position.y * rotationVec.x, a_position.y * rotationVec.y - a_position.x * rotationVec.x); //genuine bs (uhhhh not exactly but probably lol) https://www.youtube.com/watch?v=EZufiIwwqFA
+			// vec2 rotated = my_rotation_solution();
+			gl_Position = vec4(rotated.x, rotated.y, a_position.z, a_position.w) + vec4(u_translation, 0.0, 0.0); // vec4(cos(u_rotation)*u_translation.x, sin(u_rotation)*u_translation.y, 0.0, 0.0);
+		}
+	</script>
+	<script id="fragment-shader-show" type="glsl">precision highp float;
+		uniform sampler2D iChannel0;
+		varying vec2 v_texCoord;
+		void main() {
+			gl_FragColor = vec4(texture2D(iChannel0, v_texCoord).rgb, 1.0);
+		}
+	</script>
+    <script src="./glwrapperex.js"></script>
+    <script>
+		/*
+		function applyRotation(x, y, rotation) {
+		    const originalMagnitude = Math.sqrt(x**2 + y**2);
+		    const normalized = {x: x*1/originalMagnitude, y: y*1/originalMagnitude};
+		    let angle;
+		    if(y > 0) {
+		        angle = Math.acos(normalized.x);
+		    }else {
+		        angle = Math.acos(-normalized.x) + Math.PI;
+		    }
+		    angle += rotation;
+		    const nX = Math.cos(angle)*(originalMagnitude/1);
+		    const nY = Math.sin(angle)*(originalMagnitude/1);
+		    return {x: nX, y: nY};
+		}
+		*/
+        const canvas = document.getElementById("canvas");
+        const gl = canvas.getContext("webgl");
+
+        if(!gl) {
+            document.write("yo for some reason we couldn't get the webgl context?");
+            quit;
+        }
+
+		gl.viewport(0, 0, gl.canvas.width, gl.canvas.height); //technically don't need to call this in le draw func
+
+        debugger;
+        const programGol = glProgram.fromShaders(document.getElementById("vertex-shader").innerText, document.getElementById("fragment-shader").innerText);
+		const programShow = glProgram.fromShaders(document.getElementById("vertex-shader-show").innerText, document.getElementById("fragment-shader-show").innerText);
+		const showAttribBuf = new glBuffer(gl, gl.ARRAY_BUFFER);
+		showAttribBuf.set(new Float32Array([
+		  //x     y     u    v
+			-1.0, 0.5,  0.0, 1.0,
+			-1.0, -0.5, 0.0, 0.0,
+			1.0, 0.5,   1.0, 1.0,
+			1.0, -0.5,  1.0, 0.0,
+		]), gl.STATIC_DRAW);
+		programShow.registerAttrib("a_position", showAttribBuf);
+		programShow.registerAttrib("a_texCoord", showAttribBuf);
+		programShow.describeAttribLayout("a_position", 2, gl.FLOAT, false, 4*4, 0, true);
+		programShow.describeAttribLayout("a_texCoord", 2, gl.FLOAT, false, 4*4, 2*4, true);
+		programShow.enableAttrib("a_position"); // required for glProgram::makeCurrent!
+		programShow.enableAttrib("a_texCoord"); // required for glProgram::makeCurrent!
+		programShow.registerUniform("iChannel0", "1i");
+		programShow.registerUniform("u_translation", "2fv", new Float32Array([0.0, 0.0]));
+		programShow.registerUniform("u_rotation", "1f", Math.PI/2);
+
+		const buffer = new glBuffer(gl, gl.ARRAY_BUFFER);
+		buffer.set(new Float32Array([
+		  //x     y
+			-1.0, 1.0, //top left
+			-1.0, -1.0,//bottom left
+			1.0, 1.0,  //top right
+			1.0, -1.0, //bottom right
+		]), gl.STATIC_DRAW);
+		programGol.registerAttrib("a_position", buffer);
+		programGol.registerUniform("fResolution", "2fv", new Float32Array([gl.canvas.width, gl.canvas.height]));
+		programGol.registerUniform("iChannel0", "1i");
+		/*
+		program1.registerAttrib("a_position");
+		program1.setAttribData("a_position", new Float32Array([
+		  //x     y
+		    -1.0, 1.0,
+	    	-1.0, -1.0,
+			1.0, 1.0,
+			1.0, -1.0
+		]), gl.STATIC_DRAW);
+		*/
+
+		programGol.describeAttribLayout("a_position", 2, gl.FLOAT, false, 0, 0, true);
+		
+		programGol.enableAttrib("a_position");
+
+		// debugger;
+		// const framebuffer = new glFramebuffer(gl, gl.FRAMEBUFFER);
+		const fbTexture = new glTexture(gl, gl.TEXTURE0, gl.TEXTURE_2D);
+		// fbTexture.setTexImage2DWithData(0, gl.RGBA, gl.canvas.width, gl.canvas.height, 0, gl.UNSIGNED_BYTE, null); //lel
+		fbTexture.fromImage("/ca/webgl/noise.png", gl.RGBA, gl.UNSIGNED_BYTE, function() {
+			// framebuffer.setTexture(fbTexture, gl.COLOR_ATTACHMENT0, 0);
+			draw();
+			// setInterval(draw, 500);
+		});
+		// framebuffer.setTexture(tex0, gl.COLOR_ATTACHMENT0, 0);
+
+		const outputFramebuffer = new glFramebuffer(gl, gl.FRAMEBUFFER);
+		const outputTexture = new glTexture(gl, gl.TEXTURE1, gl.TEXTURE_2D);
+		outputTexture.setTexImage2DWithData(0, gl.RGBA, gl.canvas.width, gl.canvas.height, 0, gl.UNSIGNED_BYTE, null);
+		outputFramebuffer.setTexture(outputTexture, gl.COLOR_ATTACHMENT0, 0);
+
+		programGol.setUniform("iChannel0", gl.TEXTURE0 - gl.TEXTURE0);
+		programShow.setUniform("iChannel0", gl.TEXTURE0 - gl.TEXTURE0);
+
+		// programGol.makeCurrent();
+		// framebuffer.makeCurrent();
+
+		function displayUpdate(event) {
+			canvas.parentElement.querySelector(`label[for='${event.target.id}'`).innerText = (+event.target.value).toLocaleString(undefined, {minimumFractionDigits:2});
+		}
+
+		function updateShowXY() {
+			programShow.setUniform("u_translation", new Float32Array([+input_x.value, +input_y.value]));
+		}
+
+		input_x.addEventListener("input", function(event) {
+			displayUpdate(event);
+			updateShowXY();
+		});
+
+		input_y.addEventListener("input", function(event) {
+			displayUpdate(event);
+			updateShowXY();
+		});
+
+		input_rot.addEventListener("input", function(event) {
+			displayUpdate(event);
+			programShow.setUniform("u_rotation", input_rot.value);
+		});
+
+		function draw(t) {
+			// debugger;
+			/*
+			programShow.makeCurrent();
+			gl.clearColor(0.0, 0.0, 0.0, 0.0);
+			gl.clear(gl.COLOR_BUFFER_BIT);
+			gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+			*/
+			{
+				programGol.makeCurrent();
+				outputFramebuffer.makeCurrent(); //not related to the current program lol
+				// framebuffer.makeCurrent(); //feedback loop :(
+
+				gl.clearColor(0.0, 0.0, 0.0, 0.0);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+
+				gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+				fbTexture.makeCurrent();
+				//level, format, x, y, width, height, border
+				//fbTexture.copyTexImage2D(0, gl.RGBA, 0, 0, gl.canvas.width, gl.canvas.height, 0);
+				//gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, gl.canvas.width, gl.canvas.height, 0);
+				fbTexture.copyTexImage2D(0, gl.RGBA, 0, 0, gl.canvas.width, gl.canvas.height, 0);
+			}
+
+			{
+				programShow.makeCurrent(); //automagically resets the attributes for us! (if we want of course.)
+
+				//programShow.defaultFramebuffer(); //defaultFramebuffer should not be a method of glProgram!
+				gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+				gl.clearColor(0.0, 0.0, 0.0, 0.0);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+
+				//programShow.setUniform("u_rotation", t/1000);
+
+				gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); //wait i don't think drawArrays is actually related to the vertex buffer in that it knows which one is the position one or not, y ou just have to put the right amount in le buffer
+			}
+
+			requestAnimationFrame(draw);
+        }
+
+		// draw();
+    </script>
+</body>
+</html>

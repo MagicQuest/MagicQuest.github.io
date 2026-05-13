@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>copyTexImage2D</title>
+</head>
+<body>
+    <center>
+        <canvas id="canvas" style="border:red 2px solid;" width="480" height="270">cosmic embassy</canvas>
+    </center>
+    <script id="vertex-shader" type="glsl">
+        attribute vec4 a_position;
+		attribute float a_rngdat;
+		varying float rngdat;
+        void main() {
+			rngdat = a_rngdat;
+            gl_Position = a_position;
+        }
+    </script>
+    <script id="fragment-shader" type="glsl">precision highp float;
+		uniform vec2 fResolution;
+		uniform sampler2D iChannel0;
+		varying float rngdat;
+        void main() {
+			vec2 uv = gl_FragCoord.xy / fResolution.xy;
+            // gl_FragColor = vec4(uv, rngdat, 1.0);
+			gl_FragColor = texture2D(iChannel0, uv);
+        }
+    </script>
+    <script src="./glwrapperex.js"></script>
+    <script>
+        const canvas = document.getElementById("canvas");
+        const gl = canvas.getContext("webgl");
+
+        if(!gl) {
+            document.write("yo for some reason we couldn't get the webgl context?");
+            quit;
+        }
+
+        // debugger;
+        const program1 = glProgram.fromShaders(document.getElementById("vertex-shader").innerText, document.getElementById("fragment-shader").innerText);
+		const buffer = new glBuffer(gl, gl.ARRAY_BUFFER);
+		buffer.set(new Float32Array([
+		  //x     y    rng
+			-1.0, 1.0, 1.0, //top left
+			-1.0, -1.0,0.0, //bottom left
+			1.0, 1.0,  0.0, //top right
+			1.0, -1.0, 1.0, //bottom right
+		]), gl.STATIC_DRAW);
+		program1.registerAttrib("a_position", buffer);
+		program1.registerAttrib("a_rngdat", buffer);
+		program1.registerUniform("fResolution", "2fv", new Float32Array([gl.canvas.width, gl.canvas.height]));
+		program1.registerUniform("iChannel0", "1i");
+		/*
+		program1.registerAttrib("a_position");
+		program1.setAttribData("a_position", new Float32Array([
+		  //x     y
+		    -1.0, 1.0,
+	    	-1.0, -1.0,
+			1.0, 1.0,
+			1.0, -1.0
+		]), gl.STATIC_DRAW);
+		*/
+
+		program1.describeAttribLayout("a_position", 2, gl.FLOAT, false, 3*4, 0);
+		program1.describeAttribLayout("a_rngdat", 1, gl.FLOAT, false, 3*4, 2*4);
+		
+		program1.enableAttrib("a_position");
+		program1.enableAttrib("a_rngdat");
+
+		// debugger;
+		const tex0 = new glTexture(gl, gl.TEXTURE0, gl.TEXTURE_2D);
+		/*tex0.fromImage("./clipspace.svg", function(event) {
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, event.image);
+			draw();
+		});*/
+		//wtf???????????????????
+		//loading an svg worked fine until i moved this file into magicquest.github.io/regularwebgl (or maybe it was because i switched from chrome to edge? (i have too many tabs on chrome so i use edge temporarily))!
+		//now i have to set the image element's width and height ??????????????????????
+		tex0.fromImage("./textures/clipspace.svg", gl.RGBA, gl.UNSIGNED_BYTE, draw);
+
+		program1.setUniform("iChannel0", gl.TEXTURE0 - gl.TEXTURE0);
+
+		program1.makeCurrent();
+
+        function draw() {
+			gl.viewport(0, 0, gl.canvas.width, gl.canvas.height); //technically don't need to call this in le draw func
+
+			gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        }
+
+		draw();
+    </script>
+</body>
+</html>

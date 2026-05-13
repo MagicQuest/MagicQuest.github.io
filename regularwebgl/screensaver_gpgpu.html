@@ -285,7 +285,7 @@
 
         const gui = new lil.GUI();
         gui.add(window, "objectCount").onChange(function() {
-            debugger;
+            //debugger;
             const tempTempTex = new glTexture(gl, gl.TEXTURE0, gl.TEXTURE_2D);
             const fullTextureSize = Math.min(objectCount, MAX_TEXTURE_SIZE)*Math.ceil(objectCount/16384);
             const arr = "".padStart(fullTextureSize*4-1, " ").split(" ").map(v=>-0.0);
@@ -382,7 +382,7 @@
 
         updateProgram.setUniform("objectTex", gl.TEXTURE0 - gl.TEXTURE0);
 
-        debugger;
+        //debugger;
 
         function draw(t, beginning_only = false) {
             updateProgram.makeCurrent();

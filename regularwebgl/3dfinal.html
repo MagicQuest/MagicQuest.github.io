@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>cracking 3d fr this time</title>
+	<style>
+		#canvas {
+			border: red 2px solid;
+			display: block;
+		}
+		button {
+			cursor: pointer;
+		}
+		button:hover {
+			font-weight: bold;
+		}
+		button:active {
+			font-weight: initial;
+		}
+	</style>
+</head>
+<body>
+	<center>
+		<canvas id="canvas" width="480" height="270">bro bro.</canvas>
+		<!--span>x</span>
+		<input id="input_x" type="range" min="-480" max="480" value="0" step="0.01">
+		<label for="input_x">0.00</label><br>
+		<span>y</span>
+		<input id="input_y" type="range" min="-480" max="480" value="0" step="0.01">
+		<label for="input_y">0.00</label><br>
+		<span>z</span>
+		<input id="input_z" type="range" min="-480" max="480" value="0" step="0.01">
+		<label for="input_z">0.00</label><br>
+
+		<span>y rot</span>
+		<input id="input_yrot" type="range" min="0" max="6.28" value="0" step="0.01">
+		<label for="input_yrot">0.00</label><br>
+		<span>x rot</span>
+		<input id="input_xrot" type="range" min="-6.28" max="6.28" value="0" step="0.01">
+		<label for="input_xrot">0.00</label><br-->
+		<!--label>back face</label>
+		<input type="checkbox" checked oninput="gl.cullFace(gl.BACK); draw();"><br>
+		<label>front face</label>
+		<input type="checkbox"><br-->
+		<button onclick="gl.cullFace(gl.BACK); draw();">back face</button>
+		<button onclick="gl.cullFace(gl.FRONT); draw();">front face</button><br>
+		<label for="input_perspective">perspective</label>
+		<input id="input_perspective" type="checkbox"><br>
+		<span>vanishing</span>
+		<input id="input_vanishing" type="range" min="0" max="100" value="2" step="0.1">
+		<label for="input_vanishing">2.00</label><br>
+	</center>
+	<script id="vertex-shader" type="glsl">#version 300 es
+		//for modernizing my glsl https://gamedev.stackexchange.com/a/29673
+		in vec4 a_position;
+		in vec2 a_texCoord;
+		//attribute int a_texChannel;
+		in vec2 a_atlasCoord;
+
+		out vec2 v_texCoord;
+		//varying int v_texChannel;
+		//flat out int v_texChannel;
+		flat out vec2 v_atlasCoord;
+
+		uniform mat4 u_matrix;
+		uniform float u_vanishing;
+		uniform float u_perspective;
+		//uniform float u_atlasCellSize;
+		//uniform float u_atlasBounds;
+		void main() {
+			gl_PointSize = 20.0;
+			v_texCoord = a_texCoord;
+			v_atlasCoord = a_atlasCoord; //*u_atlasCellSize;
+			// v_texChannel = // it was at this moment i realized the varying value would be spread across the pixels and uhhh i might need to use an atlas or upgrade to that new glsl so i can say it's flat 
+			// gl_Position = (u_matrix * a_position); //(a_position.z*u_vanishing); // u_matrix * a_position;
+
+			// gl_Position = vec4((u_matrix * a_position).xyz/(a_position.z*u_vanishing), a_position.w); //(a_position.z*u_vanishing);
+			//yeah alright i'll just do what he did... (which is almost basically what i did but he added 1.0)
+			vec4 position = u_matrix * a_position;
+			//the google says branching with a uniform should be fine because it won't change during the draw call
+			//ok i have made my decision. bring back my 
+			float zToDivideBy;
+			if(u_perspective != 0.0) { //because using mix has to evaluate both args, using a branch with a uniform should maybe be faster lol?
+				zToDivideBy = 1.0 + position.z * u_vanishing;
+			}else {
+				zToDivideBy = position.w;
+			}
+			// float zToDivideBy = mix(position.w, (1.0 + position.z)*u_vanishing, u_perspective); //branchless ? (both args must still be evaluated though!)
+			gl_Position = vec4(position.xyz, zToDivideBy); // vec4(position.xy / zToDivideBy, position.zw);
+		}
+	</script>
+	<script id="fragment-shader" type="glsl">#version 300 es
+		precision highp float;
+		out vec4 out_color;
+
+		in vec2 v_texCoord;
+		//flat in int v_texChannel;
+		flat in vec2 v_atlasCoord;
+
+		uniform vec2 fResolution;
+		uniform sampler2D iChannel0;
+		uniform float u_atlasCellSize;
+		uniform float u_atlasBounds;
+		void main() {
+			vec2 uv = gl_FragCoord.xy / fResolution.xy;
+			float calc = u_atlasBounds/u_atlasCellSize;
+			vec4 texColor = texture(iChannel0, (v_texCoord+v_atlasCoord)/calc);
+			out_color = vec4(mix(vec3(0.125, 0.125, 0.125), texColor.xyz, texColor.w), 1.0);
+		}
+	</script>
+	<script src="./glwrapperex.js"></script>
+	<script src="./m4.js"></script>
+	<script>
+		// wow...  https://www.youtube.com/watch?v=qjWkNZ0SXfo
+		const canvas = document.getElementById("canvas");
+		const gl = canvas.getContext("webgl2"); // using webgl2 now
+		if(!gl) {
+			document.write("your computer ain't cut out for webgl2 apparently.");
+			quit;
+		}
+
+		const program = glProgram.fromShaders(document.getElementById("vertex-shader").innerText, document.getElementById("fragment-shader").innerText);
+		const posBuffer = new glBuffer(gl, gl.ARRAY_BUFFER);
+		//const sqrx = 50; // gl.canvas.height/gl.canvas.width;
+		const size = 50;
+		posBuffer.set(new Float32Array([
+		  //x     y     z     u    v    a_x  a_y
+			//lol i could use 8 bits to describe which texture to use from the atlas like 0b00010001 -> (1, 1)
+			size, -50.0, 0.0, 1.0, 0.0, 0.0, 5.0, //front
+			-size, 50.0, 0.0, 0.0, 1.0, 0.0, 5.0,
+			-size, -50.0,0.0, 0.0, 0.0, 0.0, 5.0,
+			-size, 50.0, 0.0, 0.0, 1.0, 0.0, 5.0,
+			size, -50.0, 0.0, 1.0, 0.0, 0.0, 5.0,
+			size, 50.0,  0.0, 1.0, 1.0, 0.0, 5.0,
+	
+			-size, -50.0,0.0, 1.0, 0.0, 1.0, 7.0, //left
+			-size, 50.0, -size*2.0, 0.0, 1.0, 1.0, 7.0,
+			-size, -50.0,-size*2.0, 0.0, 0.0, 1.0, 7.0,
+			-size, 50.0, -size*2.0, 0.0, 1.0, 1.0, 7.0, //duplicate the second vertex
+			-size, -50.0,0.0, 1.0, 0.0, 1.0, 7.0, //duplicate the first
+			-size, 50.0, 0.0, 1.0, 1.0, 1.0, 7.0,
+
+			size, -50.0, -size*2.0, 1.0, 0.0, 7.0, 7.0, //right
+			size, 50.0,  0.0, 0.0, 1.0, 7.0, 7.0,
+			size, -50.0, 0.0, 0.0, 0.0, 7.0, 7.0,
+			size, 50.0,  0.0, 0.0, 1.0, 7.0, 7.0,
+			size, -50.0, -size*2.0, 1.0, 0.0, 7.0, 7.0,
+			size, 50.0,  -size*2.0, 1.0, 1.0, 7.0, 7.0,
+
+			-size, -50.0,-size*2.0, 1.0, 0.0, 6.0, 0.0, //back
+			size, 50.0,  -size*2.0, 0.0, 1.0, 6.0, 0.0,
+			size, -50.0, -size*2.0, 0.0, 0.0, 6.0, 0.0,
+			size, 50.0,  -size*2.0, 0.0, 1.0, 6.0, 0.0,
+			-size, -50.0,-size*2.0, 1.0, 0.0, 6.0, 0.0,
+			-size, 50.0, -size*2.0, 1.0, 1.0, 6.0, 0.0,
+
+			size, 50.0,  0.0, 1.0, 0.0, 2.0, 5.0, //top (last vertex of front)
+			-size, 50.0, -size*2.0, 0.0, 1.0, 2.0, 5.0,
+			-size, 50.0, 0.0, 0.0, 0.0, 2.0, 5.0, // second vertex of front
+			-size, 50.0, -size*2.0, 0.0, 1.0, 9.0, 7.0, // our second vertex
+			size, 50.0,  0.0, 1.0, 0.0, 9.0, 7.0, // our first vertex
+			size, 50.0,  -size*2.0, 1.0, 1.0, 9.0, 7.0,
+
+			size, -50.0, -size*2.0, 1.0, 0.0, 2.0, 5.0, //bottom
+			-size, -50.0,0.0, 0.0, 1.0, 2.0, 5.0, // third vertex of front
+			-size, -50.0,-size*2.0, 0.0, 0.0, 2.0, 5.0,
+			-size, -50.0,0.0, 0.0, 1.0, 1.0, 8.0, // our second vertex
+			size, -50.0, -size*2.0, 1.0, 0.0, 1.0, 8.0, // our first vertex
+			size, -50.0, 0.0, 1.0, 1.0, 1.0, 8.0, // first vertex of front
+		]), gl.STATIC_DRAW);
+		program.registerAttrib("a_position", posBuffer);
+		program.registerAttrib("a_texCoord", posBuffer);
+		// program.registerAttrib("a_texChannel", posBuffer);
+		program.registerAttrib("a_atlasCoord", posBuffer);
+		program.describeAttribLayout("a_position", 3, gl.FLOAT, false, 7*4, 0, true);
+		program.describeAttribLayout("a_texCoord", 2, gl.FLOAT, false, 7*4, 3*4, true);
+		// program.describeAttribLayout("a_texChannel", 1, gl.BYTE, false, 6*4, 5*4, true);
+		program.describeAttribLayout("a_atlasCoord", 2, gl.FLOAT, false, 7*4, 5*4, true);
+		program.enableAttrib("a_position");
+		program.enableAttrib("a_texCoord");
+		// program.enableAttrib("a_texChannel");
+		program.enableAttrib("a_atlasCoord");
+
+		program.makeCurrent();
+		
+
+		function displayUpdate(event) {
+			canvas.parentElement.querySelector(`label[for='${event.target.id}'`).innerText = (+event.target.value).toLocaleString(undefined, {minimumFractionDigits:2});
+		}
+
+	    let matrix = m4.identity();
+		let yRot = 0;
+		let xRot = 0;
+		let x = 0;
+		let y = 0;
+		let z = 50;
+
+		function imguiSlider(displayName, inputType, callback, initialValue = 0.0, min = 0.0, max = 0.0, step = 0.01) {
+			// debugger;
+			const span = document.createElement("span");
+			span.innerHTML = displayName;
+			const label = document.createElement("label");
+			label.setAttribute("for", "input_"+displayName);
+			label.innerText = initialValue.toLocaleString(undefined, {minimumFractionDigits:2});
+			const input = document.createElement("input");
+			input.type = inputType;
+			input.id = "input_"+displayName;
+			input.value = initialValue;
+			if(inputType == "range") {
+				input.min = min;
+				input.max = max;
+				input.step = step;
+			}
+			input.addEventListener("input", function(event) {
+				//displayUpdate(event);
+				switch(inputType) {
+					case "range":
+						label.innerText = (+event.target.value).toLocaleString(undefined, {minimumFractionDigits:2});
+						break;
+					case "checkbox":
+						break;
+				}
+				callback(event);
+			});
+			canvas.parentElement.appendChild(span);
+			canvas.parentElement.appendChild(input);
+			if(inputType != "checkbox") {
+				canvas.parentElement.appendChild(label);
+			}
+			canvas.parentElement.appendChild(document.createElement("br"));
+		}
+
+		imguiSlider("x", "range", function(event) {
+			x = +event.target.value;
+			draw();
+		}, 0.0, -gl.canvas.width, gl.canvas.width, 1.0);
+
+		imguiSlider("y", "range", function(event) {
+			y = +event.target.value;
+			draw();
+		}, 0.0, -gl.canvas.height, gl.canvas.height, 1.0);
+
+		imguiSlider("z", "range", function(event) {
+			z = +event.target.value;
+			draw();
+		}, size, -400, 400, 1.0);
+
+
+		imguiSlider("yrot", "range", function(event) {
+			yRot = +event.target.value;
+			draw();
+		}, 0.0, -Math.PI*2, Math.PI*2);
+
+		imguiSlider("xrot", "range", function(event) {
+			xRot = +event.target.value;
+			draw();
+		}, 0.0, -Math.PI*2, Math.PI*2);
+
+		/*input_yrot.addEventListener("input", function(event) {
+			displayUpdate(event);
+			yRot = +event.target.value;
+			draw();
+		});
+
+		input_xrot.addEventListener("input", function(event) {
+			displayUpdate(event);
+			xRot = +event.target.value;
+			draw();
+		});*/
+
+		input_perspective.addEventListener("input", function(event) {
+			program.setUniform("u_perspective", event.target.checked);
+			draw();
+		});
+		
+		input_vanishing.addEventListener("input", function(event) {
+			displayUpdate(event);
+			program.setUniform("u_vanishing", +event.target.value);
+			draw();
+		});
+
+		// use program.makeCurrent before setting uniforms so i don't have to keep pushing and popping the program (also it just makes more sense to do that because that's how you normally set the uniforms)
+		program.registerUniform("iChannel0", "1i", gl.TEXTURE0 - gl.TEXTURE0);
+		//program.registerUniform("u_matrix", "Matrix4fv", new Float32Array([
+		//	/*2.0/gl.canvas.clientWidth, 0.0, 0.0, 0.0,
+		//	0.0, 2.0/gl.canvas.clientHeight, 0.0, 0.0,
+		//	0.0, 0.0, 2.0 / depth, 0.0,
+		//	0.0, 0.0, 0.0, 1.0,*/
+		//	1.0, 0.0, 0.0, 0.0,
+		//	0.0, 1.0, 0.0, 0.0,
+		//	0.0, 0.0, 1.0, 0.0,
+		//	0.0, 0.0, 0.0, 1.0,
+		//]));
+		program.registerUniform("u_matrix", "Matrix4fv"); //, matrix);
+		program.setUniformMatrix("u_matrix", false, matrix);
+		program.registerUniform("u_vanishing", "1f", 2.0);
+		program.registerUniform("u_perspective", "1f", 0.0);
+		program.registerUniform("u_atlasCellSize", "1f", 16.0); //how many pixels per cell
+		program.registerUniform("u_atlasBounds", "1f", 160.0); //how many pixels across
+
+		const tex0 = new glTexture(gl, gl.TEXTURE0, gl.TEXTURE_2D);
+		tex0.makeCurrent();
+		//tex0.fromImage("./f-texture.png", gl.RGBA, gl.UNSIGNED_BYTE, function() {
+		tex0.fromImage("./textures/0font face 1747433838718996770.png", gl.RGBA, gl.UNSIGNED_BYTE, function() {
+			tex0.setParameteri(gl.TEXTURE_MIN_FILTER, gl.NEAREST); //use nearest so when scaling or shrinking le texture pixels it stays pixelated for that classic look (alright bro)
+			tex0.setParameteri(gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+			draw();
+		});
+
+		gl.enable(gl.CULL_FACE);
+		gl.enable(gl.DEPTH_TEST);
+		gl.cullFace(gl.BACK);
+
+		//let cameraMatrix = m4.identity();
+		//let cameraRotationMatrix = m4.identity();
+		const camera = {forward: [0.0, 0.0, -1.0], rotation: [0.0, 0.0, 0.0], matrix: m4.translation(x, y, z), rotationMatrix: m4.identity()};
+
+		function draw() {
+			gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+			gl.clearColor(0.0, 0.0, 0.0, 0.0);
+			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); // now we're cooking!
+			// gl.enable(gl.CULL_FACE);
+
+			/*matrix = [
+				1, 0, 0, 0,
+				0, 1, 0, 0,https://gist.github.com/greggman/41d93c00649cba78abdbfc1231c9158c
+				0, 0, 1, 0,
+				0, 0, 0, 1,
+			]; //m4.identity();*/https://gist.github.com/greggman/41d93c00649cba78abdbfc1231c9158c
+			if(input_perspective.checked) {
+				matrix = m4.perspective(60*Math.PI/180, gl.canvas.clientWidth/gl.canvas.clientHeight, 1, 2000);
+			}else {
+				matrix = m4.orthographic(0, gl.canvas.clientWidth, gl.canvas.clientHeight, 0, -400, 400);
+			}
+			// matrix = m4.scale(matrix, 1.0, -1.0, 1.0);
+			// matrix = m4.translate(matrix, 0.0, 0.0, 0.5);
+			//matrix = m4.translate(matrix, gl.canvas.width/2, /*-*/gl.canvas.height/2, 0.0);
+			//camera.matrix = m4.translation(x, y, z);
+			//cameraMatrix = m4.translate(cameraMatrix, x, y, z);
+			//matrix = m4.scale(matrix, 0.5, 0.5, 0.5);
+			//cameraMatrix = m4.xRotate(cameraMatrix, xRot);
+			//cameraMatrix = m4.yRotate(cameraMatrix, yRot);
+			//camera.matrix = m4.multiply(camera.matrix, camera.rotationMatrix);
+			//matrix = m4.translate(matrix, 0.0, 0.0, -0.5);
+			//matrix = m4.translate(matrix, 0.0, 0.0, -1.0);
+			//cameraMatrix = m4.translate(cameraMatrix, 0.0, 0.0, size);
+
+			const combined = m4.multiply(camera.matrix, camera.rotationMatrix);
+
+			const projectionMatrix = m4.multiply(matrix, m4.inverse(combined));
+
+			program.setUniformMatrix("u_matrix", false, projectionMatrix);
+
+			gl.drawArrays(gl.TRIANGLES, 0, 6*6);
+			//gl.drawArrays(gl.POINTS, 0, 6*6);
+		}
+
+		draw();
+
+		function handleMouseMovement(event) {
+			//console.log(event.movementX, event.movementY);
+			//how did i do that camera math again?
+			//yRot += -event.movementX*Math.PI/180; //to radians! (uhhh and negative too for some reason)
+			//const TAU = Math.PI*2;
+			//input_yrot.value = yRot; //(yRot%(TAU*2))/TAU;
+			//xRot += -event.movementY*Math.PI/180;
+			//input_xrot.value = xRot; //(xRot%(TAU*2))/TAU;
+			//oh no, i need to do extra math so it looks normal!
+			//debugger;
+			const horizontalRot = -event.movementX*Math.PI/180;
+	//		//camera.rotationMatrix = m4.yRotate(camera.rotationMatrix, horizontalRot); //rotates by the little amount
+	//		//input_yrot.value = horizontalRot;
+	//		camera.rotation[1] += horizontalRot;
+	//		const thetaY = camera.rotation[1]+Math.PI/2; //using rotation on y axis to figure out forward vector x et z
+	//		camera.forward = m4.normalize([Math.cos(thetaY), 0.0, -Math.sin(thetaY)]); //negative apparently?
+
+	//		const right = [Math.cos(camera.rotation[1]), /*Math.sin(camera.rotation[0])*/0.0, -Math.sin(camera.rotation[1])];
+
+			const verticalRot = -event.movementY*Math.PI/180;
+	//		camera.rotation[0] += verticalRot;
+	//		camera.rotationMatrix = m4.axisRotate(camera.rotationMatrix, right, verticalRot);
+	//		
+	//		camera.rotationMatrix = m4.yRotate(camera.rotationMatrix, horizontalRot); //rotates by the little amount
+
+			//alright retry...
+			//const camrot = Math.PI/4;
+			camera.rotation[1] += horizontalRot;
+			const camrot = camera.rotation[1];
+			camera.rotationMatrix = m4.yRotation(camrot);
+			camera.rotation[0] += verticalRot;
+			camera.rotationMatrix = m4.axisRotate(camera.rotationMatrix, [Math.cos(camrot), 0.0, Math.sin(camrot)], camera.rotation[0]);
+
+			draw();
+		}
+
+		function handleKeyboardInput(event) {
+			if(event.key == "w") {
+				camera.matrix = m4.translate(camera.matrix, camera.forward[0], camera.forward[1], camera.forward[2]);
+				draw();
+			}
+		}
+
+		document.addEventListener("pointerlockchange", function(event) {
+			if(document.pointerLockElement == canvas) {
+				document.addEventListener("mousemove", handleMouseMovement);
+				document.addEventListener("keydown", handleKeyboardInput);
+			}else {
+				document.removeEventListener("mousemove", handleMouseMovement);
+				document.removeEventListener("keydown", handleKeyboardInput);
+			}
+		});
+
+		canvas.addEventListener("mousedown", function(event) {
+			canvas.requestPointerLock();
+		});
+	</script>
+</body>
+</html>

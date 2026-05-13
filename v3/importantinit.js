@@ -1,5 +1,5 @@
 let activeObject; //Icon
-const bookmarkslist = ["/ca/webgl","/ca/webgl/bapple","/music","/games/crush", "/box2d/random.html",
+const bookmarkslist = ["/regularwebgl", "/regularwebgl/screensaver.html", "/regularwebgl/divinegl.html", "/regularwebgl/icecs.html", "/regularwebgl/lettherebelight.html", "/regularwebgl/logcombination.html", "/ca/webgl","/ca/webgl/bapple","/music","/games/crush", "/box2d/random.html",
                        "/breakapart/index.html",
                        "/orbfarm2.html",
                        "/ca/remake/newcel.html",

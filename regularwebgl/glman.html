@@ -17,6 +17,7 @@
         <h1 id="errtext" style="display:none;color:red;font-family: monospace;"></h1>
         <canvas id="canvas" width="512" height="512"></canvas>
         <br/>
+		<p>grab the corners of the image!</p>
         <!--clav-->
         <!--img id="clav" src=".\HAiH-lpW0AA0bLL.jpg" style="width: 64px; height: 64px;"/-->
     </center>
@@ -235,7 +236,7 @@
                 //console.log("we did it gang");
                 draw();
             }
-            clav.src = "./HAiH-lpW0AA0bLL.jpg";
+            clav.src = "./textures/HAiH-lpW0AA0bLL.jpg";
 
             //@Bound(program)
             gl.uniform1i(uniformLocations["iChannel0"], gl.TEXTURE0 - gl.TEXTURE0);

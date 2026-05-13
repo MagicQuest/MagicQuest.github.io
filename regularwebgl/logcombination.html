@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>(somehow) taking the logarithm of an image (combining my prev work)</title>
+	<style>
+		#canvas {
+			border: red 2px solid;
+			display: block;
+		}
+	</style>
+</head>
+<body>
+	<center>
+		<canvas id="canvas" width="256" height="600">bro bro.</canvas>
+	</center>
+	<script id="vertex-shader" type="text/glsl">
+		attribute vec2 a_position;
+		attribute vec2 a_texCoord;
+		uniform float fScale;
+		//uniform float fZ;
+		varying vec2 v_texCoord;
+		void main() {
+			v_texCoord = a_texCoord;
+			gl_Position = vec4(a_position.xy*fScale, 0.0, 1.0); //i used fZ as the fourth float but because it automagically divides it was unintuitive and i was confused lol
+		}
+	</script>
+	<script id="inf-fragment-shader" type="text/glsl">precision highp float;
+		uniform sampler2D iChannel1;
+		varying vec2 v_texCoord;
+		void main() {
+			//vec3 color = texture2D(iChannel1, v_texCoord).rgb;
+			gl_FragColor = texture2D(iChannel1, v_texCoord);//vec4(color, 1.0);
+		}
+	</script>
+	<script id="log-fragment-shader" type="text/glsl">precision highp float;
+		#define PI 3.14159265358979323846264338327950288419716939937510582097494459230781
+		#define MATH_E 2.718281828459045235360287471352
+
+		uniform vec2 iResolution; //shadertoy actually uses a vec3 (apparently)
+		uniform sampler2D iChannel0;
+		uniform float u_logZoom; // = MATH_E
+		varying vec2 v_texCoord;
+
+		vec2 toTextureCoord(vec2 clipspace) {
+			//ha! this line can be condensed down to (well lowkey i haven't tested it but i assume it works still lol)
+			//return (clipspace + 1.0) / 2.0;
+			return vec2(clipspace.x+1.0, clipspace.y+1.0) / 2.0;
+		}
+
+		void main() {
+			vec2 uv = gl_FragCoord.xy / iResolution.xy;
+			//vec2 zoomed = toTextureCoord((vec2(uv.x-0.5, uv.y-0.5)*2.0)/MATH_E);
+			//uv/=4.0;
+			float angle = uv.y*PI*2.0; // {0 -> 1} => {0 -> 6.28}
+			//vec2 complex = vec2((cos(angle)+1.0)/2.0, (sin(angle)+1.0)/2.0); // {-1 -> 1} => {0 -> 1}
+			vec2 complex = vec2(cos(angle)/u_logZoom, sin(angle)/u_logZoom);
+			//float tb1bx = ((uv.x-0.5)*6.0); //*2.0)*3.0;
+			//float tb1bx = uv.x*3.0;
+			//complex*=uv.x; //shrinking radius based on x, since x goes from 1 -> 0 as we go right to left
+			//complex*=log(1.0-uv.x+MATH_E*uv.x); //chat is this the answer? https://magicquest.github.io/easing.html?code=function%20ease(x)%20%7B%0A%20%20%20%20return%20Math.log(1-x%2BMath.E*x)%3B%0A%7D
+			complex*=pow(uv.x, MATH_E); //CHAT! ( le solution https://magicquest.github.io/easing.html?code=function%20ease(x)%20%7B%0A%20%20%20%20return%20Math.pow(x%2C%20Math.E)%3B%0A%7D )
+			complex = toTextureCoord(complex); //to texture coord AFTER so that the scaling we make with uv.x actually shrinks the radius since we're in clipspace (per that tsoding video)
+			//vec3 color = texture2D(iChannel0, uv).rgb;
+			//vec3 color = texture2D(iChannel0, v_texCoord).rgb;
+
+			//vec3 color = texture2D(iChannel0, complex).rgb;
+			//vec3 color = texture2D(iChannel0, zoomed).rgb;
+			
+			gl_FragColor = texture2D(iChannel0, complex); //vec4(color, 1.0);
+		}
+	</script>
+	<script src="https://cdn.jsdelivr.net/npm/lil-gui@0.21"></script>
+	<script src="./glwrapperex.js"></script>
+	<script>
+		//hell yeah based off of 3blue1brown's logarithm video https://www.youtube.com/watch?v=ldxFjLJ3rVY
+		//pi image taken from https://mathvisuals.org/PrintGallery/pi.jpg
+		//some desmos calculations https://www.desmos.com/calculator/bq7zokbjmp
+
+		const canvas = document.getElementById("canvas");
+		const gl = canvas.getContext("webgl");
+		if(!gl) {
+			document.write("your computer ain't cut out for webgl apparently.");
+			quit;
+		}
+		const posBuffer = new glBuffer(gl, gl.ARRAY_BUFFER);
+		posBuffer.set(new Float32Array([
+		  //x     y    u    v
+			-1.0, 1.0, 0.0, 1.0,
+	    	-1.0, -1.0,0.0, 0.0,
+			1.0, 1.0,  1.0, 1.0,
+			1.0, -1.0, 1.0, 0.0,
+		]), gl.STATIC_DRAW);
+
+		const infProgram = glProgram.fromShaders(document.getElementById("vertex-shader").innerText, document.getElementById("inf-fragment-shader").innerText);
+		infProgram.registerAttrib("a_position", posBuffer);
+		infProgram.registerAttrib("a_texCoord", posBuffer);
+		infProgram.describeAttribLayout("a_position", 2, gl.FLOAT, false, 4*4, 0, true);
+		infProgram.describeAttribLayout("a_texCoord", 2, gl.FLOAT, false, 4*4, 2*4, true);
+		infProgram.enableAttrib("a_position");
+		infProgram.enableAttrib("a_texCoord");
+
+		const logProgram = glProgram.fromShaders(document.getElementById("vertex-shader").innerText, document.getElementById("log-fragment-shader").innerText);
+		logProgram.registerAttrib("a_position", posBuffer);
+		logProgram.registerAttrib("a_texCoord", posBuffer);
+		logProgram.describeAttribLayout("a_position", 2, gl.FLOAT, false, 4*4, 0, true);
+		logProgram.describeAttribLayout("a_texCoord", 2, gl.FLOAT, false, 4*4, 2*4, true);
+		logProgram.enableAttrib("a_position");
+		logProgram.enableAttrib("a_texCoord");
+
+		infProgram.makeCurrent();
+		// use program.makeCurrent before setting uniforms so i don't have to keep pushing and popping the logProgram (also it just makes more sense to do that because that's how you normally set the uniforms)
+		
+		infProgram.registerUniform("fScale", "1f", 1.0);
+		//infProgram.registerUniform("fZ", "1f", 1.0);
+		infProgram.registerUniform("iChannel1", "1i", gl.TEXTURE1 - gl.TEXTURE0);
+
+		logProgram.makeCurrent();
+		logProgram.registerUniform("fScale", "1f", 1.0);
+		//logProgram.registerUniform("fZ", "1f", 1.0);
+		logProgram.registerUniform("iResolution", "2fv", new Float32Array([gl.canvas.width, gl.canvas.height]));
+		logProgram.registerUniform("iChannel0", "1i", gl.TEXTURE0 - gl.TEXTURE0);
+		logProgram.registerUniform("u_logZoom", "1f");
+
+		/*function displayUpdate(event) {
+			canvas.parentElement.querySelector(`label[for='${event.target.id}'`).innerText = (+event.target.value).toLocaleString(undefined, {minimumFractionDigits:2});
+		}*/
+
+		var logZoom = Math.E; //haha using var in 2026 for its global properties!
+		var doLog = true;
+		var doDroste = true;
+		var drosteFactor = 16;
+		var halfSize = false;
+
+		const gui = new lil.GUI();
+		gui.add(window, "logZoom", 1, 16).onChange(draw);
+		gui.add(window, "doLog").onChange(function(value) {
+			/*if(!value) {
+				setCanvasBounds(imgbounds.width, imgbounds.height);
+			}else {
+				setCanvasBounds(imgbounds.width/2.0, 1200/2.0);
+			}*/
+			setCanvasBounds(imgbounds.width, imgbounds.height);
+			draw();		
+		});
+		const drosteController = gui.add(window, "doDroste").onChange(draw);
+		gui.add(window, "drosteFactor").onChange(function(value) {
+			gui.controllers[0].max(value);
+			draw();
+		});
+		gui.add(window, "halfSize").onChange(function(value) {setCanvasBounds(imgbounds.width, imgbounds.height);});
+
+		function setDefaultlZ() {
+			//logZoom = Math.E;
+			//draw();
+			gui.controllers[0].setValue(Math.E);
+		}
+
+		let lastBlob, tex0;
+		let imgbounds = {width: 1024, height: 1024};
+
+		function prepareTex0(event) {
+			tex0.setParameteri(gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+			tex0.setParameteri(gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+			setCanvasBounds(event.target.naturalWidth, event.target.naturalHeight);///2, 1200/2);
+			imgbounds = {width: event.target.naturalWidth, height: event.target.naturalHeight};
+			//draw();
+		}
+
+		function setImageWithFile(data) {
+			if(lastBlob) {
+				URL.revokeObjectURL(lastBlob);
+			}
+			lastBlob = URL.createObjectURL(data);
+			tex0.fromImage(lastBlob, gl.RGBA, gl.UNSIGNED_BYTE, prepareTex0);
+			//logZoom = 1.0;
+			gui.controllers[0].setValue(1.0);
+			drosteController.setValue(false);
+		}
+
+		async function chooseCustomImage() {
+			const [file] = await showOpenFilePicker({multiple: false, types: [
+				{description: "images.", accept: {"image/*": [".png", ".jfif", ".svg", ".webp", ".jpg", ".jpeg", ".gif"]}}
+			]});
+			//debugger;
+			const data = await file.getFile();
+			setImageWithFile(data);
+		}
+
+		addEventListener("dragover", function(event) {
+            event.stopPropagation();
+            event.preventDefault();
+            // Style the drag-and-drop as a "copy file" operation.
+            event.dataTransfer.dropEffect = 'copy';
+            document.body.style = "color: royalblue; background-color: #1E1E1E";
+		});
+
+        addEventListener('drop', async (event) => {
+            event.stopPropagation();
+            event.preventDefault();
+            const fileList = event.dataTransfer.files;
+            console.log(fileList);
+            document.body.style = "";
+            setImageWithFile(fileList[0]);
+        });
+
+		gui.add(window, "setDefaultlZ");
+		gui.add(window, "chooseCustomImage");
+
+		tex0 = new glTexture(gl, gl.TEXTURE1, gl.TEXTURE_2D);
+		tex0.fromImage("./textures/mathvisuals_org_PrintGallery_pi.jpg", gl.RGBA, gl.UNSIGNED_BYTE, prepareTex0); //automagically binds le texture
+
+		const fbTex = new glTexture(gl, gl.TEXTURE0, gl.TEXTURE_2D);
+		const framebuffer = new glFramebuffer(gl, gl.FRAMEBUFFER);
+		fbTex.setTexImage2DWithData(0, gl.RGBA, gl.canvas.width, gl.canvas.height, 0, gl.UNSIGNED_BYTE, null); //lel
+		framebuffer.setTexture(fbTex, gl.COLOR_ATTACHMENT0, 0); //automagically pushes and pops le framebuffer binding
+	
+		function setCanvasBounds(w, h) {
+			if(doLog) {
+				const shrinkDivisor = halfSize ? 2 : 1;
+				w /= shrinkDivisor;
+				h = 1200/shrinkDivisor;
+			}else if(halfSize) {
+				w/=2;
+				h/=2;
+			}
+			canvas.width = w;
+			canvas.height = h;
+			fbTex.setTexImage2DWithData(0, gl.RGBA, gl.canvas.width, gl.canvas.height, 0, gl.UNSIGNED_BYTE, null); //lel
+			logProgram.registerUniform("iResolution", "2fv", new Float32Array([gl.canvas.width, gl.canvas.height]));
+			draw();
+		}
+
+		function draw() {//zoom = Math.E) {
+			let zoom = logZoom;
+			const frac = zoom % drosteFactor;
+			if(frac != zoom) {
+				zoom = frac+1;
+			}
+			gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+			gl.clearColor(0.0, 0.0, 0.0, 0.0);
+			gl.clear(gl.COLOR_BUFFER_BIT);
+
+			infProgram.makeCurrent();
+
+			doLog && framebuffer.makeCurrent(); //code ninja
+
+			infProgram.setUniform("fScale", zoom);
+			gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+			if(doDroste) {
+				infProgram.setUniform("fScale", zoom/drosteFactor);
+				gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+			}
+
+			if(doLog) {
+				gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+				logProgram.makeCurrent();
+
+				//logProgram.setUniform("fZ", 1/zoom);
+				//logProgram.setUniform("fScale", zoom);
+				//logProgram.setUniform("u_logZoom", logZoom);
+				logProgram.setUniform("u_logZoom", 1.0);
+				gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+			}
+
+			//logProgram.setUniform("fScale",zoom/16);
+			//gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+		}
+
+		//draw();
+		/*let i = 1.0;
+		requestAnimationFrame(function tempzoomfunc() {
+			draw(i);
+			i+=0.1;
+			requestAnimationFrame(tempzoomfunc);
+		});*/
+	</script>
+</body>
+</html>

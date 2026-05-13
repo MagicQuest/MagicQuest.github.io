@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>crossing into three dimensions (three dimensions in space)</title>
+	<style>
+		#canvas {
+			border: red 2px solid;
+			display: block;
+		}
+		button {
+			cursor: pointer;
+		}
+		button:hover {
+			font-weight: bold;
+		}
+		button:active {
+			font-weight: initial;
+		}
+	</style>
+</head>
+<body>
+	<center>
+		<canvas id="canvas" width="480" height="270">bro bro.</canvas>
+		<span>y rot</span>
+		<input id="input_yrot" type="range" min="0" max="6.28" value="0" step="0.01">
+		<label for="input_yrot">0.00</label><br>
+		<span>x rot</span>
+		<input id="input_xrot" type="range" min="-6.28" max="6.28" value="0.5" step="0.01">
+		<label for="input_xrot">0.50</label><br>
+		<!--label>back face</label>
+		<input type="checkbox" checked oninput="gl.cullFace(gl.BACK); draw();"><br>
+		<label>front face</label>
+		<input type="checkbox"><br-->
+		<button onclick="gl.cullFace(gl.BACK); draw();">back face</button>
+		<button onclick="gl.cullFace(gl.FRONT); draw();">front face</button>
+	</center>
+	<script id="vertex-shader" type="glsl">
+		attribute vec4 a_position;
+		attribute vec2 a_texCoord;
+		varying vec2 v_texCoord;
+		uniform mat4 u_matrix;
+		uniform float u_vanishing;
+		void main() {
+			gl_PointSize = 20.0;
+			v_texCoord = a_texCoord;
+			// gl_Position = (u_matrix * a_position); //(a_position.z*u_vanishing); // u_matrix * a_position;
+
+			// gl_Position = vec4((u_matrix * a_position).xyz/(a_position.z*u_vanishing), a_position.w); //(a_position.z*u_vanishing);
+			//yeah alright i'll just do what he did...
+			vec4 position = u_matrix * a_position;
+			float zToDivideBy = (1.0 + position.z)*u_vanishing;
+			gl_Position = vec4(position.xyz, zToDivideBy); // vec4(position.xy / zToDivideBy, position.zw);
+		}
+	</script>
+	<script id="fragment-shader" type="glsl">precision highp float;
+		uniform vec2 fResolution;
+		varying vec2 v_texCoord;
+		uniform sampler2D iChannel0;
+		void main() {
+			vec2 uv = gl_FragCoord.xy / fResolution.xy;
+			gl_FragColor = vec4(texture2D(iChannel0, v_texCoord).xyz, 1.0);
+			//in that "new" fancy opengl > 330 you can output to multiple color buffers at once! (MRT)
+		}
+	</script>
+	<script src="./glwrapperex.js"></script>
+	<script src="./m4.js"></script>
+	<script>
+		// wow...  https://www.youtube.com/watch?v=qjWkNZ0SXfo
+		const canvas = document.getElementById("canvas");
+		const gl = canvas.getContext("webgl");
+		if(!gl) {
+			document.write("your computer ain't cut out for webgl apparently.");
+			quit;
+		}
+
+		const program = glProgram.fromShaders(document.getElementById("vertex-shader").innerText, document.getElementById("fragment-shader").innerText);
+		const posBuffer = new glBuffer(gl, gl.ARRAY_BUFFER);
+		const sqrx = gl.canvas.height/gl.canvas.width;
+		posBuffer.set(new Float32Array([
+		  //x     y    z    u    v 
+		  //-1.0, 1.0, 0.0, 0.0, 1.0,
+	      //-1.0, -1.0,0.0, 0.0, 0.0,
+		  //1.0, 1.0,  0.0, 1.0, 1.0,
+		  //1.0, -1.0, 0.0, 1.0, 0.0,
+			//ok lol these were gl.TRIANGLE_STRIP but i think the machine might be breaking down so let's switch to triagles
+			/*-sqrx, 1.0, 0.0, 0.0, 1.0, //front
+			-sqrx, -1.0,0.0, 0.0, 0.0,
+			sqrx, 1.0,  0.0, 1.0, 1.0,
+			sqrx, -1.0, 0.0, 1.0, 0.0,*/
+
+			/*-sqrx, 1.0, 1.0, 0.0, 1.0, //left? (apparently)
+			-sqrx, -1.0,1.0, 0.0, 0.0,
+			-sqrx, 1.0, 0.0, 1.0, 1.0,
+			-sqrx, -1.0,0.0, 1.0, 0.0,*/
+			
+			//aw fuck this one is backwards
+			/*sqrx, 1.0, 1.0, 0.0, 1.0,  //right? (apparently)
+			sqrx, -1.0,1.0, 0.0, 0.0,
+			sqrx, 1.0, 0.0, 1.0, 1.0,
+			sqrx, -1.0,0.0, 1.0, 0.0,*/
+
+			/*sqrx, 1.0, 0.0, 1.0, 1.0,
+			sqrx, -1.0,0.0, 1.0, 0.0,
+			sqrx, 1.0, 1.0, 0.0, 1.0,  //right? (apparently)
+			sqrx, -1.0,1.0, 0.0, 0.0,*/
+
+			/*-sqrx, 1.0, 1.0, 0.0, 1.0, //back
+			-sqrx, -1.0,1.0, 0.0, 0.0,
+			sqrx, 1.0,  1.0, 1.0, 1.0,
+			sqrx, -1.0, 1.0, 1.0, 0.0,*/
+
+			// gl.TRIANGLES
+			//uhh apparently z-order works different than i expected and a higher z component brings the vertex closer to the camera? (as opposed to further away)
+
+			//ok man apparently my verts are not counter clockwise enough and when i put ts in perspective all of them flipped...
+			-sqrx, 1.0, 1.0, 0.0, 1.0, //front
+			-sqrx, -1.0, 1.0, 0.0, 0.0,
+			sqrx, -1.0, 1.0, 1.0, 0.0,
+			sqrx, -1.0, 1.0, 1.0, 0.0,
+			sqrx, 1.0, 1.0, 1.0, 1.0,
+			-sqrx, 1.0, 1.0, 0.0, 1.0,
+
+			//we'll go 3 -> 1 -> 2 instead now...
+			//oh man i'm confused...
+			//sqrx, -1.0, 1.0, 1.0, 0.0,
+			//-sqrx, 1.0, 1.0, 0.0, 1.0, //front
+			//-sqrx, -1.0, 1.0, 0.0, 0.0,
+			
+			-sqrx, 1.0, 0.0, 0.0, 1.0, //left
+			-sqrx, -1.0, 0.0, 0.0, 0.0,
+			-sqrx, -1.0, 1.0, 1.0, 0.0,
+			-sqrx, -1.0, 1.0, 1.0, 0.0,
+			-sqrx, 1.0, 1.0, 1.0, 1.0,
+			-sqrx, 1.0, 0.0, 0.0, 1.0,
+			
+			sqrx, 1.0, 0.0, 0.0, 1.0,  //back
+			sqrx, -1.0, 0.0, 0.0, 0.0,
+			-sqrx, -1.0, 0.0, 1.0, 0.0,
+			-sqrx, -1.0, 0.0, 1.0, 0.0,
+			-sqrx, 1.0, 0.0, 1.0, 1.0,
+			sqrx, 1.0, 0.0, 0.0, 1.0,
+
+			sqrx, 1.0, 1.0, 0.0, 1.0,  //right
+			sqrx, -1.0, 1.0, 0.0, 0.0,
+			sqrx, -1.0, 0.0, 1.0, 0.0,
+			sqrx, -1.0, 0.0, 1.0, 0.0,
+			sqrx, 1.0, 0.0, 1.0, 1.0,
+			sqrx, 1.0, 1.0, 0.0, 1.0,
+
+			-sqrx, 1.0, 0.0, 0.0, 1.0, //top
+			-sqrx, 1.0, 1.0, 0.0, 0.0,
+			sqrx, 1.0, 1.0, 1.0, 0.0,
+			sqrx, 1.0, 1.0, 1.0, 0.0,
+			sqrx, 1.0, 0.0, 1.0, 1.0,
+			-sqrx, 1.0, 0.0, 0.0, 1.0,
+
+			-sqrx, -1.0, 1.0, 0.0, 1.0, //bottom
+			-sqrx, -1.0, 0.0, 0.0, 0.0,
+			sqrx, -1.0, 0.0, 1.0, 0.0,
+			sqrx, -1.0, 0.0, 1.0, 0.0,
+			sqrx, -1.0, 1.0, 1.0, 1.0,
+			-sqrx, -1.0, 1.0, 0.0, 1.0,
+
+			/*-sqrx, 1.0, 1.0, 0.0, 1.0,
+			-sqrx, -1.0, 0.0, 1.0, 0.0,
+			-sqrx, -1.0, 1.0, 0.0, 0.0,
+			-sqrx, -1.0, 0.0, 1.0, 0.0,
+			-sqrx, 1.0, 1.0, 0.0, 1.0,
+			-sqrx, 1.0, 0.0, 1.0, 1.0,*/
+		]), gl.STATIC_DRAW);
+		program.registerAttrib("a_position", posBuffer);
+		program.registerAttrib("a_texCoord", posBuffer);
+		// program.setAttribData("a_position", new Float32Array([
+		//   //x     y    amount
+		//     -1.0, 1.0,
+	    // 	-1.0, -1.0,
+		// 	1.0, 1.0,
+		// 	1.0, -1.0
+		// ]), gl.STATIC_DRAW);
+		program.describeAttribLayout("a_position", 3, gl.FLOAT, false, 5*4, 0, true);
+		program.describeAttribLayout("a_texCoord", 2, gl.FLOAT, false, 5*4, 3*4, true);
+		program.enableAttrib("a_position");
+		program.enableAttrib("a_texCoord");
+
+		program.makeCurrent();
+		
+		// use program.makeCurrent before setting uniforms so i don't have to keep pushing and popping the program (also it just makes more sense to do that because that's how you normally set the uniforms)
+		// program.registerUniform("fResolution", "2fv", new Float32Array([gl.canvas.width, gl.canvas.height]));
+		// program.registerUniform("u_actualRes", "1f", 200);
+
+		function displayUpdate(event) {
+			canvas.parentElement.querySelector(`label[for='${event.target.id}'`).innerText = (+event.target.value).toLocaleString(undefined, {minimumFractionDigits:2});
+		}
+
+	    let matrix = m4.identity();
+		let yRot = 0;
+		let xRot = 0.5;
+
+		input_yrot.addEventListener("input", function(event) {
+			displayUpdate(event);
+			yRot = +event.target.value;
+			draw();
+		});
+
+		input_xrot.addEventListener("input", function(event) {
+			displayUpdate(event);
+			xRot = +event.target.value;
+			draw();
+		});
+
+		program.registerUniform("iChannel0", "1i", gl.TEXTURE0 - gl.TEXTURE0);
+		//program.registerUniform("u_matrix", "Matrix4fv", new Float32Array([
+		//	/*2.0/gl.canvas.clientWidth, 0.0, 0.0, 0.0,
+		//	0.0, 2.0/gl.canvas.clientHeight, 0.0, 0.0,
+		//	0.0, 0.0, 2.0 / depth, 0.0,
+		//	0.0, 0.0, 0.0, 1.0,*/
+		//	1.0, 0.0, 0.0, 0.0,
+		//	0.0, 1.0, 0.0, 0.0,
+		//	0.0, 0.0, 1.0, 0.0,
+		//	0.0, 0.0, 0.0, 1.0,
+		//]));
+		program.registerUniform("u_matrix", "Matrix4fv");
+		program.setUniformMatrix("u_matrix", false, matrix);
+		program.registerUniform("u_vanishing", "1f", 1.0);
+
+		const tex0 = new glTexture(gl, gl.TEXTURE0, gl.TEXTURE_2D);
+		tex0.makeCurrent();
+		tex0.fromImage("./textures/f-texture.png", gl.RGBA, gl.UNSIGNED_BYTE, function() {
+			draw();
+		});
+
+		gl.enable(gl.CULL_FACE);
+		gl.enable(gl.DEPTH_TEST);
+		gl.cullFace(gl.BACK);
+
+		function draw() {
+			gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+			gl.clearColor(0.0, 0.0, 0.0, 0.0);
+			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); // now we're cooking!
+
+			// gl.enable(gl.CULL_FACE);
+
+			matrix = [
+				1, 0, 0, 0,
+				0, 1, 0, 0,
+				0, 0, 1, 0,
+				0, 0, 0, 1,
+			]; //m4.identity();
+			// matrix = m4.translate(matrix, 0.0, 0.0, -10.0);
+			matrix = m4.scale(matrix, 0.5, 0.5, 0.5);
+			matrix = m4.xRotate(matrix, xRot);
+			matrix = m4.yRotate(matrix, yRot);
+			matrix = m4.translate(matrix, 0.0, 0.0, -0.5);
+
+			program.setUniformMatrix("u_matrix", false, matrix);
+
+			gl.drawArrays(gl.TRIANGLES, 0, 6*6);
+			//gl.drawArrays(gl.POINTS, 0, 6*6);
+		}
+
+		draw();
+	</script>
+</body>
+</html>

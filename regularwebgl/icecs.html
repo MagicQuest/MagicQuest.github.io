@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>indexed cube and camera solve!</title>
+</head>
+<body>
+    <center>
+        <canvas id="canvas" style="border:red 2px solid;" width="512" height="512">cosmic embassy</canvas>
+    </center>
+    <script id="vertex-shader" type="glsl">#version 300 es
+        layout(location = 0) in vec4 a_position;
+		in vec2 a_texCoord;
+		uniform mat4 u_matrix;
+		out vec2 v_texCoord;
+        void main() {
+			v_texCoord = a_texCoord;
+			vec4 position = u_matrix*a_position;
+            float zToDivideBy = 1.0 + position.z * 2.0;
+			gl_Position = vec4(position.xyz, zToDivideBy);
+        }
+    </script>
+    <script id="fragment-shader" type="glsl">#version 300 es
+		precision highp float;
+		uniform vec2 iResolution;
+		uniform sampler2D iChannel0;
+		in vec2 v_texCoord;
+		out vec4 outColor;
+        void main() {
+			vec2 uv = gl_FragCoord.xy / iResolution.xy;
+			/*gl_FragColor*/ outColor = texture(iChannel0, v_texCoord);
+        }
+    </script>
+	<script id="vertex-shader-instanced" type="glsl">#version 300 es
+		layout(location = 0) in vec4 a_position;
+		uniform mat4 u_viewMatrix; //oh yeah no for loops in draw for us!
+		uniform float iTime;
+		//instanced
+		in mat4 ia_matrix;
+		in vec3 ia_color;
+
+		out vec3 v_color;
+
+		void main() {
+			v_color = ia_color;
+			vec4 modified_position = a_position;
+			modified_position.y = 0.0;
+			//modified_position.y = fract(iTime);
+			vec4 position = (u_viewMatrix*ia_matrix)*modified_position;
+			//position.y = mod(position.y+fract(iTime), 1.0);
+			//position.y = -mod(-position.y+fract(iTime)+0.5, 0.5);
+			/*position.y = position.y-fract(iTime);
+			if(position.y < -0.5) {
+				position.y = position.y+
+			}*/
+			//position.y += mod(position.y-fract(iTime), 1.0);
+			float zToDivideBy = 1.0 + position.z * 2.0;
+			gl_Position = vec4(position.xyz, zToDivideBy);
+		}
+	</script>
+	<script id="fragment-shader-instanced" type="glsl">#version 300 es
+		precision highp float; //fragment shaders don't have a default precision apparently!
+
+		in vec3 v_color;
+		out vec4 outColor;
+		void main() {
+			outColor = vec4(v_color, 1.0);
+		}
+	</script>
+	<script src="https://cdn.jsdelivr.net/npm/lil-gui@0.21"></script>
+    <script src="./glwrapperex.js"></script>
+    <script src="./m4.js"></script>
+    <script>
+        const canvas = document.getElementById("canvas");
+        const gl = canvas.getContext("webgl2");
+
+        if(!gl) {
+            document.write("yo for some reason we couldn't get the webgl2 context?");
+            quit;
+        }
+
+        const program = glProgram.fromShaders(document.getElementById("vertex-shader").innerText, document.getElementById("fragment-shader").innerText, true, true);
+		const vertexBuffer = new glBuffer(gl, gl.ARRAY_BUFFER);
+		vertexBuffer.set(new Float32Array([
+		  //x     y    z 
+			-1.0, 1.0, 0.0, //top left
+			-1.0, -1.0,0.0, //bottom left
+			1.0, 1.0,  0.0, //top right
+			1.0, -1.0, 0.0, //bottom right
+			-1.0, 1.0, -2.0,
+			-1.0, -1.0,-2.0,
+			1.0, 1.0,  -2.0,
+			1.0, -1.0, -2.0,
+		]), gl.STATIC_DRAW);
+		const texCoordBuffer = new glBuffer(gl, gl.ARRAY_BUFFER);
+		texCoordBuffer.set(new Float32Array([
+		  //u    v
+			0.0, 1.0,
+			0.0, 0.0,
+			1.0, 1.0,
+			1.0, 0.0,
+			//0.0, 1.0,
+			//0.0, 0.0,
+			//1.0, 1.0,
+			//1.0, 0.0,
+			1.0, 1.0,
+			1.0, 0.0,
+			0.0, 1.0,
+			0.0, 0.0,
+		]), gl.STATIC_DRAW);
+		const indexBuffer = new glBuffer(gl, gl.ELEMENT_ARRAY_BUFFER);
+		indexBuffer.set(new Int8Array([
+			0, 1, 2, 3, //front
+			2, 3, 2+4,3+4, //right
+			2+4, 3+4, 0+4, 1+4, //back
+			0+4, 1+4, 0, 1, //left
+			//0, 0, 0, 0,
+			255, //hell yeah no degenerate triangles for us! https://stackoverflow.com/a/37172797
+			0+4, 0, 2+4, 2, //top 
+			255,
+			1, 1+4, 3, 3+4, //bottom
+		]), gl.STATIC_DRAW);
+		//debugger;
+		class ModelInstance {
+			matrix = m4.identity();
+			vao;
+			vertexBuffer;
+			indexBuffer;
+			elementDataType;
+			constructor(vertices, indices, type) {
+				this.vao = glPolyfill.createVertexArray(gl);
+				glPolyfill.bindVertexArray(gl, this.vao);
+				this.vertexBuffer = new glBuffer(gl, gl.ARRAY_BUFFER);
+				this.vertexBuffer.set(new Float32Array(vertices), gl.STATIC_DRAW);
+				//const vattrib = new glAttribute(gl, gl.getAttribLocation(program.get(), "a_position"), this.vertexBuffer);
+				const vattrib = new glAttribute(gl, 0, this.vertexBuffer);
+				vattrib.describeLayout(3, gl.FLOAT, false, 0, 0);
+				vattrib.enable();
+				//red lol
+				gl.vertexAttrib2fv(gl.getAttribLocation(program.get(), "a_texCoord"), new Float32Array([0.11, 0.11]));
+				if(indices.length) {
+					this.indexBuffer = new glBuffer(gl, gl.ELEMENT_ARRAY_BUFFER);
+					let arraytype;
+					switch(type) {
+						case gl.UNSIGNED_BYTE:
+							arraytype = Int8Array;
+							break;
+						case gl.UNSIGNED_SHORT:
+							arraytype = Int16Array;
+							break;
+						case gl.UNSIGNED_INT:
+							arraytype = Int32Array;
+							break;
+					}
+					this.indexBuffer.set(new arraytype(indices), gl.STATIC_DRAW);
+					this.elementDataType = type;
+				}
+				//glPolyfill.bindVertexArray(gl, null);
+				//this.vertexBuffer.enable();
+				//this.indexBuffer.enable();
+				//this.useElements = !!indices;
+			}
+			draw(viewProjectionMatrix, matrixSetCallback) {
+				//debugger;
+				glPolyfill.bindVertexArray(gl, this.vao);
+				matrixSetCallback(m4.multiply(viewProjectionMatrix, this.matrix));
+				//program.setUniform("u_matrix", m4.multiply(matrix, viewProjectionMatrix));
+				if(this.elementDataType) {
+					gl.drawElements(gl.TRIANGLES, this.indexBuffer.length, this.elementDataType, 0);
+				}else {
+					gl.drawArrays(gl.TRIANGLES, 0, this.vertexBuffer.length);
+				}
+			}
+			destroy() {
+				if(this.elementDataType) {
+					this.indexBuffer.destroy();
+				}
+				this.vertexBuffer.destroy();
+				glPolyfill.deleteVertexArray(gl, this.vao);
+			}
+		}
+		const objects = [];
+		{
+			const d = 2.0;
+			const pyramid = new ModelInstance([
+				//vertices
+				-1.0/d, -1.0/d, 1.0/d, //front 2
+				1.0/d, -1.0/d, 1.0/d,
+				-1.0/d, -1.0/d, -1.0/d,  //back 2
+				1.0/d, -1.0/d, -1.0/d,
+				0.0, 1.0/d, 0.0,    //top
+			], [
+				//indices
+				//1, 4, 0,
+				4, 0, 1,
+				4, 1, 1+2,
+				//etc.
+				4, 1+2, 0+2,
+				4, 0+2, 0,
+				//bottom
+				1+2, 0, 0+2,
+				0, 1+2, 1,
+			], gl.UNSIGNED_BYTE);
+			pyramid.matrix = m4.translation(0.0, 0.0, -2.0);
+			objects.push(pyramid);
+			const plane = new ModelInstance([
+				//vertices
+				-1.0, 0.0, 1.0, //closest verts
+				1.0, 0.0, 1.0,
+				-1.0, 0.0, -1.0,
+				1.0, 0.0, -1.0,
+			], [
+				//indices
+				1, 0+2, 0,
+				0+2, 1, 1+2,
+			], gl.UNSIGNED_BYTE);
+			plane.matrix = m4.scale(m4.translation(0.0, -0.5, 0.0), 5.0, 5.0, 5.0);
+			{
+				const texCoords = new glBuffer(gl, gl.ARRAY_BUFFER);
+				texCoords.set(new Float32Array([
+					0.0, 0.0,
+					1.0, 0.0,
+					0.0, 1.0,
+					1.0, 1.0,
+				]), gl.STATIC_DRAW);
+				const vattrib = new glAttribute(gl, gl.getAttribLocation(program.get(), "a_texCoord"), texCoords);
+				vattrib.describeLayout(2, gl.FLOAT, false, 0, 0);
+				vattrib.enable();
+			}
+			objects.push(plane);
+			/*const [file] = await showOpenFilePicker({multiple: false, types: [
+			    {description: "OBJ files", accept: {"model/obj": [".obj"]}}
+			]});
+			const data = await file.getFile();
+			const contents = await data.text();
+			const info = Model.loadObj(gl, contents);
+			const rabbit = new ModelInstance(info.vertices, info.indices, info.suggested_type);
+			objects.push(rabbit);*/
+		}
+		const cubeVAO = glPolyfill.createVertexArray(gl);
+		glPolyfill.bindVertexArray(gl, cubeVAO);
+		//objects.push(new Object())
+
+		indexBuffer.makeCurrent(); //element array buffer must be set after vertex array is created! (to avoid this, i should create the vertex array before making the indexBuffer)
+
+		program.registerAttrib("a_position", vertexBuffer);
+		program.registerAttrib("a_texCoord", texCoordBuffer);
+
+		program.describeAttribLayout("a_position", 3, gl.FLOAT, false, 0, 0);
+		program.describeAttribLayout("a_texCoord", 2, gl.FLOAT, false, 0, 0);
+		
+		program.enableAttrib("a_position");
+		program.enableAttrib("a_texCoord");
+
+		glPolyfill.bindVertexArray(gl, null);
+
+		let lastBlob;
+		const tex0 = new glTexture(gl, gl.TEXTURE0, gl.TEXTURE_2D);
+		const samplerParams = gl.createSampler();
+		gl.samplerParameteri(samplerParams, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+		//gl.bindSampler(samplerParams);
+		//gl.bindSampler(null);
+		//const samplerParams = new glSampler();
+
+		function textureCallback(event) {
+			gl.generateMipmap(gl.TEXTURE_2D);
+			//tex0.setParameteri(gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+			//we can assume tex0 has already been bound
+			gl.bindSampler(gl.TEXTURE0-tex0.unit, samplerParams); //binding a sampler object for one parameter
+			draw();
+		}
+		
+		//tex0.fromImage("./GdWx-lQXkAAh2C_.jpg", gl.RGBA, gl.UNSIGNED_BYTE, textureCallback);
+		tex0.fromImage("./textures/mrdoob_plane_deformations_disturb.jpg", gl.RGBA, gl.UNSIGNED_BYTE, textureCallback);
+		//tex0.fromImage("./utah_teapot_textures_grid.png", gl.RGBA, gl.UNSIGNED_BYTE, draw);
+
+		function setImageWithFile(data) {
+			if(lastBlob) {
+				URL.revokeObjectURL(lastBlob);
+			}
+			lastBlob = URL.createObjectURL(data);
+			tex0.fromImage(lastBlob, gl.RGBA, gl.UNSIGNED_BYTE, textureCallback);
+		}
+
+		addEventListener("dragover", function(event) {
+            event.stopPropagation();
+            event.preventDefault();
+            // Style the drag-and-drop as a "copy file" operation.
+            event.dataTransfer.dropEffect = 'copy';
+            document.body.style = "color: royalblue; background-color: #1E1E1E";
+		});
+
+        addEventListener('drop', async (event) => {
+            event.stopPropagation();
+            event.preventDefault();
+            const fileList = event.dataTransfer.files;
+            console.log(fileList);
+            document.body.style = "";
+            setImageWithFile(fileList[0]);
+        });
+
+		async function chooseCustomImage() {
+			const [file] = await showOpenFilePicker({multiple: false, types: [
+				{description: "images.", accept: {"image/*": [".png", ".jfif", ".svg", ".webp", ".jpg", ".jpeg", ".gif"]}}
+			]});
+			//debugger;
+			const data = await file.getFile();
+			setImageWithFile(data);
+			draw();
+		}
+
+		async function loadObj() {
+			const [file] = await showOpenFilePicker({multiple: false, types: [
+			    {description: "OBJ files", accept: {"model/obj": [".obj"]}}
+			]});
+			const data = await file.getFile();
+			const contents = await data.text();
+			const info = Model.loadObj(gl, contents);
+			const model = new ModelInstance(info.vertices, info.indices, info.suggested_type);
+			objects.push(model);
+			draw();
+		}
+
+		const gui = new lil.GUI();
+		gui.add(window, "chooseCustomImage");
+		gui.add(window, "loadObj");
+
+		//oh FUCK i left the cubeVAO bound and it's probably been getting angry this whole time!
+
+		//debugger;
+		const instancedProgram = glProgram.fromShaders(document.getElementById("vertex-shader-instanced").innerText, document.getElementById("fragment-shader-instanced").innerText, true, true);
+
+		const instancedVAO = glPolyfill.createVertexArray(gl);
+		glPolyfill.bindVertexArray(gl, instancedVAO);
+
+		//since we're using the cube let's bind its index buffer to the vao!
+		indexBuffer.makeCurrent();
+
+		const instanceCount = 500;
+
+		instancedProgram.registerAttrib("a_position", vertexBuffer); //using cube verts lol!~
+		const iMatrixBuffer = new glBuffer(gl, gl.ARRAY_BUFFER);
+		//iMatrixBuffer.set(m4.identity(), gl.DYNAMIC_DRAW); //oh yeah the camera moves like every frame we're gonna have to make ts dynamic!
+		{
+			let tempbuf = [];
+			for(let i = 0; i < instanceCount; i++) {
+				//const trans = m4.translation(Math.random()-0.5, 0.0+(Math.random()-0.5), -Math.random()+0.05);
+				const trans = m4.translation(Math.random()*10-5, 0.0+(Math.random()-0.5), Math.random()*10-5);
+				tempbuf.push(...m4.scale(trans, 0.05, 0.05, 0.05));
+			}
+			iMatrixBuffer.set(new Float32Array(tempbuf), gl.STATIC_DRAW); //lol! we can pass the view projection matrix as a uniform making this static!! :3
+		}
+		const iColorBuffer = new glBuffer(gl, gl.ARRAY_BUFFER);
+		iColorBuffer.set(new Float32Array([
+			1.0, 0.0, 0.0,
+			0.0, 1.0, 0.0,
+			0.0, 0.0, 1.0,
+			//1.0, 1.0, 0.0,
+			//0.0, 1.0, 1.0,
+		]), gl.STATIC_DRAW);
+		instancedProgram.registerAttrib("ia_matrix", iMatrixBuffer);
+		instancedProgram.registerAttrib("ia_color", iColorBuffer);
+		instancedProgram.describeAttribLayout("a_position", 3, gl.FLOAT, false, 0, 0);
+		//instancedProgram.describeAttribLayout("ia_matrix", 1, gl.FLOAT, false, 0, 0);
+		iMatrixBuffer.makeCurrent();
+		for(let i = 0; i < 4; i++) { //attributes can only store 4 values per slot (apparently? so matrices must be set 4 times)
+			const loc = instancedProgram.attribs["ia_matrix"].location+i;
+			gl.enableVertexAttribArray(loc);
+			const offset = i*16;
+
+			//@Bound(iMatrixBuffer)
+			gl.vertexAttribPointer(loc, 4, gl.FLOAT, false, 4*16, offset);
+			glPolyfill.vertexAttribDivisor(gl, loc, 1);
+		}
+		instancedProgram.describeAttribLayout("ia_color", 3, gl.FLOAT, false, 0, 0);
+		instancedProgram.setAttribDivisor("ia_color", Math.ceil(instanceCount/(iColorBuffer.length/3)));
+		instancedProgram.enableAttrib("a_position");
+		instancedProgram.enableAttrib("ia_color");
+
+		glPolyfill.bindVertexArray(gl, null);
+
+		instancedProgram.registerUniform("u_viewMatrix", "Matrix4fv");
+		instancedProgram.registerUniform("iTime", "1f");
+
+		program.makeCurrent(); //good practice
+
+		program.registerUniform("iResolution", "2fv", new Float32Array([gl.canvas.width, gl.canvas.height]));
+		program.registerUniform("iChannel0", "1i", gl.TEXTURE0 - gl.TEXTURE0);
+		/*program.registerUniform("u_matrix", "Matrix4fv", new Float32Array([
+			1.0, 0.0, 0.0, 0.0,
+			0.0, 1.0, 0.0, 0.0,
+			0.0, 0.0, 1.0, 0.0,
+			0.0, 0.0, 0.0, 1.0,
+		]));*/
+		program.registerUniform("u_matrix", "Matrix4fv");
+
+		gl.cullFace(gl.BACK);
+		gl.enable(gl.CULL_FACE);
+		gl.enable(gl.DEPTH_TEST);
+
+		let cameraMatrix = m4.translation(0, 0, 3);
+		const rotation = [0.0, 0.0, 0.0];
+		//let forward = [0.0, 0.0, -1.0];
+		let position = [0.0, 0.0, 3.0];
+		//let position = [0.0, 0.0, 0.0];
+
+		function objSetPos(matrix) {
+			program.setUniformMatrix("u_matrix", false, matrix);
+		}
+
+		let t = 0.0;
+
+        function draw() {
+			gl.viewport(0, 0, gl.canvas.width, gl.canvas.height); //technically don't need to call this in le draw func
+			gl.clearColor(1.0, 0.0, 1.0, 1.0);
+			//gl.clearColor(0.1, 0.1, 0.1, 0.01);
+			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+			const projection = m4.perspective(60*Math.PI/180, gl.canvas.clientWidth/gl.canvas.clientHeight, 1, 2000);
+			const viewMatrix = m4.inverse(cameraMatrix);
+			const viewProjectionMatrix = m4.translate(m4.multiply(projection, viewMatrix), 0.0, 0.0, 0.0);
+			//const matrix = m4.translate(viewProjectionMatrix, 0.0, 0.0, 0.0);
+			//console.log(matrix);
+			//const matrix = m4.yRotate(viewProjectionMatrix, -rotation[1]);
+			//matrix = m4.axisRotate();
+			//debugger;
+			program.makeCurrent();
+			program.setUniformMatrix("u_matrix", false, m4.scale(viewProjectionMatrix, 0.5, 0.5, 0.5));
+			glPolyfill.bindVertexArray(gl, cubeVAO);
+			gl.drawElements(gl.TRIANGLE_STRIP, indexBuffer.length, gl.UNSIGNED_BYTE, 0);
+			for(const obj of objects) {
+				obj.draw(viewProjectionMatrix, objSetPos);
+			}
+			instancedProgram.makeCurrent();
+			glPolyfill.bindVertexArray(gl, instancedVAO);
+			instancedProgram.setUniformMatrix("u_viewMatrix", false, viewProjectionMatrix);
+			instancedProgram.setUniform("iTime", t);
+			//iMatrixBuffer.setSub(0, viewProjectionMatrix);
+
+			//glPolyfill.bindVertexArray(gl, null);
+			//indexBuffer.makeCurrent();
+			//debugger;
+			glPolyfill.drawElementsInstanced(gl, gl.TRIANGLE_STRIP, indexBuffer.length, gl.UNSIGNED_BYTE, 0, instanceCount);
+			t+=1/10;
+        }
+
+		//theta = 0 -> right
+		//theta = Math.PI/2 -> forward
+		function cameraVector(theta, scale) {
+			return [Math.cos(rotation[1]+theta)*scale, 0.0, -Math.sin(rotation[1]+theta)*scale];
+		}
+
+		function handleMouseMovement(event) {
+			const horizontalRot = -event.movementX*Math.PI/180;
+			const verticalRot = -event.movementY*Math.PI/180;
+			rotation[1] += horizontalRot/2;
+			rotation[0] += verticalRot/2;
+			//cameraMatrix = m4.translation(0, 0, 3.0);
+			//cameraMatrix = m4.translate(cameraMatrix, ...position.map(i=>-i));
+			//cameraMatrix = m4.translation(...position.map(i=>-i));
+			cameraMatrix = m4.translation(...position);
+			//cameraMatrix = m4.yRotation(rotation[1]);
+			cameraMatrix = m4.yRotate(cameraMatrix, rotation[1]);
+			//forward = [Math.cos(rotation[1]+Math.PI/2)/10, 0.0, -Math.sin(rotation[1]+Math.PI/2)/10];
+			//cameraMatrix = m4.axisRotate(cameraMatrix, [Math.cos(rotation[1]), 0.0, Math.sin(rotation[1])], rotation[0]);
+			cameraMatrix = m4.xRotate(cameraMatrix, rotation[0]);
+			//cameraMatrix = m4.translate(cameraMatrix, ...position.map(i=>-i));
+			//cameraMatrix = m4.translate(cameraMatrix, ...position);
+
+			//bruh Math.PI/2 ??? what is this random position
+			//also desmos shit i tried to do to figure out what was happening https://www.desmos.com/calculator/9jmujmptkq
+			cameraMatrix = m4.translate(cameraMatrix, 0.0, 0.0, Math.PI/2); //console.log(Math.PI/2);
+			draw();
+			//cameraMatrix = m4.
+		}
+
+		function handleKeyboardInput(event) {
+			let redraw = false;
+			const key = event.key.toLowerCase();
+			if(key == "w") {
+				const forward = cameraVector(Math.PI/2, 0.1);
+				m4.addVectors(position, forward, position);
+				redraw = true;
+				//draw();
+			}else if(key == "s") {
+				const backward = cameraVector(3*Math.PI/2, 0.1);
+				m4.addVectors(position, backward, position);
+				redraw = true;
+			}else if(key == "d") {
+				m4.addVectors(position, cameraVector(0, 0.1), position);
+				redraw = true;
+			}else if(key == "a") {
+				m4.addVectors(position, cameraVector(Math.PI, 0.1), position);
+				redraw = true;
+			}else if(key == "q") {
+				position[1] += 0.1;
+				redraw = true;
+			}else if(key == "e") {
+				position[1] -= 0.1;
+				redraw = true;
+			}
+
+			if(redraw) {
+				handleMouseMovement({movementX:0,movementY:0});
+			}
+		}
+
+		document.addEventListener("pointerlockchange", function(event) {
+			if(document.pointerLockElement == canvas) {
+				document.addEventListener("mousemove", handleMouseMovement);
+				document.addEventListener("keydown", handleKeyboardInput);
+			}else {
+				document.removeEventListener("mousemove", handleMouseMovement);
+				document.removeEventListener("keydown", handleKeyboardInput);
+			}
+		});
+
+		canvas.addEventListener("mousedown", function(event) {
+			canvas.requestPointerLock();
+		});
+
+		draw();
+	</script><!--Ah2C_.jpg-->
+</body>
+

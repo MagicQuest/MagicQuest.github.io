@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>z test because something weird is happening...</title>
+	<style>
+		#canvas {
+			border: red 2px solid;
+			display: block;
+		}
+		button {
+			cursor: pointer;
+		}
+		button:hover {
+			font-weight: bold;
+		}
+		button:active {
+			font-weight: initial;
+		}
+	</style>
+</head>
+<body>
+	<center>
+		<canvas id="canvas" width="480" height="480">bro bro.</canvas>
+		<span>y rot</span>
+		<input id="input_yrot" type="range" min="0" max="6.28" value="0" step="0.01">
+		<label for="input_yrot">0.00</label><br>
+		<span>x rot</span>
+		<input id="input_xrot" type="range" min="-6.28" max="6.28" value="0" step="0.01">
+		<label for="input_xrot">0.00</label><br>
+		<!--label>back face</label>
+		<input type="checkbox" checked oninput="gl.cullFace(gl.BACK); draw();"><br>
+		<label>front face</label>
+		<input type="checkbox"><br-->
+		<button onclick="gl.cullFace(gl.BACK); draw();">back face</button>
+		<button onclick="gl.cullFace(gl.FRONT); draw();">front face</button><br>
+		<label for="input_perspective">perspective</label>
+		<input id="input_perspective" type="checkbox"><br>
+		<span>vanishing</span>
+		<input id="input_vanishing" type="range" min="0" max="100" value="2" step="0.1">
+		<label for="input_vanishing">2.00</label><br>
+	</center>
+	<script id="vertex-shader" type="glsl">#version 300 es
+		//for modernizing my glsl https://gamedev.stackexchange.com/a/29673
+		in vec4 a_position;
+		in vec2 a_texCoord;
+		//attribute int a_texChannel;
+		in vec2 a_atlasCoord;
+
+		out vec2 v_texCoord;
+		//varying int v_texChannel;
+		//flat out int v_texChannel;
+		flat out vec2 v_atlasCoord;
+
+		uniform mat4 u_matrix;
+		uniform float u_vanishing;
+		uniform float u_perspective;
+		uniform float u_atlasCellSize;
+		uniform float u_atlasBounds;
+		void main() {
+			gl_PointSize = 20.0;
+			v_texCoord = a_texCoord;
+			v_atlasCoord = a_atlasCoord; //*u_atlasCellSize;
+			// v_texChannel = // it was at this moment i realized the varying value would be spread across the pixels and uhhh i might need to use an atlas or upgrade to that new glsl so i can say it's flat 
+			// gl_Position = (u_matrix * a_position); //(a_position.z*u_vanishing); // u_matrix * a_position;
+
+			// gl_Position = vec4((u_matrix * a_position).xyz/(a_position.z*u_vanishing), a_position.w); //(a_position.z*u_vanishing);
+			//yeah alright i'll just do what he did... (which is almost basically what i did but he added 1.0)
+			vec4 position = u_matrix * a_position;
+			//the google says branching with a uniform should be fine because it won't change during the draw call
+			//ok i have made my decision. bring back my 
+			float zToDivideBy;
+			if(u_perspective != 0.0) { //because using mix has to evaluate both args, using a branch with a uniform should maybe be faster lol?
+				zToDivideBy = (1.0 + position.z)*u_vanishing;
+			}else {
+				zToDivideBy = position.w;
+			}
+			// float zToDivideBy = mix(position.w, (1.0 + position.z)*u_vanishing, u_perspective); //branchless ? (both args must still be evaluated though!)
+			gl_Position = vec4(position.xyz, zToDivideBy); // vec4(position.xy / zToDivideBy, position.zw);
+		}
+	</script>
+	<script id="fragment-shader" type="glsl">#version 300 es
+		precision highp float;
+		out vec4 out_color;
+
+		in vec2 v_texCoord;
+		//flat in int v_texChannel;
+		flat in vec2 v_atlasCoord;
+
+		uniform vec2 fResolution;
+		uniform sampler2D iChannel0;
+		uniform float u_atlasCellSize;
+		uniform float u_atlasBounds;
+		void main() {
+			vec2 uv = gl_FragCoord.xy / fResolution.xy;
+			float calc = u_atlasBounds/u_atlasCellSize;
+			vec4 texColor = texture(iChannel0, (v_texCoord+v_atlasCoord)/calc);
+			out_color = vec4(mix(vec3(0.125, 0.125, 0.125), texColor.xyz, texColor.w), 1.0);
+		}
+	</script>
+	<script src="./glwrapperex.js"></script>
+	<script src="./m4.js"></script>
+	<script>
+		// wow...  https://www.youtube.com/watch?v=qjWkNZ0SXfo
+		const canvas = document.getElementById("canvas");
+		const gl = canvas.getContext("webgl2"); // using webgl2 now
+		if(!gl) {
+			document.write("your computer ain't cut out for webgl2 apparently.");
+			quit;
+		}
+
+		const program = glProgram.fromShaders(document.getElementById("vertex-shader").innerText, document.getElementById("fragment-shader").innerText);
+		const posBuffer = new glBuffer(gl, gl.ARRAY_BUFFER);
+		const sqrx = gl.canvas.height/gl.canvas.width;
+		posBuffer.set(new Float32Array([
+		  //x     y     z    u    v    a_x  a_y
+			//lol i could use 8 bits to describe which texture to use from the atlas like 0b00010001 -> (1, 1)
+			sqrx, -1.0, 0.0, 1.0, 0.0, 0.0, 5.0, //front
+			-sqrx, 1.0, 0.0, 0.0, 1.0, 0.0, 5.0,
+			-sqrx, -1.0,0.0, 0.0, 0.0, 0.0, 5.0,
+			-sqrx, 1.0, 0.0, 0.0, 1.0, 0.0, 5.0,
+			sqrx, -1.0, 0.0, 1.0, 0.0, 0.0, 5.0,
+			sqrx, 1.0,  0.0, 1.0, 1.0, 0.0, 5.0,
+	
+			-sqrx, -1.0,0.0, 1.0, 0.0, 1.0, 7.0, //left
+			-sqrx, 1.0, 2.0, 0.0, 1.0, 1.0, 7.0,
+			-sqrx, -1.0,2.0, 0.0, 0.0, 1.0, 7.0,
+			-sqrx, 1.0, 2.0, 0.0, 1.0, 1.0, 7.0, //duplicate the second vertex
+			-sqrx, -1.0,0.0, 1.0, 0.0, 1.0, 7.0, //duplicate the first
+			-sqrx, 1.0, 0.0, 1.0, 1.0, 1.0, 7.0,
+
+			sqrx, -1.0, 2.0, 1.0, 0.0, 7.0, 7.0, //right
+			sqrx, 1.0,  0.0, 0.0, 1.0, 7.0, 7.0,
+			sqrx, -1.0, 0.0, 0.0, 0.0, 7.0, 7.0,
+			sqrx, 1.0,  0.0, 0.0, 1.0, 7.0, 7.0,
+			sqrx, -1.0, 2.0, 1.0, 0.0, 7.0, 7.0,
+			sqrx, 1.0,  2.0, 1.0, 1.0, 7.0, 7.0,
+
+			-sqrx, -1.0,2.0, 1.0, 0.0, 6.0, 0.0, //back
+			sqrx, 1.0,  2.0, 0.0, 1.0, 6.0, 0.0,
+			sqrx, -1.0, 2.0, 0.0, 0.0, 6.0, 0.0,
+			sqrx, 1.0,  2.0, 0.0, 1.0, 6.0, 0.0,
+			-sqrx, -1.0,2.0, 1.0, 0.0, 6.0, 0.0,
+			-sqrx, 1.0, 2.0, 1.0, 1.0, 6.0, 0.0,
+
+			sqrx, 1.0,  0.0, 1.0, 0.0, 2.0, 5.0, //top (last vertex of front)
+			-sqrx, 1.0, 2.0, 0.0, 1.0, 2.0, 5.0,
+			-sqrx, 1.0, 0.0, 0.0, 0.0, 2.0, 5.0, // second vertex of front
+			-sqrx, 1.0, 2.0, 0.0, 1.0, 9.0, 7.0, // our second vertex
+			sqrx, 1.0,  0.0, 1.0, 0.0, 9.0, 7.0, // our first vertex
+			sqrx, 1.0,  2.0, 1.0, 1.0, 9.0, 7.0,
+
+			sqrx, -1.0, 2.0, 1.0, 0.0, 2.0, 5.0, //bottom
+			-sqrx, -1.0,0.0, 0.0, 1.0, 2.0, 5.0, // third vertex of front
+			-sqrx, -1.0,2.0, 0.0, 0.0, 2.0, 5.0,
+			-sqrx, -1.0,0.0, 0.0, 1.0, 1.0, 8.0, // our second vertex
+			sqrx, -1.0, 2.0, 1.0, 0.0, 1.0, 8.0, // our first vertex
+			sqrx, -1.0, 0.0, 1.0, 1.0, 1.0, 8.0, // first vertex of front
+		]), gl.STATIC_DRAW);
+		program.registerAttrib("a_position", posBuffer);
+		program.registerAttrib("a_texCoord", posBuffer);
+		// program.registerAttrib("a_texChannel", posBuffer);
+		program.registerAttrib("a_atlasCoord", posBuffer);
+		program.describeAttribLayout("a_position", 3, gl.FLOAT, false, 7*4, 0, true);
+		program.describeAttribLayout("a_texCoord", 2, gl.FLOAT, false, 7*4, 3*4, true);
+		// program.describeAttribLayout("a_texChannel", 1, gl.BYTE, false, 6*4, 5*4, true);
+		program.describeAttribLayout("a_atlasCoord", 2, gl.FLOAT, false, 7*4, 5*4, true);
+		program.enableAttrib("a_position");
+		program.enableAttrib("a_texCoord");
+		// program.enableAttrib("a_texChannel");
+		program.enableAttrib("a_atlasCoord");
+
+		program.makeCurrent();
+		
+
+		function displayUpdate(event) {
+			canvas.parentElement.querySelector(`label[for='${event.target.id}'`).innerText = (+event.target.value).toLocaleString(undefined, {minimumFractionDigits:2});
+		}
+
+	    let matrix = m4.identity();
+		let yRot = 0;
+		let xRot = 0;
+
+		input_yrot.addEventListener("input", function(event) {
+			displayUpdate(event);
+			yRot = +event.target.value;
+			draw();
+		});
+
+		input_xrot.addEventListener("input", function(event) {
+			displayUpdate(event);
+			xRot = +event.target.value;
+			draw();
+		});
+
+		input_perspective.addEventListener("input", function(event) {
+			program.setUniform("u_perspective", event.target.checked);
+			draw();
+		});
+		
+		input_vanishing.addEventListener("input", function(event) {
+			displayUpdate(event);
+			program.setUniform("u_vanishing", +event.target.value);
+			draw();
+		});
+
+		// use program.makeCurrent before setting uniforms so i don't have to keep pushing and popping the program (also it just makes more sense to do that because that's how you normally set the uniforms)
+		program.registerUniform("iChannel0", "1i", gl.TEXTURE0 - gl.TEXTURE0);
+		//program.registerUniform("u_matrix", "Matrix4fv", new Float32Array([
+		//	/*2.0/gl.canvas.clientWidth, 0.0, 0.0, 0.0,
+		//	0.0, 2.0/gl.canvas.clientHeight, 0.0, 0.0,
+		//	0.0, 0.0, 2.0 / depth, 0.0,
+		//	0.0, 0.0, 0.0, 1.0,*/
+		//	1.0, 0.0, 0.0, 0.0,
+		//	0.0, 1.0, 0.0, 0.0,
+		//	0.0, 0.0, 1.0, 0.0,
+		//	0.0, 0.0, 0.0, 1.0,
+		//]));
+		program.registerUniform("u_matrix", "Matrix4fv"); program.setUniformMatrix("u_matrix", false, matrix);
+		program.registerUniform("u_vanishing", "1f", 2.0);
+		program.registerUniform("u_perspective", "1f", 0.0);
+		program.registerUniform("u_atlasCellSize", "1f", 16.0); //how many pixels per cell
+		program.registerUniform("u_atlasBounds", "1f", 160.0); //how many pixels across
+
+		const tex0 = new glTexture(gl, gl.TEXTURE0, gl.TEXTURE_2D);
+		tex0.makeCurrent();
+		//tex0.fromImage("./f-texture.png", gl.RGBA, gl.UNSIGNED_BYTE, function() {
+		tex0.fromImage("./textures/0font face 1747433838718996770.png", gl.RGBA, gl.UNSIGNED_BYTE, function() {
+			tex0.setParameteri(gl.TEXTURE_MIN_FILTER, gl.NEAREST); //use nearest so when scaling or shrinking le texture pixels it stays pixelated for that classic look (alright bro)
+			tex0.setParameteri(gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+			draw();
+		});
+
+		gl.enable(gl.CULL_FACE);
+		gl.enable(gl.DEPTH_TEST);
+		gl.cullFace(gl.BACK);
+
+		function draw() {
+			gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+			gl.clearColor(0.0, 0.0, 0.0, 0.0);
+			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); // now we're cooking!
+
+			// gl.enable(gl.CULL_FACE);
+
+			matrix = [
+				1, 0, 0, 0,
+				0, 1, 0, 0,
+				0, 0, 2 / 400, 0, //yeah ok i won't lie i should probably just do the pixelspace to clipspace conversion the guy does lol
+				0, 0, 0, 1,
+			]; //m4.identity();
+			// matrix = m4.translate(matrix, 0.0, 0.0, 0.5);
+			matrix = m4.scale(matrix, 0.5, 0.5, 0.5);
+			matrix = m4.xRotate(matrix, xRot);
+			matrix = m4.yRotate(matrix, yRot);
+			//matrix = m4.translate(matrix, 0.0, 0.0, -0.5);
+			matrix = m4.translate(matrix, 0.0, 0.0, -1.0);
+
+			program.setUniformMatrix("u_matrix", false, matrix);
+
+			gl.drawArrays(gl.TRIANGLES, 0, 6*6);
+			//gl.drawArrays(gl.POINTS, 0, 6*6);
+		}
+
+		draw();
+	</script>
+</body>
+</html>

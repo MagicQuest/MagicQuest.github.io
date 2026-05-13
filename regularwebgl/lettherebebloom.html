@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>let there be bloom (MRT)!</title>
+</head>
+<body>
+    <center>
+        <canvas id="canvas" style="border:red 2px solid;" width="512" height="512">cosmic embassy</canvas>
+    </center>
+    <script id="vertex-shader" type="glsl">#version 300 es
+        layout(location=0) in vec4 a_position;
+		in vec3 a_normal;
+		in vec4 a_color;
+		uniform mat4 u_matrix;
+		out vec4 v_color;
+		out vec3 v_normal;
+		void main() {
+			v_color = a_color;
+			v_normal = a_normal;
+			vec4 position = u_matrix * a_position;
+			float zToDivideBy = 1.0 + position.z * 2.0;
+            gl_Position = vec4(position.xyz, zToDivideBy);
+        }
+    </script>
+    <script id="fragment-shader" type="glsl">#version 300 es
+		precision highp float;
+		//uniform vec2 iResolution;
+		//uniform sampler2D iChannel0;
+		uniform vec3 u_reverseLightDir;
+		in vec4 v_color;
+		in vec3 v_normal;
+		layout(location=0) out vec4 outColor;
+		layout(location=1) out float outLight;
+        void main() {
+			vec3 normal = normalize(v_normal);
+			float light = dot(normal, u_reverseLightDir); //it would probably be SLIGHTLY faster to do this in the vertex shader UNLESS There were more vertices than pixels on screen lol
+			//float light = 1.0;
+			//vec2 uv = gl_FragCoord.xy / iResolution.xy;
+			//outColor = texture(iChannel0, uv);
+			outColor = vec4(v_color.rgb*light, v_color.a);
+			//outColor = v_color;
+			outLight = light;
+			//i could also output the value of light for bloom!! (but how...)
+			//could it be a stencil...
+        }
+    </script>
+	<script id="vertex-shader-show" type="glsl">#version 300 es
+		layout(location=0) in vec4 a_position;
+	
+		void main() {
+			gl_Position = a_position;
+		}
+	</script>
+	<script id="fragment-shader-show" type="glsl">#version 300 es
+		precision highp float;
+		uniform vec2 iResolution;
+		uniform sampler2D iChannel0;
+		layout(location=0) out vec4 outColor;
+		void main() {
+			vec2 uv = gl_FragCoord.xy / iResolution.xy;
+			outColor = texture(iChannel0, uv);
+		}
+	</script>
+	<script id="fragment-shader-bloom" type="glsl">#version 300 es
+		precision highp float;
+		uniform vec2 iResolution;
+		uniform sampler2D u_colorTex;
+		uniform sampler2D u_lightTex;
+		layout(location=0) out vec4 outColor;
+		void main() {
+			vec2 uv = gl_FragCoord.xy / iResolution.xy;
+			float brightness = texture(u_lightTex, uv).r;
+			vec4 color = texture(u_colorTex, uv);
+			//color.xyz*=brightness;
+			if(brightness > 0.95) {
+				//color.xyz = vec3(1.0);
+				//vec4 avg = vec4(vec3(3.0), 0.0);
+				vec4 avg = vec4(0.0);
+				for(float i = -1.0; i <= 1.0; i++) {
+					for(float j = -1.0; j <= 1.0; j++) {
+						avg += texture(u_colorTex, uv + (vec2(i, j)/iResolution));
+					}
+				}
+				color = avg/9.0;
+			}
+			//color.xyz = normalize(color.xyz); //flat effect
+			//if(brightness == 1.0) {
+			//	color = vec4(1.0);
+			//}
+			//float falloff = 1.0/(-100.0*brightness+101.0);
+			//color.xyz += vec3(falloff/2.0);
+			outColor = color;
+		}
+	</script>
+	<script src="./glwrapperex.js"></script>
+	<script src="./m4.js"></script>
+    <script>
+		//https://www.vectorstorm.com.au/2015/04/17/bloom-madness/ apparently, my usual blur technique is probably too inefficient
+        const canvas = document.getElementById("canvas");
+        const gl = canvas.getContext("webgl2");
+
+        if(!gl) {
+            document.write("yo for some reason we couldn't get the webgl2 context?");
+            quit;
+        }
+		const geometryVAO = glPolyfill.createVertexArray(gl);
+		glPolyfill.bindVertexArray(gl, geometryVAO);
+        const program = glProgram.fromShaders(document.getElementById("vertex-shader").innerText, document.getElementById("fragment-shader").innerText, true, true);
+		let vertCount;
+		const vertexBuffer = new glBuffer(gl, gl.ARRAY_BUFFER);
+		const colorBuffer = new glBuffer(gl, gl.ARRAY_BUFFER);
+		const normalBuffer = new glBuffer(gl, gl.ARRAY_BUFFER);
+		program.registerAttrib("a_position", vertexBuffer);
+		program.registerAttrib("a_color", colorBuffer);
+		program.registerAttrib("a_normal", normalBuffer);
+
+		program.describeAttribLayout("a_position", 3, gl.FLOAT, false, 0, 0);
+		program.describeAttribLayout("a_color", 4, gl.FLOAT, false, 0, 0);
+		program.describeAttribLayout("a_normal", 3, gl.FLOAT, false, 0, 0);
+		
+		program.enableAttrib("a_position");
+		program.enableAttrib("a_color");
+		program.enableAttrib("a_normal");
+
+		glPolyfill.bindVertexArray(gl, null);
+
+		fetch("./models/stanford-bunny-blender-fix.obj", {method:"GET"}).then(res=>res.text()).then(function(contents) {
+		//fetch("./cube_normals.obj", {method:"GET"}).then(res=>res.text()).then(function(contents) {
+			debugger;
+			const {vertices, indices, normals, suggested_type} = Model.loadObj(gl, contents);
+			//oouuhhh so wait a minute i can't use indices if i want normals???
+			const vertLen = vertices.length/3;
+			console.log(vertices.length, normals.length);
+			console.log(vertices, normals);
+
+			//glPolyfill.bindVertexArray(gl, geometryVAO); //probably doesn't matter if i bind array buffers here because since there's only one gl.ARRAY_BUFFER target i mean the attributes definately don't really work like that
+			//bindnig array buffers won't change the attributes since vertexPointer and enableVertex are like the main things that change a VAO (as well as binding to ELEMENT_ARRAY_BUFFER)
+
+			vertexBuffer.set(new Float32Array(vertices), gl.STATIC_DRAW);
+			{
+				let color;
+				const temp = [];
+				for(let i = 0; i < vertLen; i++) {
+					if(i%3==0) {//(vertLen/3)==0) {
+						color = [Math.random(), Math.random(), Math.random()];
+						//color = [169/255, 71/255, 235/255];
+					}
+					temp.push(...color, 1.0);
+				}
+				colorBuffer.set(new Float32Array(temp), gl.STATIC_DRAW);
+			}
+			normalBuffer.set(new Float32Array(normals), gl.STATIC_DRAW);
+
+			vertCount = vertLen;
+
+			draw();
+		});
+
+		//const tex0 = new glTexture(gl, gl.TEXTURE0, gl.TEXTURE_2D);
+		//tex0.fromImage("./f-texture.png", gl.RGBA, gl.UNSIGNED_BYTE, draw);
+
+		program.makeCurrent(); //good practice to make le program current before setting uniforms!
+
+		//program.registerUniform("iResolution", "2fv", new Float32Array([gl.canvas.width, gl.canvas.height]));
+		//program.registerUniform("iChannel0", "1i", gl.TEXTURE0 - gl.TEXTURE0);
+		program.registerUniform("u_matrix", "Matrix4fv");
+		program.setUniformMatrix("u_matrix", false, m4.identity());
+		program.registerUniform("u_reverseLightDir", "3fv", new Float32Array([0.5, 0.7, 1.0]));
+
+		const showProgram = glProgram.fromShaders(document.getElementById("vertex-shader-show").innerText, document.getElementById("fragment-shader-show").innerText, true, true);
+		const showVAO = glPolyfill.createVertexArray(gl);
+		glPolyfill.bindVertexArray(gl, showVAO);
+		const posBuffer = new glBuffer(gl, gl.ARRAY_BUFFER);
+		posBuffer.set(new Float32Array([
+			-1.0, 1.0,
+			-1.0, -1.0,
+			1.0, 1.0,
+			1.0, -1.0,
+		]), gl.STATIC_DRAW);
+		showProgram.registerAttrib("a_position", posBuffer);
+		showProgram.describeAttribLayout("a_position", 2, gl.FLOAT, false, 0, 0);
+		showProgram.enableAttrib("a_position");
+		glPolyfill.bindVertexArray(gl, null);
+
+		showProgram.makeCurrent();
+		
+		showProgram.registerUniform("iResolution", "2fv", new Float32Array([gl.canvas.width, gl.canvas.height]));
+		showProgram.registerUniform("iChannel0", "1i", gl.TEXTURE1 - gl.TEXTURE0);
+
+		const bloomProgram = glProgram.fromShaders(document.getElementById("vertex-shader-show").innerText, document.getElementById("fragment-shader-bloom").innerText, true, true);
+		bloomProgram.registerAttrib("a_position", posBuffer);
+		//skipping additional attrib setup since we'll just use the showVAO
+		bloomProgram.makeCurrent();
+		
+		bloomProgram.registerUniform("iResolution", "2fv", new Float32Array([gl.canvas.width, gl.canvas.height]));
+		bloomProgram.registerUniform("u_lightTex", "1i", gl.TEXTURE1 - gl.TEXTURE0);
+		bloomProgram.registerUniform("u_colorTex", "1i", gl.TEXTURE0 - gl.TEXTURE0);
+
+		let position = [0.0, 0.0, 3.0];
+		let rotation = [0.0, 0.0, 0.0];
+		let cameraMatrix = m4.translate(m4.translation(...position), 0.0, 0.0, Math.PI/2);
+
+		gl.cullFace(gl.BACK);
+		gl.enable(gl.CULL_FACE);
+		gl.enable(gl.DEPTH_TEST);
+
+		const colorTexture = new glTexture(gl, gl.TEXTURE0, gl.TEXTURE_2D);
+		colorTexture.setTexImage2DWithData(0, gl.RGBA, gl.canvas.width, gl.canvas.height, 0, gl.UNSIGNED_BYTE, null);
+		//colorTexture.makeCurrent();
+		//gl.texImage2D(colorTexture.target, 0, gl.R8, gl.canvas.width, gl.canvas.height, 0, gl.RED, gl.UNSIGNED_BYTE, null);
+
+		const brightnessTexture = new glTexture(gl, gl.TEXTURE1, gl.TEXTURE_2D);
+		//brightnessTexture.setTexImage2DWithData(0, gl.R8, gl.canvas.width, gl.canvas.height, 0, gl.UNSIGNED_BYTE, null);
+		brightnessTexture.makeCurrent();
+		gl.texImage2D(brightnessTexture.target, 0, gl.R8, gl.canvas.width, gl.canvas.height, 0, gl.RED, gl.UNSIGNED_BYTE, null);
+
+		const uhhDepthTextureApparently = new glTexture(gl, gl.TEXTURE3, gl.TEXTURE_2D);
+		uhhDepthTextureApparently.makeCurrent();
+		gl.texImage2D(uhhDepthTextureApparently.target, 0, gl.DEPTH_COMPONENT24, gl.canvas.width, gl.canvas.height, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+
+		const framebuffer = new glFramebuffer(gl, gl.FRAMEBUFFER);
+		framebuffer.setTexture(colorTexture, gl.COLOR_ATTACHMENT0, 0);
+		framebuffer.setTexture(brightnessTexture, gl.COLOR_ATTACHMENT1, 0);
+		framebuffer.setTexture(uhhDepthTextureApparently, gl.DEPTH_ATTACHMENT, 0);
+
+		//const tex2 = new glTexture(gl, gl.TEXTURE2, gl.TEXTURE_2D);
+		//tex2.fromImage("./f-texture.png",gl.LUMINANCE,gl.UNSIGNED_BYTE, draw);
+
+        function draw() {
+			gl.viewport(0, 0, gl.canvas.width, gl.canvas.height); //technically don't need to call this in le draw func
+			//gl.clearColor(1.0, 0.0, 1.0, 1.0);
+			//gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+			const projection = m4.perspective(60*Math.PI/180, gl.canvas.clientWidth/gl.canvas.clientHeight, 1, 2000);
+			const viewMatrix = m4.inverse(cameraMatrix);
+			const viewProjectionMatrix = m4.translate(m4.multiply(projection, viewMatrix), 0.0, 0.0, 0.0);
+
+			program.makeCurrent();
+			glPolyfill.bindVertexArray(gl, geometryVAO);
+
+			program.setUniformMatrix("u_matrix", false, viewProjectionMatrix);
+			framebuffer.makeCurrent();
+			gl.clearColor(1.0, 0.0, 1.0, 1.0);
+			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); //clears drawbuffer0 i think?
+			gl.clearBufferfv(gl.COLOR, 1, [0.0, 0.0, 0.0, 0.0]);
+			//gl.clearBufferfv(gl.DEPTH, 1, [0.0, 0.0, 0.0, 0.0]);
+			gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+			//gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+			gl.drawArrays(gl.TRIANGLES, 0, vertCount);
+
+			gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+			bloomProgram.makeCurrent();
+			//brightnessTexture.makeCurrent(gl.TEXTURE0); //uhh we'll just use gl.TEXTURE1 when we set iChannel0 lool;
+			glPolyfill.bindVertexArray(gl, showVAO);
+
+			gl.drawBuffers([gl.BACK]); //draw to canvas
+			gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        }
+
+		//theta = 0 -> right
+		//theta = Math.PI/2 -> forward
+		function cameraVector(theta, scale) {
+			return [Math.cos(rotation[1]+theta)*scale, 0.0, -Math.sin(rotation[1]+theta)*scale];
+		}
+
+		function handleMouseMovement(event) {
+			const horizontalRot = -event.movementX*Math.PI/180;
+			const verticalRot = -event.movementY*Math.PI/180;
+			rotation[1] += horizontalRot/2;
+			rotation[0] += verticalRot/2;
+			//cameraMatrix = m4.translation(0, 0, 3.0);
+			//cameraMatrix = m4.translate(cameraMatrix, ...position.map(i=>-i));
+			//cameraMatrix = m4.translation(...position.map(i=>-i));
+			cameraMatrix = m4.translation(...position);
+			//cameraMatrix = m4.yRotation(rotation[1]);
+			cameraMatrix = m4.yRotate(cameraMatrix, rotation[1]);
+			//forward = [Math.cos(rotation[1]+Math.PI/2)/10, 0.0, -Math.sin(rotation[1]+Math.PI/2)/10];
+			//cameraMatrix = m4.axisRotate(cameraMatrix, [Math.cos(rotation[1]), 0.0, Math.sin(rotation[1])], rotation[0]);
+			cameraMatrix = m4.xRotate(cameraMatrix, rotation[0]);
+			//cameraMatrix = m4.translate(cameraMatrix, ...position.map(i=>-i));
+			//cameraMatrix = m4.translate(cameraMatrix, ...position);
+
+			//bruh Math.PI/2 ??? what is this random position
+			//also desmos shit i tried to do to figure out what was happening https://www.desmos.com/calculator/9jmujmptkq
+			cameraMatrix = m4.translate(cameraMatrix, 0.0, 0.0, Math.PI/2); //console.log(Math.PI/2);
+			draw();
+			//cameraMatrix = m4.
+		}
+
+		function handleKeyboardInput(event) {
+			let redraw = false;
+			const key = event.key.toLowerCase();
+			if(key == "w") {
+				const forward = cameraVector(Math.PI/2, 0.1);
+				m4.addVectors(position, forward, position);
+				redraw = true;
+				//draw();
+			}else if(key == "s") {
+				const backward = cameraVector(3*Math.PI/2, 0.1);
+				m4.addVectors(position, backward, position);
+				redraw = true;
+			}else if(key == "d") {
+				m4.addVectors(position, cameraVector(0, 0.1), position);
+				redraw = true;
+			}else if(key == "a") {
+				m4.addVectors(position, cameraVector(Math.PI, 0.1), position);
+				redraw = true;
+			}else if(key == "q") {
+				position[1] += 0.1;
+				redraw = true;
+			}else if(key == "e") {
+				position[1] -= 0.1;
+				redraw = true;
+			}
+
+			if(redraw) {
+				handleMouseMovement({movementX:0,movementY:0});
+			}
+		}
+
+		document.addEventListener("pointerlockchange", function(event) {
+			if(document.pointerLockElement == canvas) {
+				document.addEventListener("mousemove", handleMouseMovement);
+				document.addEventListener("keydown", handleKeyboardInput);
+			}else {
+				document.removeEventListener("mousemove", handleMouseMovement);
+				document.removeEventListener("keydown", handleKeyboardInput);
+			}
+		});
+
+		canvas.addEventListener("mousedown", function(event) {
+			canvas.requestPointerLock();
+		});
+
+		//draw();
+    </script>
+</body>
+</html>

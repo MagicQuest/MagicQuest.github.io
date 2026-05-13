@@ -59,7 +59,9 @@ class Model {
 		let vertices = [];
 		const indices = [];
 		const normals = [];
+		const texcoords = [];
 		const tempfornormals = [];
+		const tempfortexcoords = [];
 		//https://www.scratchapixel.com/lessons/3d-basic-rendering/obj-file-format/obj-file-format.html
 		//https://www.martinreddy.net/gfx/3d/OBJ.spec
 		//https://paulbourke.net/dataformats/obj/
@@ -106,6 +108,9 @@ class Model {
 					case "vn":
 						tempfornormals.push([Number(args[0]), Number(args[1]), Number(args[2])]);
 						break;
+					case "vt":
+						tempfortexcoords.push([Number(args[0]), Number(args[1])]);
+						break;
 					case "f":
 						for(const arg of args) {
 							//if(arg) == 21;
@@ -127,6 +132,7 @@ class Model {
 							indices.push(v-1); //indices are 1 indexed!
 							if(t) {
 								debugger;
+								texcoords.push(...tempfortexcoords[t-1]);
 							}
 							if(n) {
 								normals.push(...tempfornormals[n-1]);
@@ -137,7 +143,7 @@ class Model {
 			}
 		}
 		let suggested_type;
-		if(normals.length) {
+		if(normals.length || texcoords.length) {
 			//ouhhh we can't do no uhhhh indices buddy
 			const temp = [];
 			for(const index of indices) {
@@ -145,6 +151,7 @@ class Model {
 				temp.push(vertices[i], vertices[i+1], vertices[i+2]);
 			}
 			vertices = temp;
+			indices.length = 0; //clear the array (apparently)
 		}else {
 			const vertLen = vertices.length/3;
 			console.log(vertLen);
@@ -159,7 +166,7 @@ class Model {
 			}
 		}
 		console.log(vertices, indices);
-		return {vertices, indices, normals, suggested_type};
+		return {vertices, indices, normals, texcoords, suggested_type};
 	}
 }
 
@@ -490,11 +497,15 @@ class glTexture extends IHasBinding {
 			//@Bound(this._texture)
 			this.gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, do_pixel_flip);
 			//@Bound(this._texture)
+
+			//fucking suddenly i have to set the width and height or else svgs won't load? (now hold on, i didn't have to do this on chrome and this only seems to be a problem on edge!!)
+			element.width = element.naturalWidth;
+			element.height = element.naturalHeight;
 			this.gl.texImage2D(this.target, 0, format, format, type, element);
 			if(isPowerOf2(element.width) && isPowerOf2(element.height)) {
 				console.log(`oh wow ${src} is a power of two!`);
 				//@Bound(this._texture)
-				gl.generateMipmap(this.target);
+				this.gl.generateMipmap(this.target);
 			}
 			callback(event);
 		};
@@ -690,6 +701,9 @@ class glProgram {
         const obj = new glUniform(loc, type, initialValue);
         this.uniforms[name] = obj;
 		if(initialValue != undefined) {
+			if(type.startsWith("Matrix")) {
+				throw Error(`glProgram::registerUniform called with initialValue but type is ${type}! Call glProgram::registerUniform with no initialValue, then call glProgram::setUniformMatrix!`);
+			}
 			obj.set(this, initialValue);
 		}
         return obj;
@@ -701,6 +715,7 @@ class glProgram {
     }
 
 	setUniformMatrix(name, transpose, value) {
+		if(value == undefined) console.warn("glProgram::setUniformMatrix value parameter was undefined?");
 		this.uniforms[name].set(this, value, transpose);
 	}
 
