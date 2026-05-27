@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+	<title>icecsex.html (we have threejs at home)</title>
+</head>
+<body>
+    <center>
+        <canvas id="canvas" style="border:red 2px solid;" width="1280" height="720">spacerace</canvas>
+    </center>
+    <script id="vertex-shader" type="glsl">#version 300 es
+        layout(location=0) in vec4 a_position;
+		layout(location=1) in vec3 a_normal;
+		layout(location=2) in vec2 a_texCoord;
+		uniform mat4 u_localMatrix;
+		uniform mat4 u_viewMatrix;
+		out vec3 v_normal;
+		out vec2 v_texCoord;
+		out float v_z;
+        void main() {
+			v_normal = mat3(u_localMatrix)*a_normal;
+			v_texCoord = a_texCoord;
+			//v_z = a_position.z; //interesting effect that.
+			vec4 position = u_viewMatrix*u_localMatrix*a_position;
+			float zToDivideBy = 1.0 + position.z*2.0; //not a_position >:[
+			gl_Position = vec4(position.xyz, zToDivideBy); //not a_position >:[
+			v_z = position.z;
+        }
+    </script>
+    <script id="fragment-shader" type="glsl">#version 300 es
+		precision highp float;
+
+		out vec4 fragColor;
+
+		uniform sampler2D u_tex;
+		uniform bool u_bNormals;
+		uniform bool u_bTexCoords;
+		uniform vec4 u_defaultColor;
+		uniform vec3 u_reverseLightDir;
+
+		in vec3 v_normal;
+		in vec2 v_texCoord;
+		in float v_z;
+        void main() {
+			vec4 color = u_defaultColor;
+			if(u_bTexCoords) {
+				color = texture(u_tex, v_texCoord);
+			}
+			if(u_bNormals) {
+				vec3 n = normalize(v_normal);
+				color.rgb *= dot(n, u_reverseLightDir);
+				//color.rgb = n;
+			}
+			//fragColor = mix(color, vec4(1.0, 0.0, 1.0, color.a), v_z); //uhh, that's not fog lol
+			fragColor = color;
+			//float z = (v_z+1.4)/10.0; // mapped to 0 -> 1 where 0 should be the closest? (wait a second v_z is set to the final position.z so this is in world space!)
+			//fragColor = mix(color, vec4(192.0/255.0, 215.0/255.0, 1.0, color.a), min(pow(z, 5.0), 1.0));
+			//fragColor = vec4(vec3(pow(z, 5.0)), 1.0);
+        }
+    </script>
+    <script src="./glwrapperex.js"></script>
+    <script src="./m4.js"></script>
+	<script>
+		class ModelObject {
+			VAO;
+			vertexBuffer;
+
+			matrix = m4.identity();
+			color = undefined;
+			constructor(vertices) {
+				debugger;
+				this.VAO = glPolyfill.createVertexArray(gl);
+				glPolyfill.bindVertexArray(gl, this.VAO);
+				this.vertexBuffer = new glBuffer(gl, gl.ARRAY_BUFFER);
+				this.vertexBuffer.set(new Float32Array(vertices), gl.STATIC_DRAW);
+				//assuming attrib location 0 is a_position
+				//@Bound(this.vertexBuffer)
+				gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+				gl.enableVertexAttribArray(0);
+			}
+			//binds the ModelObject's VAO
+			draw(updateMatrixCallback, updateColorCallback) {
+				updateMatrixCallback(this.matrix);
+				if(this.color != undefined) {
+					updateColorCallback(this.color);
+				}
+				glPolyfill.bindVertexArray(gl, this.VAO);
+			}
+			hasNormals() {}; // = 0;
+			hasTexCoords() {}; // = 0;
+			destroy() {
+				glPolyfill.deleteVertexArray(gl, this.VAO);
+				this.vertexBuffer.destroy();
+			}
+		}
+
+		class IndexedModelObject extends ModelObject {
+			indexBuffer;
+			type;
+			constructor(vertices, indices, suggested_type) {
+				super(vertices);
+				//this.VAO bound from super constructor
+				this.indexBuffer = new glBuffer(gl, gl.ELEMENT_ARRAY_BUFFER);
+				let arraytype;
+				switch(suggested_type) {
+					case gl.UNSIGNED_BYTE:
+						arraytype = Int8Array;
+						break;
+					case gl.UNSIGNED_SHORT:
+						arraytype = Int16Array;
+						break;
+					case gl.UNSIGNED_INT:
+						arraytype = Int32Array;
+						break;
+				}
+				//damn it bruh... that arraytype shit was wrong...
+				this.indexBuffer.set(new arraytype(indices), gl.STATIC_DRAW);
+				this.type = suggested_type;
+			}
+			draw(updateMatrixCallback, updateColorCallback) {
+				super.draw(updateMatrixCallback, updateColorCallback); //binds the vao for us
+				gl.drawElements(gl.TRIANGLES, this.indexBuffer.length, this.type, 0);
+			}
+			hasNormals() {
+				return false;
+			}
+			hasTexCoords() {
+				return false;
+			}
+			destroy() {
+				super.destroy();
+				this.indexBuffer.destroy();
+			}
+		}
+
+		class FancyModelObject extends ModelObject {
+			normalBuffer;
+			texCoordBuffer;
+			constructor(vertices, normals, texcoords) {
+				super(vertices); //super constructor binds our VAO
+				
+				this.normalBuffer = new glBuffer(gl, gl.ARRAY_BUFFER);
+				this.normalBuffer.set(new Float32Array(normals), gl.STATIC_DRAW);
+				//assuming normals will be at attrib location 1
+				gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
+				gl.enableVertexAttribArray(1);
+
+				this.texCoordBuffer = new glBuffer(gl, gl.ARRAY_BUFFER);
+				this.texCoordBuffer.set(new Float32Array(texcoords), gl.STATIC_DRAW);
+				//assuming texcoords will be at attrib location 2
+				gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 0, 0);
+				gl.enableVertexAttribArray(2);
+			}
+			draw(updateMatrixCallback, updateColorCallback) {
+				super.draw(updateMatrixCallback, updateColorCallback); //binds the vao for us
+				gl.drawArrays(gl.TRIANGLES, 0, this.vertexBuffer.length);
+			}
+			hasNormals() {
+				return this.normalBuffer.length!=0;
+			}
+			hasTexCoords() {
+				return this.texCoordBuffer.length!=0;
+			}
+			destroy() {
+				super.destroy();
+				this.normalBuffer.destroy();
+				this.texCoordBuffer.destroy();
+			}
+		}
+
+		const objects = [];
+
+		function spawnObj(contents, force_normals = false) {
+			const info = Model.loadObj(gl, contents, force_normals ? true : false); //verbose
+			let model;
+			if(info.indices.length) {
+				model = new IndexedModelObject(info.vertices, info.indices, info.suggested_type);
+			}else {
+				if(info.normals.length == 0 && force_normals) {
+					info.normals = Model.calculateNormals(info.vertices);
+				}
+				model = new FancyModelObject(info.vertices, info.normals, info.texcoords);
+			}
+			objects.push(model);
+			return model;
+		}
+
+		async function promptForObj() {
+			const [file] = await showOpenFilePicker({multiple: false, types: [
+			    {description: "OBJ files", accept: {"model/obj": [".obj"]}}
+			]});
+			const data = await file.getFile();
+			const contents = await data.text();
+			spawnObj(contents);
+			draw();
+		}
+	</script>
+    <script>
+        const canvas = document.getElementById("canvas");
+        const gl = canvas.getContext("webgl2");
+
+        if(!gl) {
+            document.write("yo for some reason we couldn't get the webgl2 context?");
+            quit;
+        }
+
+		debugger;
+
+        const program = glProgram.fromShaders(document.getElementById("vertex-shader").innerText, document.getElementById("fragment-shader").innerText, true, true); //we're using a vao
+		/*const buffer = new glBuffer(gl, gl.ARRAY_BUFFER);
+		buffer.set(new Float32Array([
+		  //x     y   
+			-1.0, 1.0,
+			-1.0, -1.0,
+			1.0, 1.0,
+			1.0, -1.0,
+		]), gl.STATIC_DRAW);
+		program.registerAttrib("a_position", buffer);
+		//program.registerAttrib("a_rngdat", buffer);
+
+		program.describeAttribLayout("a_position", 3, gl.FLOAT, false, 0, 0);
+		//program.describeAttribLayout("a_rngdat", 1, gl.FLOAT, false, 3*4, 2*4);
+		
+		program.enableAttrib("a_position");
+		//program.enableAttrib("a_rngdat");*/
+
+		const tex0 = new glTexture(gl, gl.TEXTURE0, gl.TEXTURE_2D);
+		tex0.fromImage("./textures/tardis_df.png", gl.RGBA, gl.UNSIGNED_BYTE, function(event) {
+			//the tardis model's UVs are weird lol so we have to repeat the texture
+			//@Bound(this._texture)
+			gl.texParameteri(tex0.target, gl.TEXTURE_WRAP_S, gl.REPEAT);
+			//@Bound(this._texture)
+			gl.texParameteri(tex0.target, gl.TEXTURE_WRAP_T, gl.REPEAT);
+			draw();
+		});
+
+		program.makeCurrent(); //good practice to make le program current before setting uniforms!
+
+		program.registerUniform("u_viewMatrix", "Matrix4fv");
+		//program.setUniformMatrix("u_viewMatrix", false, m4.translation(0, 0, 5));
+		program.registerUniform("u_localMatrix", "Matrix4fv");
+		program.registerUniform("u_tex", "1i", gl.TEXTURE0 - gl.TEXTURE0);
+		program.registerUniform("u_bNormals", "1i", 0);
+		program.registerUniform("u_bTexCoords", "1i", 0);
+		program.registerUniform("u_defaultColor", "4fv", new Float32Array([0.8, 0.8, 0.8, 1.0]));
+		{
+			const reverseDir = [0.5, 0.7, 1.0]; //oops lol i wasn't normalizing ts! (wait maybe that's why lettherebebloom was weird?)
+			const mag = Math.sqrt(reverseDir.reduce((acc, v)=>acc+=v**2, 0));
+			for(let i = 0; i < 3; i++) {
+				reverseDir[i]*=1/mag;
+			}
+			program.registerUniform("u_reverseLightDir", "3fv", new Float32Array(reverseDir));
+		}
+		
+		gl.cullFace(gl.BACK); //lowkenuinely wrote gl.FRONT instead of gl.BACK (and what makes that worse is that i don't even have to write this...)
+		gl.enable(gl.CULL_FACE);
+		gl.enable(gl.DEPTH_TEST);
+		
+		let rabbit, plant, tardis;
+		const camera = {
+			position: [0, 1.3, 4],
+			rotation: [0, 0],
+			matrix: undefined,
+			build: function() {
+				this.matrix = m4.translation(...this.position);
+				this.matrix = m4.yRotate(this.matrix, this.rotation[1]);
+				this.matrix = m4.xRotate(this.matrix, this.rotation[0]);
+				this.matrix = m4.translate(this.matrix, 0.0, 0.0, Math.PI/2); //console.log(Math.PI/2);
+				//this.matrix = m4.translate(this.matrix, 0.0, 0.0, gl.canvas.height/gl.canvas.width); //definitely not
+				//this.matrix = m4.translate(this.matrix, 0.0, 0.0, -gl.canvas.height/gl.canvas.width);
+			}
+		}
+		camera.build();
+
+		/*fetch("./models/stanford-bunny.obj", {method:"GET"}).then(res => res.text()).then(contents => {
+			debugger;
+			rabbit = spawnObj(contents);
+			rabbit.matrix = m4.scaling(20, 20, 20);
+			rabbit.color = [0.8, 0.0, 0.0, 1.0];
+			draw();
+		});*/
+		fetch("./models/stanford-bunny-blender-fix.obj", {method:"GET"}).then(res => res.text()).then(contents => {
+			//debugger;
+			rabbit = spawnObj(contents);
+			rabbit.color = [0.0, 0.8, 0.0, 1.0];
+			draw();
+		});
+		//fetch("./models/cube_normals.obj", {method:"GET"}).then(res => res.text()).then(contents => {
+		fetch("./models/blender_plant.obj", {method:"GET"}).then(res => res.text()).then(contents => {
+			plant = spawnObj(contents);
+			plant.color = [0.8, 0.8, 0.8, 1.0];
+			plant.matrix = m4.scale(m4.translation(-1.0, 0.5*0.2, 0.5), 0.2, 0.2, 0.2);
+			draw();
+		});
+		fetch("./models/drmatt rocz3d tardis exterior.obj", {method:"GET"}).then(res => res.text()).then(contents => {
+			tardis = spawnObj(contents);
+			//tardis.color = [0.8, 0.8, 0.8, 1.0];
+			//tardis.matrix = m4.yRotation(Math.PI+Math.PI/4+Math.PI/8);
+			tardis.matrix = m4.yRotate(m4.translation(0.0, 0.0, 2.0), 3/2*Math.PI);
+			draw();
+		});
+		fetch("./models/xyzrgb_dragon.obj", {method:"GET"}).then(res => res.text()).then(contents => {
+			//const temp = spawnObj(contents, true);
+			const temp = spawnObj(contents, true);
+			temp.color = [1.0, 139/255, 7/255, 1.0]; //[0.8, 0.8, 0.8, 1.0];
+			temp.matrix = m4.translation(-2.0, 0.4, 3.0);
+			temp.matrix = m4.scale(temp.matrix, 0.01, 0.01, 0.01);
+			draw();
+		});
+		fetch("./models/cube_normals.obj", {method:"GET"}).then(res => res.text()).then(contents => {
+			//debugger;
+			let {vertices, normals} = Model.loadObj(gl, contents);
+			vertices = Model.calculateLinesFromEdges(vertices);
+			normals = Model.calculateLinesFromEdges(normals); //wait shouldn't this work too?
+			const temp = new FancyModelObject(vertices, normals, []);
+			temp.color = [0.8, 0.8, 0.8, 1.0];
+			temp.matrix = m4.scale(m4.translation(2.0, 0.5, 3.0), 0.5, 0.5, 0.5);
+			//temp.__proto__.draw = function() {
+			temp.draw = function() {
+				//debugger;
+				//super.draw(...arguments);
+				ModelObject.prototype.draw.apply(this, arguments); //FANCY!
+				gl.drawArrays(gl.LINES, 0, this.vertexBuffer.length); //hmmm yeah we're gonna need to think long and hard about this one...
+			}
+			objects.push(temp);
+			draw();
+		});
+
+		{
+			//tardis render target plane
+			//lol verts from blender are weird because in blender positive x is going towards the camera (and i'm pretty sure negative z is going towards the camera for us (update a few days later: it's positive z!))
+			const verts = [
+				0.48814, 0.16178, 0.39664, //0
+				0.48814, 1.8056, -0.3982,  //1
+				0.48814, 0.16178, -0.3982, //2
+				0.48814, 1.8056, -0.3982,  //1
+				0.48814, 0.16178, 0.39664, //0
+				0.48814, 1.8056, 0.39664,  //3
+			];
+			//swizzle zyx
+			for(let i = 0; i < verts.length; i+=3) {
+				const temp = verts[i];
+				verts[i] = verts[i+2];
+				verts[i+2] = temp;
+			}
+			const tRTP = new FancyModelObject(verts, [
+				//normals (wtf? these have been wrong this entire time lmao)
+				0.0, 1.0, 0.0,
+				0.0, 1.0, 0.0,
+				0.0, 1.0, 0.0,
+				0.0, 1.0, 0.0,
+				0.0, 1.0, 0.0,
+				0.0, 1.0, 0.0,
+
+				//correct normals, positive z is facing forward
+				/*0.0, 0.0, 1.0,
+				0.0, 0.0, 1.0,
+				0.0, 0.0, 1.0,
+				0.0, 0.0, 1.0,
+				0.0, 0.0, 1.0,
+				0.0, 0.0, 1.0,
+				0.0, 0.0, 1.0,*/
+			], [
+			  //u    v
+				1.0, 0.0,
+				0.0, 1.0,
+				0.0, 0.0,
+				0.0, 1.0,
+				1.0, 0.0,
+				1.0, 1.0,
+			]);
+			tRTP.matrix = m4.translation(0.0, 0.0, 2.0); //translate to same place as tardis model (maybe i should take a look at that scene graph tutorial.)
+			objects.push(tRTP);
+			const plane = new IndexedModelObject([
+				//vertices
+				-1.0, 0.0, 1.0, //closest verts
+				1.0, 0.0, 1.0,
+				-1.0, 0.0, -1.0,
+				1.0, 0.0, -1.0,
+			], [
+				//indices
+				1, 0+2, 0,
+				0+2, 1, 1+2,
+			], gl.UNSIGNED_BYTE);
+			plane.matrix = m4.scaling(5.0, 5.0, 5.0);
+			plane.color = [0.8, 0.8, 0.8, 1.0]
+			objects.push(plane);
+		}
+		/*{
+			const d = 2.0;
+			rabbit = new IndexedModelObject([
+				//vertices
+				-1.0/d, -1.0/d, 1.0/d, //front 2
+				1.0/d, -1.0/d, 1.0/d,
+				-1.0/d, -1.0/d, -1.0/d,  //back 2
+				1.0/d, -1.0/d, -1.0/d,
+				0.0, 1.0/d, 0.0,    //top
+			], [
+				//indices
+				//1, 4, 0,
+				4, 0, 1,
+				4, 1, 1+2,
+				//etc.
+				4, 1+2, 0+2,
+				4, 0+2, 0,
+				//bottom
+				1+2, 0, 0+2,
+				0, 1+2, 1,
+			], gl.UNSIGNED_BYTE);
+			rabbit.matrix = m4.translation(0.0, 0.0, -2.0);
+			objects.push(rabbit);
+			draw();
+		}*/
+
+		function updateObjectMatrix(objMatrix) {
+			program.setUniformMatrix("u_localMatrix", false, objMatrix);
+		}
+
+		function updateColor(color) {
+			program.setUniform("u_defaultColor", new Float32Array(color));
+		}
+
+		let lastNormal = 0;
+		let lastTex = 0;
+
+        function draw() {
+			gl.viewport(0, 0, gl.canvas.width, gl.canvas.height); //technically don't need to call this in le draw func
+
+			//gl.clearColor(1.0, 0.0, 1.0, 1.0);
+			gl.clearColor(192/255, 215/255, 1.0, 1.0);
+			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+			const projection = m4.perspective(60*Math.PI/180, gl.canvas.clientWidth/gl.canvas.clientHeight, 1, 2000);
+			const viewMatrix = m4.inverse(camera.matrix);
+			const viewProjectionMatrix = m4.translate(m4.multiply(projection, viewMatrix), 0.0, 0.0, 0.0);
+
+			program.setUniformMatrix("u_viewMatrix", false, viewProjectionMatrix);
+
+			//gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+			//if i were smart i would sort these before hand so i'd only have to set the uniforms n**2 times
+			for(const obj of objects) {
+				let normal = obj.hasNormals();
+				let tex = obj.hasTexCoords();
+				if(normal != lastNormal) {
+					lastNormal = normal;
+					program.setUniform("u_bNormals", normal);
+				}
+				if(tex != lastTex) {
+					lastTex = tex;
+					program.setUniform("u_bTexCoords", tex);
+				}
+				obj.draw(updateObjectMatrix, updateColor);
+			}
+        }
+
+		//theta = 0 -> right
+		//theta = Math.PI/2 -> forward
+		function cameraVector(theta, scale) {
+			return [Math.cos(camera.rotation[1]+theta)*scale, 0.0, -Math.sin(camera.rotation[1]+theta)*scale];
+		}
+
+		function handleMouseMovement(event) {
+			const horizontalRot = -event.movementX*Math.PI/180;
+			const verticalRot = -event.movementY*Math.PI/180;
+			camera.rotation[1] += horizontalRot/2;
+			camera.rotation[0] += verticalRot/2;
+			camera.build();
+			draw();
+		}
+
+		function handleKeyboardInput(event) {
+			let redraw = false;
+			const key = event.key.toLowerCase();
+			if(key == "w") {
+				const forward = cameraVector(Math.PI/2, 0.1);
+				m4.addVectors(camera.position, forward, camera.position);
+				redraw = true;
+			}else if(key == "s") {
+				const backward = cameraVector(3*Math.PI/2, 0.1);
+				m4.addVectors(camera.position, backward, camera.position);
+				redraw = true;
+			}else if(key == "d") {
+				m4.addVectors(camera.position, cameraVector(0, 0.1), camera.position);
+				redraw = true;
+			}else if(key == "a") {
+				m4.addVectors(camera.position, cameraVector(Math.PI, 0.1), camera.position);
+				redraw = true;
+			}else if(key == " ") {
+				camera.position[1] += 0.1;
+				redraw = true;
+			}else if(key == "shift") {
+				camera.position[1] -= 0.1;
+				redraw = true;
+			}
+
+			if(key == "e") {
+				//const backward = cameraVector(3*Math.PI/2, 0.1);
+				//i give up lol
+				const pitch = camera.rotation[0];
+				const yaw = camera.rotation[1]+Math.PI/2;
+				const forward = [
+					Math.cos(yaw) * Math.cos(pitch),
+					Math.sin(pitch),
+					Math.sin(yaw+Math.PI) * Math.cos(pitch), //?
+				];
+				program.setUniform("u_reverseLightDir", new Float32Array(forward.map(v=>-v)));
+				redraw = true;
+			}
+
+			if(redraw) {
+				camera.build();
+				draw();
+			}
+		}
+
+		document.addEventListener("pointerlockchange", function(event) {
+			if(document.pointerLockElement == canvas) {
+				document.addEventListener("mousemove", handleMouseMovement);
+				document.addEventListener("keydown", handleKeyboardInput);
+			}else {
+				document.removeEventListener("mousemove", handleMouseMovement);
+				document.removeEventListener("keydown", handleKeyboardInput);
+			}
+		});
+
+		canvas.addEventListener("mousedown", function(event) {
+			canvas.requestPointerLock();
+		});
+
+    </script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 # Blender 5.1.1
 # www.blender.org
+# Taken from Divided (dr. matt)'s tardis mod https://steamcommunity.com/sharedfiles/filedetails/?id=307175678 (extracted via GarrysMod/bin/gmad.exe, imported into blender with http://steamreview.org/BlenderSourceTools/)
 mtllib drmatt rocz3d tardis exterior.mtl
 o exterior_d
 v -0.456761 0.933931 0.069758

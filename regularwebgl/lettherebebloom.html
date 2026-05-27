@@ -37,7 +37,7 @@
 		layout(location=1) out float outLight;
         void main() {
 			vec3 normal = normalize(v_normal);
-			float light = dot(normal, u_reverseLightDir); //it would probably be SLIGHTLY faster to do this in the vertex shader UNLESS There were more vertices than pixels on screen lol
+			float light = dot(normal, normalize(u_reverseLightDir)); //it would probably be SLIGHTLY faster to do this in the vertex shader UNLESS There were more vertices than pixels on screen lol
 			//float light = 1.0;
 			//vec2 uv = gl_FragCoord.xy / iResolution.xy;
 			//outColor = texture(iChannel0, uv);

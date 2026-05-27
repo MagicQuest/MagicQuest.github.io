@@ -18,31 +18,34 @@ function createProgram(vertex, fragment) {
     const vshader = gl.createShader(gl.VERTEX_SHADER);
     gl.shaderSource(vshader, vertex);
     gl.compileShader(vshader);
-    if(!gl.getShaderParameter(vshader, gl.COMPILE_STATUS)) {
+    /*if(!gl.getShaderParameter(vshader, gl.COMPILE_STATUS)) {
         // displayError(gl.getShaderInfoLog(vshader));
         showError(gl.getShaderInfoLog(vshader));
         gl.deleteShader(vshader);
         return {vshader, fshader, program};
-    }
+    }*/
 
     fshader = gl.createShader(gl.FRAGMENT_SHADER);
     gl.shaderSource(fshader, fragment);
     gl.compileShader(fshader);
-    if(!gl.getShaderParameter(fshader, gl.COMPILE_STATUS)) {
+    /*if(!gl.getShaderParameter(fshader, gl.COMPILE_STATUS)) {
         // displayError(gl.getShaderInfoLog(fshader));
         showError(gl.getShaderInfoLog(fshader));
         gl.deleteShader(vshader);
         gl.deleteShader(fshader);
         return {vshader, fshader, program};
-    }
+    }*/
 
     program = gl.createProgram();
     gl.attachShader(program, vshader);
     gl.attachShader(program, fshader);
+    //here's where you might gl.bindAttribLocation...
     gl.linkProgram(program);
     if(!gl.getProgramParameter(program, gl.LINK_STATUS)) {
         // displayError(gl.getProgramInfoLog(program));
         showError(gl.getProgramInfoLog(program));
+		showError(gl.getShaderInfoLog(vshader));
+		showError(gl.getShaderInfoLog(fshader));
         gl.deleteProgram(program);
         gl.deleteShader(vshader);
         gl.deleteShader(fshader);
@@ -54,7 +57,7 @@ function createProgram(vertex, fragment) {
 
 class Model {
 	//each function returns {vertices, indices, suggested_type}
-	static loadObj(gl, text) {
+	static loadObj(gl, text, force_no_indices = false) {
 		const lines = text.split("\n");
 		let vertices = [];
 		const indices = [];
@@ -131,7 +134,7 @@ class Model {
 							}
 							indices.push(v-1); //indices are 1 indexed!
 							if(t) {
-								debugger;
+								//debugger;
 								texcoords.push(...tempfortexcoords[t-1]);
 							}
 							if(n) {
@@ -143,7 +146,7 @@ class Model {
 			}
 		}
 		let suggested_type;
-		if(normals.length || texcoords.length) {
+		if(force_no_indices || normals.length || texcoords.length) {
 			//ouhhh we can't do no uhhhh indices buddy
 			const temp = [];
 			for(const index of indices) {
@@ -167,6 +170,146 @@ class Model {
 		}
 		console.log(vertices, indices);
 		return {vertices, indices, normals, texcoords, suggested_type};
+	}
+	
+	//VECTOR GOD!!
+	//YO i just benchmarked a version of this function (that didn't include cross because i was too lazy) and apparently push!! is the fastest way i've found to add elements to the array (as opposed to preallocating an array with padStart))
+	static calculateNormals(triangulatedVertices) {
+		if(triangulatedVertices.length % 9 != 0) console.warn("Model::calculateNormals was called with a vertex list not divisible by 9! (3 vertices (triangle) have 3 coordinates (x,y,z) so 9)");
+		const oldType = m4.setDefaultType(Array); //using an Array is said to be faster (and i also didn't realize the vector functions in m4 would also use Float32Arrays)
+		const normals = [];
+		for(let i = 0; i < triangulatedVertices.length; i+=9) {
+			//       startVertex
+			//            *
+			//           / \
+			//          /   \
+			//third -> *-----* <- second
+			//we need to calculate the cross product of the difference between the second vertex with the start and the difference between the third vertex and the start (allegedly)
+			//(second-startVertex)X(third-startVertex)
+			
+			//ok wait that was a bad example
+			//for a front facing triangle the vertices will be in counter clockwise order so something more like this would be correct
+			//          second
+			//            *
+			//           / \
+			//          /   \
+			//third -> *-----* <- startVertex
+
+			//const startVertex = triangulatedVertices.slice(i, i+3);
+			//const secondVertex = triangulatedVertices.slice(i+3, i+3+3);
+			//const thirdVertex = triangulatedVertices.slice(i+6, i+6+3);
+			
+			//le benchmark
+			const startVertex = [triangulatedVertices[i], triangulatedVertices[i+1], triangulatedVertices[i+2]];
+			const secondVertex = [triangulatedVertices[i+3], triangulatedVertices[i+4], triangulatedVertices[i+5]];
+			const thirdVertex = [triangulatedVertices[i+6], triangulatedVertices[i+7], triangulatedVertices[i+8]];
+
+			const secondStartDiff = m4.subtractVectors(secondVertex, startVertex);
+			const thirdStartDiff = m4.subtractVectors(thirdVertex, startVertex);
+
+			let normal = m4.cross(secondStartDiff, thirdStartDiff); //when using le counter clockwise winding order ts is positive!
+			normal = m4.normalize(normal);
+		
+			//push 3 times for each vertex of the triangle
+			/*normals.push(...normal);
+			normals.push(...normal);
+			normals.push(...normal);*/
+
+			//apparently this is the most optimized out of my attempts
+			normals.push(
+				normal[0], normal[1], normal[2],
+				normal[0], normal[1], normal[2],
+				normal[0], normal[1], normal[2]
+			);
+			//this was faster than
+		    //normals.push(normal[0], normal[1], normal[2]);
+			//normals.push(normal[0], normal[1], normal[2]);
+			//normals.push(normal[0], normal[1], normal[2]);
+			//which was faster than
+			//normals.push(...normal);
+			//normals.push(...normal);
+			//normals.push(...normal);
+			//which finally was faster than preallocating with padStart but with no map, then setting normals[0] = -0 for that PACKED DOUBLES transition!
+		}
+		m4.setDefaultType(oldType);
+		return normals;
+	}
+
+	static calculateLinesFromEdges(triangulatedVertices) {
+		if(triangulatedVertices.length % 9 != 0) console.warn("Model::calculateLinesFromEdges was called with a vertex list not divisible by 9! (3 vertices (triangle) have 3 coordinates (x,y,z) so 9)");
+		const lines = [];
+		for(let i = 0; i < triangulatedVertices.length; i+=9) {
+			//no point in slicing either, we're not using them as vectors like i did in calculateNormals
+			//const startVertex = triangulatedVertices.slice(i, i+3);
+			//const secondVertex = triangulatedVertices.slice(i+3, i+3+3);
+			//const thirdVertex = triangulatedVertices.slice(i+6, i+6+3);
+
+			//const index = i*2;
+
+			/*lines[index] = startVertex[0];
+			lines[index+1] = startVertex[1];
+			lines[index+2] = startVertex[2];
+			
+			lines[index+3] = secondVertex[0];
+			lines[index+4] = secondVertex[1];
+			lines[index+5] = secondVertex[2];
+			
+			lines[index+6] = secondVertex[0];
+			lines[index+7] = secondVertex[1];
+			lines[index+8] = secondVertex[2];
+			
+			lines[index+9] = thirdVertex[0];
+			lines[index+10] = thirdVertex[1];
+			lines[index+11] = thirdVertex[2];
+			
+			lines[index+12] = thirdVertex[0];
+			lines[index+13] = thirdVertex[1];
+			lines[index+14] = thirdVertex[2];
+			
+			lines[index+15] = startVertex[0];
+			lines[index+16] = startVertex[1];
+			lines[index+17] = startVertex[2];*/
+
+			//for some reason this seemed to be the most optimized version
+			//pushing two at a time (resulting in 9 different pushes) was almost as fast
+			//then pushing all of them at once (still with no spreads) was almost as fast as that
+			//then finally pushing them all individually was the slowest
+			//lines.push(startVertex[0], startVertex[1], startVertex[2]);
+			//lines.push(secondVertex[0], secondVertex[1], secondVertex[2]);
+			//lines.push(secondVertex[0], secondVertex[1], secondVertex[2]);
+			//lines.push(thirdVertex[0], thirdVertex[1], thirdVertex[2]);
+			//lines.push(thirdVertex[0], thirdVertex[1], thirdVertex[2]);
+			//lines.push(startVertex[0], startVertex[1], startVertex[2]);
+			const startVertex = i;
+			const secondVertex = i+3;
+			const thirdVertex = i+6;
+
+			lines.push(triangulatedVertices[startVertex], triangulatedVertices[startVertex+1], triangulatedVertices[startVertex+2]);
+			lines.push(triangulatedVertices[secondVertex], triangulatedVertices[secondVertex+1], triangulatedVertices[secondVertex+2]);
+			lines.push(triangulatedVertices[secondVertex], triangulatedVertices[secondVertex+1], triangulatedVertices[secondVertex+2]);
+			lines.push(triangulatedVertices[thirdVertex], triangulatedVertices[thirdVertex+1], triangulatedVertices[thirdVertex+2]);
+			lines.push(triangulatedVertices[thirdVertex], triangulatedVertices[thirdVertex+1], triangulatedVertices[thirdVertex+2]);
+			lines.push(triangulatedVertices[startVertex], triangulatedVertices[startVertex+1], triangulatedVertices[startVertex+2]);
+		}
+		return lines;
+	}
+
+	//if you really needed it. (lowkey untested though lol)
+	static calculateLinesForTexCoords(texCoordsForTriangulatedVertices) {
+		const lines = [];
+		for(let i = 0; i < texCoordsForTriangulatedVertices.length; i+=6) {
+			const startVertex = i;
+			const secondVertex = i+2;
+			const thirdVertex = i+4;
+
+			lines.push(triangulatedVertices[startVertex], triangulatedVertices[startVertex+1]);
+			lines.push(triangulatedVertices[secondVertex], triangulatedVertices[secondVertex+1]);
+			lines.push(triangulatedVertices[secondVertex], triangulatedVertices[secondVertex+1]);
+			lines.push(triangulatedVertices[thirdVertex], triangulatedVertices[thirdVertex+1]);
+			lines.push(triangulatedVertices[thirdVertex], triangulatedVertices[thirdVertex+1]);
+			lines.push(triangulatedVertices[startVertex], triangulatedVertices[startVertex+1]);
+		}
+		return lines;
 	}
 }
 
@@ -469,7 +612,8 @@ class glTexture extends IHasBinding {
 			//@Bound(this._texture)
 			gl.texParameteri(this.target, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 			//@Bound(this._texture)
-			gl.texParameteri(this.target, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+			gl.texParameteri(this.target, gl.TEXTURE_MIN_FILTER, gl.LINEAR); //wait a second purrhaps this was the only one i needed? (yeah nah apparently i really do need them all)
+			//i swear there are random times where i need all of them and there are times when i only need gl.TEXTURE_MIN_FILTER set to gl.LINEAR. it's not like there's no default value for TEXTURE_WRAP_S and TEXTURE_WRAP_T (gl.REPEAT) so why do i keep getting inconsistent results?
 
 			GL.popTextureBinding(gl.TEXTURE_2D);
 		}
@@ -679,7 +823,7 @@ class glProgram {
 
         this.gl.useProgram(this.get());
 		if(enable_vertex_attribs_if_not_manual && !this.manual_attrib_rebind) {
-			//TODO: use them fancy VAOs so i don't have to do this kthxbai
+			//TODO: use them fancy VAOs so i don't have to do this kthxbai (https://webgl2fundamentals.org/webgl/lessons/webgl-attributes.html#:~:text=otherwise%20it%20would%20be%20up%20to%20one%20call%20to%20both%20gl.bindBuffer%2C%20gl.vertexAttribPointer%20(and%20possibly%20gl.enableVertexAttribArray)%20per%20attribute.)
 	        for(const prop in this.attribs) {
     	        const attrib = this.attribs[prop];
         	    if(attrib.enabled) {

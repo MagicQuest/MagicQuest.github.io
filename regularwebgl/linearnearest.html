@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>nearest linear</title>
+</head>
+<body>
+    <center>
+        <canvas id="canvas" style="border:red 2px solid; display: block;" width="200" height="150">clair de lune</canvas>
+        <label for="amount">blur, apparently:</label>
+        <input type="range" min="0" max="256" value="0" id="amount">
+        <label for="amount">0</label>
+        <p>welp, i wanted to know what would happen if i upscaled an image <b>linearly</b> (double the size), then scaled it back down using the <b>nearest</b> interpolation mode (back to its original size) and uhhh</p>
+        <p>turns out i just recreated some strange blur :&sol;</p>
+        <p>also notable: nothing happens after 256 passes</p>
+    </center>
+    <script id="vertex-shader" type="glsl">
+        attribute vec4 a_position;
+        attribute vec2 a_texCoord;
+        varying vec2 v_texCoord;
+        void main() {
+            v_texCoord = a_texCoord;
+            gl_Position = a_position;
+        }
+    </script>
+    <script id="fragment-shader" type="glsl">precision highp float;
+		uniform sampler2D iChannel0;
+        uniform float scale;
+        varying vec2 v_texCoord;
+        void main() {
+			gl_FragColor = texture2D(iChannel0, v_texCoord*scale);
+        }
+    </script>
+    <script src="./glwrapperex.js"></script>
+    <script>
+        const canvas = document.getElementById("canvas");
+        const gl = canvas.getContext("webgl");
+
+        if(!gl) {
+            document.write("yo for some reason we couldn't get the webgl context?");
+            quit;
+        }
+
+        const program = glProgram.fromShaders(document.getElementById("vertex-shader").innerText, document.getElementById("fragment-shader").innerText);
+		const vertexBuffer = new glBuffer(gl, gl.ARRAY_BUFFER);
+		vertexBuffer.set(new Float32Array([
+		  //x     y    u    v
+			-1.0, 1.0, 0.0, 1.0,
+			-1.0, -1.0,0.0, 0.0,
+			1.0, 1.0,  1.0, 1.0,
+			1.0, -1.0, 1.0, 0.0,
+		]), gl.STATIC_DRAW);
+		program.registerAttrib("a_position", vertexBuffer);
+		program.registerAttrib("a_texCoord", vertexBuffer);
+
+		program.describeAttribLayout("a_position", 2, gl.FLOAT, false, 4*4, 0);
+		program.describeAttribLayout("a_texCoord", 2, gl.FLOAT, false, 4*4, 2*4);
+		
+		program.enableAttrib("a_position");
+		program.enableAttrib("a_texCoord");
+
+        const tex0 = new glTexture(gl, gl.TEXTURE0, gl.TEXTURE_2D);
+        tex0.setParameteri(gl.TEXTURE_MIN_FILTER, gl.NEAREST); //linear nearest and nearest nearest don't do anything, linear linear does seemingly exactly the same thing
+        tex0.setParameteri(gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+        const doubleSizeTex1 = new glTexture(gl, gl.TEXTURE1, gl.TEXTURE_2D);
+        doubleSizeTex1.setTexImage2DWithData(0, gl.RGBA, 200*2, 150*2, 0, gl.UNSIGNED_BYTE, null);
+
+        const tempTex2 = new glTexture(gl, gl.TEXTURE2, gl.TEXTURE_2D);
+        tempTex2.setParameteri(gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        tempTex2.setParameteri(gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+        //onLoadImage
+        function textureCallback(event) {
+            const {naturalWidth: width, naturalHeight: height} = event.target;
+            gl.canvas.width = width;
+            gl.canvas.height = height;
+            doubleSizeTex1.setTexImage2DWithData(0, gl.RGBA, width*2, height*2, 0, gl.UNSIGNED_BYTE, null);
+            tempTex2.setTexImage2DWithData(0, gl.RGBA, width, height, 0, gl.UNSIGNED_BYTE, null);
+            draw();
+        }
+
+		tex0.fromImage("./textures/clipspace.svg", gl.RGBA, gl.UNSIGNED_BYTE, textureCallback);
+
+        const doubleSizeFramebuffer = new glFramebuffer(gl, gl.FRAMEBUFFER);
+        doubleSizeFramebuffer.setTexture(doubleSizeTex1, gl.COLOR_ATTACHMENT0, 0);
+
+        const tempFramebuffer = new glFramebuffer(gl, gl.FRAMEBUFFER);
+        tempFramebuffer.setTexture(tempTex2, gl.COLOR_ATTACHMENT0, 0);
+
+		program.makeCurrent(); //good practice to make le program current before setting uniforms!
+
+		program.registerUniform("iChannel0", "1i", tex0.unit - gl.TEXTURE0);
+        program.registerUniform("scale", "1f", 1.0);
+
+        let lastBlob;
+
+        function setImageWithFile(data) {
+			if(lastBlob) {
+				URL.revokeObjectURL(lastBlob);
+			}
+			lastBlob = URL.createObjectURL(data);
+			tex0.fromImage(lastBlob, gl.RGBA, gl.UNSIGNED_BYTE, textureCallback);
+		}
+
+		addEventListener("dragover", function(event) {
+            event.stopPropagation();
+            event.preventDefault();
+            //console.log(event.dataTransfer);
+            //if(event.dataTransfer.files.length) { //uhhh, nevermind?
+                // Style the drag-and-drop as a "copy file" operation.
+                event.dataTransfer.dropEffect = 'copy';
+                document.body.style = "color: royalblue; background-color: #1E1E1E";
+            //}
+		});
+
+        addEventListener('drop', async function(event) {
+            event.stopPropagation();
+            event.preventDefault();
+            const fileList = event.dataTransfer.files;
+            document.body.style = "";
+            if(fileList.length) {
+                setImageWithFile(fileList[0]);
+            }
+        });
+
+        amount.addEventListener("input", function(event) {
+            amount.nextElementSibling.innerText = event.target.value;
+            draw(event.target.value);
+        });
+
+        function draw(n = 1) {
+			/*gl.viewport(0, 0, gl.canvas.width, gl.canvas.height); //technically don't need to call this in le draw func
+
+			gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);*/
+
+            //we need to copy tex0 into tempTex2
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+            program.setUniform("iChannel0", tex0.unit - gl.TEXTURE0);
+            tempFramebuffer.makeCurrent(); // tex0 -> tempTex2
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); //this seems like the best way to copy from one texture to another (yk, without using another shader or webgl2)
+
+            //2 + 2*n draw calls... (i feel like they're all necessary though)
+            //wait a fucking second, i could just scale the texture by 2*n and that would only need 4 draw calls (but if the texture was too big (gl.MAX_TEXTURE_SIZE) i would have to keep looping so...)
+
+            for(let i = 0; i < n; i++) {
+                gl.viewport(0, 0, gl.canvas.width*2, gl.canvas.height*2); //using the viewport so i don't have to use any uniforms for scaling (ironic isn't it, i actually do have a scale uniform but trust me it's only for testing!)
+
+                doubleSizeFramebuffer.makeCurrent();
+
+                program.setUniform("iChannel0", tempTex2.unit - gl.TEXTURE0); //using tempTex2 here so we can keep resizing
+
+                gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); //doubleSizeTex1 now contains the previous results (tempTex2) scaled up by 2
+                
+                // gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+                tempFramebuffer.makeCurrent(); //writing to tempTex2 now so we can keep reusing the shrunken texture
+
+                gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+                program.setUniform("iChannel0", doubleSizeTex1.unit - gl.TEXTURE0);
+
+                gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); //tempTex2 now contains the previous results (from doubleSizeTex1) scaled back down
+            }
+
+            //finally show the result
+            //after the loop, the viewport will be the correct size :)
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            program.setUniform("iChannel0", tempTex2.unit - gl.TEXTURE0);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        }
+
+		//draw();
+    </script>
+</body>
+</html>

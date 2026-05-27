@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>lightingmaxxing</title>
+</head>
+<body>
+    <center>
+        <canvas id="canvas" style="border:red 2px solid;" width="512" height="512">cosmic embassy</canvas>
+		<p>press 'e' to move the point light to the camera</p>
+		<label for="colorInput">light color:</label><input id="colorInput" type="color" value="#ffffff" alpha> <!--uhh this alpha attribute doesn't work in chrome yet...-->
+    </center>
+    <script id="vertex-shader" type="glsl">#version 300 es
+		//damn that didn't work either
+        //#extension GL_ARB_explicit_uniform_location : enable
+		layout(location=0) in vec4 a_position;
+		layout(location=1) in vec3 a_normal;
+
+		//apparently you can only explicitly say the location of attributes and fragment shader out variables (in glsl 300 es)
+		/*layout(location=0)*/ uniform mat4 u_localMatrix;
+		/*layout(location=1)*/ uniform mat4 u_viewProjMatrix;
+		//uniform vec3 u_pointLight;
+		uniform mat4 u_localInverseTransposeMatrix;
+		
+		out vec3 v_normal;
+		out vec3 v_position;
+		//out float v_light;
+        
+		void main() {
+			//v_normal = a_normal;
+			//v_normal = normalize((u_localInverseTransposeMatrix*vec4(a_normal, 0)).xyz);
+			v_normal = (u_localInverseTransposeMatrix*vec4(a_normal, 0)).xyz;
+			vec4 position = u_localMatrix*a_position;
+			v_position = position.xyz;
+			//v_light = dot(a_normal, normalize(u_pointLight - position.xyz));
+			position = u_viewProjMatrix*position;
+			//v_position = position.xyz; //this is what i was doing before and it was wrong because it included the view matrix! i needed the local world position!
+			float zToDivideBy = 1.0 + position.z*2.0;
+            gl_Position = vec4(position.xyz, zToDivideBy);
+        }
+    </script>
+    <script id="fragment-shader" type="glsl">#version 300 es
+		precision highp float;
+		uniform vec4 u_color; //not the color of the light lol fuck allat
+		uniform vec3 u_pointLight;
+		uniform vec4 u_lightColor; //yep, we're doing it.
+		uniform vec3 u_viewPos;
+		in vec3 v_normal;
+		in vec3 v_position;
+		//in float v_light;
+		out vec4 fragColor;
+        void main() {
+			//vec4 colorBeforeShadow = u_color*u_lightColor;
+			//fragColor = vec4(colorBeforeShadow.rgb*v_light, colorBeforeShadow.a);
+			vec3 diff = u_pointLight - v_position;
+			float len = length(diff); // max(length(diff), 1.0); //hell nah
+			//vec3 reverseLight = normalize(diff)*(1.0/(len*len)); //multiplying vector by inverse square. dot is 0 if any vector is zeroed
+			vec3 reverseLight = normalize(diff);
+			vec3 normal = normalize(v_normal);
+			//vec3 viewDir = -v_position;
+			vec3 viewDir = normalize(u_viewPos - v_position);
+			vec3 reflectDir = reflect(-reverseLight, normal);
+			float inverseSq = 1.0/(len*len);
+			float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
+			//vec3 specular = 0.5*spec*u_lightColor.xyz;
+			vec4 colorBeforeShadow = u_color*u_lightColor;
+			//vec3 ambient = 0.1*colorBeforeShadow.rgb;
+			float d = max(dot(normal, reverseLight*inverseSq), 0.0);
+			//fragColor = vec4(mix(0.1*colorBeforeShadow.rgb, colorBeforeShadow.rgb, d) + specular, colorBeforeShadow.a);
+			
+			vec3 ambient = 0.1*colorBeforeShadow.rgb;
+			vec3 diffuse = d*colorBeforeShadow.rgb;
+			vec3 specular = 0.5*spec*colorBeforeShadow.rgb;
+			fragColor = vec4((ambient + diffuse + specular), colorBeforeShadow.a);
+			//fragColor = vec4(vec3(1.0-gl_FragCoord.z), 1.0);
+			//float ndc = gl_FragCoord.z * 2.0 - 1.0;
+			//float linearDepth = (2.0 * 1.0 * 2000.0) / (2000.0 + 1.0 - ndc * (2000.0 - 1.0));
+			//fragColor = vec4(vec3(linearDepth/2000.0), 1.0);
+
+			//fragColor = vec4(reflectDir, 1.0);
+			//fragColor = vec4(colorBeforeShadow.rgb*dot(v_normal, reverseLight), colorBeforeShadow.a); //colorBeforeShadow); //aye man why did it let me make this mistake? did it just use the r channel?
+			//fragColor = vec4(u_color.rgb*u_lightColor.rgb*dot(v_normal, reverseLight), u_color.a*u_lightColor.a);
+			//fragColor = vec4(v_position, u_color.a);
+			
+        }
+    </script>
+	<script id="billboard-vertex-shader" type="glsl">#version 300 es
+		//damn that didn't work either
+        //#extension GL_ARB_explicit_uniform_location : enable
+		
+		layout(location=0) in vec4 a_position;
+		layout(location=2) in vec2 a_texCoord;
+
+		//apparently you can only explicitly say the location of attributes and fragment shader out variables (in glsl 300 es)
+		/*layout(location=0)*/ uniform mat4 u_localMatrix;
+		/*layout(location=1)*/ uniform mat4 u_viewProjMatrix;
+		
+		out vec2 v_texCoord;
+		void main() {
+			v_texCoord = a_texCoord;
+			vec4 position = u_viewProjMatrix*u_localMatrix*a_position;
+			float zToDivideBy = 1.0 + position.z*2.0;
+			gl_Position = vec4(position.xyz, zToDivideBy);
+		}
+	</script>
+	<script id="billboard-fragment-shader" type="glsl">#version 300 es
+		precision highp float;
+		uniform sampler2D bbtex;
+		uniform vec4 u_color;
+		in vec2 v_texCoord;
+		out vec4 fragColor;
+		void main() {
+			fragColor = texture(bbtex, v_texCoord)*u_color;
+		}
+	</script>
+	<!--script src="./glwrapperex.js"></script--> <!--we don't need him, we're sigma-->
+	<script src="./glwrapperex.js"></script> <!--i lied, creating the program is dumb so we'll use his func-->
+    <script src="./m4.js"></script>
+	<script src="./freecam.js"></script>
+    <script>
+        const canvas = document.getElementById("canvas");
+        const gl = canvas.getContext("webgl2");
+
+        if(!gl) {
+            document.write("yo for some reason we couldn't get the webgl2 context?");
+            quit;
+        }
+
+		//debugger;
+        const program = glProgram.fromShaders(document.getElementById("vertex-shader").innerText, document.getElementById("fragment-shader").innerText).get();
+		const billboardProgram = glProgram.fromShaders(document.getElementById("billboard-vertex-shader").innerText, document.getElementById("billboard-fragment-shader").innerText).get();
+		const uniformLocations = {};
+
+		//should be the same for both programs using the layout specifier or whatever (nevermind that only works in greater versions of glsl)
+		uniformLocations["u_localMatrix"] = gl.getUniformLocation(program, "u_localMatrix");
+		uniformLocations["u_viewProjMatrix"] = gl.getUniformLocation(program, "u_viewProjMatrix");
+		uniformLocations["u_localInverseTransposeMatrix"] = gl.getUniformLocation(program, "u_localInverseTransposeMatrix");
+
+		//program
+		uniformLocations["u_color"] = gl.getUniformLocation(program, "u_color");
+		uniformLocations["u_pointLight"] = gl.getUniformLocation(program, "u_pointLight");
+		uniformLocations["u_lightColor"] = gl.getUniformLocation(program, "u_lightColor");
+		uniformLocations["u_viewPos"] = gl.getUniformLocation(program, "u_viewPos");
+
+		//billboardProgram
+		uniformLocations["bb_localMatrix"] = gl.getUniformLocation(billboardProgram, "u_localMatrix");
+		uniformLocations["bb_viewProjMatrix"] = gl.getUniformLocation(billboardProgram, "u_viewProjMatrix");
+		uniformLocations["bbcolor"] = gl.getUniformLocation(billboardProgram, "u_color");
+
+		//it's at this point i realize i'm just recreating modelviewer and i need to make a generic implementation already (it will probably feel a lot like threejs LOL!)
+		let dragon = {
+			vertexBuffer: gl.createBuffer(),
+			normalBuffer: gl.createBuffer(),
+			VAO: glPolyfill.createVertexArray(gl),
+			vertexCount: 0,
+		};
+		
+		/*let sphere = {
+			vertexBuffer: gl.createBuffer(),
+			normalBuffer: gl.createBuffer(),
+			VAO: glPolyfill.createVertexArray(gl),
+			vertexCount: 0,
+		};*/
+
+		let lightBillboard = {
+			vertexBuffer: gl.createBuffer(),
+			texCoordBuffer: gl.createBuffer(),
+			VAO: glPolyfill.createVertexArray(gl),
+			vertexCount: 4,
+		};
+
+		const lightTexture = gl.createTexture();
+		gl.activeTexture(gl.TEXTURE0);
+		gl.bindTexture(gl.TEXTURE_2D, lightTexture);
+		//i KNEW you didn't need these if you at least have mipmaps!
+		//i knew it man you really don't need these (apparently gl.REPEAT is the default)
+		//gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+		//gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+		//NEEDED if you aren't using mipmaps
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+
+		//let's do this later so all my uniform setting is together.
+		//gl.useProgram(billboardProgram);
+		//gl.uniform1i(uniformLocations["bbtex"], gl.TEXTURE0 - gl.TEXTURE0);
+		//gl.useProgram(null);
+
+		{
+			glPolyfill.bindVertexArray(gl, lightBillboard.VAO);
+
+			const d = 10; //dividing by 10 because that was too big lol
+
+			gl.bindBuffer(gl.ARRAY_BUFFER, lightBillboard.vertexBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+				-1.0/d, 1.0/d,
+				-1.0/d, -1.0/d,
+				1.0/d, 1.0/d,
+				1.0/d, -1.0/d,
+			]), gl.STATIC_DRAW);
+			gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0); //0 = vertex location
+			gl.enableVertexAttribArray(0);
+
+			gl.bindBuffer(gl.ARRAY_BUFFER, lightBillboard.texCoordBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+				0.0, 1.0,
+				0.0, 0.0,
+				1.0, 1.0,
+				1.0, 0.0,
+			]), gl.STATIC_DRAW);
+			gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 0, 0); //2 = texcoord location
+			gl.enableVertexAttribArray(2);
+
+			const temp = new Image();
+			temp.onload = function(event) {
+				//since we only have one texture we can definitely assume it's still bound
+				gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+				gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, temp);
+				//gl.generateMipmap(gl.TEXTURE_2D);
+			};
+			temp.src = "./textures/hl2_textures_000_materials_editor_light.png";
+		}
+
+		//let pointLightPosition = [0.0, 0.0, 3.0];
+		let pointLightPosition;
+		let pointLightColor = [1.0, 1.0, 1.0, 1.0];
+
+		function updatePointLightColor(color) {
+			pointLightColor = color;
+
+			gl.useProgram(program);
+	
+			gl.uniform4fv(uniformLocations["u_lightColor"], new Float32Array(pointLightColor));
+			
+			gl.useProgram(billboardProgram);
+	
+			//setting our billboard color to the light color (like hammer actually does)
+			gl.uniform4fv(uniformLocations["bbcolor"], new Float32Array(pointLightColor));
+		}
+
+		function loadEtBind(contents, parent) {
+			//debugger;
+			/*let*/ const {vertices} = Model.loadObj(gl, contents, true); //force vertices for drawArrays
+			/*let tempnormals = Model.calculateNormals(vertices);
+
+			vertices = Model.calculateLinesFromEdges(vertices);
+
+			let normals = [];
+
+			for(let i = 0; i < tempnormals.length; i+=9) {
+				normals.push(tempnormals[i], tempnormals[i+1], tempnormals[i+2]);
+				normals.push(tempnormals[i+3], tempnormals[i+4], tempnormals[i+5]);
+				normals.push(tempnormals[i+3], tempnormals[i+4], tempnormals[i+5]);
+				normals.push(tempnormals[i+6], tempnormals[i+7], tempnormals[i+8]);
+				normals.push(tempnormals[i+6], tempnormals[i+7], tempnormals[i+8]);
+				normals.push(tempnormals[i], tempnormals[i+1], tempnormals[i+2]);
+			}*/
+
+			const normals = Model.calculateNormals(vertices);
+
+			glPolyfill.bindVertexArray(gl, parent.VAO);
+
+			gl.bindBuffer(gl.ARRAY_BUFFER, parent.vertexBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+			gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+			gl.enableVertexAttribArray(0);
+
+			gl.bindBuffer(gl.ARRAY_BUFFER, parent.normalBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
+			gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
+			gl.enableVertexAttribArray(1);
+
+			parent.vertexCount = vertices.length;
+		}
+
+		//fetch("./models/stanford-bunny.obj", {method:"GET"}).then(res=>res.text()).then(contents => {
+		/*fetch("./models/xyzrgb_dragon.obj", {method:"GET"}).then(res=>res.text()).then(contents => {
+			const {vertices} = Model.loadObj(gl, contents, true); //force vertices for drawArrays
+			//the dragon obj doesn't have normals so we'll calculate them now
+			const normals = Model.calculateNormals(vertices);
+
+			glPolyfill.bindVertexArray(gl, dragon.VAO);
+
+			gl.bindBuffer(gl.ARRAY_BUFFER, dragon.vertexBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+			gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+			gl.enableVertexAttribArray(0);
+
+			gl.bindBuffer(gl.ARRAY_BUFFER, dragon.normalBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
+			gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
+			gl.enableVertexAttribArray(1);
+
+			dragon.count = vertices.length;
+
+			draw();
+		});*/
+		//fetch("./models/xyzrgb_dragon.obj", {method:"GET"}).then(res=>res.text()).then(contents=>{
+		//	loadEtBind(contents, dragon);
+		//	draw();
+		//});
+		fetch("./models/cube_normals.obj", {method:"GET"}).then(res=>res.text()).then(contents=>{
+			loadEtBind(contents, dragon);
+			draw();
+		});
+
+		/*fetch("./models/uvsphere_normals.obj", {method:"GET"}).then(res=>res.text()).then(contents => {
+			loadEtBind(contents, sphere);
+			draw();
+		});*/
+
+		gl.cullFace(gl.BACK);
+		gl.enable(gl.CULL_FACE);
+		gl.enable(gl.DEPTH_TEST);
+		gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+		gl.enable(gl.BLEND);
+
+		gl.useProgram(program); //that was close!
+
+		//lets make the color of our objects to orange
+		gl.uniform4fv(uniformLocations["u_color"], new Float32Array([1.0, 139/255, 7/255, 1.0]));
+		//setting light color
+		gl.uniform4fv(uniformLocations["u_lightColor"], new Float32Array(pointLightColor));
+		
+		gl.useProgram(billboardProgram);
+
+		//setting our billboard color to the light color (like hammer actually does)
+		gl.uniform4fv(uniformLocations["bbcolor"], new Float32Array(pointLightColor));
+
+		const camera = new Camera([0.0, 0.0, 1.5]);
+		pointLightPosition = camera.position.slice();
+
+		function draw() {
+			gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+			gl.clearColor(0.0, 0.0, 0.0, 1.0);
+			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		
+			gl.useProgram(program);
+
+			const view = m4.inverse(camera.matrix);
+			const projection = m4.perspective(60*Math.PI/180, gl.canvas.width/gl.canvas.height, 1, 2000);
+			const viewProjectionMatrix = m4.multiply(projection, view);
+			//gl.uniformMatrix4fv(uniformLocations["u_viewProjMatrix"], false, m4.scale(viewProjectionMatrix, 0.01, 0.01, 0.01)); //scaling since the dragon is so large lol
+			//gl.uniformMatrix4fv(uniformLocations["u_localMatrix"], false, m4.scaling(0.01, 0.01, 0.01));
+			const local = m4.identity(); //actually should be called world i think
+			gl.uniformMatrix4fv(uniformLocations["u_localMatrix"], false, local);
+			gl.uniformMatrix4fv(uniformLocations["u_viewProjMatrix"], false, viewProjectionMatrix);
+			gl.uniformMatrix4fv(uniformLocations["u_localInverseTransposeMatrix"], false, m4.transpose(m4.inverse(local)));
+			gl.uniform3f(uniformLocations["u_viewPos"], camera.position[0], camera.position[1], camera.position[2]);
+			gl.uniform3fv(uniformLocations["u_pointLight"], new Float32Array(pointLightPosition));
+
+			glPolyfill.bindVertexArray(gl, dragon.VAO);
+
+			gl.drawArrays(gl.TRIANGLES, 0, dragon.vertexCount);
+			//gl.drawArrays(gl.LINES, 0, dragon.vertexCount);
+			
+			/*
+			//gl.uniformMatrix4fv(uniformLocations["u_viewProjMatrix"], false, viewProjectionMatrix); //resetting u_matrix so that the sphere is normal sized; 
+			//nevermind that shit was too big
+			gl.uniformMatrix4fv(uniformLocations["u_localMatrix"], false, m4.scale(m4.translation(...pointLightPosition), 0.1, 0.1, 0.1));
+
+			glPolyfill.bindVertexArray(gl, sphere.VAO);
+
+			gl.drawArrays(gl.TRIANGLES, 0, sphere.vertexCount);*/
+
+			//aw damn we'll have to set the matrix uniforms again since we switch programs (and uniforms are one of the few program specific things)
+			gl.useProgram(billboardProgram);
+
+			//gl.uniformMatrix4fv(uniformLocations["bb_localMatrix"], false, m4.translation(...pointLightPosition));
+
+			//const directionVec = m4.normalize(m4.subtractVectors(pointLightPosition, camera.position));
+			//not exactly lol, we should be facing the opposite way the camera is (oh wait that's just forward lol)
+			const directionVec = camera.forward; //i thought i'd have to negate this vector but for some reason no?
+			gl.uniformMatrix4fv(uniformLocations["bb_localMatrix"], false, m4.lookAt(pointLightPosition, m4.addVectors(pointLightPosition, directionVec), [0.0, 1.0, 0.0]));
+			gl.uniformMatrix4fv(uniformLocations["bb_viewProjMatrix"], false, viewProjectionMatrix);
+
+			glPolyfill.bindVertexArray(gl, lightBillboard.VAO);
+
+			gl.drawArrays(gl.TRIANGLE_STRIP, 0, lightBillboard.vertexCount);
+		}
+
+		function handleMouseMovement(event) {
+			camera.handleMouseMovement(event.movementX, event.movementY);
+			draw();
+		}
+
+		function handleKeyboardInput(event) {
+			if(event.key.toLowerCase() == "e") {
+				//pointLightPosition = camera.position; //oh my i was taking the position by reference (this shouldn't be a problem anymore but we'll use slice just in case)
+				pointLightPosition = camera.position.slice();
+				draw();
+			}
+			if(camera.handleKeyboardInput(event)) {
+				draw();
+			}
+		}
+
+		document.addEventListener("pointerlockchange", function(event) {
+			if(document.pointerLockElement == canvas) {
+				document.addEventListener("mousemove", handleMouseMovement);
+				document.addEventListener("keydown", handleKeyboardInput);
+			}else {
+				document.removeEventListener("mousemove", handleMouseMovement);
+				document.removeEventListener("keydown", handleKeyboardInput);
+			}
+		});
+
+		canvas.addEventListener("mousedown", function(event) {
+			canvas.requestPointerLock();
+		});
+
+		colorInput.addEventListener("input", function(event) {
+			const hex = event.target.value;
+			const color = [parseInt(hex.slice(1, 3), 16)/0xff, parseInt(hex.slice(3, 5), 16)/0xff, parseInt(hex.slice(5, 7), 16)/0xff, 1.0];
+			updatePointLightColor(color);
+			draw();
+		});
+    </script>
+</body>
+</html>
