@@ -45,9 +45,11 @@ class Camera {
 			Math.sin(xRad),
 			Math.sin(yRad) * Math.cos(xRad),
 		];
+		const oldType = m4.setDefaultType(Array);
 		this.forward = m4.normalize(this.forward);
 		this.right = m4.normalize(m4.cross(this.forward, [0.0, 1.0, 0.0]));
 		this.up = m4.normalize(m4.cross(this.right, this.forward));
+		m4.setDefaultType(oldType);
 		//const tempPos = m4.addVectors(this.position, [0.0, 0.0, Math.PI/2]);
 		const tempPos = this.position;
 		this.matrix = m4.lookAt(tempPos, m4.addVectors(tempPos, this.forward), this.up);

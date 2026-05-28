@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>ENGINE TEST</title>
+</head>
+<body>
+    <center>
+        <canvas id="canvas" style="border:red 2px solid;" width="640" height="480">PATIENT</canvas>
+    </center>
+    <!--script id="vertex-shader" type="glsl">#version 300 es
+        layout(location=0) in vec4 a_position;
+		layout(location=1) in vec3 a_normal;
+		layout(location=2) in vec2 a_texCoord;
+
+		uniform mat4 u_worldMatrix;
+		uniform mat4 u_viewProjectionMatrix;
+
+		out vec3 v_normal;
+		out vec2 v_texCoord;
+        void main() {
+			v_normal = a_normal;
+			v_texCoord = a_texCoord;
+            //gl_Position = u_viewProjectionMatrix*u_worldMatrix*a_position;
+
+			vec4 position = u_viewProjectionMatrix*u_worldMatrix*a_position;
+			float zToDivideBy = 1.0 + position.z*2.0;
+			gl_Position = vec4(position.xyz, zToDivideBy);
+        }
+    </script>
+    <script id="fragment-shader" type="glsl">#version 300 es
+		precision highp float;
+		
+		uniform vec4 u_color;
+		//uniform sampler2D u_texture;
+
+		in vec3 v_normal;
+		in vec2 v_texCoord;
+
+		out vec4 fragColor;
+        void main() {
+			//fragColor = texture(u_texture, v_texCoord)*u_color;
+			fragColor = u_color;
+        }
+    </script-->
+    <script src="./glwrapperex.js"></script>
+    <script src="./m4.js"></script>
+    <script src="./3DMan.js"></script>
+    <script src="./freecam.js"></script>
+    <script>
+        const canvas = document.getElementById("canvas");
+        const gl = canvas.getContext("webgl2");
+
+        if(!gl) {
+            document.write("yo for some reason we couldn't get the webgl2 context?");
+            quit;
+        }
+
+		function shaderFactory(instancing) {
+			//inspired by https://gist.github.com/greggman/41d93c00649cba78abdbfc1231c9158c
+			const hereisthepartwhereisayifthereisinstancingornot = instancing ? "#define INSTANCING" : ""; //honestly i could just use javascript to manipulate the glsl instead of inserting #define directives
+			const monolithCustomVertexShader = `#version 300 es
+				${hereisthepartwhereisayifthereisinstancingornot}
+				layout(location=0) in vec4 a_position;
+				layout(location=1) in vec3 a_normal;
+				layout(location=2) in vec2 a_texCoord;
+
+				#ifdef INSTANCING
+				layout(location=3) in vec4 ai_color;
+				layout(location=4) in mat4 ai_matrix;
+				#define WORLD_MATRIX ai_matrix
+				#else
+				uniform mat4 u_worldMatrix;
+				#define WORLD_MATRIX u_worldMatrix
+				#endif
+				uniform mat4 u_viewProjectionMatrix;
+
+				out vec3 v_normal;
+				out vec2 v_texCoord;
+				#ifdef INSTANCING
+				out vec4 v_color;
+				#endif
+				void main() {
+					v_normal = a_normal;
+					v_texCoord = a_texCoord;
+					#ifdef INSTANCING
+					v_color = ai_color;
+					#endif
+
+					vec4 position = u_viewProjectionMatrix*WORLD_MATRIX*a_position;
+					float zToDivideBy = 1.0 + position.z*2.0;
+					gl_Position = vec4(position.xyz, zToDivideBy);
+				}
+			`;
+
+			const monolithCustomFragmentShader = `#version 300 es
+				${hereisthepartwhereisayifthereisinstancingornot}
+				precision highp float;
+
+				#ifndef INSTANCING
+				uniform vec4 u_color;
+				#define OBJECT_COLOR u_color
+				#endif
+
+				in vec3 v_normal;
+				in vec2 v_texCoord;
+				#ifdef INSTANCING
+				in vec4 v_color;
+				#define OBJECT_COLOR v_color
+				#endif
+				
+				out vec4 fragColor;
+				void main() {
+					fragColor = OBJECT_COLOR;
+				}
+			`;
+
+			return [monolithCustomVertexShader, monolithCustomFragmentShader];
+		}
+
+		debugger;
+		//const program = createProgramSimple(document.getElementById("vertex-shader").innerText, document.getElementById("fragment-shader").innerText);
+		const program = createProgramSimple(...shaderFactory(false));
+		
+		Renderer.init(gl);
+		//const defaultLitShader = new Shader(gl, false, false, false);
+		const customShader = Shader.custom(gl, program, shaderFactory.bind(undefined, true)); //()=>{});
+		const cubeModel = new ModelHolder([
+		  //x    y     z
+		  //remember positive z is towards the camera
+
+		    1.0, -1.0, 1.0, // front
+		    -1.0, 1.0, 1.0,
+		    -1.0, -1.0, 1.0,
+		    -1.0, 1.0, 1.0,
+		    1.0, -1.0, 1.0,
+		    1.0, 1.0, 1.0,
+
+			1.0, -1.0, -1.0, // right
+			1.0, 1.0, 1.0,
+			1.0, -1.0, 1.0,
+			1.0, 1.0, 1.0,
+			1.0, -1.0, -1.0,
+			1.0, 1.0, -1.0,
+			
+			-1.0, -1.0, 1.0, // left (z reflection where x = -1.0)
+			-1.0, 1.0, -1.0,
+			-1.0, -1.0, -1.0,
+			-1.0, 1.0, -1.0,
+			-1.0, -1.0, 1.0,
+			-1.0, 1.0, 1.0,
+		    
+			-1.0, -1.0, -1.0, // back (x reflection where z = -1.0)
+		    1.0, 1.0, -1.0,
+		    1.0, -1.0, -1.0,
+		    1.0, 1.0, -1.0,
+		    -1.0, -1.0, -1.0,
+		    -1.0, 1.0, -1.0,
+
+			1.0, 1.0, 1.0, // top
+			-1.0, 1.0, -1.0,
+			-1.0, 1.0, 1.0,
+			-1.0, 1.0, -1.0,
+			1.0, 1.0, 1.0,
+			1.0, 1.0, -1.0,
+
+			-1.0, -1.0, 1.0, // bottom (x reflection where y = -1.0)
+			1.0, -1.0, -1.0,
+			1.0, -1.0, 1.0,
+			1.0, -1.0, -1.0,
+			-1.0, -1.0, 1.0,
+			-1.0, -1.0, -1.0,
+		]);
+		cubeModel.defaultShader = customShader; //defaultLitShader;
+		const planeModel = new ModelHolder([
+		    1.0, 0.0, 1.0,
+		    -1.0, 0.0, -1.0,
+		    -1.0, 0.0, 1.0,
+		    -1.0, 0.0, -1.0,
+		    1.0, 0.0, 1.0,
+		    1.0, 0.0, -1.0,
+		]).singleUsePerShader(); //i promise
+		planeModel.defaultShader = customShader; //defaultLitShader;
+		const hammerBBModel = new ModelHolder([
+			1.0, -1.0, 0.0,
+			-1.0, 1.0, 0.0,
+			-1.0, -1.0, 0.0,
+			-1.0, 1.0, 0.0,
+			1.0, -1.0, 0.0,
+			1.0, 1.0, 0.0,
+		], undefined, [
+			1.0, 0.0,
+			0.0, 1.0,
+			0.0, 0.0,
+			0.0, 1.0,
+			1.0, 0.0,
+			1.0, 1.0,
+		]).textureCount(1);
+		hammerBBModel.defaultShader = customShader; //use default unlit (when i write it lol)
+	
+		//idk about this syntax but this thang is WORKIN
+		const cube1 = new ModelInstance(cubeModel, [-1.0, 0.0, 0.0]);
+		cube1.scaleBy(0.5);
+		cube1.color(1.0, 0.0, 0.0);
+		const cube2 = new ModelInstance(cubeModel, [1.0, 0.0, 0.0]);
+		cube2.scaleBy(0.5);
+		cube2.color(0.0, 0.0, 1.0);
+		//cube2.rotation(0.0, 9.0, 0.0);
+		const plane = new ModelInstance(planeModel, [0.0, -1.0, 0.0]);
+		plane.scaleBy(5.0);
+		plane.color(0.8, 0.8, 0.8);
+		const light = new ModelInstance(hammerBBModel);
+		light.scale(0.2, 0.2, 0.2);
+		light.color(0.0, 1.0, 0.0);
+		light.billboard = true;
+		//const plane2 = new ModelInstance(planeModel, [0.0, 1.0, 0.0]);
+		//plane2.rotation(89.99, -89.99, 0.0); //uhhh, actually using 90 fucks something up
+	
+		const camera = new Camera([0.0, 0.0, 3.0]); 
+
+		/*function animate(t) {
+		    Renderer.draw(gl, t, camera);
+		    requestAnimationFrame(animate);
+		}*/
+		
+		function handleMouseMovement(event) {
+			camera.handleMouseMovement(event.movementX, event.movementY);
+			Renderer.draw(gl, 0, camera);
+			//draw();
+		}
+
+		function handleKeyboardInput(event) {
+			/*if(event.key.toLowerCase() == "e") {
+				//pointLightPosition = camera.position; //oh my i was taking the position by reference (this shouldn't be a problem anymore but we'll use slice just in case)
+				pointLightPosition = camera.position.slice();
+				draw();
+			}*/
+			if(camera.handleKeyboardInput(event)) {
+				//draw();
+				Renderer.draw(gl, 0, camera);
+			}
+		}
+
+		document.addEventListener("pointerlockchange", function(event) {
+			if(document.pointerLockElement == canvas) {
+				document.addEventListener("mousemove", handleMouseMovement);
+				document.addEventListener("keydown", handleKeyboardInput);
+			}else {
+				document.removeEventListener("mousemove", handleMouseMovement);
+				document.removeEventListener("keydown", handleKeyboardInput);
+			}
+		});
+
+		canvas.addEventListener("mousedown", function(event) {
+			canvas.requestPointerLock();
+		});
+
+		//animate();
+		Renderer.draw(gl, 0, camera);
+	</script>
+</body>
+</html>
