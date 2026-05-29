@@ -4,6 +4,7 @@
 //optional
 //instanced attrib location 3 is ai_color
 //instanced attrib location 4,5,6,7 is ai_matrix
+//texture array attrib location 8 is a_texId
 
 //uniform locations
 //u_worldMatrix*^1
@@ -24,7 +25,7 @@
 //v_texId^1
 //v_position^2
 //* instanced only
-//[^1] idk yet lol
+//[^1] idk yet lol (ok yeah we're gonna do it lol)
 //[^2] lit shaders only
 
 //lowkey i was lazy and so if you name the gl context something other than gl this shit might throw an error lol
@@ -46,6 +47,10 @@
 //model holds count of textures, instances hold texture objects then, uhhhh, somehow i make that work (maybe instances hold ACTUAL material objects that hold the textures (and colors?))
 //that boy said we don't do atlases for 3d. what do we do then? (google: using multiple textures in 3d)
 //for textures, i could write another shader that handles multiple
+//if you're going to use multiple textures the shader needs to know the amount, then it will generate a shader with that many uniform sampler2D s
+
+//for a minecraft cube i could have each instance hold their own texIds so when drawing i update the model's buffer with bufferSubData
+//then i could actually draw a grass and dirt block (but uhh... no instancing...)
 
 //Example use: see enginetest.html
 /*
@@ -142,6 +147,8 @@ class Shader {
     unlit;
     useCubemap;
     useTextureArray;
+    usesMultipleTextures; // not the same as texture array as this will use more samplers in glsl
+    maxTextures;
     program;
     uniformLocations = {};
     instancedProgram = undefined; //only created when needed
@@ -154,11 +161,13 @@ class Shader {
     static instancesPerShader = new Map(); // {shader: {model: {instances: [instance, instance], position: i}}}
     static transparentInstancesPerShader = new Map(); // {[Shader] => {[Model] => {instances: [instance, instance], position: i}}}
 
-    constructor(gl, unlit, useCubemap, useTextureArray, customProgram = undefined, customInstancedProgramCallback = undefined) {
+    constructor(gl, unlit, useCubemap, useTextureArray, maxTextures = 1, customProgram = undefined, customInstancedProgramCallback = undefined) {
         this.mode = gl.TRIANGLES;
         this.unlit = unlit;
         this.useCubemap = useCubemap;
         this.useTextureArray = useTextureArray;
+        this.maxTextures = maxTextures;
+        this.usesMultipleTextures = maxTextures > 1;
         Shader.instancesPerShader.set(this, new Map());
         Shader.transparentInstancesPerShader.set(this, new Map());
         if(customProgram) {
@@ -180,13 +189,25 @@ class Shader {
         if(this.uniformLocations["u_color"] == null) {
             console.warn("u_color was not found in this shader's program!");
         }
+        this.uniformLocations["u_texture"] = gl.getUniformLocation(this.program, "u_texture");
+        if(this.uniformLocations["u_texture"] == null) {
+            console.warn("u_texture was not found in this shader's program!");
+        }
+        if(this.usesMultipleTextures) {
+            for(let i = 1; i < this.maxTextures; i++) {
+                this.uniformLocations["u_texture" + i] = gl.getUniformLocation(this.program, "u_texture" + i);
+                if(this.uniformLocations["u_texture" + i] == null) {
+                    console.warn("u_texture"+i+" was not found in this shader's program!");
+                }
+            }
+        }
         if(!this.unlit) {
             //... (should i do point lights or direction or should i do both and how do i do multiple point lights?)
         }
     }
 
-    static custom(gl, program, customInstancedProgramCallback) {
-        return new Shader(gl, undefined, undefined, undefined, program, customInstancedProgramCallback);
+    static custom(gl, program, maxTextureCount, customInstancedProgramCallback) {
+        return new Shader(gl, undefined, undefined, undefined, maxTextureCount, program, customInstancedProgramCallback);
     }
 
     //addRef(model) {
@@ -231,13 +252,34 @@ class Shader {
         }
         let metadata;
         if (!instancesPerModel.has(instance.model)) {
-            metadata = {instances: [], position: undefined};
+            metadata = {instances: [], position: undefined, perTexture: new Map()}; //uhh metadata could also be the same kind of map as perTexture lol (actually having like this makes it easier to check if any instances have textures that use this uhhh shader)
             //oops, forgot to set it in instancesPerModel lol! we can do this right now since we'll have a reference to metadata
             instancesPerModel.set(instance.model, metadata); //+1
-        } else {
+        }else {
             metadata = instancesPerModel.get(instance.model);
         }
-        metadata.instances.push(instance);
+        if(instance._textures.length) {
+            let parent = metadata;
+            for(const texture of instance._textures) {
+                if(!parent.perTexture.has(texture)) {
+                    //const temp = new Map();
+                    //temp.set("instances", []);
+                    //temp.set("position", undefined); //uhh metadata could also be the same kind of map as perTexture lol (actually having like this makes it easier to check if any instances have textures that use this uhhh shader)
+                    //parent.set(texture, temp);
+                    
+                    const temp = {instances: [], position: undefined, perTexture: new Map()};
+                    parent.perTexture.set(texture, temp);
+
+                    parent = temp;
+                }else {
+                    parent = parent.perTexture.get(texture);
+                }
+            }
+            //parent.get("instances").push(instance);
+            parent.instances.push(instance);
+        }else {
+            metadata.instances.push(instance);
+        }
     }
 
     subRef(instance) {
@@ -249,15 +291,83 @@ class Shader {
             instancesPerModel = Shader.instancesPerShader.get(this);
         }
         const metadata = instancesPerModel.get(instance.model);
-        if(metadata.instances.length == 1) {
-            instancesPerModel.delete(instance.model);
+        //uhhh, i assume it'll be the same as it was when we added it? (so if it had a texture when it was added it'll still have it when we remove it (for looking it up in our map purposes of course))
+        if(instance._textures.length) {
+            //we gotta traverse the tree
+            let ourTextureMap = metadata;
+            let parents = [];
+            for(const texture of instance._textures) { // [texture1, texture2], parents = [metadata, {instances: [], position: ..., perTexture: {...}}]
+                parents.push(ourTextureMap);
+                ourTextureMap = ourTextureMap.perTexture.get(texture);
+            }
+            if(ourTextureMap.instances.length == 1) {
+                //do a lot of work to figure out if this was the last instance in this whole tree...
+                //let total = 0;
+                //for(const textureMaps of metadata.perTexture.values()) {
+                //    if(textureMaps.get())
+                //}
+                if(ourTextureMap.perTexture.size == 0) { // if our perTexture map has keys let's assume i wrote this part correctly and they still have instances there otherwise see the inside of the if statement
+                    // parents.at(-1).perTexture.delete(instance._textures.at(-1)); //the last parent has the perTexture map we're inside! we're deleting this texture key
+
+                    //ok now do work to check if this entire branch can be deleted
+                    for(let i = instance._textures.length-1; i >= 0; i--) {
+                        
+                    }
+                }
+            }else {
+                let index;
+                if((index = ourTextureMap.instances.findIndex(v=>v==instance)) == -1) throw Error("big boy error");
+                ourTextureMap.instances.splice(index, 1);
+            }
         }else {
-            metadata.instances.splice(metadata.instances.findIndex(v=>v==instance), 1);
+            if(metadata.instances.length == 1 && metadata.perTexture.size == 0) {
+                instancesPerModel.delete(instance.model);
+            }else {
+                let index;
+                if((index = metadata.instances.findIndex(v=>v==instance)) == -1) throw Error("big boy error");
+                metadata.instances.splice(index, 1);
+            }
         }
         //we don't have to set it again because it's a reference :)
     }
 
-    //call this function to translate Material.instancePerMaterial and friends into drawing commands
+    static generateDrawCommandsPerTexture(shader, metadata) {
+        // for(const [texture, submetadata] of metadata.perTexture.entries()) {
+        for(const submetadata of metadata.perTexture.values()) {
+            //for each texture combination unfortunately we'll have to make separate drawing commands!
+            if(submetadata.instances.length) {
+                const tempcommand2 = new DrawCall;
+                tempcommand2.shader = shader;
+                tempcommand2.model = submetadata.instances[0].model; //lol
+                tempcommand2.instances = submetadata.instances;
+                // tempcommand2.perInstanceColor = // o fuk. (it was at this moment)
+                tempcommand2.perInstanceColor = false;
+
+                if(tempcommand2.instances.length > 1) {
+                    let firstColor = tempcommand2.instances[0]._color;
+
+                    instanceLoop: //apparently you can only reference a label within the scope of the labeled statement (so i can have two labels named instanceLoop in the same file)
+                    for(const instance of tempcommand2.instances) {
+                        for(let i = 0; i < instance._color.length; i++) {
+                            const c = instance._color[i];
+                            if(c != firstColor[i]) {
+                                tempcommand2.perInstanceColor = true;
+                                break instanceLoop;
+                            }
+                        }
+                    }
+                }
+
+                submetadata.position = drawingCommands.push(tempcommand2)-1; //ok bro
+            }
+
+            if(submetadata.perTexture.size) {
+                Shader.generateDrawCommandsPerTexture(shader, submetadata);
+            }
+        }
+    }
+
+    //call this function to translate the instance per material maps into "drawing commands"
     //typically called when an object's material changes
     static compileDrawingCommands() {
         drawingCommands = [];
@@ -265,40 +375,92 @@ class Shader {
         for (const shader of Shader.instancesPerShader.keys()) {
             const instancesUsing = Shader.instancesPerShader.get(shader);
             for (const metadata of instancesUsing.values()) {
-                const arr = metadata.instances;
-                const model = arr[0].model;
-                const temp = new DrawCall;
-                temp.shader = shader;
-                temp.model = model;
-                temp.instances = [];
-                temp.perInstanceColor = false;
-                let firstColor = arr[0]._color;
-                if (arr.length != 1) {
-                    if(shader.instancedProgram == undefined) {
-                        //well shit
-                        shader.createInstancedProgram();
-                    }
-                    for (const instance of arr) {
-                        //for of ^ 3
-                        if(!temp.perInstanceColor) {
-                            for(let i = 0; i < instance._color.length; i++) {
-                                const c = instance._color[i];
-                                if(c != firstColor[i]) {
-                                    temp.perInstanceColor = true;
-                                    break;
-                                }
-                            }
+                if(metadata.instances.length) { // we could have no instances here because they could all have textures
+                    const arr = metadata.instances;
+                    const model = arr[0].model;
+                    const temp = new DrawCall;
+                    temp.shader = shader;
+                    temp.model = model;
+                    temp.instances = [];
+                    temp.perInstanceColor = false;
+                    //let texturedInstances = []; // we can't instance objects with different textures so we'll put them in here and sort them (and see if we can instance the textured ones together)
+                    //const uniqueTextureCombinations = new Map(); //{Texture => {Texture => {...}, "instances" => []}} (what a complicated map...)
+                    let firstColor = arr[0]._color;
+                    if (arr.length > 1) {
+                        if(shader.instancedProgram == undefined) {
+                            //well shit
+                            shader.createInstancedProgram();
                         }
-                        temp.instances.push(instance);
+                        for (const instance of arr) {
+                            //for of ^ 3
+                            //if(instance._textures.length != 0) { //oh boy
+                            //    let parent = uniqueTextureCombinations;
+                            //    for(const texture of instance._textures) {
+                            //        if(!parent.has(texture)) {
+                            //            const temp = new Map();
+                            //            temp.set("instances", []);
+                            //            parent.set(texture, temp);
+                            //
+                            //            parent = temp;
+                            //        }else {
+                            //            parent = parent.get(texture);
+                            //        }
+                            //    }
+                            //    parent.get("instances").push(instance); //at the end of the tree put this instance into the list ;)
+                            //}else {
+                                //FUCK we'll have to calculate perInstanceColor separately for textured objects!!
+                                //Shader.calculatePerInstanceColorSoIDontHaveToRewriteTheSameThing(temp);
+                                if(!temp.perInstanceColor) {
+                                    for(let i = 0; i < instance._color.length; i++) {
+                                        const c = instance._color[i];
+                                        if(c != firstColor[i]) {
+                                            temp.perInstanceColor = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                                temp.instances.push(instance);
+                            //}
+                        }
+                        //well now we have to process the texture combinations
+                        // if(model.textureCount) {
+                        // for(const [texture, map] of uniqueTextureCombinations.entries()) {
+                        // Shader.generateDrawCommandsPerTexture(metadata);
+                        // }
+                        // }
+                    }else { //if length is 1 don't bother checking color just add it straight to the instances list
+                        temp.instances.push(arr[0]);
                     }
-                }else { //if length is 1 don't bother checking color just add it straight to the instances list
-                    temp.instances.push(arr[0]);
+                    metadata.position = drawingCommands.push(temp)-1; //ok bro
                 }
-                metadata.position = drawingCommands.push(temp)-1; //ok bro
+
+                if(metadata.perTexture.size) {
+                    Shader.generateDrawCommandsPerTexture(shader, metadata);
+                }
+            }
+        }
+
+        let tempdrawingcommands = drawingCommands;
+        drawingCommands = []; //lol i didn't really have to do this but since drawingCommands is global i'd have to refactor generateDrawCommandsPerTexture
+
+        //ok here's the part where i try to minimize program state changes by sorting them
+        //for each Shader we could hit a max of 2 program changes by sorting the individual objects to come before the instanced ones (or vice versa)
+        const shaderSortMap = new Map();
+        for(const command of tempdrawingcommands) {
+            if(!shaderSortMap.has(command.shader)) {
+                shaderSortMap.set(command.shader, []);
+            }
+            shaderSortMap.get(command.shader).push(command);
+        }
+        for(const callsPerShader of shaderSortMap.values()) {
+            callsPerShader.sort((a, b) => a.instances.length-b.instances.length); // commands that have only one instance use the normal program and commands with more use the instanced program. by sorting it this way, we can make sure we only change programs twice for all objects using this shader!
+            for(const call of callsPerShader) {
+                drawingCommands.push(call); //i would slice here but for of is faster by like 0.005 ms or something (micro optimization god)
             }
         }
     }
 
+    //couldn't i do this in subref and addref
     checkColorForInstancingOptimization(instance) {
         let metadata;
         if(instance._color[3] != 1.0) {
@@ -306,6 +468,12 @@ class Shader {
             metadata = Shader.transparentInstancesPerShader.get(this).get(instance.model);
         }else {
             metadata = Shader.instancesPerShader.get(this).get(instance.model);
+        }
+        if(instance._textures.length) {
+            //we gotta traverse the tree
+            for(const texture of instance._textures) { // [texture1, texture2], parents = [metadata, {instances: [], position: ..., perTexture: {...}}]
+                metadata = metadata.perTexture.get(texture);
+            }
         }
         const drawcall = drawingCommands[metadata.position]; //reference
         drawcall.perInstanceColor = false;
@@ -357,6 +525,10 @@ class Shader {
         if(this.instancedUniformLocations["u_viewProjectionMatrix"] == null) {
             console.warn("u_viewProjectionMatrix was not found in this shader's instanced program!");
         }
+        this.instancedUniformLocations["u_texture"] = gl.getUniformLocation(this.instancedProgram, "u_texture");
+        if(this.instancedUniformLocations["u_texture"] == null) {
+            console.warn("u_texture was not found in this shader's instanced program!");
+        }
     }
 
     destroy() {
@@ -364,20 +536,20 @@ class Shader {
         if (this.instancedProgram) {
             gl.deleteProgram(this.instancedProgram);
         }
-        if (Shader.instancesPerShader.has(this)) {
-            const moogcity2 = Shader.instancesPerShader.get(this);
-            if(moogcity2.keys().toArray().length) {
+        //if (Shader.instancesPerShader.has(this)) { // this will always be true because i set it in the constructor lol
+            const moogcity2 = Shader.instancesPerShader.get(this); //{Model => {metadata}}
+            if(moogcity2.size) {
                 console.warn("Shader destroyed yet there are instances that use it!", moogcity2);
             }
             Shader.instancesPerShader.delete(this);
-        }
-        if (Shader.transparentInstancesPerShader.has(this)) {
+        //}
+        //if (Shader.transparentInstancesPerShader.has(this)) { // this will always be true because i set it in the constructor lol
             const whatcourtemancheseffortsoundslike = Shader.transparentInstancesPerShader.get(this);
-            if(whatcourtemancheseffortsoundslike.keys().toArray().length) {
+            if(whatcourtemancheseffortsoundslike.size) {
                 console.warn("Shader destroyed yet there are (transparent) instances that use it!", whatcourtemancheseffortsoundslike);
             }
             Shader.transparentInstancesPerShader.delete(this);
-        }
+        //}
     }
 }
 
@@ -393,6 +565,7 @@ class ModelHolder {
     vertexBuffer;
     normalBuffer;
     texCoordBuffer; //optional
+    texIdBuffer; //optional, for texture array shaders
 
     instancedColorBuffer; //optional but unless you promise to only use this object once (singleUsePerShader), it'll be created
     instancedColorBufferLen; //for sub optimization
@@ -403,7 +576,7 @@ class ModelHolder {
 
     wireframe;
 
-    defaultShader;
+    _defaultShader;
 
     _textureCount;
 
@@ -412,7 +585,7 @@ class ModelHolder {
     //instances; //instances sorted by material, we'll use actual instancing if there's more than one for the same material (but then i'd have to use a different shader)
 
     //pass an empty array for normals if they're not needed (using an unlit shader)
-    constructor(vertices, normals = undefined, texCoords = undefined, textureCount = 0, singleUse = false) {
+    constructor(vertices, normals = undefined, texCoords = undefined, texIds = undefined, textureCount = 0, singleUse = false) {
         if (vertices.length % 9 != 0) throw Error("Model::Model can only use triangulated vertices! Use wireframe for gl.LINES, otherwise fuck you!");
         if (!normals) {
             normals = Model.calculateNormals(vertices);
@@ -451,6 +624,16 @@ class ModelHolder {
             gl.vertexAttrib2f(2, 0.5, 0.5); //a_texCoord
             //huh apparently you don't enable the attrib if you're not using vertexAttribPointer
             // gl.enableVertexAttribArray(2); //a_texCoord
+        }
+
+        if(texIds) {
+            this.texIdBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.texIdBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texIds), gl.STATIC_DRAW);
+            gl.vertexAttribPointer(8, 1, gl.FLOAT, false, 0, 0); //a_texId
+            gl.enableVertexAttribArray(8); //a_texId
+        }else {
+            gl.vertexAttrib1f(8, 0);
         }
 
         if(!singleUse) {
@@ -511,11 +694,28 @@ class ModelHolder {
     }
 
     textureCount(n) {
-        this._textureCount = n;
+        this.textureCount = n;
         return this;
     }
 
+    set defaultShader(newValue) {
+        if(newValue instanceof Shader) {
+            if(this._textureCount > 1 && newValue.usesMultipleTextures == false) {
+                throw Error("ModelHolder's default shader was set to one that doesn't use multiple textures (this model needs them)!");
+            }
+            if(this.texIdBuffer && newValue.useTextureArray == false) {
+                throw Error("ModelHolder's default shader was set to one that doesn't use texture arrays, yet this model has a texId buffer!");
+            }
+        }else if(newValue != undefined) {
+            //catastrophic failure man, go back
+            alert("Goodbye cruel world!");
+            window.history.back();
+        }
+        this._defaultShader = newValue;
+    }
+
     /*Model*/ wireframeCopy() {
+        console.warn("lowkey i didn't make wireframeCopy copy the texIds");
         if (vertices.length % 9 != 0) throw Error("Model::wireframeCopy called on model with non-triangular vertices!");
         const vertices = Model.calculateLinesFromEdges(this._vertices);
         const normals = Model.calculateLinesFromEdges(this._normals);
@@ -603,15 +803,15 @@ class ModelInstance extends TransformableObject {
     //_position = [0.0, 0.0, 0.0];
     //_matrix = m4.identity();
     _color = new Float32Array([1.0, 1.0, 1.0, 1.0]);
+    _textures = [];
     _shader;
     billboard = false;
     visible = true;
     model;
-    textures = [];
     constructor(model, position, rotation, scale) {
         super(position, rotation, scale);
         this.model = model;
-        this.shader = model.defaultShader;
+        this.shader = model._defaultShader;
         instances.push(this);
     }
     set shader(newValue) {
@@ -639,6 +839,25 @@ class ModelInstance extends TransformableObject {
     //    this._position = [x, y, z];
     //    m4.translation(x, y, z, this._matrix);
     //}
+    addTexture(glTextureObject) {
+        this._shader.subRef(this); //calling subRef then changing the texture so it's sorted for compileDrawingCommands
+        if(this.model._textureCount < this._textures.push(glTextureObject)) { //WRITE DUMB CODE
+            console.warn(`adding texture to instance (now ${this._textures.length} texture${this._textures.length==1?'':'s'}) but current model only has ${this.model._textureCount}`);
+        }
+        this._shader.addRef(this);
+
+        Shader.compileDrawingCommands(); //probably don't have to compile the whole thing here lol but if i wanted to sort to optimize texture state changes then yeag maybe
+    }
+    setTexture(index, glTextureObject) {
+        this._shader.subRef(this); //calling subRef then changing the texture so it's sorted for compileDrawingCommands
+        this._textures[index] = glTextureObject;
+        if(this.model._textureCount < this._textures.length) {
+            console.warn(`instance texture count exceeds model texture count!`);
+        }
+        this._shader.addRef(this);
+
+        Shader.compileDrawingCommands();
+    }
     color(r, g, b, a = 1.0) {
         const oldalpha = this._color[3];
         let dobother = false;
@@ -757,11 +976,13 @@ class Renderer {
         Renderer.whitePixelTexture = gl.createTexture();
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, Renderer.whitePixelTexture);
+        //i forgot the part that made it white
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([255, 255, 255, 255]));
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     }
 
-    static draw(gl, t, camera) {
+    static draw(gl, t, camera, printDebugInfo = false) {
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
         gl.clearColor(1.0, 0.0, 1.0, 1.0);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -770,8 +991,12 @@ class Renderer {
         gl.enable(gl.CULL_FACE);
         gl.enable(gl.DEPTH_TEST);
 
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, Renderer.whitePixelTexture); //making sure our white pixel texture is always at gl.TEXTURE0
+
         const view = m4.inverse(camera.matrix);
         const viewProjectionMatrix = m4.multiply(m4.perspective(60*Math.PI/180, gl.canvas.width/gl.canvas.height, 1, 2000), view);
+        let programSwitches = 0;
         let lastProgram = undefined; //apparently gl.getParameter (with it's actual gl function being glGetIntegerv) might be slightly slow so we'll just record the last program here lol
         //if it's that serious we could write the last active texture unit (the u_texture uniform1i value) for each program
         //debugger;
@@ -785,23 +1010,52 @@ class Renderer {
             if (command.instances.length == 1) {
                 const instance = command.instances[0];
                 if(!instance.visible) continue;
+                //if(command.shader.usesMultipleTextures) throw Error("Unfinished");
+                //if(command.textureCount > 1 || command.shader.useTextureArray) throw Error("Unfinished!");
                 if(lastProgram != command.shader.program) {
                     gl.useProgram(command.shader.program);
                     lastProgram = command.shader.program;
+                    programSwitches++;
                 }
                 if (instance.billboard) {
                     //maybe don't modify the matrix directly lol
                     instance._matrix = m4.lookAt(instance._position, m4.addVectors(instance._position, camera.forward), [0.0, 1.0, 0.0]);
                     m4.scale(instance._matrix, instance._scale[0], instance._scale[1], instance._scale[2], instance._matrix);
                 }
+                if(command.shader.usesMultipleTextures) {
+                    for(let i = 0; i < command.model._textureCount; i++) {
+                        const loc = command.shader.uniformLocations[`u_texture${i == 0 ? "" : i}`];
+                        if(instance._textures[i] != undefined) {
+                            gl.uniform1i(loc, 1);
+                            gl.activeTexture(gl.TEXTURE1 + i);
+                            gl.bindTexture(gl.TEXTURE_2D, instance._textures[i]);
+                        }else {
+                            gl.uniform1i(loc, 0);
+                        }
+                    }
+                }else {
+                    if(instance._textures[0] != undefined) {
+                        gl.uniform1i(command.shader.uniformLocations["u_texture"], 1);
+                        gl.activeTexture(gl.TEXTURE1);
+                        if(command.shader.useTextureArray) {
+                            gl.bindTexture(gl.TEXTURE_2D_ARRAY, instance._textures[0]);
+                        }else {
+                            gl.bindTexture(gl.TEXTURE_2D, instance._textures[0]);
+                        }
+                    }else {
+                        gl.uniform1i(command.shader.uniformLocations["u_texture"], 0); //not saving the last set state because it's per program only! i could store data on our shader object though!
+                    }
+                }
                 gl.uniformMatrix4fv(command.shader.uniformLocations["u_worldMatrix"], false, instance._matrix);
                 gl.uniformMatrix4fv(command.shader.uniformLocations["u_viewProjectionMatrix"], false, viewProjectionMatrix);
                 gl.uniform4fv(command.shader.uniformLocations["u_color"], instance._color);
                 gl.drawArrays(command.shader.mode, 0, command.model._vertices.length);
             } else {
+                //if(command.textureCount > 1 || command.shader.useTextureArray) throw Error("Unfinished!");
                 if(lastProgram != command.shader.instancedProgram) {
                     gl.useProgram(command.shader.instancedProgram);
                     lastProgram = command.shader.instancedProgram;
+                    programSwitches++;
                 }
 
                 gl.uniformMatrix4fv(command.shader.instancedUniformLocations["u_viewProjectionMatrix"], false, viewProjectionMatrix);
@@ -875,10 +1129,40 @@ class Renderer {
                 //gl.enableVertexAttribArray(4+2);
                 //gl.enableVertexAttribArray(4+3);
 
+                const firstInstance = command.instances[0];
+                if(command.shader.usesMultipleTextures) {
+                    for(let i = 0; i < command.model._textureCount; i++) {
+                        const loc = command.shader.instancedUniformLocations[`u_texture${i == 0 ? "" : i}`];
+                        if(firstInstance._textures[i] != undefined) {
+                            gl.uniform1i(loc, 1);
+                            gl.activeTexture(gl.TEXTURE1 + i);
+                            gl.bindTexture(gl.TEXTURE_2D, firstInstance._textures[i]);
+                        }else {
+                            gl.uniform1i(loc, 0);
+                        }
+                    }
+                }else {
+                    if(firstInstance._textures[0] != undefined) {
+                        gl.uniform1i(command.shader.instancedUniformLocations["u_texture"], 1);
+                        gl.activeTexture(gl.TEXTURE1);
+                        if(command.shader.useTextureArray) {
+                            gl.bindTexture(gl.TEXTURE_2D_ARRAY, firstInstance._textures[0]); //we can rest assured this will be the same texture for every instance because addRef and compileDrawingCommands makes sure of that :)
+                        }else {
+                            gl.bindTexture(gl.TEXTURE_2D, firstInstance._textures[0]);
+                        }
+                    }else {
+                        gl.uniform1i(command.shader.instancedUniformLocations["u_texture"], 0); //not saving the last set state because it's per program only! i could store data on our shader object though!
+                    }
+                }
+
                 glPolyfill.drawArraysInstanced(gl, command.shader.mode, 0, command.model._vertices.length, command.instances.length);
 
                 glPolyfill.vertexAttribDivisor(gl, 3, 1); //reset ts just in case all the colors were the same and we did that divisor trick
             }
+        }
+
+        if(printDebugInfo) {
+            console.log(`Renderer reports: ${programSwitches} program switches, ${drawingCommands.length} draw calls!`);
         }
     }
 

@@ -9,7 +9,7 @@
 </head>
 <body>
     <center>
-        <canvas id="canvas" style="border:red 2px solid;" width="640" height="480">PATIENT</canvas>
+        <canvas id="canvas" style="border:red 2px solid;background: url('/ca/webgl/transparency checker.png');" width="640" height="480">PATIENT</canvas>
     </center>
     <!--script id="vertex-shader" type="glsl">#version 300 es
         layout(location=0) in vec4 a_position;
@@ -59,11 +59,15 @@
             quit;
         }
 
-		function shaderFactory(instancing) {
+		//this might be the default unlit shader for 3DMan!
+		function unlitShaderFactory(instancing, useTextureArray) {
 			//inspired by https://gist.github.com/greggman/41d93c00649cba78abdbfc1231c9158c
 			const hereisthepartwhereisayifthereisinstancingornot = instancing ? "#define INSTANCING" : ""; //honestly i could just use javascript to manipulate the glsl instead of inserting #define directives
+			const doUseTextureArray = useTextureArray ? "#define USE_TEXTURE_ARRAY" : "";
 			const monolithCustomVertexShader = `#version 300 es
 				${hereisthepartwhereisayifthereisinstancingornot}
+				${doUseTextureArray}
+
 				layout(location=0) in vec4 a_position;
 				layout(location=1) in vec3 a_normal;
 				layout(location=2) in vec2 a_texCoord;
@@ -78,16 +82,26 @@
 				#endif
 				uniform mat4 u_viewProjectionMatrix;
 
+				#ifdef USE_TEXTURE_ARRAY
+				layout(location=8) in float a_texId;
+				#endif
+
 				out vec3 v_normal;
 				out vec2 v_texCoord;
 				#ifdef INSTANCING
 				out vec4 v_color;
+				#endif
+				#ifdef USE_TEXTURE_ARRAY
+				out float v_texId;
 				#endif
 				void main() {
 					v_normal = a_normal;
 					v_texCoord = a_texCoord;
 					#ifdef INSTANCING
 					v_color = ai_color;
+					#endif
+					#ifdef USE_TEXTURE_ARRAY
+					v_texId = a_texId;
 					#endif
 
 					vec4 position = u_viewProjectionMatrix*WORLD_MATRIX*a_position;
@@ -98,11 +112,19 @@
 
 			const monolithCustomFragmentShader = `#version 300 es
 				${hereisthepartwhereisayifthereisinstancingornot}
+				${doUseTextureArray}
+
 				precision highp float;
 
 				#ifndef INSTANCING
 				uniform vec4 u_color;
 				#define OBJECT_COLOR u_color
+				#endif
+
+				#ifdef USE_TEXTURE_ARRAY
+				uniform highp sampler2DArray u_texture;
+				#else
+				uniform sampler2D u_texture;
 				#endif
 
 				in vec3 v_normal;
@@ -114,7 +136,9 @@
 				
 				out vec4 fragColor;
 				void main() {
-					fragColor = OBJECT_COLOR;
+					//fragColor = OBJECT_COLOR;
+
+					fragColor = texture(u_texture, v_texCoord)*OBJECT_COLOR;
 				}
 			`;
 
@@ -123,11 +147,11 @@
 
 		debugger;
 		//const program = createProgramSimple(document.getElementById("vertex-shader").innerText, document.getElementById("fragment-shader").innerText);
-		const program = createProgramSimple(...shaderFactory(false));
+		const program = createProgramSimple(...unlitShaderFactory(false, false));
 		
 		Renderer.init(gl);
 		//const defaultLitShader = new Shader(gl, false, false, false);
-		const customShader = Shader.custom(gl, program, shaderFactory.bind(undefined, true)); //()=>{});
+		const customShader = Shader.custom(gl, program, 1, unlitShaderFactory.bind(undefined, true, false)); //()=>{});
 		const cubeModel = new ModelHolder([
 		  //x    y     z
 		  //remember positive z is towards the camera
@@ -182,7 +206,7 @@
 		    -1.0, 0.0, -1.0,
 		    1.0, 0.0, 1.0,
 		    1.0, 0.0, -1.0,
-		]).singleUsePerShader(); //i promise
+		], undefined, [1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0]).singleUsePerShader(); //i promise
 		planeModel.defaultShader = customShader; //defaultLitShader;
 		const hammerBBModel = new ModelHolder([
 			1.0, -1.0, 0.0,
@@ -205,19 +229,117 @@
 		const cube1 = new ModelInstance(cubeModel, [-1.0, 0.0, 0.0]);
 		cube1.scaleBy(0.5);
 		cube1.color(1.0, 0.0, 0.0);
+		//cube1.billboard = true;
 		const cube2 = new ModelInstance(cubeModel, [1.0, 0.0, 0.0]);
 		cube2.scaleBy(0.5);
 		cube2.color(0.0, 0.0, 1.0);
+		//cube2.billboard = true;
 		//cube2.rotation(0.0, 9.0, 0.0);
 		const plane = new ModelInstance(planeModel, [0.0, -1.0, 0.0]);
 		plane.scaleBy(5.0);
 		plane.color(0.8, 0.8, 0.8);
-		const light = new ModelInstance(hammerBBModel);
-		light.scale(0.2, 0.2, 0.2);
+		const untexturedlight = new ModelInstance(hammerBBModel);
+		untexturedlight.scale(0.2, 0.2, 0.2);
+		untexturedlight.color(0.0, 1.0, 0.0);
+		untexturedlight.billboard = true;
+		const light = new ModelInstance(hammerBBModel, [-1.0, 1.0, 0.0]);
+		light.scaleBy(0.2);
 		light.color(0.0, 1.0, 0.0);
 		light.billboard = true;
+		const light2 = new ModelInstance(hammerBBModel, [1.0, 1.0, 0.0]);
+		light2.scaleBy(0.2);
+		light2.color(1.0, 0.0, 1.0);
+		light2.billboard = true;
 		//const plane2 = new ModelInstance(planeModel, [0.0, 1.0, 0.0]);
 		//plane2.rotation(89.99, -89.99, 0.0); //uhhh, actually using 90 fucks something up
+
+		const blockTexture = gl.createTexture();
+		const crackingTexture = gl.createTexture();
+
+		{
+			const img = new Image();
+			img.onload = function(event) {
+				debugger;
+				gl.activeTexture(gl.TEXTURE0);
+				gl.bindTexture(gl.TEXTURE_2D, blockTexture);
+				gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); //uhhh so this is just a global property right?
+				gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+				gl.generateMipmap(gl.TEXTURE_2D);
+
+				// const texturedBlockModel = new ModelHolder([
+				//   //x    y     z
+				//   //remember positive z is towards the camera
+
+				// 	1.0, -1.0, 1.0, // front
+				// 	-1.0, 1.0, 1.0,
+				// 	-1.0, -1.0, 1.0,
+				// 	-1.0, 1.0, 1.0,
+				// 	1.0, -1.0, 1.0,
+				// 	1.0, 1.0, 1.0,
+
+				// 	1.0, -1.0, -1.0, // right
+				// 	1.0, 1.0, 1.0,
+				// 	1.0, -1.0, 1.0,
+				// 	1.0, 1.0, 1.0,
+				// 	1.0, -1.0, -1.0,
+				// 	1.0, 1.0, -1.0,
+				// 	
+				// 	-1.0, -1.0, 1.0, // left (z reflection where x = -1.0)
+				// 	-1.0, 1.0, -1.0,
+				// 	-1.0, -1.0, -1.0,
+				// 	-1.0, 1.0, -1.0,
+				// 	-1.0, -1.0, 1.0,
+				// 	-1.0, 1.0, 1.0,
+				// 	
+				// 	-1.0, -1.0, -1.0, // back (x reflection where z = -1.0)
+				// 	1.0, 1.0, -1.0,
+				// 	1.0, -1.0, -1.0,
+				// 	1.0, 1.0, -1.0,
+				// 	-1.0, -1.0, -1.0,
+				// 	-1.0, 1.0, -1.0,
+
+				// 	1.0, 1.0, 1.0, // top
+				// 	-1.0, 1.0, -1.0,
+				// 	-1.0, 1.0, 1.0,
+				// 	-1.0, 1.0, -1.0,
+				// 	1.0, 1.0, 1.0,
+				// 	1.0, 1.0, -1.0,
+
+				// 	-1.0, -1.0, 1.0, // bottom (x reflection where y = -1.0)
+				// 	1.0, -1.0, -1.0,
+				// 	1.0, -1.0, 1.0,
+				// 	1.0, -1.0, -1.0,
+				// 	-1.0, -1.0, 1.0,
+				// 	-1.0, -1.0, -1.0,
+				// ]);
+
+				// const block = new ModelInstance(texturedBlockModel);
+
+				light.addTexture(blockTexture);
+				light2.addTexture(blockTexture);
+
+				Renderer.draw(gl, 0, camera);
+			}
+			img.src = "./textures/hl2_textures_dir_materials_editor/light.png";
+		}
+
+		{
+			const img = new Image();
+			img.onload = function(event) {
+				gl.activeTexture(gl.TEXTURE0);
+				gl.bindTexture(gl.TEXTURE_2D, crackingTexture);
+				gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+				//the default gl.TEXTURE_MIN_FILTER is gl.NEAREST_MIPMAP_LINEAR
+				gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+				gl.generateMipmap(gl.TEXTURE_2D);
+
+				untexturedlight.addTexture(crackingTexture);
+				plane.addTexture(crackingTexture);
+
+				Renderer.draw(gl, 0, camera);
+			}
+			img.src = "./textures/HIEVLNSXEAIh890.png"
+		}
 	
 		const camera = new Camera([0.0, 0.0, 3.0]); 
 
@@ -259,7 +381,7 @@
 		});
 
 		//animate();
-		Renderer.draw(gl, 0, camera);
+		//Renderer.draw(gl, 0, camera);
 	</script>
 </body>
 </html>
