@@ -566,6 +566,7 @@ class ModelHolder {
     normalBuffer;
     texCoordBuffer; //optional
     texIdBuffer; //optional, for texture array shaders
+    customBuffers = {}; //for whatever else you need...
 
     instancedColorBuffer; //optional but unless you promise to only use this object once (singleUsePerShader), it'll be created
     instancedColorBufferLen; //for sub optimization
@@ -596,6 +597,8 @@ class ModelHolder {
 
         this.VAO = glPolyfill.createVertexArray(gl);
         glPolyfill.bindVertexArray(gl, this.VAO);
+
+        //apparently i actually should interleave my data for better memory cache efficiency or whatever
 
         this.vertexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
@@ -675,9 +678,24 @@ class ModelHolder {
         //this.id = Math.floor(Math.random() * 1000000);
     }
 
+    //adds a new buffer object to this.customBuffers with the property being the specified name
+    customBuffer(name, attribLocation, size, data, usage) {
+        glPolyfill.bindVertexArray(gl, this.VAO);
+
+        const buffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), usage);
+        gl.vertexAttribPointer(attribLocation, size, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(attribLocation);
+
+        this.customBuffers[name] = buffer;
+    }
+
     //iPromiseNotToUseThisModelMoreThanOnceWithTheSameShader
     //this is inherited by wireframeCopy!
     singleUsePerShader() {
+        glPolyfill.bindVertexArray(gl, this.VAO);
+
         gl.disableVertexAttribArray(3); //ai_color
         gl.disableVertexAttribArray(4); //ai_matrix
         gl.disableVertexAttribArray(4+1); //ai_matrix+1
@@ -742,9 +760,6 @@ class ModelHolder {
     }
 }
 
-//probably not gonna be called that
-//ueah maybe i'll call it Actor but that's a little too unreal engine so maybe GameObject (but that's too unity)!
-
 class TransformableObject {
     _position;
     _rotation;
@@ -798,6 +813,9 @@ class TransformableObject {
         return this._matrix;
     }
 }
+
+//probably not gonna be called that
+//ueah maybe i'll call it Actor but that's a little too unreal engine so maybe GameObject (but that's too unity)!
 
 class ModelInstance extends TransformableObject {
     //_position = [0.0, 0.0, 0.0];
@@ -1047,7 +1065,7 @@ class Renderer {
                     }
                 }
                 gl.uniformMatrix4fv(command.shader.uniformLocations["u_worldMatrix"], false, instance._matrix);
-                gl.uniformMatrix4fv(command.shader.uniformLocations["u_viewProjectionMatrix"], false, viewProjectionMatrix);
+                gl.uniformMatrix4fv(command.shader.uniformLocations["u_viewProjectionMatrix"], false, viewProjectionMatrix); //oh if we've already seen this shader we won't have to set this again
                 gl.uniform4fv(command.shader.uniformLocations["u_color"], instance._color);
                 gl.drawArrays(command.shader.mode, 0, command.model._vertices.length);
             } else {

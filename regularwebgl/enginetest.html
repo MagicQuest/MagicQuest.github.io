@@ -46,6 +46,41 @@
 			fragColor = u_color;
         }
     </script-->
+	<script id="lut-vertex-shader" type="glsl">#version 300 es
+		layout(location=0) in vec4 a_position;
+		layout(location=2) in vec2 a_texCoord;
+
+		out vec2 v_texCoord;
+		void main() {
+			v_texCoord = a_texCoord;
+			gl_Position = a_position;
+		}
+	</script>
+	<script id="lut-fragment-shader" type="glsl">#version 300 es
+		precision highp float;
+		uniform sampler2D u_input;
+		uniform sampler2D u_lut;
+		in vec2 v_texCoord;
+		out vec4 fragColor;
+		void main() {
+			vec4 input_pixel = texture(u_input, v_texCoord);
+			//int x = int(input_pixel.r*64.0) + (int(input_pixel.b*64.0) % 8)*64;
+			//int y = int(input_pixel.g*64.0) + (int(input_pixel.b*8)*64.0);
+			//vec4 lookup = texelFetch(u_lut, ivec2(x, y));
+			//ok wait i'm starting to think i should't use texelFetch because ts is imprecise as fuck
+			//float flipb = 1.0-input_pixel.b;
+			//float x = input_pixel.r/8.0 + fmod(flipb/64.0, 1/8)*8; //fmod(input_pixel.b, 1.0);
+			//float y = input_pixel.g/8.0 + ; //input_pixel.b
+			//ok i got it
+			float b = min(input_pixel.b, 511.0/512.0);
+			float x = (input_pixel.r/8.0 - ceil(input_pixel.r)/512.0) + floor(mod(b*64.0, 8.0))/8.0; //oh wait it's mod instead of fmod lol
+			float y = 1.0-(input_pixel.g + floor(b*8.0))/8.0;
+			x += 0.5/512.0;
+			y -= 0.5/512.0;
+			vec4 lookup = vec4(texture(u_lut, vec2(x, y)).xyz, input_pixel.a);
+			fragColor = lookup;
+		}
+	</script>
     <script src="./glwrapperex.js"></script>
     <script src="./m4.js"></script>
     <script src="./3DMan.js"></script>
@@ -133,6 +168,9 @@
 				in vec4 v_color;
 				#define OBJECT_COLOR v_color
 				#endif
+				#ifdef USE_TEXTURE_ARRAY
+				in float v_texId;
+				#endif
 				
 				out vec4 fragColor;
 				void main() {
@@ -145,13 +183,89 @@
 			return [monolithCustomVertexShader, monolithCustomFragmentShader];
 		}
 
+		function fresnelShaderFactory(instancing, useTextureArray) {
+			if(useTextureArray) throw Error("Unimplemented!");
+			const monolithVertexShader = `#version 300 es
+				${instancing ? "#define INSTANCING" : ""}
+				${useTextureArray ? "#define USE_TEXTURE_ARRAY" : ""}
+
+				layout(location=0) in vec4 a_position;
+				layout(location=1) in vec3 a_normal;
+				layout(location=2) in vec2 a_texCoord;
+
+				#ifdef INSTANCING
+				layout(location=3) in vec4 ai_color;
+				layout(location=4) in mat4 ai_matrix;
+				#define WORLDMATRIX ai_matrix
+				#else
+				uniform mat4 u_worldMatrix;
+				#define WORLDMATRIX u_worldMatrix
+				#endif
+
+				uniform mat4 u_viewProjectionMatrix;
+				
+				out vec3 v_normal;
+				out vec2 v_texCoord;
+				#ifdef INSTANCING
+				out vec4 v_color;
+				#endif
+				void main() {
+					v_normal = a_normal;
+					v_texCoord = a_texCoord;
+					#ifdef INSTANCING
+					v_color = ai_color;
+					#endif
+					vec4 position = u_viewProjectionMatrix*WORLDMATRIX*a_position;
+					float zToDivideBy = 1.0 + position.z*2.0;
+					gl_Position = vec4(position.xyz, zToDivideBy);
+				}
+			`;
+
+			const monolithFragmentShader = `#version 300 es
+				${instancing ? "#define INSTANCING" : ""}
+				${useTextureArray ? "#define USE_TEXTURE_ARRAY" : ""}
+
+				precision highp float;
+
+				#ifndef INSTANCING
+				uniform vec4 u_color;
+				#define OBJECT_COLOR u_color
+				#endif
+
+				#ifdef USE_TEXTURE_ARRAY
+				uniform highp sampler2DArray u_texture;
+				#else
+				uniform sampler2D u_texture;
+				#endif
+
+				in vec3 v_normal;
+				in vec2 v_texCoord;
+				#ifdef INSTANCING
+				in vec4 v_color;
+				#define OBJECT_COLOR v_color
+				#endif
+
+				out vec4 fragColor;
+				void main() {
+					//uhhh i came all this way and i've suddenly forgotten how to calculate this thang haha
+					float fresnel = max(dot(v_normal, vec3(0.0, 0.0, 1.0)), 0.0); //naive implementation
+					fragColor = texture(u_texture, v_texCoord)*vec4(vec3(fresnel), 1.0)*OBJECT_COLOR;
+					//fragColor = vec4(v_normal, 1.0)*OBJECT_COLOR;
+				}
+			`;
+
+			return [monolithVertexShader, monolithFragmentShader];
+		}
+
 		debugger;
 		//const program = createProgramSimple(document.getElementById("vertex-shader").innerText, document.getElementById("fragment-shader").innerText);
 		const program = createProgramSimple(...unlitShaderFactory(false, false));
+		const fresnelProgram = createProgramSimple(...fresnelShaderFactory(false, false));
 		
 		Renderer.init(gl);
 		//const defaultLitShader = new Shader(gl, false, false, false);
 		const customShader = Shader.custom(gl, program, 1, unlitShaderFactory.bind(undefined, true, false)); //()=>{});
+		const fresnelShader = Shader.custom(gl, fresnelProgram, 1, fresnelShaderFactory.bind(undefined, true, false));
 		const cubeModel = new ModelHolder([
 		  //x    y     z
 		  //remember positive z is towards the camera
@@ -241,7 +355,8 @@
 		const untexturedlight = new ModelInstance(hammerBBModel);
 		untexturedlight.scale(0.2, 0.2, 0.2);
 		untexturedlight.color(0.0, 1.0, 0.0);
-		untexturedlight.billboard = true;
+		//untexturedlight.billboard = true;
+		untexturedlight.rotation(0.0, 0.0, 0.0);
 		const light = new ModelInstance(hammerBBModel, [-1.0, 1.0, 0.0]);
 		light.scaleBy(0.2);
 		light.color(0.0, 1.0, 0.0);
@@ -253,17 +368,26 @@
 		//const plane2 = new ModelInstance(planeModel, [0.0, 1.0, 0.0]);
 		//plane2.rotation(89.99, -89.99, 0.0); //uhhh, actually using 90 fucks something up
 
+		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); //uhhh so this is just a global property right?
+
 		const blockTexture = gl.createTexture();
 		const crackingTexture = gl.createTexture();
 
-		{
+		function loadTexture(src, callback) {
 			const img = new Image();
-			img.onload = function(event) {
+			img.onload = callback;
+			img.src = src;
+		}
+
+		//{
+			//const img = new Image();
+			//img.onload = function(event) {
+			loadTexture("./textures/hl2_textures_dir_materials_editor/light.png", function(event) {
 				debugger;
 				gl.activeTexture(gl.TEXTURE0);
 				gl.bindTexture(gl.TEXTURE_2D, blockTexture);
-				gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); //uhhh so this is just a global property right?
-				gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+				gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+				gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, event.target);
 				gl.generateMipmap(gl.TEXTURE_2D);
 
 				// const texturedBlockModel = new ModelHolder([
@@ -319,27 +443,132 @@
 				light2.addTexture(blockTexture);
 
 				Renderer.draw(gl, 0, camera);
-			}
-			img.src = "./textures/hl2_textures_dir_materials_editor/light.png";
-		}
+			});
+			//img.src = "./textures/hl2_textures_dir_materials_editor/light.png";
+		//}
 
-		{
-			const img = new Image();
-			img.onload = function(event) {
+		//{
+			//const img = new Image();
+			//img.onload = function(event) {
+			loadTexture("./textures/HIEVLNSXEAIh890.png", function(event) {
 				gl.activeTexture(gl.TEXTURE0);
 				gl.bindTexture(gl.TEXTURE_2D, crackingTexture);
-				gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
 				//the default gl.TEXTURE_MIN_FILTER is gl.NEAREST_MIPMAP_LINEAR
-				gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+				gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, event.target);
 				gl.generateMipmap(gl.TEXTURE_2D);
 
 				untexturedlight.addTexture(crackingTexture);
 				plane.addTexture(crackingTexture);
 
 				Renderer.draw(gl, 0, camera);
+			});
+			//img.src = "./textures/HIEVLNSXEAIh890.png"
+		//}
+
+		fetch("./models/uvsphere_normals.obj", {method:"GET"}).then(res=>res.text()).then(contents => {
+			debugger;
+			let {vertices, normals} = Model.loadObj(gl, contents, true);
+			const uvsphereModel = new ModelHolder(vertices, normals, undefined);
+			uvsphereModel.defaultShader = customShader;
+
+			const sphere = new ModelInstance(uvsphereModel, [0.0, 2.0, 0.0]);
+			sphere.shader = fresnelShader;
+		});
+		
+		const showProgram = createProgramSimple(`#version 300 es
+			layout(location=0) in vec4 a_position;
+			layout(location=2) in vec2 a_texCoord;
+
+			out vec2 v_texCoord;
+			void main() {
+				v_texCoord = a_texCoord;
+				gl_Position = a_position;
 			}
-			img.src = "./textures/HIEVLNSXEAIh890.png"
+		`, 
+												`#version 300 es
+			precision highp float;
+			uniform sampler2D u_input;
+			in vec2 v_texCoord;
+			out vec4 fragColor;
+			void main() {
+				fragColor = texture(u_input, v_texCoord);
+			}
+		`);
+		const showUniforms = {"u_input": gl.getUniformLocation(showProgram, "u_input")};
+		for(const prop in showUniforms) {
+			if(showUniforms[prop] == null) {
+				console.warn(`${prop} not found in showProgram!`);
+			}
 		}
+		gl.useProgram(showProgram);
+		gl.uniform1i(showUniforms["u_input"], gl.TEXTURE0 - gl.TEXTURE0);
+		gl.useProgram(null);
+
+		//a lut program
+		const lutProgram = createProgramSimple(document.getElementById("lut-vertex-shader").innerText, document.getElementById("lut-fragment-shader").innerText);
+		const lutVAO = glPolyfill.createVertexArray(gl);
+		glPolyfill.bindVertexArray(gl, lutVAO);
+		const lutVertexBuffer = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, lutVertexBuffer);
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+		  //x    y     u    v
+			-1.0, 1.0, 0.0, 1.0,
+			-1.0, -1.0,0.0, 0.0,
+			1.0, 1.0,  1.0, 1.0,
+			1.0, -1.0, 1.0, 0.0,
+		]), gl.STATIC_DRAW);
+		gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 4*4, 0); //a_position
+		gl.enableVertexAttribArray(0); //a_position
+
+		gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 4*4, 2*4); //a_texCoord
+		gl.enableVertexAttribArray(2); //a_texCoord
+		const lutUniforms = {"u_input": gl.getUniformLocation(lutProgram, "u_input"), "u_lut": gl.getUniformLocation(lutProgram, "u_lut")};
+		for(const prop in lutUniforms) {
+			if(lutUniforms[prop] == null) {
+				console.warn(`${prop} not found in lutProgram!`);
+			}
+		}
+
+		gl.useProgram(lutProgram);
+
+		gl.uniform1i(lutUniforms["u_input"], gl.TEXTURE0 - gl.TEXTURE0);
+		gl.uniform1i(lutUniforms["u_lut"], gl.TEXTURE1 - gl.TEXTURE0);
+
+		gl.useProgram(null);
+		glPolyfill.bindVertexArray(gl, null);
+
+		let lutTexture = undefined;
+		loadTexture("./textures/lut_vlad.png", function(event) {
+			lutTexture = gl.createTexture();
+			gl.activeTexture(gl.TEXTURE0);
+			gl.bindTexture(gl.TEXTURE_2D, lutTexture);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, event.target);
+		});
+
+		const framebuffer = gl.createFramebuffer();
+		gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+		const framebufferTexture = gl.createTexture();
+		const framebufferDepthTexture = gl.createTexture();
+
+		gl.activeTexture(gl.TEXTURE0);
+
+		gl.bindTexture(gl.TEXTURE_2D, framebufferTexture);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.canvas.width, gl.canvas.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, framebufferTexture, 0);
+		
+		gl.bindTexture(gl.TEXTURE_2D, framebufferDepthTexture);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT24, gl.canvas.width, gl.canvas.height, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, framebufferDepthTexture, 0);
+
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 	
 		const camera = new Camera([0.0, 0.0, 3.0]); 
 
@@ -347,11 +576,29 @@
 		    Renderer.draw(gl, t, camera);
 		    requestAnimationFrame(animate);
 		}*/
+
+		function draw() {
+			gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+			Renderer.draw(gl, 0, camera);
+			//draw();
+			gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+			if(!lutTexture) {
+				gl.useProgram(showProgram);
+			}else {
+				gl.useProgram(lutProgram);
+				gl.activeTexture(gl.TEXTURE1);
+				gl.bindTexture(gl.TEXTURE_2D, lutTexture);
+			}
+			gl.activeTexture(gl.TEXTURE0);
+			gl.bindTexture(gl.TEXTURE_2D, framebufferTexture);
+			glPolyfill.bindVertexArray(gl, lutVAO);
+			gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+		}
 		
 		function handleMouseMovement(event) {
 			camera.handleMouseMovement(event.movementX, event.movementY);
-			Renderer.draw(gl, 0, camera);
-			//draw();
+			draw();
 		}
 
 		function handleKeyboardInput(event) {
@@ -361,8 +608,8 @@
 				draw();
 			}*/
 			if(camera.handleKeyboardInput(event)) {
-				//draw();
-				Renderer.draw(gl, 0, camera);
+				draw();
+				//Renderer.draw(gl, 0, camera);
 			}
 		}
 

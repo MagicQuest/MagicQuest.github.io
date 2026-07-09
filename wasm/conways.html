@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>you already know.</title>
+    <style>
+        .center {
+            display: block;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+    <!--center-->
+        <h1 style="text-align: center;">Conway's Game of Life in WebAssembly ;)</h1>
+        <h3 style="text-align: center;">Only the logic though lol</h3>
+        <h5 style="text-align: center;">Notes: Safari currently does not support multi_memory :(</h5>
+        <div class="center"> <!--using a div here so the actual text of the pre element isn't centered (ok nevermind that didn't work fuck me)-->
+            <pre id="wattext"></pre>
+            <pre id="errorbox"></pre>
+        </div>
+        <!--canvas width="800" height="800" id="canvas" style="border: 2px solid red;" class="center"-->
+        <canvas width="625" height="625" id="canvas" style="border: 2px solid red;" class="center">
+            if you can see this message you probably have no chance of running this anyways... (you either don't have javascript enabled or your browser is too old for the canvas element)
+        </canvas>
+        <button style="text-align:center;" onclick="rngthatshit()">randomize cells</button>
+    <!--/center-->
+    <script src="https://cdn.jsdelivr.net/gh/AssemblyScript/wabt.js@latest/index.js"></script> <!--so we can compile le text in the browser!-->
+    <script>
+        let WABT, module;
+        let wasmModule, conwaysWasmInstance;
+        let wasmPrevStates, wasmPrevStatesView;
+        let wasmStates, wasmStatesView;
+        
+        const canvas = document.getElementById("canvas");
+        const wattext = document.getElementById("wattext");
+        const errorbox = document.getElementById("errorbox");
+        
+        //const cellWidth = 25;
+        //const cellHeight = 25;
+        //const cellWH = canvas.width;
+        const cellWH = 25;
+        const cellWH2 = cellWH**2;
+        let paused = false;
+        let lastChangedIndex = -1;
+
+        const context = canvas.getContext('2d');
+    
+        function rngthatshit() {
+            for(let i = 0; i < cellWH2; i++) {
+                wasmStatesView[i] = Math.round(Math.random());
+            }
+            wasmPrevStatesView.set(wasmStatesView);
+        }
+
+        function equivalentJavascriptGetNeighbors(x, y) {
+            let $newX = 0;
+            let $newY = 0;
+            let $result = 0;
+            for(let i = -1; i != 2; i++) {
+                for(let j = -1; j != 2; j++) {
+                    $newX = x+i;
+                    if($newX < 0) {
+                        $newX = cellWH + $newX;
+                    }
+                    if($newX >= cellWH) {
+                        $newX -= cellWH;
+                    }
+                    $newY = y+j;
+                    if($newY < 0) {
+                        $newY = cellWH + $newY;
+                    }
+                    if($newY >= cellWH) {
+                        $newY -= cellWH;
+                    }
+ 
+                    const index = $newX + $newY*cellWH;
+                    $result += wasmPrevStatesView[index];
+                }
+            }
+            return $result - wasmPrevStatesView[x + y*cellWH];
+        }
+
+        function equivalentJavascriptTick() {
+            for(let i = 0; i < cellWH2; i++) {
+                const x = i%cellWH;
+                const y = Math.trunc(i/cellWH);
+                const $neighbors = equivalentJavascriptGetNeighbors(x, y);
+                let _result = 0;
+                if(wasmPrevStatesView[i]) {
+                    _result += $neighbors == 2;
+                    _result += $neighbors == 3;
+                }else {
+                    _result = $neighbors == 3;
+                }
+                wasmStatesView[i] = _result;
+            }
+        }
+
+        let lastTime = 0;
+
+        function draw(t) {
+            const dt = t-lastTime;
+            if(!paused) {
+                conwaysWasmInstance.exports.tick(); //according to dev tools performance shit, web assembly was like ~3 ms faster lmao
+                //equivalentJavascriptTick();
+            }
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            context.fillStyle = "red";
+            context.fillText(`${1000/dt}`, 50, 50);
+            //const statesArray = new Uint8Array(states.buffer);
+            //for(let i = 0; i < cellWH; i++) {
+            //    for(let j = 0; j < cellHeight; j++) {
+            //        let index = i % cellWH;
+            //        let state = statesArray[index];
+            //    }
+            //}
+            //for(let i = 0; i < cellWH*cellHeight; i++) {
+            const actualWidthHeight = canvas.width/cellWH;
+            for(let i = 0; i < cellWH2; i++) {
+                const x = i % cellWH;
+                const y = Math.trunc(i/cellWH);
+                const state = wasmStatesView[i];
+                if(state) {
+                    context.fillRect(x*actualWidthHeight, y*actualWidthHeight, actualWidthHeight, actualWidthHeight); //the slowest part of our program
+                }
+            }
+            wasmPrevStatesView.set(wasmStatesView);
+            requestAnimationFrame(draw);
+            lastTime = t;
+        }
+
+        function doMouseStuff(event) {
+            if(event.buttons) {
+                //paused = true;
+                const actualWidthHeight = canvas.width/cellWH;
+                const x = Math.max(Math.min(Math.floor(event.offsetX/actualWidthHeight), cellWH-1), 0);
+                const y = Math.max(Math.min(Math.floor(event.offsetY/actualWidthHeight), cellWH-1), 0);
+                const index = x + y*cellWH;
+                if(lastChangedIndex != index) {
+                    wasmStatesView[index] = !wasmStatesView[index];
+                    lastChangedIndex = index;
+                }
+                //console.log(index, wasmStatesView[index]);
+            }
+        }
+
+        function stopMouseStuff(event) {
+            //paused = false;
+            lastChangedIndex = -1;
+        }
+
+        function doPauseOnKeyboard(event) {
+            if(event.key == " ") {
+                paused = !paused;
+            }
+        }
+
+        (async function() {
+            WABT = await WabtModule();
+            //WABT.FEATURES.multi_memory = true; //we need dat multi memory for dis one (wait we can't modify FEATURES lol)
+            const wat = await (await fetch("./conways.wat", {method:"GET"})).text(); //using an external file for this one so vim can do syntax highlighting lol
+            wattext.innerText = wat;
+            try {
+                //snatched from https://webassembly.github.io/wabt/demo/wat2wasm/
+                //const features = {...WABT.FEATURES};
+                //features.multi_memory = true;
+                const features = {...WABT.FEATURES, multi_memory: true}; //one liner! (the object spread operator is crezxy)
+                module = WABT.parseWat("test.wast", wat, features);
+                module.validate(features);
+                const binaryOutput = module.toBinary({});
+
+                wasmModule = new WebAssembly.Module(binaryOutput.buffer);
+                const pages = Math.trunc((cellWH**2)/65536)+1;
+                wasmPrevStates = new WebAssembly.Memory({initial: pages}); //64kb (must be at least cellWH*cellHeight bytes.)
+                wasmPrevStatesView = new Uint8Array(wasmPrevStates.buffer);
+                wasmStates = new WebAssembly.Memory({initial: pages}); //64kb (must be at least cellWH*cellHeight bytes.)
+                wasmStatesView = new Uint8Array(wasmStates.buffer);
+                //let's set a glider pattern in the center
+                wasmStatesView[2 + 16*cellWH] = 1;
+                wasmStatesView[3 + 15*cellWH] = 1;
+                wasmStatesView[4 + 15*cellWH] = 1;
+                wasmStatesView[4 + 16*cellWH] = 1;
+                wasmStatesView[4 + 17*cellWH] = 1;
+                wasmStatesView[4 + 17*cellWH] = 1;
+
+                wasmPrevStatesView.set(wasmStatesView);
+
+                conwaysWasmInstance = new WebAssembly.Instance(wasmModule, { global: {prevStates: wasmPrevStates, states: wasmStates, cellWH, cellWH2: cellWH**2, log: console.log} });
+                debugger;
+                canvas.addEventListener("mousemove", doMouseStuff);
+                canvas.addEventListener("mousedown", doMouseStuff);
+                addEventListener("mouseup", stopMouseStuff);
+                addEventListener("keydown", doPauseOnKeyboard);
+                conwaysWasmInstance.exports.getNeighbors(2, 16);
+                draw();
+
+
+                
+                //wasmInstance.exports.main();
+            }catch(e) { //bruh parseWat doesn't show the exact position of the error if there are tabs (instead of spaces) in the wat!
+                console.warn(e);
+                errorbox.innerHTML = e.toString();
+            }finally {
+                if(module) module.destroy();
+            }
+        })(); //IIFE again!
+    </script>
+</body>
+</html>

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebAssembly Hello World!</title>
+</head>
+<body>
+	<pre id="errorbox"></pre>
+    <script src="https://cdn.jsdelivr.net/gh/AssemblyScript/wabt.js@latest/index.js"></script> <!--so we can compile le text in the browser!-->
+    <script> //i was gonna make this a module so i could use await but FUCK modules because you can't access variables without some dumbass trickery
+        //now how do we run this thang.
+		//const WABT = await WabtModule();
+		//const features = {};
+		let wat = `
+			(module
+                ;; declare import name, property, (property type)
+                (import "console" "log" (func $log (param i32)))
+				;; oh wait bruh there's usually just one memory thing apparently (unless you turn on multi-memory which i didn't do) so we don't even need to name our memory and we can just use 0
+				;; but if we did name the memory we could load info from it like i32.load (memory $str) ;; which is stupid but ok bro
+				(memory $str (data "Hello world!"))
+                (global $hai i32 i32.const 21)
+                (func (export "main") (param i32) (result i32)
+					;; unreachable (lol all it said was RuntimeError: unreachable)
+                	global.get $hai
+                )
+                ;; (func $hello_world
+                ;; 	
+                ;; 	;; call $log
+                ;; )
+                ;; (start $hello_world)
+            )
+		`;
+		let WABT, module;
+		let wasmModule, wasmInstance;
+		//(async function() {
+		WabtModule().then(w => {
+			//WABT = await WabtModule();
+			WABT = w;
+			//WABT.parseWat("./hello_world.wat", );
+			//debugger;
+			try {
+				//snatched from https://webassembly.github.io/wabt/demo/wat2wasm/
+				module = WABT.parseWat("test.wast", wat, WABT.FEATURES);
+				module.validate(WABT.FEATURES);
+				const binaryOutput = module.toBinary({});
+				//console.log(binaryOutput);
+				wasmModule = new WebAssembly.Module(binaryOutput.buffer);
+				wasmInstance = new WebAssembly.Instance(wasmModule, { console });
+				//console.log(wasmInstance.exports.main(0));
+				errorbox.innerText = wasmInstance.exports.main(2);
+			}catch(e) { //bruh parseWat doesn't show the exact position of the error if there are tabs (instead of spaces) in the wat!
+				console.warn(e);
+				errorbox.innerHTML = e.toString();
+			}finally {
+				if(module) module.destroy();
+			}
+		});
+		//})(); //IIFE
+    </script>
+</body>
+</html>

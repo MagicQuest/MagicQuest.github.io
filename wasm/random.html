@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>wasm random testing</title>
+</head>
+<body>
+    <pre id="errorbox"></pre>
+    <script src="https://cdn.jsdelivr.net/gh/AssemblyScript/wabt.js@latest/index.js"></script> <!--so we can compile le text in the browser!-->
+    <script>
+        //importing memory means we can share the same memory with different modules but exporting memory only lets javascript access our own mem
+        //we gotta do some bs to print strings from wasm
+        let wat = `
+            (module
+                ;; (memory $str (data "hello world!"))
+                (import "global" "wasmMem" (memory 1))
+                (import "global" "customLog" (func $log (param i32)))
+                (data (i32.const 0) "Hello world!")
+                (func (export "main") (local $counter i32)
+                    ;; why can't i do those fancy folded expressions with i32.load ?
+                    ;; i32.load (i32.const 0)
+                    ;; damn it bruh i needed to put parenthesis around the i32.load instruction too. e.g. (i32.load (i32.const 0))
+                    ;;(label $loop)
+                    ;; apparently it's 'loop'
+                    (;i32.const 0
+                    i32.load8_u;)
+                    (loop $loop
+                        (i32.load8_u (local.get $counter))
+                        call $log                           ;; load a byte from memory[$counter] and "log" it (on the javascript side (as seen below) this means we turn the number into a character and add it to a log string we print later)
+                        local.get $counter
+                        i32.const 1
+                        i32.add
+                        local.tee $counter                  ;; incrementing counter, setting the value, then pushing the result back onto the operand stack 
+                        i32.const 12
+                        i32.ne
+                        br_if $loop                         ;; jump if $counter != 12 (the length of the "Hello world!" string)
+                    )
+                )
+            )
+        `;
+        let WABT, module;
+        let wasmModule, wasmMem, wasmInstance;
+        WabtModule().then(w => {
+            WABT = w;
+            try {
+                //snatched from https://webassembly.github.io/wabt/demo/wat2wasm/
+                module = WABT.parseWat("test.wast", wat, WABT.FEATURES);
+                module.validate(WABT.FEATURES);
+                const binaryOutput = module.toBinary({});
+
+                wasmModule = new WebAssembly.Module(binaryOutput.buffer);
+                wasmMem = new WebAssembly.Memory({initial: 1}); //1 page is 64KiB apparently
+
+                let log = "";
+                function customLog(i32) {
+                    log += String.fromCharCode(i32);
+                }
+
+                wasmInstance = new WebAssembly.Instance(wasmModule, { global: {wasmMem, customLog} });
+                
+                wasmInstance.exports.main();
+                errorbox.innerText = log;
+
+                console.log(log);
+            }catch(e) { //bruh parseWat doesn't show the exact position of the error if there are tabs (instead of spaces) in the wat!
+                console.warn(e);
+                errorbox.innerHTML = e.toString();
+            }finally {
+                if(module) module.destroy();
+            }
+        });
+    </script>
+</body>
+</html>

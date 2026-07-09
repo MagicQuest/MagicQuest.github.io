@@ -10,7 +10,13 @@
 <body>
     <center>
         <canvas id="canvas" style="border:red 2px solid;" width="512" height="512">cosmic embassy</canvas>
-		<p>press 'e' to move the point light to the camera</p>
+		<p>press 'e' to move the light to the camera</p>
+		<select>
+			<option value="dir">directional light</option>
+			<option value="point" selected>point light</option>
+			<option value="spot">spot light</option>
+		</select>
+		<br>
 		<label for="colorInput">light color:</label><input id="colorInput" type="color" value="#ffffff" alpha> <!--uhh this alpha attribute doesn't work in chrome yet...-->
     </center>
     <script id="vertex-shader" type="glsl">#version 300 es
@@ -179,6 +185,7 @@
 		//i knew it man you really don't need these (apparently gl.REPEAT is the default)
 		//gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 		//gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
 		//NEEDED if you aren't using mipmaps
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 
