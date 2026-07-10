@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>custom language interpreter</title>
+    <style>
+        #center {
+            position: absolute;
+            margin: auto;
+            left: 0;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            text-align: center;
+        }
+
+        button:hover {
+            font-weight: bold;
+        }
+
+        button:active {
+            font-weight: initial;
+        }
+    </style>
+</head>
+<body>
+    <div id="center">
+        <textarea id="letext" cols="40" rows="20"></textarea>
+        <br>
+        <button id="execute">Parse and execute le code</button>
+        <button id="terrain">workspace.Terrain</button>
+		<select id="example_selection" oninput="selectExample(event);">
+			<option value="demo" selected>demo</option>
+		</select>
+		<br>
+		<p>apparently there's a weird quirk where you can concatenate strings c++ style, also allowing you to coerce random trailing characters into strings like<br><span style="font-family: monospace;">print "" hello_world</span></p>
+    </div>
+    <script>
+		//lazily writing these example scripts right here lol
+		function selectExample(event) {
+			let value = "";
+			switch(event.target.value) {
+				case "demo":
+					value = "print \"Hello World!\", \"And various other arguments!\", 3.14159265358979323\n\n# global variables include\n# '_G', 'this', '$0', 'true', 'false',\n# 'Math'\n\n# the dot and subscript work as expected\ncall _G[\"alert\"], \"hai.\"\n\n# the following lines are also valid :)\n# call _G.alert, \"hai.\"\n# call _G[_G[\"alert\"].name], \"hai.\"\n\n# variables\nmov x, 15\nadd x, 6\ncall print, x";
+					break;
+			}
+			letext.value = value;
+		}
+        //letext.innerText = "print \"Hello World!\", \"And various other arguments!\", 3.14159265358979323\ncall _G[\"alert\"], \"hai.\"";
+		selectExample({target: example_selection});
+
+        class Value {
+            constructor(value) {
+                this.value = value;
+            }
+            get(global) {
+                return this.value;
+            }
+        }
+
+        class VariableValue extends Value {
+            constructor(varname) {
+                super(varname);
+            }
+            get(global) {
+                return global[this.value];
+            }
+        }
+
+        class PropertyVariableValue extends VariableValue {
+            constructor(path) {
+                super(path);
+            }
+            /*override*/ get(global) {
+                //let parent = this.value[0].get(global); //global;
+                //for(let i = 1; i < this.value.length; i++) {
+                //    parent = parent[this.value[i].get(global)];
+                //}
+                let last;
+                let parent = global;
+                for(const p of this.value) {
+                    last = parent;
+                    parent = parent[p.get(global)];
+                }
+                if(parent instanceof Function) {
+                    parent = parent.bind(last); //right?
+                }
+                return parent;
+            }
+            getParent(global) {
+                let last;
+                let parent = global;
+                for(const p of this.value) {
+                    last = parent;
+                    parent = parent[p.get(global)];
+                }
+                return last;
+            }
+        }
+
+        class Operation {
+            execute(global) {} // = 0;
+        }
+
+        class CallOperation extends Operation {
+            constructor(funcname, args) {
+                super();
+                this.funcname = funcname;
+                this.args = args;
+            }
+            execute(global) {
+                let f = this.funcname.get(global);
+                if(typeof(f) == "string") {
+                    f = global[f];
+                }
+                global["$0"] = f(...this.args.map(arg=>arg.get(global)));
+            }
+        }
+
+        class SetOperation extends Operation {
+            constructor(varname, value) {
+                super();
+                this.varname = varname;
+                this.value = value;
+            }
+            get(global) {
+                let v, parent;
+                if(this.varname instanceof PropertyVariableValue) {
+                    v = this.varname.value.at(-1).get(global); //should be the name right?
+                    parent = this.varname.getParent(global); //hmm...
+                }else if(this.varname instanceof VariableValue) {
+                    v = this.varname.value;
+                    parent = global;
+                }
+                return [parent, v];
+            }
+        }
+
+        class MoveOperation extends SetOperation {
+            constructor(varname, value) {
+                super(varname, value);
+            }
+            execute(global) {
+                const [parent, v] = super.get(global);
+                parent[v] = this.value.get(global);
+            }
+        }
+
+        class AddOperation extends SetOperation {
+            constructor(varname, amount) {
+                super(varname, amount);
+            }
+            execute(global) {
+                const [parent, v] = super.get(global);
+                parent[v] += this.value.get(global);
+                CustomLangInterpreter.update_rflags(global, parent[v]);
+            }
+        }
+
+        class MulOperation extends SetOperation {
+            constructor(varname, amount) {
+                super(varname, amount);
+            }
+            execute(global) {
+                const [parent, v] = super.get(global);
+                parent[v] *= this.value.get(global);
+                CustomLangInterpreter.update_rflags(global, parent[v]);
+            }
+        }
+
+        class DivOperation extends SetOperation {
+            constructor(varname, amount) {
+                super(varname, amount);
+            }
+            execute(global) {
+                const [parent, v] = super.get(global);
+                parent[v] /= this.value.get(global);
+                CustomLangInterpreter.update_rflags(global, parent[v]);
+            }
+        }
+
+        class DebugbreakOperation extends Operation {
+            constructor() {
+                super();
+            }
+
+            execute(global) {
+                debugger;
+            }
+        }
+
+        //calls the left function if true, calls the right function if false.
+        //class IfOperation extends Operation {
+        //    constructor(args) {
+        //        super(args); //uhh? wrong lpol
+        //    }
+        //
+        //    execute(global) {
+        //
+        //    }
+        //}
+
+        class CmpOperation extends Operation {
+            constructor(left, right) {
+                super();
+                this.left = left;
+                this.right = right;
+            }
+            execute(global) {
+                const result = this.left.get(global) - this.right.get(global);
+                CustomLangInterpreter.update_rflags(global, result);
+            }
+        }
+
+        class JumpOperation extends Operation {
+            constructor(position, conditions, values) {
+                super();
+                this.position = position;
+                this.conditions = conditions;
+                this.values = values;
+            }
+            execute(global) {
+                debugger;
+                if(this.conditions == undefined) {
+                    global.$rip = this.position.get(global)-1;
+                }else {
+                    let j = 0;
+                    for(let i = 0; i < this.conditions.length; i++) {
+                        j += global.$rflags[this.conditions[i]] == this.values[i];
+                    }
+                    if(j == this.conditions.length) {
+                        global.$rip = this.position.get(global)-1;
+                    }
+                }
+            }
+        }
+
+        //class Instruction {
+        //    constructor(can_create_vars, compile) {
+        //        this.ccv = can_create_vars;
+        //    }
+        //}
+
+        class ErrorInfo {
+            constructor(lines, index) {
+                this.lines = lines;
+                this.index = index;
+            }
+        }
+
+        class Interpreter {
+            globals;
+
+            constructor() {
+                
+            }
+
+            interpret(str) {
+                const ast = this.parse(str);
+                console.log(ast);
+                this.execute(ast);
+            }
+            parse(str) {}; // = 0;
+            execute(ast) {}; // = 0;
+        }
+
+        class CustomLangInterpreter extends Interpreter {
+            //static instructions = {
+            //    "print": new Instruction(false),
+            //};
+
+            constructor() {
+                super();
+                this.globals = CustomLangInterpreter.setup_globals();
+            }
+
+            static setup_globals() {
+                return {
+                    print: console.log,
+                    _G: globalThis,
+                    this: globalThis, //would be script in lua
+                    $0: undefined,    //return value
+                    true: true,
+                    false: false,
+                    undefined,
+                    Math,             //standard like js
+                    $rip: 0,
+                    $rflags: {zero: 0, sign: 0},
+                    $labels: {},
+                };
+            }
+
+            static update_rflags(g, result) {
+                g.$rflags.zero = result == 0;
+                g.$rflags.sign = Math.sign(result);
+            }
+
+            static handle_value(_) {
+                //with(_) {
+                    if(_.state == 0) {
+                        _.instruction = value;
+                        _.value = "";
+                    }else {
+                        _.args.push(value);
+                        _.value = "";
+                    }
+                //}
+            }
+
+            static handle_string(errinfo, _, char) {
+                switch(char) {
+                    case _.string.is:
+                        if(!_.string.backslash) {
+                            _.string.is = false;
+                            _.string.was = true;
+                            //_.args.push(_.value);
+                            //_.value = "";
+                        }else {
+                            _.value += char;
+                        }
+                        _.string.backslash = false;
+                        break;
+                    case "\\":
+                        _.string.backslash = true;
+                        break;
+                    default:
+                        if(_.string.backslash) {
+                            _.string.backslash = false;
+                            switch(char) {
+                                case 'n':
+                                    char = '\n';
+                                    break;
+                                case 't':
+                                    char = '\t';
+                                    break;
+                                default:
+                                    CustomLangInterpreter.throw(errinfo, "ESCAPE CHARACTER NOT IMPLEMENTED", "\\"+char);
+                                    break;
+                            }
+                        }
+                        _.value += char;
+                        break;
+                }
+            }
+
+            static throw(errinfo, message, errval) {
+                const fullline = errinfo.lines[errinfo.index];
+                const chari = fullline.indexOf(errval);
+                throw Error(`${message}\nLine ${errinfo.index+1}, Char ${chari}\n${fullline}\n${"^ Here".padStart(6+chari, " ")}`);
+            }
+
+            static canInstructionCreateVar(instruction) {
+                switch(instruction) {
+                    case "print":
+                    case "inc":
+                    case "dec":
+                    case "add":
+                    case "mul":
+                    case "div":
+                    case "call":
+                    case "cmp":
+                    case "jmp":
+                    case "je":
+                    case "jne":
+                    //case "if":
+                        return false;
+                    case "mov":
+                    default:
+                        return true;
+                }
+                //if(instruction in CustomLangInterpreter.instructions) {
+                //    return CustomLangInterpreter.instructions[instruction].ccv;
+                //}else {
+                //    return true;
+                //}
+            }
+
+            static assert_bracket_depth(errinfo, string) {
+                //uhhh lowkey this should account for quotes so i should fix that
+                let depth = 0;
+                for(const char of string) {
+                    switch(char) {
+                        case "[":
+                            depth++;
+                            break;
+                        case "]":
+                            depth--;
+                            break;
+                    }
+                }
+                if(depth != 0) {
+                    CustomLangInterpreter.throw(errinfo, "UNMATCHED BRACKET", string);
+                }
+            }
+
+            static discern_type(errinfo, _, vars, labels, property_depth) {
+                const match = _.value.toLowerCase().match(/[.\+x0-9a-f\-]+/);
+                if(match && match[0].length == _.value.length && match[0][0].match(/[0-9.+-]/)) { //if the first regex matches the whole string, and the first character is a number, a period, or plusminus, it's gotta be a number
+                    const v = Number(_.value);
+                    if(isNaN(v)) {
+                        //throw Error();
+                        CustomLangInterpreter.throw(errinfo, "BAD NUMBER", _.value);
+                    }
+                    _.value = new Value(Number(_.value));
+                }else if(_.string.was) {
+                    _.value = new Value(_.value);
+                    _.string.was = false;
+                }else {
+                    if(_.value.match(/[.\[\]]/)) {
+                        //access
+                        //debugger;
+
+                        let bracketdepth = 0;
+                        let pd = 0;
+
+                        let l_ = {
+                            value: "",
+                            //state: 0,
+                            instruction: _.instruction,
+                            args: [],
+                            string: {is: false, backslash: false, was: false},
+                        };
+
+                        for(let j = 0; j < _.value.length+1; j++) {
+                            const char = _.value[j];
+                            //if(bracketdepth != 0) {
+                            //    switch(char) {
+                            //        case "[":
+                            //            bracketdepth++;
+                            //            break;
+                            //        case "]":
+                            //            bracketdepth--;
+                            //            break;
+                            //    }
+                            //    if(char == "]") {
+                            //        bracketdepth--;
+                            //    }
+                            //}
+                            if(char == undefined || ((char == "." || char == "[") && bracketdepth == 0) || char == "]" && bracketdepth == 1) {
+                                if(l_.value == "") {
+                                    continue;
+                                }
+                                CustomLangInterpreter.assert_bracket_depth(errinfo, l_.value);
+                                if(char != "]" && bracketdepth != 0) {
+                                    CustomLangInterpreter.throw(errinfo, "MISSING CLOSING BRACKET", _.value);
+                                }
+                                if(char == "[") {
+                                    bracketdepth++;
+                                }
+                                if(char == "]") {
+                                    bracketdepth--;
+                                    let v = l_.value;
+                                    l_.value = "";
+                                    CustomLangInterpreter.efficient_parse_args(errinfo, l_, vars, labels, v);
+                                }else {
+                                    CustomLangInterpreter.discern_type(errinfo, l_, vars, labels, ++pd);
+                                }
+                            }else {
+                                if(char == "[") {
+                                    bracketdepth++;
+
+                                    //nevermind this won't happen anymore lol
+                                    //if(bracketdepth == 1) {
+                                    //    continue; //don't add the value if this is the first bracket
+                                    //}
+                                }else if(char == "]") {
+                                    bracketdepth--; //if there are brackets in brackets
+                                }
+                                l_.value += char;
+                            }
+                        }
+
+                        _.value = new PropertyVariableValue(l_.args);
+                    }else {
+                        //regular ass var
+                        if(!(_.value in vars) && !CustomLangInterpreter.canInstructionCreateVar(_.instruction)) {
+                            if(property_depth <= 1) {
+                                if(!(_.value in labels)) {
+                                    CustomLangInterpreter.throw(errinfo, `VARIABLE '${_.value}' MUST BE DEFINED BEFORE USING ${_.instruction.toUpperCase()}`, _.value);
+                                }else {
+                                    _.args.push(new Value(labels[_.value]));
+                                    _.value = "";
+                                    return; //hitting the Escape key on this function
+                                }
+                            }else {
+                                console.warn(`PROPERTY '${_.value}' COULD BE UNDEFINED, WHO KNOWS!`);
+                            }
+                        }
+                        if(property_depth != 0) {
+                            _.value = new Value(_.value);
+                        }else {
+                            vars[_.value] = true;
+                            _.value = new VariableValue(_.value);
+                        }
+                    }
+                }
+                _.args.push(_.value);
+                _.value = "";
+            }
+
+            static efficient_parse_args(errinfo, _, vars, labels, args) {
+                let bracketdepth = 0;
+                for(let i = 0; i < args.length+1; i++) {
+                    let char = args[i];
+                    if(char == "#") {
+                        break;
+                    }
+                    if(_.string.is) {
+                        CustomLangInterpreter.handle_string(errinfo, _, char);
+                    }else if(char == undefined || char == ',') {// || ...) {
+                        _.value = _.value.trim();
+                        CustomLangInterpreter.discern_type(errinfo, _, vars, labels, 0);
+                    }else if(char.match(/["'`]/) && bracketdepth == 0) {
+                        _.string.is = char;
+                    }else {
+                        if(char == "[") {
+                            bracketdepth++;
+                        }else if(char == "]") {
+                            bracketdepth--;
+                        }
+                        _.value += char;
+                    }
+                }
+            }
+
+            //yeah ok lowkey this is ass and i gotta rewrite it
+            //only when writing it did i actually fully get the problem i was trying to solve (which is BAD!)
+            //so yeah....
+            static parse_args(errinfo, _, vars, temp, reading_object) {
+                let bracket = false;
+                let dot = 0;
+                let bracketdepth = 0;
+                //let wasstring = false;
+                for(let i = 0; i < temp.length+1; i++) {
+                    let char = temp[i];
+                    if(char == "#") {
+                        break;
+                    }
+                    if(_.string.is) {
+                        CustomLangInterpreter.handle_string(errinfo, _, char);
+                    }else {
+                        //i make a ton of weird ass checks here when i could just get the text inbetween the brackets and then parse it
+                        if(char == undefined || (char == ',' && !reading_object) || ((char == "." || (char == "[" && bracketdepth == 0)) && reading_object && !bracket) || (char == "]" && bracketdepth == 1)) {
+                            if(reading_object && _.value == "") {
+                                continue;
+                            }
+                            const match = _.value.toLowerCase().match(/[.\+x0-9a-f\-]+/);
+                            if(match && match[0].length == _.value.length && match[0][0].match(/[0-9.+-]/)) { //if the first regex matches the whole string, and the first character is a number, a period, or plusminus, it's gotta be a number
+                                const v = Number(_.value);
+                                if(isNaN(v)) {
+                                    //throw Error();
+                                    CustomLangInterpreter.throw(errinfo, "BAD NUMBER", _.value);
+                                }
+                                _.value = new Value(Number(_.value));
+                            }else if(_.string.was) {
+                                _.value = new Value(_.value);
+                            }else {
+                                //wait this part could be a recursive kinda thing where the input could be something like this[something.property.name]
+                                //if it wasn't a number and it wasn't a string, it must be a variable!
+                                debugger;
+                                //let property = []; //could be args in the l_ object (to copy the outer _) (yeah ok now it's args lol)
+                                let l_ = {instruction: _.instruction, value: "", string: {is: false, was: false, backslash: false}, bracket: false, args: []};
+                                let property = l_.args;
+                                //let l_string = {is: false, was: false, backslash: false};
+                                //let temp = "";
+                                if(_.value.match(/[.\[\]]/)) {
+                                    //for(let j = 0; j < _.value.length+1; j++) {
+                                    //    let char = _.value[j]; //you can shadow :)
+                                    //    if(l_.string.is) {
+                                    //        CustomLangInterpreter.handle_string(lines, indexforerror, l_, char);
+                                    //        // switch(char) {
+                                    //        //     case l_.string.is:
+                                    //        //         l_.string.is = false;
+                                    //        //         l_.string.was = true;
+                                    //        //         break;
+                                    //        // case "\\":
+                                    //        //     l_.string.backslash = true;
+                                    //        //     break;
+                                    //        // default:
+                                    //        //     if(l_string.backslash) {
+                                    //        //         l_string.backslash = false;
+                                    //        //         switch(char) {
+                                    //        //             case 'n':
+                                    //        //                 char = '\n';
+                                    //        //                 break;
+                                    //        //             case 't':
+                                    //        //                 char = '\t';
+                                    //        //                 break;
+                                    //        //             default:
+                                    //        //                 CustomLangInterpreter.throw(lines, indexforerror, "ESCAPE CHARACTER NOT IMPLEMENTED", "\\"+char);
+                                    //        //                 break;
+                                    //        //         }
+                                    //        //     }
+                                    //        //     temp += char;
+                                    //        //     break;
+                                    //        // }
+                                    //    }else if(char == undefined || char == '.' || char == '[' || char == ']') {
+                                    //        if(l_.value == "") {
+                                    //            continue;
+                                    //        }
+                                    //        if(l_.string.was || !l_.bracket) {
+                                    //            l_.value = new Value(l_.value);
+                                    //            l_.string.was = false;
+                                    //        }else {
+                                    //            if(!(l_.value in vars)) {
+                                    //                CustomLangInterpreter.throw(lines, indexforerror, `VARIABLE '${l_.value}' MUST BE DEFINED BEFORE USE AS AN INDEX`, l_.value);
+                                    //            }
+                                    //            l_.value = new VariableValue(l_.value);
+                                    //        }
+                                    //        property.push(l_.value);
+                                    //        l_.value = "";
+                                    //        if(char == '[') {
+                                    //            l_.bracket = true;
+                                    //        }else if(char == ']') {
+                                    //            l_.bracket = false;
+                                    //        }
+                                    //    }else if(char.match(/["'`]/)) {
+                                    //        l_.string.is = char;
+                                    //    }else {
+                                    //        l_.value += char;
+                                    //    }
+                                    //}
+                                    CustomLangInterpreter.parse_args(errinfo, l_, vars, _.value, true);
+                                }else {
+                                    const slice = temp.slice(i-1, ((temp.indexOf("[", i) + 1) || (temp.indexOf("]", i) + 1))-1);
+                                    //const Type = (reading_object && (slice.includes(".") && bracket)) ? Value : VariableValue;
+                                    let Type;
+                                    if(!reading_object || (!slice.includes(".") && bracket)) {
+                                        Type = VariableValue;
+                                    }else {
+                                        Type = Value;
+                                    }
+                                    property.push(new Type(_.value));
+                                }
+                                if(property.length == 1) {
+                                    if(!(_.value in vars) && !CustomLangInterpreter.canInstructionCreateVar(_.instruction)) {
+                                        if(dot == 0) {
+                                            CustomLangInterpreter.throw(errinfo, `VARIABLE '${_.value}' MUST BE DEFINED BEFORE USING ${_.instruction.toUpperCase()}`, _.value);
+                                        }else {
+                                            //debugger;
+                                            //const parent = _.args.at(-1).value; //right?
+                                            //if(!(_.value in parent)) {
+                                            //    
+                                            //}
+                                            //ehhh that would be weird trying to execute shit while parsing
+                                            console.warn(`PROPERTY '${_.value}' COULD BE UNDEFINED, WHO KNOWS!`);
+                                        }
+                                    }
+                                    if(dot == 0) {
+                                        vars[_.value] = true;
+                                    }
+                                    _.value = property[0]; //new VariableValue(_.value);
+                                }else {
+                                    _.value = new PropertyVariableValue(property);
+                                }
+                            }
+                            _.string.was = false;
+                            _.args.push(_.value);
+                            _.value = "";
+
+                            if(char == ".") {
+                                dot++;
+                            }else if(char == "[") {
+                                bracketdepth++;
+                                bracket = true;
+                            }else if(char == "]") {
+                                bracketdepth--;
+                                bracket = false;
+                            }
+                        }else if(char.match(/["'`]/)) {
+                            if(!bracket) {
+                                _.string.is = char;
+                            }else {
+                                _.value += char;
+                            }
+                        }else if(char == ' ') {
+                            //ignore. if not a string, why spaces.
+
+                        }else if(char == "[") {
+                            bracket = true;
+                            _.value += char;
+                        }else if(char == "]") {
+                            bracket = false;
+                            _.value += char;
+                        }else {
+                            _.value += char; //perhaps a number
+                        }
+                    }
+                }
+            }
+
+            /*override*/ parse(str) {
+                //debugger;
+                const ast = [];
+                const vars = Object.assign({}, this.globals);
+                const lines = str.split("\n");
+                for(let indexforerror = 0; indexforerror < lines.length; indexforerror++) {
+                    const line = lines[indexforerror].trim(); //oops if there were spaces at the beginning it would stop working
+                    const errinfo = new ErrorInfo(lines, indexforerror);
+                    //const instruction = line.substring(0, line.indexOf(" "));
+                    if(line.length == 0 || line[0] == "#") {
+                        continue;
+                    }
+                    if(line[0] == "^") {
+                        debugger;
+                        continue;
+                    }
+                    let _ = {
+                        value: "",
+                        //state: 0,
+                        instruction: "",
+                        args: [],
+                        string: {is: false, backslash: false, was: false},
+                    };
+                    //with(_) {
+                        //let value = "";
+                        //let state = 0;
+                        //let instruction;
+                        //let args = [];
+                        let kys_label = false;
+                        for(let i = 0; i < line.length+1; i++) {
+                            const char = line[i];
+                            if(char == undefined) {
+
+                            }else if(char == ' ') {
+                                break;
+                                //CustomLangInterpreter.handle_value(_);
+                                //_.state++;
+                            }/*else if(char.match(/["'`]/)) {
+                                if(char == _.string) {
+                                    _.string = false;
+                                }
+                                _.string = char;
+                            }*/
+                            else if(char == ':') {
+                                this.globals.$labels[_.value] = ast.length;
+                                kys_label = true;
+                            }
+                            else {
+                                _.value += char;
+                            }
+                            //if(char == undefined) {
+                            //    //if(state == 0) {
+                            //    //    instruction = value;
+                            //    //    value = "";
+                            //    //}else {
+                            //    //    args.push(value);
+                            //    //    value = "";
+                            //    //}
+                            //    //CustomLangInterpreter.handle_value(_);
+                            //}else {
+                            //    _.value += char;
+                            //}
+                        }
+
+                        _.instruction = _.value.toLowerCase();
+                        _.value = "";
+
+                        
+                        if(kys_label) {
+                            continue;
+                        }
+
+                        if(_.instruction.length < line.length) {
+                            //more args to be found...
+                            const temp = line.substring(_.instruction.length+1);
+
+                            CustomLangInterpreter.efficient_parse_args(errinfo, _, vars, this.globals.$labels, temp, false);
+                        }
+
+                        switch(_.instruction) {
+                            case "print":
+                                ast.push(new CallOperation(new Value(_.instruction), _.args));
+                                break;
+                            case "call":
+                                if(_.args[0] instanceof VariableValue) {
+                                    ast.push(new CallOperation(_.args[0], _.args.slice(1)));
+                                }else {
+                                    console.log(_.args[0]);
+                                    CustomLangInterpreter.throw(errinfo, "CALL MUST TAKE FUNCTION AS FIRST PARAMETER", _.args[0].value);
+                                }
+                                break;
+                            case "mov":
+                                if(_.args[0] instanceof VariableValue) {
+                                    ast.push(new MoveOperation(_.args[0], _.args[1])); //accessing _.args[0].value directly to get the variable name :)
+                                }else {
+                                    CustomLangInterpreter.throw(errinfo, "MOV MUST TAKE VARIABLE AS FIRST PARAMETER", _.args[0].value);
+                                }
+                                break;
+                            case "inc":
+                            case "dec":
+                            case "add":
+                                let amount;
+                                if(_.instruction == "inc") {
+                                    amount = new Value(1);
+                                }else if(_.instruction == "dec") {
+                                    amount = new Value(-1)
+                                }else {
+                                    amount = _.args[1];
+                                }
+                                if(_.args[0] instanceof VariableValue) {
+                                    ast.push(new AddOperation(_.args[0], amount)); //accessing _.args[0].value directly to get the variable name :)
+                                }else {
+                                    CustomLangInterpreter.throw(errinfo, "ADD MUST TAKE VARIABLE AS FIRST PARAMETER", _.args[0].value);
+                                }
+                                break;
+                            case "mul":
+                            case "div":
+                                const Type = _.instruction == "mul" ? MulOperation : DivOperation;
+                                if(_.args[0] instanceof VariableValue) {
+                                    ast.push(new Type(_.args[0], _.args[1])); //accessing _.args[0].value directly to get the variable name :)
+                                }else {
+                                    CustomLangInterpreter.throw(errinfo, `${_.instruction.toUpperCase()} MUST TAKE VARIABLE AS FIRST PARAMETER`, _.args[0].value);
+                                }
+                                break;
+                            case "int3":
+                                ast.push(new DebugbreakOperation());
+                                break;
+                            //case "if":
+                            //    if(_.args.length < 3) {
+                            //        CustomLangInterpreter.throw(lines, indexforerror, "IF INSTRUCTION TAKES 3 PARAMETERS", ",");
+                            //    }
+                            //    for() {
+                            //        if(!(arg instanceof VariableValue)) {
+                            //
+                            //        }
+                            //    }
+                            //    ast.push(new IfOperation(_.args));
+                            //    break;
+                            case "cmp":
+                                ast.push(new CmpOperation(_.args[0], _.args[1]));
+                                break;
+                            case "jmp":
+                                ast.push(new JumpOperation(_.args[0], undefined, undefined));
+                                break;
+                            case "je":
+                                ast.push(new JumpOperation(_.args[0], ["zero"], [1]));
+                                break;
+                            case "jne":
+                                ast.push(new JumpOperation(_.args[0], ["zero"], [0]));
+                                break;
+                            default:
+                                CustomLangInterpreter.throw(errinfo, "UNKNOWN INSTRUCTION", _.instruction);
+                                break;
+                        }
+                    //}
+                }
+                return ast;
+            }
+
+            /*override*/ execute(ast) {
+                //for(const op of ast) {
+                this.globals = CustomLangInterpreter.setup_globals();
+                for(this.globals.$rip = 0; this.globals.$rip < ast.length; this.globals.$rip++) {
+                    const op = ast[this.globals.$rip];
+                    op.execute(this.globals);
+                }
+            }
+        }
+
+        document.getElementById("execute").addEventListener("click", function(event) {
+            //const interpreter = new interpreters[lang.value];
+            //interpreter.interpret(letext.value);
+            const lang = new CustomLangInterpreter();
+            lang.interpret(letext.value);
+        });
+    </script>
+</body>
+</html>
