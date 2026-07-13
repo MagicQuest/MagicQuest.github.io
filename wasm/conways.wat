@@ -64,7 +64,7 @@
                     (then
                         local.get $newX
                         global.get $cellWH
-                        i32.sub
+                        i32.sub ;; oops i knew this when i wrote it but i forgot to say that i should've used modulus here instead of subtraction (oh wait we'd need a float for that... idk how that works yet)
                         ;; we won't need to update $newX anymore since we'll just leave the result on the operand stack
                         ;; local.tee $newX
                     )

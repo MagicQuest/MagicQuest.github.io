@@ -35,6 +35,10 @@
 			<option value="warmup">WARMING UP</option>
 			<option value="classic" selected>classic hello world</option>
 			<option value="demo">demo</option>
+            <option value="actasm">actually assembly</option>
+            <option value="callbacks">CALLBACKS!</option>
+            <option value="calllabel">calling labels (janky!)</option>
+            <option value="conways">conways (you already know)</option> <!--but of course!-->
 			<!--option value="bug1">lex bug 1</option--> <!--actually, this one wasn't a bug lol the lexer was just confused-->
 			<option value="bug2">lex bug 2</option>
 			<option value="bug3">lex bug 3</option>
@@ -45,44 +49,73 @@
 		<!--p>apparently there's a weird quirk where you can concatenate strings c++ style, also allowing you to coerce random trailing characters into strings like<br><span style="font-family: monospace;">print "" hello_world</span></p--> <!--NOT IN THE MODERN DAY!-->
     </div>
     <script>
-		//lazily writing these example scripts right here lol
+        const examples = {
+            "simple": "^\nprint \"Hello World!\"\nprint \"And \\\"escape\\\" characters galore!\"",
+            "warmup": "print \"Hello World!\", \"And \\\"escape\\\" characters galore!\"",
+            "classic": "print \"Hello World!\", \"And various other arguments!\", 3.14159265358979323",
+            "demo": "print \"Hello World!\", \"And various other arguments!\", 3.14159265358979323\n\n# global variables include\n# 'global', 'this', '$0', 'true', 'false',\n# 'Math'\n\n# the dot and subscript work as expected\ncall global[\"alert\"], \"hai.\"\n\n# the following lines are also valid :)\n# call global.alert, \"hai.\"\n# call global[global[\"alert\"].name], \"hai.\"\n\n# variables\nmov x, 15\nadd x, 6\ncall print, x",
+            "actasm": "jmp main\n\nsay_hi:\nprint \"Hello World!\"\nret true\n\nsay_bye:\nprint \"Bye :)\"\nret\n\nmain:\ncall say_hi\nret",
+            "callbacks": "jmp main\n\nonKeyDown:\nprint $args[0].key\nret\n\nmain:\ncall global.document.addEventListener, \"keydown\", onKeyDown\nret",
+            "calllabel": `jmp main\n\nproc:\nprint "Proc"\nret true\n\nmain:\nprint "Main"\n# because there's no local variables in\n# jsm, calling labels may leave your\n# variables thrashed (yet again like x86)\ncall proc\nprint "Main done."\nret`,
+            //"bug1": "print",
+            "bug2": "print \"",
+            "bug3": "print \"Hell\"o world!\"",
+            "bug4": "this is a label:",
+            "pbug1": "print \"Hello World!\" \"And goodbye mysterious string concatenation!\"",
+            //https://www.youtube.com/watch?v=y3AiGw8mkq0
+            "conways": `### Conways Game of Life in JSM!\n### space to pause/unpause\n### f (while paused) to step forward\n\nmov paused, false\nmov step, false\nmov lastChangedIndex, -1\nmov canvas, undefined\nmov context, undefined\nmov rowscols, 20\nmov rowscols2, rowscols\nmul rowscols2, rowscols2\nmov ratio, 500\ndiv ratio, rowscols\n\n# mov $0, rowscols2\n# dec $0\n# call global.String.prototype.padStart, $0\n# call $0.split, " "\n# call $0.map, \n\n# fill cells array\ncall global.Array, rowscols2\ncall $0.fill, 0\nmov cells, $0\n\n# mov cells[0], 1\n\n# set glider pattern (if rowscols is 10)\n# mov cells[1], 1\n# mov cells[12], 1\n# mov cells[22], 1\n# mov cells[20], 1\n# mov cells[21], 1\n\n# set glider pattern (rowscols 20)\nmov cells[1], 1\nmov cells[22], 1\nmov cells[40], 1\nmov cells[41], 1\nmov cells[42], 1\n\n# copy cells to prevCells\ncall global.structuredClone, cells\nmov prevCells, $0\njmp main\n\ncreate_canvas:\ncall global.document.createElement, "canvas"\nmov canvas, $0\nmov canvas.width, 500\nmov canvas.height, canvas.width\nmov canvas.style.border, "2px solid red"\nmov canvas.id, "canvas"\ncall global.center.appendChild, canvas\nret\n\non_mouse_event:\ncmp $args[0].buttons, 1\njne on_mouse_event_end\n# calculate cell x\nmov $0, $args[0].offsetX\ndiv $0, ratio\ncall Math.trunc, $0\nmov temp_x, $0\nmov $0, rowscols\ndec $0\ncall Math.min, temp_x, $0\nmov temp_x, $0\ncall Math.max, temp_x, 0\nmov temp_x, $0\n# calculate cellY\nmov $0, $args[0].offsetY\ndiv $0, ratio\ncall Math.trunc, $0\nmov temp_y, $0\nmov $0, rowscols\ndec $0\ncall Math.min, temp_y, $0\nmov temp_y, $0\ncall Math.max, temp_y, 0\nmov temp_y, $0\n# actually calculate cell index\nmov index, temp_y\nmul index, rowscols\nadd index, temp_x\ncmp index, lastChangedIndex\nje on_mouse_event_end\nmov lastChangedIndex, index\nmov alive, cells[index]\nmov $0, 1\n# $0 = !alive\nsub $0, alive\nmov cells[index], $0\nmov prevCells[index], $0\non_mouse_event_end:\nret\n\non_key_event:\n# using keyCode because we can't compare strings :[ (yet :eyes:)\ncmp $args[0].keyCode, 32\njne on_key_event_check_2\n# paused = 1-paused (!paused)\nmov $0, 1\nsub $0, paused\nmov paused, $0\non_key_event_check_2:\ncmp $args[0].keyCode, 70\njne on_key_event_end\nmov step, true\non_key_event_end:\nret\n\n# $args[0] = x, $args[1] = y\n# now i just need to write one in x86 assembly!\ngetNeighbors:\nmov neighbors, 0\nmov local_x, $args[0]\nmov local_y, $args[1]\nmov local_i, -1\ngetNeighbors_for_i:\nmov local_j, -1\ngetNeighbors_for_j:\nmov temp_x, local_x\nadd temp_x, local_i\ncmp temp_x, -1\njg temp_x_check_2\n# wrap around by adding rowscols\nadd temp_x, rowscols\ntemp_x_check_2:\ncmp temp_x, rowscols\njl temp_x_done\n# wrap around using modulus rowscols\n# div temp_x, rowscols\n# mov $0, temp_x # using $0 like rax lol\n# call Math.trunc, $0\n# sub temp_x, $0\n# mul temp_x, rowscols\n\n# using REAL modulus operator\nmod temp_x, rowscols\n\ntemp_x_done:\nmov temp_y, local_y\nadd temp_y, local_j\ncmp temp_y, -1\njg temp_y_check_2\n# wrap around by adding rowscols\nadd temp_y, rowscols\ntemp_y_check_2:\ncmp temp_y, rowscols\njl temp_y_done\n# wrap around using modulus rowscols\n# div temp_y, rowscols\n# mov $0, temp_y # using $0 like rax lol\n# call Math.trunc, $0\n# sub temp_y, $0\n# mul temp_y, rowscols\n\nmod temp_y, rowscols\n\ntemp_y_done:\n# we need to calculate the index of the cell at (temp_x, temp_y)\nmov index, temp_y\nmul index, rowscols\nadd index, temp_x\nadd neighbors, prevCells[index]\ninc local_j\ncmp local_j, 2\njne getNeighbors_for_j\ninc local_i\ncmp local_i, 2\njne getNeighbors_for_i\nmov index, local_y\nmul index, rowscols\nadd index, local_x\nsub neighbors, prevCells[index]\nret neighbors\n\ndraw:\n# int3\nmov context.fillStyle, "red"\ncall context.clearRect, 0, 0, 512, 512\nmov i, 0\ndraw_loop:\n# mov x, i\n# div x, rowscols\n# mov $0, x\n# call Math.trunc, $0\n# mov y, $0\n# sub x, $0\n# mul x, rowscols\n\n# oh my god trying to calculate the modulus myself resulted in floating point errors! (which caused getNeighbors to return NaN)\nmov x, i\nmod x, rowscols\nmov $0, i\ndiv $0, rowscols\ncall Math.trunc, $0\nmov y, $0\n\ncmp paused, true\njne do_logic\ncmp step, true\nje do_logic\nmov alive, cells[i]\njmp skip_logic\ndo_logic:\ncall getNeighbors, x, y\nmov neighbors, $0 # this line is actually unneeded (neighbors is already set in getNeighbors)\nmov alive, cells[i]\ncmp alive, 0\nje dead_cell\n# webassembly method\n# int3\nmov alive, 0\ncmp neighbors, 2\nadd alive, $rflags.zero # alive++ if neighbors == 2\ncmp neighbors, 3\nadd alive, $rflags.zero # alive++ if neighbors == 3\njmp skip_logic # bryg i forgot to jump after this\ndead_cell:\ncmp neighbors, 3\nmov alive, $rflags.zero\nskip_logic:\nmov cells[i], alive\ncmp alive, 0\nje continue_draw_loop\nmul x, ratio\nmul y, ratio\ncall context.fillRect, x, y, ratio, ratio\ncontinue_draw_loop:\ninc i\ncmp i, rowscols2\njne draw_loop\ncall global.structuredClone, cells\nmov prevCells, $0\nmov step, false\ncall global.requestAnimationFrame, draw\nret\n\nmain:\nprint getNeighbors\ncall global.document.getElementById, "canvas"\nmov canvas, $0\ncmp $0, 0 # if canvas != null this results in update_rflags being called with NaN as the first parameter! (somehow though it still works)\njne after_create_canvas\ncall create_canvas\n# we don't need to set canvas because create_canvas already does it!\n# mov canvas, $0\nafter_create_canvas:\ncall canvas.getContext, "2d"\nmov context, $0\ncall canvas.addEventListener, "mousedown", on_mouse_event\ncall canvas.addEventListener, "mousemove", on_mouse_event\ncall global.document.addEventListener, "keydown", on_key_event\njmp draw`,
+        };
+
+        /*
+        mov i, 0
+        loop:
+        print $args[i]
+        inc i
+        cmp $args.length, i
+        jg loop
+        */
+        
 		function selectExample(/** @type {InputEvent} */ event) {
-			let value = "";
-			switch(event.target.value) {
-                case "simple":
-                    value = "^\nprint \"Hello World!\"\nprint \"And \\\"escape\\\" characters galore!\"";
-                    break;
-                case "warmup":
-                    value = "print \"Hello World!\", \"And \\\"escape\\\" characters galore!\"";
-                    break;
-                case "classic":
-                    value = "print \"Hello World!\", \"And various other arguments!\", 3.14159265358979323";
-                    break;
-				case "demo":
-					value = "print \"Hello World!\", \"And various other arguments!\", 3.14159265358979323\n\n# global variables include\n# '_G', 'this', '$0', 'true', 'false',\n# 'Math'\n\n# the dot and subscript work as expected\ncall _G[\"alert\"], \"hai.\"\n\n# the following lines are also valid :)\n# call _G.alert, \"hai.\"\n# call _G[_G[\"alert\"].name], \"hai.\"\n\n# variables\nmov x, 15\nadd x, 6\ncall print, x";
-					break;
-                //case "bug1":
-                //    value = "print"; //valid now
-                //    break;
-                case "bug2":
-                    value = "print \"";
-                    break;
-                case "bug3":
-                    value = "print \"Hell\"o world!\"";
-                    break;
-                case "bug4":
-                    value = "this is a label:";
-                    break;
-                case "pbug1":
-                    value = "print \"Hello World!\" \"And goodbye mysterious string concatenation!\"";
-                    break;
-			}
-			letext.value = value;
+            //wait what the fuck am i doing?
+			// let value = "";
+			//switch(event.target.value) {
+            //    case "simple":
+            //        value = "^\nprint \"Hello World!\"\nprint \"And \\\"escape\\\" characters galore!\"";
+            //        break;
+            //    case "warmup":
+            //        value = "print \"Hello World!\", \"And \\\"escape\\\" characters galore!\"";
+            //        break;
+            //    case "classic":
+            //        value = "print \"Hello World!\", \"And various other arguments!\", 3.14159265358979323";
+            //        break;
+			//	case "demo":
+			//		value = "print \"Hello World!\", \"And various other arguments!\", 3.14159265358979323\n\n# global variables include\n# 'global', 'this', '$0', 'true', 'false',\n# 'Math'\n\n# the dot and subscript work as expected\ncall global[\"alert\"], \"hai.\"\n\n# the following lines are also valid :)\n# call global.alert, \"hai.\"\n# call global[global[\"alert\"].name], \"hai.\"\n\n# variables\nmov x, 15\nadd x, 6\ncall print, x";
+			//		break;
+            //    case "actasm":
+            //        break;
+            //    //case "bug1":
+            //    //    value = "print"; //valid now
+            //    //    break;
+            //    case "bug2":
+            //        value = "print \"";
+            //        break;
+            //    case "bug3":
+            //        value = "print \"Hell\"o world!\"";
+            //        break;
+            //    case "bug4":
+            //        value = "this is a label:";
+            //        break;
+            //    case "pbug1":
+            //        value = "print \"Hello World!\" \"And goodbye mysterious string concatenation!\"";
+            //        break;
+			//}
+			letext.value = examples[event.target.value];
 		}
         //letext.innerText = "print \"Hello World!\", \"And various other arguments!\", 3.14159265358979323\ncall _G[\"alert\"], \"hai.\"";
 		selectExample({target: example_selection});
 
         class Value {
+            value;
             constructor(value) {
                 this.value = value;
             }
@@ -100,8 +133,20 @@
             }
         }
 
+        class LabelValue extends VariableValue {
+            interpreter;
+            constructor(labelname, interpreter) {
+                super(labelname);
+                this.interpreter = interpreter;
+            }
+            get(global) {
+                const $rip = super.get(global);
+                return this.interpreter.execute.bind(this.interpreter, $rip);
+            }
+        }
+
         class PropertyVariableValue extends VariableValue {
-            constructor(path) {
+            constructor(/** @type {Array<Value>} */ path) {
                 super(path);
             }
             /*override*/ get(global) {
@@ -184,35 +229,98 @@
         }
 
         class AddOperation extends SetOperation {
-            constructor(varname, amount) {
+            interpreter; //we need to tell the interpreter to update its flags
+            constructor(varname, amount, interpreter) {
                 super(varname, amount);
+                this.interpreter = interpreter;
             }
             execute(global) {
                 const [parent, v] = super.get(global);
                 parent[v] += this.value.get(global);
-                CustomLangInterpreter.update_rflags(global, parent[v]);
+                //CustomLangInterpreter.update_rflags(global, parent[v]);
+                if(typeof(parent[v]) == "number") {
+                    this.interpreter.update_rflags(parent[v]);
+                }
+            }
+        }
+
+        class SubOperation extends SetOperation {
+            interpreter; //we need to tell the interpreter to update its flags
+            constructor(varname, amount, interpreter) {
+                super(varname, amount);
+                this.interpreter = interpreter;
+            }
+            execute(global) {
+                const [parent, v] = super.get(global);
+                parent[v] -= this.value.get(global);
+                //CustomLangInterpreter.update_rflags(global, parent[v]);
+                if(typeof(parent[v]) == "number") {
+                    this.interpreter.update_rflags(parent[v]);
+                }
             }
         }
 
         class MulOperation extends SetOperation {
-            constructor(varname, amount) {
+            interpreter; //we need to tell the interpreter to update its flags
+            constructor(varname, amount, interpreter) {
                 super(varname, amount);
+                this.interpreter = interpreter;
             }
             execute(global) {
                 const [parent, v] = super.get(global);
                 parent[v] *= this.value.get(global);
-                CustomLangInterpreter.update_rflags(global, parent[v]);
+                //CustomLangInterpreter.update_rflags(global, parent[v]);
+                if(typeof(parent[v]) == "number") {
+                    this.interpreter.update_rflags(parent[v]);
+                }
             }
         }
 
         class DivOperation extends SetOperation {
-            constructor(varname, amount) {
+            interpreter; //we need to tell the interpreter to update its flags
+            constructor(varname, amount, interpreter) {
                 super(varname, amount);
+                this.interpreter = interpreter;
             }
             execute(global) {
                 const [parent, v] = super.get(global);
                 parent[v] /= this.value.get(global);
-                CustomLangInterpreter.update_rflags(global, parent[v]);
+                //CustomLangInterpreter.update_rflags(global, parent[v]);
+                if(typeof(parent[v]) == "number") {
+                    this.interpreter.update_rflags(parent[v]);
+                }
+            }
+        }
+
+        //uhh i guess will let this one also change rflags but this isn't actually an x86 instruction lol
+        class ModOperation extends SetOperation {
+            interpreter; //we need to tell the interpreter to update its flags
+            constructor(varname, amount, interpreter) {
+                super(varname, amount);
+                this.interpreter = interpreter;
+            }
+            execute(global) {
+                const [parent, v] = super.get(global);
+                parent[v] %= this.value.get(global);
+                //CustomLangInterpreter.update_rflags(global, parent[v]);
+                if(typeof(parent[v]) == "number") {
+                    this.interpreter.update_rflags(parent[v]);
+                }
+            }
+        }
+
+        class NegateOperation extends SetOperation {
+            interpreter;
+            constructor(varname, interpreter) {
+                super(varname, undefined);
+                this.interpreter = interpreter;
+            }
+            execute(global) {
+                const [parent, v] = super.get(global);
+                parent[v] = -parent[v];
+                if(typeof(parent[v]) == "number") {
+                    this.interpreter.update_rflags(parent[v]);
+                }
             }
         }
 
@@ -238,14 +346,16 @@
         //}
 
         class CmpOperation extends Operation {
-            constructor(left, right) {
+            interpreter;
+            constructor(left, right, interpreter) {
                 super();
                 this.left = left;
                 this.right = right;
+                this.interpreter = interpreter;
             }
             execute(global) {
                 const result = this.left.get(global) - this.right.get(global);
-                CustomLangInterpreter.update_rflags(global, result);
+                this.interpreter.update_rflags(result);
             }
         }
 
@@ -257,7 +367,7 @@
                 this.values = values;
             }
             execute(global) {
-                debugger;
+                //debugger;
                 if(this.conditions == undefined) {
                     global.$rip = this.position.get(global)-1;
                 }else {
@@ -269,6 +379,23 @@
                         global.$rip = this.position.get(global)-1;
                     }
                 }
+            }
+        }
+
+        class ReturnOperation extends Operation {
+            retval;
+            interpreter;
+            constructor(retval, interpreter) {
+                super();
+                this.retval = retval;
+                this.interpreter = interpreter;
+            }
+            execute(global) {
+                //global.$0 = this.retval?.get(global);
+                if(this.retval) {
+                    global.$0 = this.retval.get(global);
+                }
+                global.$rip = this.interpreter.ast.length; //lazy ( yet again we could subtract here since the loop increments $rip but it doesn't matter >:P )
             }
         }
 
@@ -326,6 +453,7 @@
 
         class Interpreter {
             globals;
+            ast = undefined;
 
             constructor() {
                 
@@ -346,10 +474,13 @@
                 letext.style.backgroundColor = "";
                 letext.removeAttribute("title");
                 console.log(result.value);
-                this.execute(result.value);
+                this.ast = result.value;
+                // return this.execute(result.value);
+                return this.execute();
             }
             /*Expected<Array<T>, ParseError>*/ parse(str) {}; // = 0;
-            execute(ast) {}; // = 0;
+            // execute(ast) {}; // = 0;
+            execute($rip = 0, ...$args) {}; // = 0;
         }
 
         //class CustomLangInterpreter extends Interpreter {
@@ -955,14 +1086,17 @@
         //cmp x, 0
         //je jmp_here
         //jmp_here:
-        //call _G["alert"], "window.alert called!"
-        //print _G.alert.name
+        //call global["alert"], "window.alert called!"
+        //print global.alert.name
         //# this is a comment
 
         //in JSM, these are valid *expressions*.
-        //_G.alert.name
-        //_G[_G.alert["name"]]
-        //_G["alert"]
+        //global.alert.name
+        //global[global.alert["name"]]
+        //global["alert"]
+
+        //i might even add arithmetic operators!
+        //purrhaps even something like global.location.href.length + 1
 
         //oh boy... how do we come up with a grammar for all that...
         //this grammar is not totally complete as comments may appear anywhere in a line !
@@ -984,8 +1118,13 @@
             static IDENTIFIER = 2;
             static STRING = 3;
             static NUMBER = 4;
-            static EXPRESSION = 5; //fack.
-            static ARGUMENT_SEPARATOR = 6; //pedantic but hey i'm just writing what the grammar said ;)
+            // static EXPRESSION = 5; //fack.
+            static SUBSCRIPT_START = 5;
+            static SUBSCRIPT_END = 6;
+            static DOT = 7;
+            static ARGUMENT_SEPARATOR = 8; //pedantic but hey i'm just writing what the grammar said ;)
+            static RESERVED = 9;
+            //what else should become tokens... https://stackoverflow.com/questions/73226710/can-someone-explain-how-tokenizing-works-in-lexers
         }
 
         class Token {
@@ -1002,25 +1141,54 @@
                 "inc",
                 "dec",
                 "add",
+                "sub",
                 "mul",
                 "div",
+                "mod",
                 "call",
                 "cmp",
                 "jmp",
                 "je",
+                "jg",
+                //"jge",
+                "jl",
                 "jne",
                 // "if",
                 "mov",
+                "neg",
                 "int3",
-                "nop"
+                "debugger",
+                "nop",
+                "eval",
+                "ret"
             ];
 
             globals;
-            identifiers = {};
+            identifiers;
+            labels;
+            callstack;
 
             constructor() {
                 super();
+                this.identifiers = {
+                    print: true,
+                    global: true, // would be uhh something in lua (maybe game for luau)
+                    this: true, // would be script in lua
+                    true: true,
+                    false: true,
+                    undefined: true,
+                    Math: true,
+                    $rip: true,
+                    $rflags: true,
+                    $args: true,
+                    eval: true,
+                };
+                this.labels = {};
+                this.callstack = [];
             }
+            //i've been thinking about how a lexer's job is just to emit meaningful chunks of characters (and ignore comments/whitespace etc) and i've realized: i think mine does a little more than that?
+            //ALL this thing needs do to (i say again) is emit meaningful chunks of characters
+            //what i specifically mean is that i should've just had a RESERVED token that the lexer recognizes when it encounters instructions (e.g. call, print, eval) instead of doing that whole seenInstruction thing (i was a little too lost in the grammar sauce) (i'm also not gonna fix it though because i'm pretty sure you'd then be able to put instructions on the same line and it would still work (and it would just look weird))
             lex(str) {
                 debugger;
                 const tokens = [];
@@ -1031,14 +1199,17 @@
 
                 let instructionNumber = 0; //for labels
 
+                let bracketdepth = 0;
+
                 let readingString = false;
 
                 //i mean we can just have a flag that says if we've seen an instruction yet
                 let seenInstruction = false;
 
                 const mnemonicRegex = /[a-z]+[0-9]?/; //adding [0-9]? for int3!
-                const identifierRegex = /\w+/;
+                const identifierRegex = /[A-Za-z_$][$\w]*/;
                 // const numberRegex = /[\-+]?[0-9]+(?:\.[0-9]+)?/;
+                //oops the the x in 0x can also be capitalized
                 const numberRegex = /[\-+]?(?:(?:0x[0-9a-fA-F]+)|(?:[0-9]+(?:\.[0-9]+)?))/; // for matching hex and floating point :) (i feel like i'm abusing non capture groups but how else will i do it)
 
                 for(let i = 0; i < str.length; i++) {
@@ -1059,6 +1230,9 @@
                         lineNumber++;
                         charNumber = 0; //charNumber is 0 here because we increment it at the end of the loop lol
 
+                        if(bracketdepth != 0) {
+                            return new Expected(undefined, new ParseError(lineNumber, charNumber, "End of line reached without closing bracket"));
+                        }
                         if(readingString) {
                             //absolutely not! no multiline strings >:[
                             return new Expected(undefined, new ParseError(lineNumber, charNumber, "No multiline strings!"))
@@ -1123,6 +1297,35 @@
 
                         tokens.push(current);
                         current = new Token;
+                    }else if(char == '.') {
+                        current.line = lineNumber;
+                        current.char = charNumber;
+                        current.kind = TokenKind.DOT; // random tab i've had open https://jameshfisher.com/2020/11/01/what-does-the-dot-do-in-javascript/
+                        current.value = "."; //for readability
+
+                        tokens.push(current);
+                        current = new Token;
+                    }else if(char == '[') {
+                        bracketdepth++;
+                        current.line = lineNumber;
+                        current.char = charNumber;
+                        current.kind = TokenKind.SUBSCRIPT_START;
+                        current.value = "["; //for readability
+
+                        tokens.push(current);
+                        current = new Token;
+                    }else if(char == ']') {
+                        bracketdepth--;
+                        if(bracketdepth < 0) {
+                            return new Expected(undefined, new ParseError(lineNumber, charNumber, "Extra closing bracket."));
+                        }
+                        current.line = lineNumber;
+                        current.char = charNumber;
+                        current.kind = TokenKind.SUBSCRIPT_END;
+                        current.value = "]"; //for readability
+
+                        tokens.push(current);
+                        current = new Token;
                     }else if(char == ' ') {
                         
                     }else { // i suppose i don't really have to do this in the lexer (all he has to do is vaguely figure out what stuff is) and i could just manually check if the substring is one of our mnemonics but too late
@@ -1153,7 +1356,7 @@
                         if(untilnewline != -1) {
                             lowest = untilnewline;
                         }
-                        const untilcomma = str.indexOf(',', i);
+                        const untilcomma = str.indexOf(',', i); //commas are tokenized separately
                         if(untilcomma != -1) {
                             lowest = Math.min(lowest, untilcomma);
                         }
@@ -1168,6 +1371,20 @@
                         if(untilspace != -1) {
                             lowest = Math.min(lowest, untilspace);
                         }
+                        let untilbracket = str.indexOf('[', i); //brackets are tokenized separately
+                        if(untilbracket != -1) {
+                            lowest = Math.min(lowest, untilbracket);
+                        }
+                        untilbracket = str.indexOf(']', i); //brackets are tokenized separately
+                        if(untilbracket != -1) {
+                            lowest = Math.min(lowest, untilbracket);
+                        }
+                        
+                        //uh oh... numbers have dots
+                        //const untildot = str.indexOf('.', i); //dots are tokenized separately (alright man i'm starting to see a problem with this implementation.)
+                        //if(untildot != -1) {
+                        //    lowest = Math.min(lowest, untildot);
+                        //}
                         
 
                         if(lowest == Infinity) {
@@ -1178,7 +1395,7 @@
                             lowest = str.length;
                         }
 
-                        const line_text = str.substring(i, lowest);
+                        /*const*/ let line_text = str.substring(i, lowest);
 
                         if(!seenInstruction) {
                             const matches = line_text.match(mnemonicRegex);
@@ -1191,14 +1408,19 @@
                                 if(labelmatches != null && labelmatches[0].length == line_text.length-1 && line_text[line_text.length-1] == ':') { //i guess bro
                                     //well the parser doesn't actually need labels as tokens so uhhh we'll just set that global labels thing we wrote earlier lol
                                     // this.globals.labels[m[0]] = lineNumber-1; //lineNumber - 1 since $rip starts at 0
-                                    this.identifiers[labelmatches[0]] = instructionNumber; //ok we can't use lineNumber since there might be comments and other labels which aren't included in the ast!
+                                    // if(this.identifiers in labelmatches[0]) { // this line just produced an error i've never seen before lmao
+                                    if(labelmatches[0] in this.identifiers) {
+                                        return new Expected(undefined, new ParseError(lineNumber, charNumber, "Previously declared identifiers cannot also be labels (because labels are lowkey variables)!"));
+                                    }
+                                    this.identifiers[labelmatches[0]] = true; //ok we can't use lineNumber since there might be comments and other labels which aren't included in the ast!
+                                    this.labels[labelmatches[0]] = instructionNumber;
                                 }else {
                                     //definitely wrong lol
                                     let extra = labelmatches?.[0]?.length || matches?.[0]?.length;
                                     return new Expected(undefined, new ParseError(lineNumber, charNumber + extra, "Character not allowed in instruction mnemonic / label!")); //"Uhh there are no numbers, symbols, or uppercase letters allowed in instruction mnemonics!"
                                 }
                             }else {
-                                //success, but hold on
+                                //success, but let's make sure this instruction exists lol
 
                                 if(CustomLangInterpreter.instruction_set.findIndex((v)=>v==line_text) == -1) {
                                     return new Expected(undefined, new ParseError(lineNumber, charNumber, "Unknown mnemonic!"));
@@ -1216,20 +1438,44 @@
                                 instructionNumber++;
                             }
                         }else {
-                            //could be a nyumber, or expression idk
-                            const matches = line_text.match(numberRegex);
-                            if(matches == null || matches[0].length != line_text.length) {
-                                return new Expected(undefined, new ParseError(lineNumber, charNumber, "Malformed number!"));
-                            }
-                            
+                            //could be a nyumber, or an identifier idk
+
                             current.line = lineNumber;
                             current.char = charNumber;
-                            current.kind = TokenKind.NUMBER;
-                            if(line_text.includes(".")) { //we can't use Number because he doesn't like +/- hex numbers for some reason (but parseInt does)
-                                //print "Hello World!", 3.14159265358979323, "And so on..."
-                                current.value = parseFloat(line_text);
+
+                            const matches = line_text.match(numberRegex);
+                            if(matches == null || matches[0].length != line_text.length) {
+                                //ok this gotta be an identifier
+                                const idmatches = line_text.match(identifierRegex);
+                                if(idmatches == null) {
+                                    if(matches == null) { // || matches.index != 0) {
+                                        return new Expected(undefined, new ParseError(lineNumber, charNumber, "Fucked up identifier."));
+                                    }else {
+                                        return new Expected(undefined, new ParseError(lineNumber, charNumber, "Malformed number!"));
+                                    }
+                                }else {
+                                    if(idmatches[0].length != line_text.length) {
+                                        if(line_text[idmatches[0].length] == '.') {
+                                            const untildot = str.indexOf('.', i);
+                                            // if(untildot != -1) {
+                                                lowest = Math.min(lowest, untildot);
+                                                line_text = str.substring(i, lowest); //awkward.
+                                            // }
+                                        }else {
+                                            return new Expected(undefined, new ParseError(lineNumber, charNumber, "Unexpected character in identifier name"));
+                                        }
+                                    }
+                                    current.kind = TokenKind.IDENTIFIER;
+                                    current.value = line_text;
+                                }
                             }else {
-                                current.value = parseInt(line_text);
+                                current.kind = TokenKind.NUMBER;
+                                if(line_text.includes(".")) { //we can't use Number because he doesn't like +/- with hex numbers for some reason (but parseInt does)
+                                    //print "Hello World!", 3.14159265358979323, "And so on..."
+                                    current.value = parseFloat(line_text);
+                                }else {
+                                    current.value = parseInt(line_text);
+                                }
                             }
 
                             tokens.push(current);
@@ -1244,26 +1490,110 @@
                             charNumber += line_text.length; //probably
                         }
                     }
-                    //at this point, else means we've already tokenized the instruction on this line, we're current not reading a string, and the character is not a quote, newline, caret, or hashtag/pound/octothorpe
+                    //at this point, else means we've already tokenized the instruction on this line, we're current not reading a string, and the character is not a quote, newline, caret, hashtag/pound/octothorpe, space, OR dot
                     
                     charNumber++;
                 }
 
+                if(bracketdepth != 0) {
+                    return new Expected(undefined, new ParseError(lineNumber, charNumber-1, `End of file reached but we're still expected ${bracketdepth} closing bracket${bracketdepth > 1 ? "s" : ""}!`));
+                }
                 if(current.value != undefined) {
-                    return new Expected(undefined, new ParseError(lineNumber, charNumber-1, "Right, what's all this then. (Trailing characters!)")); //subtract char number because at this point it would be +1 after str.length
+                    return new Expected(undefined, new ParseError(lineNumber, charNumber-1, "Right, what's all this then. (Trailing characters!)")); //subtract char number because after the loop it would be +1 after str.length
                 }
 
                 return new Expected(tokens);
             }
+            /** @returns {Expected} */
+            parseIdentifierPropertyAccess(/** @type {Array<Token>} */ tokens) {
+                if(tokens.length == 1) {
+                    const token = tokens[0];
+                    switch(token.kind) {
+                        case TokenKind.NUMBER:
+                        case TokenKind.STRING:
+                            return new Expected(new Value(token.value));
+                            break;
+                        case TokenKind.IDENTIFIER:
+                            if(token.value in this.labels) { // when we call certain instructions, we need to know if the arguments are labels or not
+                                return new Expected(new LabelValue(token.value, this));
+                            }
+                            return new Expected(new VariableValue(token.value)); //lol
+                            break;
+                        default:
+                            return new Expected(undefined, new ParseError(token.line, token.char, "Expected number, string, or variable name!"));
+                            break;
+                    }
+                }else {
+                    //(global)(.)(alert)(.)(name)
+                    //(global)([)("alert")(])(.)(name)
+                    //let bracketdepth = 0; //we'll actually do this in the lexer instead (even though we don't have to)
+                    let awaitingAccess = false;
+                    let path = [];
+                    let i = 0;
+                    for(i; i < tokens.length; i++) {
+                        const curToken = tokens[i];
+                        if(curToken.kind != TokenKind.DOT && curToken.kind != TokenKind.SUBSCRIPT_START) {
+                            if(!awaitingAccess) {
+                                awaitingAccess = true;
+
+                                switch(curToken.kind) {
+                                    case TokenKind.IDENTIFIER:
+                                        path.push(new Value(curToken.value));
+                                        break;
+                                    //case TokenKind.SUBSCRIPT_START:
+                                    //    
+                                    //    break;
+                                    default:
+                                        return new Expected(undefined, new ParseError(curToken.line, curToken.char, "Right, what's all this then. (Unexpected)"));
+                                        break;
+                                }
+                            }else {
+                                if(curToken.kind == TokenKind.IDENTIFIER || curToken.kind == TokenKind.SUBSCRIPT_START || curToken.kind == TokenKind.SUBSCRIPT_END) {
+                                    return new Expected(undefined, new ParseError(curToken.line, curToken.char, "Expected a dot!"));
+                                }else {
+                                    return new Expected(undefined, new ParseError(curToken.line, curToken.char, "Umm this was unexpected... (maybe a comma should go here?)"));
+                                }
+                            }
+                        }else if(awaitingAccess) {
+                            if(curToken.kind == TokenKind.SUBSCRIPT_START) {
+                                //fuck.
+                                //we still need bracketdepth lol but we already validated it earlier
+                                let bracketdepth = 1; // starting at 1 since we know we're in a subscript range thing whatever
+                                let end = i+1; // i + 1 because we already know tokens[i] is the subscript start token
+                                for(end; end < tokens.length; end++) {
+                                    if(tokens[end].kind == TokenKind.SUBSCRIPT_START) {
+                                        bracketdepth++;
+                                    }else if(tokens[end].kind == TokenKind.SUBSCRIPT_END) {
+                                        if(--bracketdepth == 0) break;
+                                    }
+                                }
+                                const slice = tokens.slice(i+1, end); // uhh don't include the brackets lol
+                                const result = this.parseIdentifierPropertyAccess(slice);
+                                if(!result.has_value()) {
+                                    return result;
+                                }
+                                path.push(result.value);
+                                i += end-1; // if i could take i as a reference this wouldn't be so weird (so wait that weird _ object i was passing around in my original implementation might be actually useful) (minus one since for loop icnremetnsdnfjklnajn ykykyk)
+                            }else {
+                                awaitingAccess = false;
+                            }
+                        }else {
+                            return new Expected(undefined, new ParseError(curToken.line, curToken.char, `Extra '${curToken.value}'!`));
+                        }
+                    }
+                    return new Expected(new PropertyVariableValue(path));
+                }
+            }
             parse(str) /*override*/ {
-                const result = this.lex(str);
+                let result = this.lex(str);
                 if(!result.has_value()) {
                     //a parse error has occurred, eeyikes!
                     // const err = result.error.toString(str);
                     //letext.style.backgroundColor = "pink";
                     //letext.setAttribute("title", err);
                     //throw err;
-                    return new Expected(undefined, result.error);
+                    // return new Expected(undefined, result.error);
+                    return result; //idk why i created a new Expected lol
                 }
 
                 /** @type {Array<Token>} */
@@ -1321,6 +1651,7 @@
 
                     let awaitingSeparator = false; // ok wait it would make way more sense if this was the lexer's job...
 
+                    //aw shoot, i naively assumed arguments would only be 1 token long (but now with the dot and subscript, they can be as long as they want...)
                     for(i; i < tokens.length && tokens[i].kind != TokenKind.MNEMONIC; i++) {
                         const curToken = tokens[i];
                         if(curToken.kind != TokenKind.ARGUMENT_SEPARATOR) {
@@ -1332,6 +1663,42 @@
                                     case TokenKind.STRING:
                                     case TokenKind.NUMBER:
                                         args.push(new Value(curToken.value));
+                                        break;
+                                    case TokenKind.IDENTIFIER: {
+                                        //args.push(new VariableValue(curToken.value));
+                                        //we need to handle dots or subscripts :/
+                                        // const slice = tokens.slice(i, tokens.findIndex(t=>t.kind == TokenKind.ARGUMENT_SEPARATOR)); //why does findIndex not let you say where it starts (i could just check in the loop but what's all this)
+                                        let end = i;
+                                        for(end; end < tokens.length && tokens[end].kind != TokenKind.ARGUMENT_SEPARATOR && tokens[end].kind != TokenKind.MNEMONIC; end++); //what a line :)
+                                        const slice = tokens.slice(i, end); //yeah i don't really like the way i wrote this part, i feel like making a slice and then processing that is very weird...
+                                        /*if(slice.length != 1) {
+                                            let awaitingAccess = false;
+                                            for(const tok of slice) {
+                                                if(tok.kind != TokenKind.DOT || tok.kind != TokenKind.SUBSCRIPT_START) {
+                                                    if(!awaitingAccess) {
+                                                        awaitingAccess = true;
+
+                                                    }else {
+                                                        return new Expected(undefined, new ParseError(curToken.line, curToken.char, "Expected a property access operator!"));
+                                                    }
+                                                }else if(awaitingAccess) {
+                                                    awaitingAccess = false;
+                                                }
+                                            }
+                                        }else {
+                                            args.push(new VariableValue(curToken.value));
+                                        }*/
+                                        // args.push(...this.parseIdentifierPropertyAccess(slice));
+                                        result = this.parseIdentifierPropertyAccess(slice);
+                                        if(!result.has_value()) {
+                                            return result;
+                                        }
+                                        args.push(result.value);
+                                        i+=slice.length - 1; //minus 1 since the for loop increments i
+                                        break;
+                                    }
+                                    default:
+                                        return new Expected(undefined, new ParseError(curToken.line, curToken.char, "Expected string, number, or variable name!"));
                                         break;
                                 }
                             }else {
@@ -1346,44 +1713,154 @@
                         case "print":
                             ast.push(new CallOperation(new Value("print"), args));
                             break;
-                        //case "call":
-                        //    break;
+                        case "cmp":
+                            ast.push(new CmpOperation(args[0], args[1], this));
+                            break;
+                        case "eval":
+                            ast.push(new CallOperation(new Value("eval"), args));
+                            break;
+                        case "call":
+                            if(args[0].constructor == Value) { // || args[0].constructor == LabelValue) {
+                                return new Expected(undefined, new ParseError(mnemonicToken.line, mnemonicToken.char, "Value is not callable!"));
+                            }
+                            ast.push(new CallOperation(args[0], args.slice(1)));
+                            break;
+                        case "inc":
+                        case "dec":
+                        case "add":
+                        case "sub":
+                        case "div":
+                        case "mul":
+                        case "mod":
+                            if(args[0] instanceof LabelValue) {
+                                return new Expected(undefined, new ParseError(mnemonicToken.line, mnemonicToken.char, "Cannot set label!"));
+                            }
+                            let T = MulOperation;
+                            if(mnemonicToken.value == "add") {
+                                T = AddOperation;
+                            }else if(mnemonicToken.value == "sub") {
+                                T = SubOperation;
+                            }else if(mnemonicToken.value == "div") {
+                                T = DivOperation;
+                            }else if(mnemonicToken.value == "inc") {
+                                T = AddOperation;
+                                args[1] = new Value(1); //lol
+                            }else if(mnemonicToken.value == "dec") {
+                                T = AddOperation;
+                                args[1] = new Value(-1); //lol there was no SubOperation when i wrote this!
+                            }else if(mnemonicToken.value == "mod") {
+                                T = ModOperation;
+                            }
+                            ast.push(new T(args[0], args[1], this));
+                            break;
+                        case "mov":
+                            if(args[0] instanceof LabelValue) {
+                                return new Expected(undefined, new ParseError(mnemonicToken.line, mnemonicToken.char, "Cannot set label!"));
+                            }/*else if(args[1] instanceof LabelValue) {
+                                //we might be trying to pass a label as a callback, let's convert this label into something callable!
+                                //and by that i mean this:
+                                //const $rip = this.labels[args[1].value];
+                                //args[1] = new Value(this.execute.bind(this, $rip)); // hopefully you can do this in other interpreted languages (lua) too?
+                            }*/
+                           
+                            ast.push(new MoveOperation(args[0], args[1]));
+                            break;
+                        case "neg":
+                            if(args[0] instanceof LabelValue) {
+                                return new Expected(undefined, new ParseError(mnemonicToken.line, mnemonicToken.char, "Cannot set label!"));
+                            }
+                            ast.push(new NegateOperation(args[0], this));
+                            break;
                         case "int3":
+                        case "debugger":
                             ast.push(new DebugbreakOperation());
                             break;
-                        //case "jmp":
-                        //    ast.push(new JumpOperation(args[0], undefined, undefined));
-                        //    break;
+                        case "jmp":
+                        case "je":
+                        case "jg":
+                        // case "jge":
+                        case "jl":
+                        case "jne":
+                            if(args[0] instanceof LabelValue) {
+                                args[0] = new VariableValue(args[0].value); // "cast" label value to variable value so the jump knows where to actually jump lol
+                            }else if(!(args[0].value in this.identifiers)) {
+                                return new Expected(undefined, new ParseError(mnemonicToken.line, mnemonicToken.char, "Cannot jump to undeclared identifier!"));
+                            }
+                            let args2;
+                            if(mnemonicToken.value == "jmp") {
+                                args2 = [args[0], undefined, undefined];
+                            }else if(mnemonicToken.value == "jne") {
+                                args2 = [args[0], ['zero'], [0]];
+                            }else if(mnemonicToken.value == "je") {
+                                args2 = [args[0], ['zero'], [1]];
+                            }else if(mnemonicToken.value == "jg") {
+                                args2 = [args[0], ['sign'], [1]];
+                            }else if(mnemonicToken.value == "jl") {
+                                args2 = [args[0], ['sign'], [-1]];
+                            }
+                            //ast.push(new JumpOperation.apply(JumpOperation, args2)); //aw i was hoping i wouldn't have to spread it
+                            ast.push(new JumpOperation(...args2));
+                            break;
+                        case "ret":
+                            ast.push(new ReturnOperation(args[0], this));
+                            break;
                     }
                 }
 
                 return new Expected(ast);
             }
-            execute(ast) /*override*/ {
+            // execute(ast) /*override*/ {
+            execute($rip = 0, ...$args) /*override*/ {
                 //define globals here so we can keep calling execute if we had a CustomLangInterpreter object :)
-                this.globals = {
-                    print: console.log,
-                    global: globalThis, // would be uhh something in lua (maybe game for luau)
-                    this: globalThis, // would be script in lua
-                    true: true,
-                    false: false,
-                    undefined,
-                    Math,
-                    $rip: 0,
-                };
+                if(this.globals == undefined) {
+                    this.globals = {
+                        print: console.log,
+                        global: globalThis, // would be uhh something in lua (maybe game for luau)
+                        this: globalThis, // would be script in lua
+                        true: true,
+                        false: false,
+                        undefined,
+                        Math,
+                        $rflags: {zero: true, sign: 0},
+                        $rip: 0,
+                        $0: 0, // maybe i should make this better lol ($0 is just like rax and only now did i just realize (i named it $0 because of chrome devtools))
+                        eval: CustomLangInterpreter.eval, // every good interpreted language has GOT to have an eval method right!
+                        ...this.labels, // object spread!
+                    };
+                }
+
+                //oops! calling labels is kind of weird because there are no local variables (so calling a label might just leave your variables scrambled) but also even $rip is changed (so we have to remember the old value)
+                
+                this.callstack.push(this.globals.$rip);
+
+                this.globals.$rip = $rip;
+                this.globals.$args = $args;
                 //fortunately it's still easy to actually evaluate the ast so we can just plug and play :3c
-                for(this.globals.$rip; this.globals.$rip < ast.length; this.globals.$rip++) {
-                    const op = ast[this.globals.$rip];
+                for(this.globals.$rip; this.globals.$rip < this.ast.length; this.globals.$rip++) {
+                    const op = this.ast[this.globals.$rip];
                     op.execute(this.globals);
                 }
+
+                this.globals.$rip = this.callstack.pop();
+                
+                return this.globals.$0;
+            }
+            update_rflags(result) {
+                this.globals.$rflags.zero = result == 0;
+                this.globals.$rflags.sign = Math.sign(result);
+            }
+            static eval(str) {
+                const interpreter = new CustomLangInterpreter();
+                return interpreter.interpret(str);
             }
         }
         
         document.getElementById("execute").addEventListener("click", function(event) {
             //const interpreter = new interpreters[lang.value];
             //interpreter.interpret(letext.value);
-            const lang = new CustomLangInterpreter();
-            lang.interpret(letext.value);
+            //const lang = new CustomLangInterpreter();
+            //lang.interpret(letext.value);
+            console.log("$0:", CustomLangInterpreter.eval(letext.value));
         });
     </script>
 </body>
