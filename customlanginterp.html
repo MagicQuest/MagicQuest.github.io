@@ -63,7 +63,7 @@
             "bug4": "this is a label:",
             "pbug1": "print \"Hello World!\" \"And goodbye mysterious string concatenation!\"",
             //https://www.youtube.com/watch?v=y3AiGw8mkq0
-            "conways": `### Conways Game of Life in JSM!\n### space to pause/unpause\n### f (while paused) to step forward\n\nmov paused, false\nmov step, false\nmov lastChangedIndex, -1\nmov canvas, undefined\nmov context, undefined\nmov rowscols, 20\nmov rowscols2, rowscols\nmul rowscols2, rowscols2\nmov ratio, 500\ndiv ratio, rowscols\n\n# mov $0, rowscols2\n# dec $0\n# call global.String.prototype.padStart, $0\n# call $0.split, " "\n# call $0.map, \n\n# fill cells array\ncall global.Array, rowscols2\ncall $0.fill, 0\nmov cells, $0\n\n# mov cells[0], 1\n\n# set glider pattern (if rowscols is 10)\n# mov cells[1], 1\n# mov cells[12], 1\n# mov cells[22], 1\n# mov cells[20], 1\n# mov cells[21], 1\n\n# set glider pattern (rowscols 20)\nmov cells[1], 1\nmov cells[22], 1\nmov cells[40], 1\nmov cells[41], 1\nmov cells[42], 1\n\n# copy cells to prevCells\ncall global.structuredClone, cells\nmov prevCells, $0\njmp main\n\ncreate_canvas:\ncall global.document.createElement, "canvas"\nmov canvas, $0\nmov canvas.width, 500\nmov canvas.height, canvas.width\nmov canvas.style.border, "2px solid red"\nmov canvas.id, "canvas"\ncall global.center.appendChild, canvas\nret\n\non_mouse_event:\ncmp $args[0].buttons, 1\njne on_mouse_event_end\n# calculate cell x\nmov $0, $args[0].offsetX\ndiv $0, ratio\ncall Math.trunc, $0\nmov temp_x, $0\nmov $0, rowscols\ndec $0\ncall Math.min, temp_x, $0\nmov temp_x, $0\ncall Math.max, temp_x, 0\nmov temp_x, $0\n# calculate cellY\nmov $0, $args[0].offsetY\ndiv $0, ratio\ncall Math.trunc, $0\nmov temp_y, $0\nmov $0, rowscols\ndec $0\ncall Math.min, temp_y, $0\nmov temp_y, $0\ncall Math.max, temp_y, 0\nmov temp_y, $0\n# actually calculate cell index\nmov index, temp_y\nmul index, rowscols\nadd index, temp_x\ncmp index, lastChangedIndex\nje on_mouse_event_end\nmov lastChangedIndex, index\nmov alive, cells[index]\nmov $0, 1\n# $0 = !alive\nsub $0, alive\nmov cells[index], $0\nmov prevCells[index], $0\non_mouse_event_end:\nret\n\non_key_event:\n# using keyCode because we can't compare strings :[ (yet :eyes:)\ncmp $args[0].keyCode, 32\njne on_key_event_check_2\n# paused = 1-paused (!paused)\nmov $0, 1\nsub $0, paused\nmov paused, $0\non_key_event_check_2:\ncmp $args[0].keyCode, 70\njne on_key_event_end\nmov step, true\non_key_event_end:\nret\n\n# $args[0] = x, $args[1] = y\n# now i just need to write one in x86 assembly!\ngetNeighbors:\nmov neighbors, 0\nmov local_x, $args[0]\nmov local_y, $args[1]\nmov local_i, -1\ngetNeighbors_for_i:\nmov local_j, -1\ngetNeighbors_for_j:\nmov temp_x, local_x\nadd temp_x, local_i\ncmp temp_x, -1\njg temp_x_check_2\n# wrap around by adding rowscols\nadd temp_x, rowscols\ntemp_x_check_2:\ncmp temp_x, rowscols\njl temp_x_done\n# wrap around using modulus rowscols\n# div temp_x, rowscols\n# mov $0, temp_x # using $0 like rax lol\n# call Math.trunc, $0\n# sub temp_x, $0\n# mul temp_x, rowscols\n\n# using REAL modulus operator\nmod temp_x, rowscols\n\ntemp_x_done:\nmov temp_y, local_y\nadd temp_y, local_j\ncmp temp_y, -1\njg temp_y_check_2\n# wrap around by adding rowscols\nadd temp_y, rowscols\ntemp_y_check_2:\ncmp temp_y, rowscols\njl temp_y_done\n# wrap around using modulus rowscols\n# div temp_y, rowscols\n# mov $0, temp_y # using $0 like rax lol\n# call Math.trunc, $0\n# sub temp_y, $0\n# mul temp_y, rowscols\n\nmod temp_y, rowscols\n\ntemp_y_done:\n# we need to calculate the index of the cell at (temp_x, temp_y)\nmov index, temp_y\nmul index, rowscols\nadd index, temp_x\nadd neighbors, prevCells[index]\ninc local_j\ncmp local_j, 2\njne getNeighbors_for_j\ninc local_i\ncmp local_i, 2\njne getNeighbors_for_i\nmov index, local_y\nmul index, rowscols\nadd index, local_x\nsub neighbors, prevCells[index]\nret neighbors\n\ndraw:\n# int3\nmov context.fillStyle, "red"\ncall context.clearRect, 0, 0, 512, 512\nmov i, 0\ndraw_loop:\n# mov x, i\n# div x, rowscols\n# mov $0, x\n# call Math.trunc, $0\n# mov y, $0\n# sub x, $0\n# mul x, rowscols\n\n# oh my god trying to calculate the modulus myself resulted in floating point errors! (which caused getNeighbors to return NaN)\nmov x, i\nmod x, rowscols\nmov $0, i\ndiv $0, rowscols\ncall Math.trunc, $0\nmov y, $0\n\ncmp paused, true\njne do_logic\ncmp step, true\nje do_logic\nmov alive, cells[i]\njmp skip_logic\ndo_logic:\ncall getNeighbors, x, y\nmov neighbors, $0 # this line is actually unneeded (neighbors is already set in getNeighbors)\nmov alive, cells[i]\ncmp alive, 0\nje dead_cell\n# webassembly method\n# int3\nmov alive, 0\ncmp neighbors, 2\nadd alive, $rflags.zero # alive++ if neighbors == 2\ncmp neighbors, 3\nadd alive, $rflags.zero # alive++ if neighbors == 3\njmp skip_logic # bryg i forgot to jump after this\ndead_cell:\ncmp neighbors, 3\nmov alive, $rflags.zero\nskip_logic:\nmov cells[i], alive\ncmp alive, 0\nje continue_draw_loop\nmul x, ratio\nmul y, ratio\ncall context.fillRect, x, y, ratio, ratio\ncontinue_draw_loop:\ninc i\ncmp i, rowscols2\njne draw_loop\ncall global.structuredClone, cells\nmov prevCells, $0\nmov step, false\ncall global.requestAnimationFrame, draw\nret\n\nmain:\nprint getNeighbors\ncall global.document.getElementById, "canvas"\nmov canvas, $0\ncmp $0, 0 # if canvas != null this results in update_rflags being called with NaN as the first parameter! (somehow though it still works)\njne after_create_canvas\ncall create_canvas\n# we don't need to set canvas because create_canvas already does it!\n# mov canvas, $0\nafter_create_canvas:\ncall canvas.getContext, "2d"\nmov context, $0\ncall canvas.addEventListener, "mousedown", on_mouse_event\ncall canvas.addEventListener, "mousemove", on_mouse_event\ncall global.document.addEventListener, "keydown", on_key_event\njmp draw`,
+            "conways": `### Conways Game of Life in JSM!\n### space to pause/unpause\n### f (while paused) to step forward\n\nmov paused, false\nmov step, false\nmov lastChangedIndex, -1\nmov canvas, undefined\nmov context, undefined\nmov rowscols, 20\nmov rowscols2, rowscols\nmul rowscols2, rowscols2\nmov ratio, 500\ndiv ratio, rowscols\n\n# mov $0, rowscols2\n# dec $0\n# call global.String.prototype.padStart, $0\n# call $0.split, " "\n# call $0.map, \n\n# fill cells array\ncall global.Array, rowscols2\ncall $0.fill, 0\nmov cells, $0\n\n# mov cells[0], 1\n\n# set glider pattern (if rowscols is 10)\n# mov cells[1], 1\n# mov cells[12], 1\n# mov cells[22], 1\n# mov cells[20], 1\n# mov cells[21], 1\n\n# set glider pattern (rowscols 20)\nmov cells[1], 1\nmov cells[22], 1\nmov cells[40], 1\nmov cells[41], 1\nmov cells[42], 1\n\n# copy cells to prevCells\ncall global.structuredClone, cells\nmov prevCells, $0\njmp main\n\ncreate_canvas:\ncall global.document.createElement, "canvas"\nmov canvas, $0\nmov canvas.width, 500\nmov canvas.height, canvas.width\nmov canvas.style.border, "2px solid red"\nmov canvas.id, "canvas"\ncall global.center.appendChild, canvas\nret\n\non_mouse_event:\ncmp $args[0].buttons, 1\njne on_mouse_event_end\n# calculate cell x\nmov $0, $args[0].offsetX\ndiv $0, ratio\ncall Math.trunc, $0\nmov temp_x, $0\nmov $0, rowscols\ndec $0\ncall Math.min, temp_x, $0\nmov temp_x, $0\ncall Math.max, temp_x, 0\nmov temp_x, $0\n# calculate cellY\nmov $0, $args[0].offsetY\ndiv $0, ratio\ncall Math.trunc, $0\nmov temp_y, $0\nmov $0, rowscols\ndec $0\ncall Math.min, temp_y, $0\nmov temp_y, $0\ncall Math.max, temp_y, 0\nmov temp_y, $0\n# actually calculate cell index\nmov index, temp_y\nmul index, rowscols\nadd index, temp_x\ncmp index, lastChangedIndex\nje on_mouse_event_end\nmov lastChangedIndex, index\nmov alive, cells[index]\n\n# mov $0, 1\n# $0 = !alive\n# sub $0, alive\n# mov cells[index], $0\n# mov prevCells[index], $0\n\n# in the modern day, we can use the '!'\n# toggle cell at mouse position :)\nmov cells[index], !alive\nmov prevCells[index], !alive\non_mouse_event_end:\nret\n\non_mouse_up_event:\nmov lastChangedIndex, -1\nret\n\non_key_event:\n# using keyCode because we can't compare strings :[ (yet :eyes:)\ncmp $args[0].keyCode, 32\njne on_key_event_check_2\n# paused = 1-paused (!paused)\nmov $0, 1\nsub $0, paused\nmov paused, $0\non_key_event_check_2:\ncmp $args[0].keyCode, 70\njne on_key_event_end\nmov paused, true\nmov step, true\non_key_event_end:\nret\n\n# $args[0] = x, $args[1] = y\n# now i just need to write one in x86 assembly!\ngetNeighbors:\nmov neighbors, 0\nmov local_x, $args[0]\nmov local_y, $args[1]\nmov local_i, -1\ngetNeighbors_for_i:\nmov local_j, -1\ngetNeighbors_for_j:\nmov temp_x, local_x\nadd temp_x, local_i\ncmp temp_x, -1\njg temp_x_check_2\n# wrap around by adding rowscols\nadd temp_x, rowscols\ntemp_x_check_2:\ncmp temp_x, rowscols\njl temp_x_done\n# wrap around using modulus rowscols\n# div temp_x, rowscols\n# mov $0, temp_x # using $0 like rax lol\n# call Math.trunc, $0\n# sub temp_x, $0\n# mul temp_x, rowscols\n\n# using REAL modulus operator\nmod temp_x, rowscols\n\ntemp_x_done:\nmov temp_y, local_y\nadd temp_y, local_j\ncmp temp_y, -1\njg temp_y_check_2\n# wrap around by adding rowscols\nadd temp_y, rowscols\ntemp_y_check_2:\ncmp temp_y, rowscols\njl temp_y_done\n# wrap around using modulus rowscols\n# div temp_y, rowscols\n# mov $0, temp_y # using $0 like rax lol\n# call Math.trunc, $0\n# sub temp_y, $0\n# mul temp_y, rowscols\n\nmod temp_y, rowscols\n\ntemp_y_done:\n# we need to calculate the index of the cell at (temp_x, temp_y)\nmov index, temp_y\nmul index, rowscols\nadd index, temp_x\nadd neighbors, prevCells[index]\ninc local_j\ncmp local_j, 2\njne getNeighbors_for_j\ninc local_i\ncmp local_i, 2\njne getNeighbors_for_i\nmov index, local_y\nmul index, rowscols\nadd index, local_x\nsub neighbors, prevCells[index]\nret neighbors\n\ndraw:\n# int3\nmov context.fillStyle, "red"\ncall context.clearRect, 0, 0, 512, 512\nmov i, 0\ndraw_loop:\n# mov x, i\n# div x, rowscols\n# mov $0, x\n# call Math.trunc, $0\n# mov y, $0\n# sub x, $0\n# mul x, rowscols\n\n# oh my god trying to calculate the modulus myself resulted in floating point errors! (which caused getNeighbors to return NaN)\nmov x, i\nmod x, rowscols\nmov $0, i\ndiv $0, rowscols\ncall Math.trunc, $0\nmov y, $0\n\ncmp paused, true\njne do_logic\ncmp step, true\nje do_logic\nmov alive, cells[i]\njmp skip_logic\ndo_logic:\ncall getNeighbors, x, y\nmov neighbors, $0 # this line is actually unneeded (neighbors is already set in getNeighbors)\nmov alive, cells[i]\ncmp alive, 0\nje dead_cell\n# webassembly method\n# int3\nmov alive, 0\ncmp neighbors, 2\nadd alive, $rflags.zero # alive++ if neighbors == 2\ncmp neighbors, 3\nadd alive, $rflags.zero # alive++ if neighbors == 3\njmp skip_logic # bryg i forgot to jump after this\ndead_cell:\ncmp neighbors, 3\nmov alive, $rflags.zero\nskip_logic:\nmov cells[i], alive\ncmp alive, 0\nje continue_draw_loop\nmul x, ratio\nmul y, ratio\ncall context.fillRect, x, y, ratio, ratio\ncontinue_draw_loop:\ninc i\ncmp i, rowscols2\njne draw_loop\ncall global.structuredClone, cells\nmov prevCells, $0\nmov step, false\ncall global.requestAnimationFrame, draw\nret\n\nmain:\nprint getNeighbors\ncall global.document.getElementById, "canvas"\nmov canvas, $0\ncmp $0, 0 # if canvas != null this results in update_rflags being called with NaN as the first parameter! (somehow though it still works)\njne after_create_canvas\ncall create_canvas\n# we don't need to set canvas because create_canvas already does it!\n# mov canvas, $0\nafter_create_canvas:\ncall canvas.getContext, "2d"\nmov context, $0\ncall canvas.addEventListener, "mousedown", on_mouse_event\ncall canvas.addEventListener, "mouseup", on_mouse_up_event\ncall canvas.addEventListener, "mousemove", on_mouse_event\ncall global.document.addEventListener, "keydown", on_key_event\njmp draw`,
         };
 
         /*
@@ -178,6 +178,29 @@
 
         class Operation {
             execute(global) {} // = 0;
+        }
+
+        class TransformedValue extends Value {
+            //** @type {Operation} */
+            transformation;
+            constructor(/** @type {Value} */ value, /** @type {(global: Object, operand: any) => any} */ transformationCallback) {
+                super(value);
+                this.transformation = transformationCallback;
+            }
+            get(/** @type {Object} */ global) {
+                //this.operation.execute(global); //uhh i guess he already has a reference to the value... (a little awkward but hush)
+                return this.transformation(global, this.value.get(global));
+            }
+            //i don't want these to be lambdas lol so i'm defining these here
+            static plusTransformation(global, operand) {
+                return +operand;
+            }
+            static minusTransformation(global, operand) {
+                return -operand;
+            }
+            static notTransformation(global, operand) {
+                return !operand;
+            }
         }
 
         class CallOperation extends Operation {
@@ -398,6 +421,16 @@
                 global.$rip = this.interpreter.ast.length; //lazy ( yet again we could subtract here since the loop increments $rip but it doesn't matter >:P )
             }
         }
+
+        //class AbsOperation extends Operation {
+        //    constructor(value) {
+        //        super();
+        //        this.value = value;
+        //    }
+        //    execute(global) {
+        //        
+        //    }
+        //}
 
         //class Instruction {
         //    constructor(can_create_vars, compile) {
@@ -1114,7 +1147,8 @@
         //identifier ::= [A-Za-z_0-9$]+
 
         /*enum*/ class TokenKind {
-            static MNEMONIC = 1;
+            //static MNEMONIC = -1;
+            static RESERVED = 1;
             static IDENTIFIER = 2;
             static STRING = 3;
             static NUMBER = 4;
@@ -1123,8 +1157,18 @@
             static SUBSCRIPT_END = 6;
             static DOT = 7;
             static ARGUMENT_SEPARATOR = 8; //pedantic but hey i'm just writing what the grammar said ;)
-            static RESERVED = 9;
+            // static RESERVED = 9; // if i rewrite this again (for the third time) it would be so much easier if i just had a list of reserved words and only worried about where they appeared in the parser! (also yes RESERVED would replace MNEMONIC)
             //what else should become tokens... https://stackoverflow.com/questions/73226710/can-someone-explain-how-tokenizing-works-in-lexers
+            // oh boy... this language is leveling up...
+            static MINUS = 9;
+            static DECREMENT = 10;
+            static PLUS = 11;
+            static INCREMENT = 12;
+            static EXCLAMATION = 13;
+
+            static isArithmetic(kind) {
+                return kind == TokenKind.PLUS || kind == TokenKind.MINUS;
+            }
         }
 
         class Token {
@@ -1132,67 +1176,78 @@
             char;
             kind;
             value;
+            constructor(line, char, kind, value) {
+                this.line = line;
+                this.char = char;
+                this.kind = kind;
+                this.value = value;
+            }
         }
 
         class CustomLangInterpreter extends Interpreter {
 
-            static instruction_set = [
-                "print",
-                "inc",
-                "dec",
-                "add",
-                "sub",
-                "mul",
-                "div",
-                "mod",
-                "call",
-                "cmp",
-                "jmp",
-                "je",
-                "jg",
+            //using objects for that O(1) lookup using the in operator
+            static reserved_words = {
+                "print": true,
+                "inc": true,
+                "dec": true,
+                "add": true,
+                "sub": true,
+                "mul": true,
+                "div": true,
+                "mod": true,
+                "call": true,
+                "cmp": true,
+                "jmp": true,
+                "je": true,
+                "jg": true,
                 //"jge",
-                "jl",
-                "jne",
+                "jl": true,
+                "jne": true,
                 // "if",
-                "mov",
-                "neg",
-                "int3",
-                "debugger",
-                "nop",
-                "eval",
-                "ret"
-            ];
+                "mov": true,
+                "neg": true,
+                "int3": true,
+                "debugger": true,
+                "nop": true,
+                "eval": true,
+                "ret": true
+            };
+
+            static default_globals = {
+                print: console.log,
+                global: globalThis, // would be uhh something in lua (maybe game for luau)
+                this: globalThis, // would be script in lua
+                true: true,
+                false: false,
+                undefined,
+                Math,
+                $rflags: {zero: true, sign: 0},
+                $rip: 0,
+                $args: [],
+                $0: 0, // maybe i should make this better lol ($0 is just like rax and only now did i just realize (i named it $0 because of chrome devtools))
+                eval: CustomLangInterpreter.eval, // every good interpreted language has GOT to have an eval method right!
+            }
 
             globals;
-            identifiers;
-            labels;
-            callstack;
+            identifiers = {};
+            labels = {};
+            callstack = [];
 
             constructor() {
                 super();
-                this.identifiers = {
-                    print: true,
-                    global: true, // would be uhh something in lua (maybe game for luau)
-                    this: true, // would be script in lua
-                    true: true,
-                    false: true,
-                    undefined: true,
-                    Math: true,
-                    $rip: true,
-                    $rflags: true,
-                    $args: true,
-                    eval: true,
-                };
-                this.labels = {};
-                this.callstack = [];
+                //using objects for that O(1) lookup using the in operator
+                for(const identifier of Object.keys(CustomLangInterpreter.default_globals)) {
+                    this.identifiers[identifier] = true;
+                }
             }
             //i've been thinking about how a lexer's job is just to emit meaningful chunks of characters (and ignore comments/whitespace etc) and i've realized: i think mine does a little more than that?
             //ALL this thing needs do to (i say again) is emit meaningful chunks of characters
             //what i specifically mean is that i should've just had a RESERVED token that the lexer recognizes when it encounters instructions (e.g. call, print, eval) instead of doing that whole seenInstruction thing (i was a little too lost in the grammar sauce) (i'm also not gonna fix it though because i'm pretty sure you'd then be able to put instructions on the same line and it would still work (and it would just look weird))
-            lex(str) {
+            lex(/** @type {String} */ str) {
                 debugger;
                 const tokens = [];
-                let current = new Token;
+                let current = undefined; //new Token;
 
                 let lineNumber = 1;
                 let charNumber = 1;
@@ -1204,29 +1259,34 @@
                 let readingString = false;
 
                 //i mean we can just have a flag that says if we've seen an instruction yet
-                let seenInstruction = false;
+                //let seenInstruction = false;
 
                 const mnemonicRegex = /[a-z]+[0-9]?/; //adding [0-9]? for int3!
-                const identifierRegex = /[A-Za-z_$][$\w]*/;
+                // const identifierRegex = /[A-Za-z_$][$\w]*/;
+                const identifierFirstCharRegex = /[A-Za-z_$]/;
+                const identifierCharRegex = /[$\w]/;
                 // const numberRegex = /[\-+]?[0-9]+(?:\.[0-9]+)?/;
                 //oops the the x in 0x can also be capitalized
-                const numberRegex = /[\-+]?(?:(?:0x[0-9a-fA-F]+)|(?:[0-9]+(?:\.[0-9]+)?))/; // for matching hex and floating point :) (i feel like i'm abusing non capture groups but how else will i do it)
+                //const numberRegex = /[\-+]?(?:(?:0x[0-9a-fA-F]+)|(?:[0-9]+(?:\.[0-9]+)?))/; // for matching hex and floating point :) (i feel like i'm abusing non capture groups but how else will i do it)
+                const numberCharRegex = /[0-9]/;
+                const hexCharRegex = /[0-9a-fA-F]/;
 
                 for(let i = 0; i < str.length; i++) {
                     const char = str[i];
                     if(char == '"') {
                         readingString = !readingString;
                         if(readingString) {
-                            current.line = lineNumber;
-                            current.char = charNumber;
-                            current.kind = TokenKind.STRING;
-                            current.value = "";
+                            //current.line = lineNumber;
+                            //current.char = charNumber;
+                            //current.kind = TokenKind.STRING;
+                            //current.value = "";
+                            current = new Token(lineNumber, charNumber, TokenKind.STRING, "");
                         }else {
                             tokens.push(current);
-                            current = new Token;
+                            current = undefined;
                         }
                     }else if(char == '\n') {
-                        seenInstruction = false; // we could have it separated by semicolons instead but uhh i just didn't do that lol.
+                        //seenInstruction = false; // we could have it separated by semicolons instead but uhh i just didn't do that lol.
                         lineNumber++;
                         charNumber = 0; //charNumber is 0 here because we increment it at the end of the loop lol
 
@@ -1290,45 +1350,189 @@
                         //if(!seenInstruction) {
                         //    return new Expected(undefined, new ParseError(lineNumber, charNumber, "Comma appearing before instruction mnemonic is (obviously) not allowed!"));
                         //}
-                        current.line = lineNumber;
-                        current.char = charNumber;
-                        current.kind = TokenKind.ARGUMENT_SEPARATOR;
-                        current.value = ","; //for readability
+                        //current.line = lineNumber;
+                        //current.char = charNumber;
+                        //current.kind = TokenKind.ARGUMENT_SEPARATOR;
+                        //current.value = ","; //for readability
 
-                        tokens.push(current);
-                        current = new Token;
+                        tokens.push(new Token(lineNumber, charNumber, TokenKind.ARGUMENT_SEPARATOR, ","));
+                        // current = undefined;
                     }else if(char == '.') {
-                        current.line = lineNumber;
-                        current.char = charNumber;
-                        current.kind = TokenKind.DOT; // random tab i've had open https://jameshfisher.com/2020/11/01/what-does-the-dot-do-in-javascript/
-                        current.value = "."; //for readability
+                        //current.line = lineNumber;
+                        //current.char = charNumber;
+                        //current.kind = TokenKind.DOT; // random tab i've had open https://jameshfisher.com/2020/11/01/what-does-the-dot-do-in-javascript/
+                        //current.value = "."; //for readability
 
-                        tokens.push(current);
-                        current = new Token;
+                        tokens.push(new Token(lineNumber, charNumber, TokenKind.DOT, "."));
+                        //current = new Token;
                     }else if(char == '[') {
                         bracketdepth++;
-                        current.line = lineNumber;
-                        current.char = charNumber;
-                        current.kind = TokenKind.SUBSCRIPT_START;
-                        current.value = "["; //for readability
+                        //current.line = lineNumber;
+                        //current.char = charNumber;
+                        //current.kind = TokenKind.SUBSCRIPT_START;
+                        //current.value = "["; //for readability
 
-                        tokens.push(current);
-                        current = new Token;
+                        tokens.push(new Token(lineNumber, charNumber, TokenKind.SUBSCRIPT_START, "["));
+                        //current = new Token;
                     }else if(char == ']') {
                         bracketdepth--;
                         if(bracketdepth < 0) {
                             return new Expected(undefined, new ParseError(lineNumber, charNumber, "Extra closing bracket."));
                         }
-                        current.line = lineNumber;
-                        current.char = charNumber;
-                        current.kind = TokenKind.SUBSCRIPT_END;
-                        current.value = "]"; //for readability
+                        //current.line = lineNumber;
+                        //current.char = charNumber;
+                        //current.kind = TokenKind.SUBSCRIPT_END;
+                        //current.value = "]"; //for readability
 
-                        tokens.push(current);
-                        current = new Token;
+                        tokens.push(new Token(lineNumber, charNumber, TokenKind.SUBSCRIPT_END, "]"));
+                        //current = new Token;
+                    }else if(char == '-') {
+                        const lookahead = str[i+1];
+                        if(lookahead == undefined) {
+                            return new Expected(undefined, new ParseError(lineNumber, charNumber, "I'm not sure it would make sense for the code to end here but if i'm wrong that would be bad!"));
+                        }else if(lookahead == '-') {
+                            tokens.push(new Token(lineNumber, charNumber, TokenKind.DECREMENT, "--"));
+                        }else {
+                            tokens.push(new Token(lineNumber, charNumber, TokenKind.MINUS, "-"));
+                        }
+                    }else if(char == '+') {
+                        const lookahead = str[i+1];
+                        if(lookahead == undefined) {
+                            return new Expected(undefined, new ParseError(lineNumber, charNumber, "I'm not sure it would make sense for the code to end here but if i'm wrong that would be bad!"));
+                        }else if(lookahead == '+') {
+                            tokens.push(new Token(lineNumber, charNumber, TokenKind.INCREMENT, "++"));
+                        }else {
+                            tokens.push(new Token(lineNumber, charNumber, TokenKind.PLUS, "+"));
+                        }
+                    }else if(char == '!') {
+                        // no equality operators yet, this is just not
+                        tokens.push(new Token(lineNumber, charNumber, TokenKind.EXCLAMATION, "!"));
                     }else if(char == ' ') {
                         
-                    }else { // i suppose i don't really have to do this in the lexer (all he has to do is vaguely figure out what stuff is) and i could just manually check if the substring is one of our mnemonics but too late
+                    }else {
+                        // https://craftinginterpreters.com/scanning.html is the reason i've decided to redo this entire section (because it was ridiculous!)
+
+                        // all a lexer has to do is recognize important groups of characters
+                        // let's start with numbers
+                        if(numberCharRegex.test(char)) { //oops, who knew regex.test was probably better in this situation
+                            let hex = false;
+                            current = new Token(lineNumber, charNumber, TokenKind.NUMBER, char);
+                            charNumber++;
+                            i++; //advance
+                            if(/[xX]/.test(str[i])) {
+                                //hexadecimal
+                                hex = true;
+                                current.value += str[i];
+                                charNumber++;
+                                i++; // skip /[xX]/ so while loop isn't thrown off
+                            }
+
+                            if(hex) {
+                                if(!str[i] || !hexCharRegex.test(str[i])) {
+                                    //if 0x is not immediately followed by another number that's bad
+                                    return new Expected(undefined, new ParseError(lineNumber, charNumber, "Hexadecimal numbers can't just end at the 'x' lol"));
+                                }else {
+                                    charNumber++;
+                                    current.value += str[i++];
+                                }
+                                while(i < str.length && hexCharRegex.test(str[i])) {
+                                    charNumber++;
+                                    current.value += str[i++];
+                                }
+                                //we'll keep this error unless i feel like giving literals properties like javascript ( e.g. 0x20.toString() )
+                                //moved out of this if block
+                                //if(str[i] == '.') {
+                                //    return new Expected(undefined, new ParseError(lineNumber, charNumber, "Currently, literals do not have properties!"));
+                                //}
+                            }else {
+                                while(i < str.length && numberCharRegex.test(str[i])) {
+                                    charNumber++;
+                                    current.value += str[i++];
+                                }
+                                if(str[i] == '.') {
+                                    if(numberCharRegex.test(str[i+1])) {
+                                        charNumber+=2;
+                                        current.value += str[i++];
+                                        current.value += str[i++];
+                                        while(i < str.length && numberCharRegex.test(str[i])) {
+                                            charNumber++;
+                                            current.value += str[i++];
+                                        }
+                                        //for some reason there could yet again be a dot after this
+                                        //moved out of this if block
+                                        //if(str[i] == '.') {
+                                        //    // i didn't know this until now but you can even call methods on float literals in javascript!
+                                        //    // 3.1415926535.toString() is valid!
+                                        //    return new Expected(undefined, new ParseError(lineNumber, charNumber, "Currently, literals do not have properties!"));
+                                        //}
+                                    }else {
+                                        return new Expected(undefined, new ParseError(lineNumber, charNumber, "Currently, literals do not have properties!"));
+                                    }
+                                }
+                            }
+
+                            //we'll keep this error unless i feel like giving literals properties like javascript ( e.g. 0x20.toString(), 3.1415926535.toString() )
+                            if(str[i] == '.') {
+                                return new Expected(undefined, new ParseError(lineNumber, charNumber, "Currently, literals do not have properties!"));
+                            }
+                            
+                            if(hex) {
+                                current.value = parseInt(current.value);
+                            }else {
+                                current.value = parseFloat(current.value);
+                            }
+                            tokens.push(current);
+                            current = undefined;
+
+                            //lowkey in that link i put earlier, that guy did not have this for loop problem (and i should learn from that.)
+                            charNumber--;
+                            i--;
+                        }else if(identifierFirstCharRegex.test(char)) {
+                            //identifiers/reserved words
+                            //maximal munch (crazy name)
+
+                            charNumber++;
+                            i++;
+
+                            let label = false;
+
+                            current = new Token(lineNumber, charNumber, TokenKind.IDENTIFIER, char);
+                            while(i < str.length && identifierCharRegex.test(str[i])) {
+                                charNumber++;
+                                current.value += str[i++];
+                            }
+                            if(str[i] == ':') {
+                                label = true;
+                                if(!(current.value in this.identifiers)) {
+                                    this.identifiers[current.value] = true;
+                                    this.labels[current.value] = instructionNumber;
+                                }else {
+                                    return new Expected(undefined, new ParseError(lineNumber, charNumber, "Label cannot have the name of a previously declared identifier!"));
+                                }
+                            }
+                            if(current.value in CustomLangInterpreter.reserved_words) {
+                                current.kind = TokenKind.RESERVED;
+                                if(label) {
+                                    return new Expected(undefined, new ParseError(lineNumber, charNumber, "Reserved word cannot also be label!"));
+                                }
+                                instructionNumber++; // right?
+                            }
+
+                            if(!label) {
+                                tokens.push(current);
+                                
+                                //lowkey in that link i put earlier, that guy did not have this for loop problem (and i should learn from that.)
+                                charNumber--;
+                                i--;
+                            }
+                            //if it's a label we want to skip the colon lol
+                            current = undefined;
+                        }else {
+                            return new Expected(undefined, new ParseError(lineNumber, charNumber, "Unexpected charater!"));
+                        }
+                        //that's more like it :)
+
+                    }/*else { // i suppose i don't really have to do this in the lexer (all he has to do is vaguely figure out what stuff is) and i could just manually check if the substring is one of our mnemonics but too late
                         //if we haven't seen any instructions yet (first character of a new line) we'll do that stuff now
                         //but wait! this will also happen if we've encountered a label!
 
@@ -1350,7 +1554,7 @@
                         //current.value += char;
 
                         //actually, we can just substring the word out and regex it to make sure it matches :)
-                        //technically with the way i just wrote this you could have a label and an instruction in the same line (exactly in that order)
+                        //technically with the way i just wrote this you could have a label and an instruction in the same line (exactly in that order) (this is actually true)
                         let lowest = Infinity;
                         const untilnewline = str.indexOf('\n', i);
                         if(untilnewline != -1) {
@@ -1395,7 +1599,8 @@
                             lowest = str.length;
                         }
 
-                        /*const*/ let line_text = str.substring(i, lowest);
+                        //const
+                        let line_text = str.substring(i, lowest);
 
                         if(!seenInstruction) {
                             const matches = line_text.match(mnemonicRegex);
@@ -1489,7 +1694,7 @@
                             i += line_text.length; // no - 1 to skip the space
                             charNumber += line_text.length; //probably
                         }
-                    }
+                    }*/
                     //at this point, else means we've already tokenized the instruction on this line, we're current not reading a string, and the character is not a quote, newline, caret, hashtag/pound/octothorpe, space, OR dot
                     
                     charNumber++;
@@ -1498,7 +1703,7 @@
                 if(bracketdepth != 0) {
                     return new Expected(undefined, new ParseError(lineNumber, charNumber-1, `End of file reached but we're still expected ${bracketdepth} closing bracket${bracketdepth > 1 ? "s" : ""}!`));
                 }
-                if(current.value != undefined) {
+                if(current != undefined) {
                     return new Expected(undefined, new ParseError(lineNumber, charNumber-1, "Right, what's all this then. (Trailing characters!)")); //subtract char number because after the loop it would be +1 after str.length
                 }
 
@@ -1619,8 +1824,10 @@
                     //instruction ::= mnemonic ' ' arguments
                     //arguments ::= ((argument ',')+ argument) | argument
                     //argument ::= expression | identifier | string
-                    if(mnemonicToken.kind != TokenKind.MNEMONIC) {
-                        return new Expected(undefined, new ParseError(mnemonicToken.line, mnemonicToken.char, "This is not an instruction!")); //NOT AN INSTRUCTION.
+                    // if(mnemonicToken.kind != TokenKind.MNEMONIC) {
+                    if(mnemonicToken.kind != TokenKind.RESERVED) {
+                        // return new Expected(undefined, new ParseError(mnemonicToken.line, mnemonicToken.char, "This is not an instruction!")); //NOT AN INSTRUCTION.
+                        return new Expected(undefined, new ParseError(mnemonicToken.line, mnemonicToken.char, "Expected an instruction!")); //NOT AN INSTRUCTION.
                     }
                     i++;
 
@@ -1650,9 +1857,10 @@
                     // }
 
                     let awaitingSeparator = false; // ok wait it would make way more sense if this was the lexer's job...
+                    let arithmeticPrefix = undefined;
 
                     //aw shoot, i naively assumed arguments would only be 1 token long (but now with the dot and subscript, they can be as long as they want...)
-                    for(i; i < tokens.length && tokens[i].kind != TokenKind.MNEMONIC; i++) {
+                    for(i; i < tokens.length && tokens[i].kind != TokenKind.RESERVED; i++) {
                         const curToken = tokens[i];
                         if(curToken.kind != TokenKind.ARGUMENT_SEPARATOR) {
                             if(!awaitingSeparator) {
@@ -1660,16 +1868,97 @@
                                 
                                 //actually parse argument
                                 switch(curToken.kind) {
+                                    case TokenKind.PLUS:
+                                    case TokenKind.MINUS:
+                                    case TokenKind.EXCLAMATION: {
+                                        const lookahead = tokens[i+1];
+                                        if(!lookahead) {
+                                            return new Expected(undefined, new ParseError(`Line cannot just end with a '${curToken.value}' symbol`));
+                                        }
+                                        switch(lookahead.kind) {
+                                            case TokenKind.NUMBER:
+                                            case TokenKind.STRING: // in javascript, we can coerce strings into numbers (so we'll allow that too)
+                                                //maybe we should do this with arithmeticPrefix like i did with identifiers
+                                                if(curToken.kind == TokenKind.PLUS) {
+                                                    args.push(new Value(+lookahead.value));
+                                                }else if(curToken.kind == TokenKind.MINUS) {
+                                                    args.push(new Value(-lookahead.value));
+                                                }else if(curToken.kind == TokenKind.EXCLAMATION) {
+                                                    args.push(new Value(!lookahead.value));
+                                                    //let not = false;
+                                                    ////we're using i+1 here to check lookahead (and also so we don't have to do anything special with that i++ at the end of this case!)
+                                                    //while(i+1 < tokens.length && tokens[i+1].kind == TokenKind.EXCLAMATION) {
+                                                    //    not = !not;
+                                                    //    i++;
+                                                    //}
+                                                    //if(not) {
+                                                    //    args.push(new Value(!lookahead.value));
+                                                    //}else {
+                                                    //    args.push(new Value(!!lookahead.value)); //the double bang could've been its own token but i'm lazy alright (nevermind this would've been harder lol)
+                                                    //}
+                                                }
+                                                i++; //skip lookahead
+                                                break;
+                                            case TokenKind.IDENTIFIER:
+                                                //i should make sure the instruction i'm calling will let me modify this argument (mov shouldn't! something about lvalues or rvalues or something idk yet lol)
+                                                //uhh i guess we'll handle this in the TokenKind.IDENTIFIER case because creating the value of le identifier is complicated lol
+                                                arithmeticPrefix = curToken.kind;
+                                                awaitingSeparator = false; //oops! we shouldn't expect a comma after plus or minus!
+                                                break;
+                                            default:
+                                                return new Expected(undefined, new ParseError(lookahead.line, lookahead.char, `Unexpected character${lookahead.value.length > 1 ? "s" : ""} following '${curToken.value}' symbol!`));
+                                                break;
+                                        }
+                                        break;
+                                    }
                                     case TokenKind.STRING:
-                                    case TokenKind.NUMBER:
                                         args.push(new Value(curToken.value));
                                         break;
+                                    case TokenKind.NUMBER: {
+                                        const lookahead = tokens[i+1];
+                                        if(lookahead) {
+                                            //actually, this should probably happen outside of this whole switch statement, since strings, numbers and identifiers can be in expressions...
+                                            switch(lookahead.kind) {
+                                                case TokenKind.ARGUMENT_SEPARATOR:
+                                                case TokenKind.RESERVED:
+                                                    // these are fine lol, skip
+                                                    break;
+                                                case TokenKind.PLUS:
+                                                case TokenKind.MINUS:
+                                                // case TokenKind.ASTERISK:
+                                                // case TokenKind.SLASH:
+                                                    //FUCK this is an expression
+                                                    debugger;
+                                                    return new Expected(undefined, new ParseError(lookahead.line, lookahead.char, "We can't do arithmetic expressions yet!"));
+                                                    break;
+                                                default:
+                                                    return new Expected(undefined, new ParseError(lookahead.line, lookahead.char, `Unexpected character${lookahead.value.length > 1 ? "s" : ""} following number!`));
+                                                    break;
+                                            }
+                                        }
+                                        args.push(new Value(curToken.value));
+                                        break;
+                                    }
                                     case TokenKind.IDENTIFIER: {
                                         //args.push(new VariableValue(curToken.value));
                                         //we need to handle dots or subscripts :/
                                         // const slice = tokens.slice(i, tokens.findIndex(t=>t.kind == TokenKind.ARGUMENT_SEPARATOR)); //why does findIndex not let you say where it starts (i could just check in the loop but what's all this)
                                         let end = i;
-                                        for(end; end < tokens.length && tokens[end].kind != TokenKind.ARGUMENT_SEPARATOR && tokens[end].kind != TokenKind.MNEMONIC; end++); //what a line :)
+                                        let bracketdepth = 0;
+                                        // for(end; end < tokens.length && tokens[end].kind != TokenKind.ARGUMENT_SEPARATOR && tokens[end].kind != TokenKind.RESERVED; end++); //what a line :)
+                                        for(end; end < tokens.length && tokens[end].kind != TokenKind.ARGUMENT_SEPARATOR && tokens[end].kind != TokenKind.RESERVED; end++) {
+                                            if(bracketdepth == 0 && TokenKind.isArithmetic(tokens[end].kind)) {
+                                                break;
+                                            }
+                                            if(tokens[end].kind == TokenKind.SUBSCRIPT_START) {
+                                                bracketdepth++;
+                                                continue;
+                                            }
+                                            if(tokens[end].kind == TokenKind.SUBSCRIPT_END) {
+                                                bracketdepth--;
+                                                continue;
+                                            }
+                                        }
                                         const slice = tokens.slice(i, end); //yeah i don't really like the way i wrote this part, i feel like making a slice and then processing that is very weird...
                                         /*if(slice.length != 1) {
                                             let awaitingAccess = false;
@@ -1693,8 +1982,25 @@
                                         if(!result.has_value()) {
                                             return result;
                                         }
+                                        if(arithmeticPrefix) {
+                                            //well i thought it would make sense to push an operation that changed the value before it was actually used but that would actually change the operand
+                                            if(arithmeticPrefix == TokenKind.PLUS) {
+                                                //result.value = new TransformedValue(result.value, (global, operand) => {
+                                                //    return +operand;
+                                                //});
+                                                result.value = new TransformedValue(result.value, TransformedValue.plusTransformation);
+                                            }else if(arithmeticPrefix == TokenKind.MINUS) {
+                                                //result.value = new TransformedValue(result.value, (global, operand) => {
+                                                //    return -operand;
+                                                //});
+                                                result.value = new TransformedValue(result.value, TransformedValue.minusTransformation);
+                                            }else {
+                                                result.value = new TransformedValue(result.value, TransformedValue.notTransformation);
+                                            }
+                                        }
                                         args.push(result.value);
                                         i+=slice.length - 1; //minus 1 since the for loop increments i
+                                        arithmeticPrefix = undefined;
                                         break;
                                     }
                                     default:
@@ -1706,6 +2012,10 @@
                             }
                         }else if(awaitingSeparator) {
                             awaitingSeparator = false;
+                            const lookahead = tokens[i+1];
+                            if(lookahead && lookahead.kind == TokenKind.RESERVED) {
+                                return new Expected(undefined, new ParseError(curToken.line, curToken.char, "No trailing commas!!"));
+                            }
                         }
                     }
 
@@ -1813,19 +2123,24 @@
             execute($rip = 0, ...$args) /*override*/ {
                 //define globals here so we can keep calling execute if we had a CustomLangInterpreter object :)
                 if(this.globals == undefined) {
+                    //this.globals = {
+                    //    print: console.log,
+                    //    global: globalThis, // would be uhh something in lua (maybe game for luau)
+                    //    this: globalThis, // would be script in lua
+                    //    true: true,
+                    //    false: false,
+                    //    undefined,
+                    //    Math,
+                    //    $rflags: {zero: true, sign: 0},
+                    //    $rip: 0,
+                    //    $0: 0, // maybe i should make this better lol ($0 is just like rax and only now did i just realize (i named it $0 because of chrome devtools))
+                    //    eval: CustomLangInterpreter.eval, // every good interpreted language has GOT to have an eval method right!
+                    //    ...this.labels, // object spread!
+                    //};
+
                     this.globals = {
-                        print: console.log,
-                        global: globalThis, // would be uhh something in lua (maybe game for luau)
-                        this: globalThis, // would be script in lua
-                        true: true,
-                        false: false,
-                        undefined,
-                        Math,
-                        $rflags: {zero: true, sign: 0},
-                        $rip: 0,
-                        $0: 0, // maybe i should make this better lol ($0 is just like rax and only now did i just realize (i named it $0 because of chrome devtools))
-                        eval: CustomLangInterpreter.eval, // every good interpreted language has GOT to have an eval method right!
-                        ...this.labels, // object spread!
+                        ...CustomLangInterpreter.default_globals,
+                        ...this.labels,
                     };
                 }
 
