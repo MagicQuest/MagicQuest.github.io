@@ -49,7 +49,7 @@ function createProgram(vertex, fragment) {
         gl.deleteProgram(program);
         gl.deleteShader(vshader);
         gl.deleteShader(fshader);
-        return {vshader, fshader, program};
+        return {program: undefined};
     }
 
     return {vshader, fshader, program};
@@ -614,6 +614,10 @@ class glTexture extends IHasBinding {
 			//@Bound(this._texture)
 			gl.texParameteri(this.target, gl.TEXTURE_MIN_FILTER, gl.LINEAR); //wait a second purrhaps this was the only one i needed? (yeah nah apparently i really do need them all)
 			//i swear there are random times where i need all of them and there are times when i only need gl.TEXTURE_MIN_FILTER set to gl.LINEAR. it's not like there's no default value for TEXTURE_WRAP_S and TEXTURE_WRAP_T (gl.REPEAT) so why do i keep getting inconsistent results?
+
+			//welp, i've finally found out the answer.
+			//in WEBGL1, if your texture is not a power of 2, the texture wrap mode must be gl.CLAMP_TO_EDGE >:[
+			//that shit don't matter in WEBGL2
 
 			GL.popTextureBinding(gl.TEXTURE_2D);
 		}

@@ -66,7 +66,7 @@
 <body>
     <div id="center">
         <textarea id="letext" cols="40" rows="20"></textarea>
-        <br>
+        <br/>
         <button id="execute">Parse and execute le code</button>
         <button id="terrain">workspace.Terrain</button>
 		<select id="example_selection" oninput="selectExample(event);">
@@ -78,6 +78,8 @@
             <option value="callbacks">CALLBACKS!</option>
             <option value="calllabel">calling labels (dangerous!)</option>
             <option value="conways">conways (you already know)</option> <!--but of course!-->
+            <option value="modernconways">conways (modern jsm)</option> <!--but of course!-->
+            <option value="math">arithmetic!</option>
             <option value="luaathome">we have lua at home</option>
             <!--option value="prefixpostfix">unintended prefix postfix</option--> <!--aw man when i fixed out of order increments it throws an error when you try to run this (i guess i know why but i wasn't really trying to let you do that anyways lol)-->
 			<!--option value="bug1">lex bug 1</option--> <!--actually, this one wasn't a bug lol the lexer was just confused-->
@@ -86,10 +88,9 @@
 			<option value="bug4">lex bug 4</option>
 			<option value="pbug1">parse bug 1</option>
             <option value="spellingmistake">parse bug 2</option>
-            <option value="math">arithmetic?</option>
             <!--option value="uhoh">out of order increments...</option--> <!--nevermind lol i knew the solution the whole time-->
 		</select>
-		<br>
+		<br/>
 		<!--p>apparently there's a weird quirk where you can concatenate strings c++ style, also allowing you to coerce random trailing characters into strings like<br><span style="font-family: monospace;">print "" hello_world</span></p--> <!--NOT IN THE MODERN DAY!-->
         <div style="display: flex; flex-direction: column; width: 40em; height: 20em; margin: auto; text-align: left">
             <div id="osc"><!--p style="position:absolute; bottom: 0; right: 0; font-family: Arial, Helvetica, sans-serif; margin: 10px; color: grey;">REPL</p--></div>
@@ -111,7 +112,8 @@
             "bug4": "this is a label:",
             "pbug1": "print \"Hello World!\" \"And goodbye mysterious string concatenation!\"",
             //https://www.youtube.com/watch?v=y3AiGw8mkq0
-            "conways": `### Conways Game of Life in JSM!\n### space to pause/unpause\n### f (while paused) to step forward\n\nmov paused, false\nmov step, false\nmov lastChangedIndex, -1\nmov canvas, undefined\nmov context, undefined\nmov rowscols, 20\nmov rowscols2, rowscols\nmul rowscols2, rowscols2\nmov ratio, 500\ndiv ratio, rowscols\n\n# mov $0, rowscols2\n# dec $0\n# call global.String.prototype.padStart, $0\n# call $0.split, " "\n# call $0.map, \n\n# fill cells array\ncall global.Array, rowscols2\ncall $0.fill, 0\nmov cells, $0\n\n# mov cells[0], 1\n\n# set glider pattern (if rowscols is 10)\n# mov cells[1], 1\n# mov cells[12], 1\n# mov cells[22], 1\n# mov cells[20], 1\n# mov cells[21], 1\n\n# set glider pattern (rowscols 20)\nmov cells[1], 1\nmov cells[22], 1\nmov cells[40], 1\nmov cells[41], 1\nmov cells[42], 1\n\n# copy cells to prevCells\ncall global.structuredClone, cells\nmov prevCells, $0\njmp main\n\ncreate_canvas:\ncall global.document.createElement, "canvas"\nmov canvas, $0\nmov canvas.width, 500\nmov canvas.height, canvas.width\nmov canvas.style.border, "2px solid red"\nmov canvas.id, "canvas"\ncall global.center.appendChild, canvas\nret\n\non_mouse_event:\ncmp $args[0].buttons, 1\njne on_mouse_event_end\n# calculate cell x\nmov $0, $args[0].offsetX\ndiv $0, ratio\ncall Math.trunc, $0\nmov temp_x, $0\nmov $0, rowscols\n# dec $0\ncall Math.min, temp_x, --$0\nmov temp_x, $0\ncall Math.max, temp_x, 0\nmov temp_x, $0\n# calculate cellY\nmov $0, $args[0].offsetY\ndiv $0, ratio\ncall Math.trunc, $0\nmov temp_y, $0\nmov $0, rowscols\n# dec $0\ncall Math.min, temp_y, --$0\nmov temp_y, $0\ncall Math.max, temp_y, 0\nmov temp_y, $0\n# print temp_x, temp_y\n# actually calculate cell index\nmov index, temp_y\nmul index, rowscols\nadd index, temp_x\ncmp index, lastChangedIndex\nje on_mouse_event_end\nmov lastChangedIndex, index\nmov alive, cells[index]\n\n# mov $0, 1\n# $0 = !alive\n# sub $0, alive\n# mov cells[index], $0\n# mov prevCells[index], $0\n\n# in the modern day, we can use the '!'\n# toggle cell at mouse position :)\nmov cells[index], !alive\nmov prevCells[index], !alive\non_mouse_event_end:\nret\n\non_mouse_up_event:\nmov lastChangedIndex, -1\nret\n\non_key_event:\n# using keyCode because we can't compare strings :[ (yet :eyes:)\ncmp $args[0].keyCode, 32\njne on_key_event_check_2\n# paused = 1-paused (!paused)\nmov $0, 1\nsub $0, paused\nmov paused, $0\non_key_event_check_2:\ncmp $args[0].keyCode, 70\njne on_key_event_end\nmov paused, true\nmov step, true\non_key_event_end:\nret\n\n# $args[0] = x, $args[1] = y\n# now i just need to write one in x86 assembly!\ngetNeighbors:\nmov neighbors, 0\nmov local_x, $args[0]\nmov local_y, $args[1]\nmov local_i, -1\ngetNeighbors_for_i:\nmov local_j, -1\ngetNeighbors_for_j:\nmov temp_x, local_x\nadd temp_x, local_i\ncmp temp_x, -1\njg temp_x_check_2\n# wrap around by adding rowscols\nadd temp_x, rowscols\ntemp_x_check_2:\ncmp temp_x, rowscols\njl temp_x_done\n# wrap around using modulus rowscols\n# div temp_x, rowscols\n# mov $0, temp_x # using $0 like rax lol\n# call Math.trunc, $0\n# sub temp_x, $0\n# mul temp_x, rowscols\n\n# using REAL modulus operator\nmod temp_x, rowscols\n\ntemp_x_done:\nmov temp_y, local_y\nadd temp_y, local_j\ncmp temp_y, -1\njg temp_y_check_2\n# wrap around by adding rowscols\nadd temp_y, rowscols\ntemp_y_check_2:\ncmp temp_y, rowscols\njl temp_y_done\n# wrap around using modulus rowscols\n# div temp_y, rowscols\n# mov $0, temp_y # using $0 like rax lol\n# call Math.trunc, $0\n# sub temp_y, $0\n# mul temp_y, rowscols\n\nmod temp_y, rowscols\n\ntemp_y_done:\n# we need to calculate the index of the cell at (temp_x, temp_y)\nmov index, temp_y\nmul index, rowscols\nadd index, temp_x\nadd neighbors, prevCells[index]\ninc local_j\ncmp local_j, 2\njne getNeighbors_for_j\ninc local_i\ncmp local_i, 2\njne getNeighbors_for_i\nmov index, local_y\nmul index, rowscols\nadd index, local_x\nsub neighbors, prevCells[index]\nret neighbors\n\ndraw:\n# int3\nmov context.fillStyle, "red"\ncall context.clearRect, 0, 0, 512, 512\nmov i, 0\ndraw_loop:\n# mov x, i\n# div x, rowscols\n# mov $0, x\n# call Math.trunc, $0\n# mov y, $0\n# sub x, $0\n# mul x, rowscols\n\n# oh my god trying to calculate the modulus myself resulted in floating point errors! (which caused getNeighbors to return NaN)\nmov x, i\nmod x, rowscols\nmov $0, i\ndiv $0, rowscols\ncall Math.trunc, $0\nmov y, $0\n\ncmp paused, true\njne do_logic\ncmp step, true\nje do_logic\nmov alive, cells[i]\njmp skip_logic\ndo_logic:\ncall getNeighbors, x, y\nmov neighbors, $0 # this line is actually unneeded (neighbors is already set in getNeighbors)\nmov alive, cells[i]\ncmp alive, 0\nje dead_cell\n# webassembly method\n# int3\nmov alive, 0\ncmp neighbors, 2\nadd alive, $rflags.zero # alive++ if neighbors == 2\ncmp neighbors, 3\nadd alive, $rflags.zero # alive++ if neighbors == 3\njmp skip_logic # bryg i forgot to jump after this\ndead_cell:\ncmp neighbors, 3\nmov alive, $rflags.zero\nskip_logic:\nmov cells[i], alive\ncmp alive, 0\nje continue_draw_loop\nmul x, ratio\nmul y, ratio\ncall context.fillRect, x, y, ratio, ratio\ncontinue_draw_loop:\ninc i\ncmp i, rowscols2\njne draw_loop\ncall global.structuredClone, cells\nmov prevCells, $0\nmov step, false\ncall global.requestAnimationFrame, draw\nret\n\nmain:\nprint getNeighbors\ncall global.document.getElementById, "canvas"\nmov canvas, $0\ncmp $0, 0 # if canvas != null this results in update_rflags being called with NaN as the first parameter! (somehow though it still works)\njne after_create_canvas\ncall create_canvas\n# we don't need to set canvas because create_canvas already does it!\n# mov canvas, $0\nafter_create_canvas:\ncall canvas.getContext, "2d"\nmov context, $0\ncall canvas.addEventListener, "mousedown", on_mouse_event\ncall canvas.addEventListener, "mouseup", on_mouse_up_event\ncall canvas.addEventListener, "mousemove", on_mouse_event\ncall global.document.addEventListener, "keydown", on_key_event\njmp draw`,
+            "conways": `### Conways Game of Life in JSM!\n### space to pause/unpause\n### f (while paused) to step forward\n\nmov paused, false\nmov step, false\nmov lastChangedIndex, -1\nmov canvas, undefined\nmov context, undefined\nmov rowscols, 20\nmov rowscols2, rowscols\nmul rowscols2, rowscols2\nmov ratio, 500\ndiv ratio, rowscols\n\n# mov $0, rowscols2\n# dec $0\n# call global.String.prototype.padStart, $0\n# call $0.split, " "\n# call $0.map, \n\n# so we can apply a rulestring!\n# default is B3/S23\n# begin and stay are checked if the cell\n# is dead or alive respectively\ncall global.Array, 10\ncall $0.fill, false\nmov begin, $0\n\ncall global.Array, 10\ncall $0.fill, false\nmov stay, $0\n\ncall apply_rulestring, "B3/S23"\n\n# fill cells array\ncall global.Array, rowscols2\ncall $0.fill, 0\nmov cells, $0\n\n# mov cells[0], 1\n\n# set glider pattern (if rowscols is 10)\n# mov cells[1], 1\n# mov cells[12], 1\n# mov cells[22], 1\n# mov cells[20], 1\n# mov cells[21], 1\n\n# set glider pattern (rowscols 20)\nmov cells[1], 1\nmov cells[22], 1\nmov cells[40], 1\nmov cells[41], 1\nmov cells[42], 1\n\n# copy cells to prevCells\ncall global.structuredClone, cells\nmov prevCells, $0\njmp main\n\nclear_cells:\ncall global.Array, rowscols2\ncall $0.fill, 0\nmov cells, $0\ncall global.structuredClone, cells\nmov prevCells, $0\nret\n\ncreate_canvas:\ncall global.document.createElement, "canvas"\nmov canvas, $0\nmov canvas.width, 500\nmov canvas.height, canvas.width\nmov canvas.style.border, "2px solid red"\nmov canvas.id, "canvas"\nmov canvas.tabIndex, 0\ncall canvas.focus\ncall global.center.appendChild, canvas\nret\n\non_mouse_event:\ncmp $args[0].buttons, 1\njne on_mouse_event_end\n# calculate cell x\nmov $0, $args[0].offsetX\ndiv $0, ratio\ncall Math.trunc, $0\nmov temp_x, $0\nmov $0, rowscols\n# dec $0\ncall Math.min, temp_x, --$0\nmov temp_x, $0\ncall Math.max, temp_x, 0\nmov temp_x, $0\n# calculate cellY\nmov $0, $args[0].offsetY\ndiv $0, ratio\ncall Math.trunc, $0\nmov temp_y, $0\nmov $0, rowscols\n# dec $0\ncall Math.min, temp_y, --$0\nmov temp_y, $0\ncall Math.max, temp_y, 0\nmov temp_y, $0\n# print temp_x, temp_y\n# actually calculate cell index\nmov index, temp_y\nmul index, rowscols\nadd index, temp_x\ncmp index, lastChangedIndex\nje on_mouse_event_end\nmov lastChangedIndex, index\nmov alive, cells[index]\n\n# mov $0, 1\n# $0 = !alive\n# sub $0, alive\n# mov cells[index], $0\n# mov prevCells[index], $0\n\n# in the modern day, we can use the '!'\n# toggle cell at mouse position :)\nmov cells[index], !alive\nmov prevCells[index], !alive\non_mouse_event_end:\nret\n\non_mouse_up_event:\nmov lastChangedIndex, -1\nret\n\non_key_event:\n# using keyCode because we can't compare strings :[ (yet :eyes:)\ncmp $args[0].keyCode, 32\njne on_key_event_check_2\n# paused = 1-paused (!paused)\nmov $0, 1\nsub $0, paused\nmov paused, $0\non_key_event_check_2:\ncmp $args[0].keyCode, 70\njne on_key_event_end\nmov paused, true\nmov step, true\non_key_event_end:\nret\n\n# $args[0] = x, $args[1] = y\n# now i just need to write one in x86 assembly!\ngetNeighbors:\nmov neighbors, 0\nmov local_x, $args[0]\nmov local_y, $args[1]\nmov local_i, -1\ngetNeighbors_for_i:\nmov local_j, -1\ngetNeighbors_for_j:\nmov temp_x, local_x\nadd temp_x, local_i\ncmp temp_x, -1\njg temp_x_check_2\n# wrap around by adding rowscols\nadd temp_x, rowscols\ntemp_x_check_2:\ncmp temp_x, rowscols\njl temp_x_done\n# wrap around using modulus rowscols\n# div temp_x, rowscols\n# mov $0, temp_x # using $0 like rax lol\n# call Math.trunc, $0\n# sub temp_x, $0\n# mul temp_x, rowscols\n\n# using REAL modulus operator\nmod temp_x, rowscols\n\ntemp_x_done:\nmov temp_y, local_y\nadd temp_y, local_j\ncmp temp_y, -1\njg temp_y_check_2\n# wrap around by adding rowscols\nadd temp_y, rowscols\ntemp_y_check_2:\ncmp temp_y, rowscols\njl temp_y_done\n# wrap around using modulus rowscols\n# div temp_y, rowscols\n# mov $0, temp_y # using $0 like rax lol\n# call Math.trunc, $0\n# sub temp_y, $0\n# mul temp_y, rowscols\n\nmod temp_y, rowscols\n\ntemp_y_done:\n# we need to calculate the index of the cell at (temp_x, temp_y)\nmov index, temp_y\nmul index, rowscols\nadd index, temp_x\nadd neighbors, prevCells[index]\ninc local_j\ncmp local_j, 2\njne getNeighbors_for_j\ninc local_i\ncmp local_i, 2\njne getNeighbors_for_i\nmov index, local_y\nmul index, rowscols\nadd index, local_x\nsub neighbors, prevCells[index]\nret neighbors\n\ndraw:\n# int3\nmov context.fillStyle, "red"\ncall context.clearRect, 0, 0, 512, 512\nmov i, 0\ndraw_loop:\n# mov x, i\n# div x, rowscols\n# mov $0, x\n# call Math.trunc, $0\n# mov y, $0\n# sub x, $0\n# mul x, rowscols\n\n# oh my god trying to calculate the modulus myself resulted in floating point errors! (which caused getNeighbors to return NaN)\nmov x, i\nmod x, rowscols\nmov $0, i\ndiv $0, rowscols\ncall Math.trunc, $0\nmov y, $0\n\ncmp paused, true\njne do_logic\ncmp step, true\nje do_logic\nmov alive, cells[i]\njmp skip_logic\ndo_logic:\ncall getNeighbors, x, y\nmov neighbors, $0 # this line is actually unneeded (neighbors is already set in getNeighbors)\nmov alive, cells[i]\nmov aliveCheckArr, begin\ncmp alive, 0\nje dead_cell\n# if this cell is alive, use the stay\n# array\nmov aliveCheckArr, stay\ndead_cell:\nmov alive, aliveCheckArr[neighbors]\nskip_logic:\nmov cells[i], alive\ncmp alive, false\nje continue_draw_loop\nmul x, ratio\nmul y, ratio\ncall context.fillRect, x, y, ratio, ratio\ncontinue_draw_loop:\ninc i\ncmp i, rowscols2\njne draw_loop\ncall global.structuredClone, cells\nmov prevCells, $0\nmov step, false\ncall global.requestAnimationFrame, draw\nret\n\n# $args[0] = rulestring\napply_rulestring:\n    call global.RegExp, "B([0-9]*)\\\\/S([0-9]*)"\n    call $args[0].match, $0\n\n    mov $match, $0\n\n    # if match fails, return false\n    cmp $match, 0\n    je apply_rulestring_end_bad\n    # otherwise...\n    # $match[1] = begin rules\n    # $match[2] = stay rules\n\n    #reset begin and stay arrays\n    call global.Array, 10\n    call $0.fill, false\n    mov begin, $0\n\n    call global.Array, 10\n    call $0.fill, false\n    mov stay, $0\n\n    mov local_i, 0\n    cmp $match[1].length, 0\n    je apply_rulestring_skip_begin\n    apply_rulestring_begin_loop:\n    mov begin[$match[1][local_i]], true\n    cmp ++local_i, $match[1].length\n    jl apply_rulestring_begin_loop\n\n    apply_rulestring_skip_begin:\n    mov local_i, 0\n    cmp $match[2].length, 0\n    je apply_rulestring_done\n    apply_rulestring_stay_loop:\n    mov stay[$match[2][local_i]], true\n    cmp ++local_i, $match[2].length\n    jl apply_rulestring_stay_loop\n    \n    apply_rulestring_done:\n    ret true\n    apply_rulestring_end_bad:\n    ret false\n\nmain:\nprint getNeighbors\ncall global.document.getElementById, "canvas"\nmov canvas, $0\ncmp $0, 0 # if canvas != null this results in update_rflags being called with NaN as the first parameter! (somehow though it still works)\njne after_create_canvas\ncall create_canvas\n# we don't need to set canvas because create_canvas already does it!\n# mov canvas, $0\nafter_create_canvas:\ncall canvas.getContext, "2d"\nmov context, $0\ncall canvas.addEventListener, "mousedown", on_mouse_event\ncall canvas.addEventListener, "mouseup", on_mouse_up_event\ncall canvas.addEventListener, "mousemove", on_mouse_event\ncall global.document.addEventListener, "keydown", on_key_event\n\nprint "Use this console to call apply_rulestring or clear_cells!"\nprint "E.g. call apply_rulestring, \\"B3/S23\\""\nprint "Don't accidently press the parse button twice, or else things will start breaking!"\n\njmp draw`,
+            "modernconways": `### Conways Game of Life in JSM!\n### space to pause/unpause\n### f to step forward\n\nmov paused, false\nmov step, false\nmov lastChangedIndex, -1\nmov canvas, undefined\nmov context, undefined\nmov rowscols, 20\nmov rowscols2, rowscols*rowscols\nmov ratio, 500/rowscols\n\n# so we can apply a rulestring!\n# default is B3/S23\nmov begin, global.Array(10).fill(false)\nmov stay, global.Array(10).fill(false)\n\ncall apply_rulestring, "B3/S23"\n\n# fill cells array\nmov cells, global.Array(rowscols2).fill(0)\n\n# mov cells[0], 1\n\n# set glider pattern (if rowscols is 10)\n# mov cells[1], 1\n# mov cells[12], 1\n# mov cells[22], 1\n# mov cells[20], 1\n# mov cells[21], 1\n\n# set glider pattern (rowscols 20)\nmov cells[1], 1\nmov cells[22], 1\nmov cells[40], 1\nmov cells[41], 1\nmov cells[42], 1\n\n# copy cells to prevCells\nmov prevCells, global.structuredClone(cells)\njmp main\n\nclear_cells:\nmov cells, global.Array(rowscols2).fill(0)\nmov prevCells, global.structuredClone(cells)\nret\n\ncreate_canvas:\nmov canvas, global.document.createElement("canvas")\nmov canvas.width, 500\nmov canvas.height, canvas.width\nmov canvas.style.border, "2px solid red"\nmov canvas.id, "canvas"\nmov canvas.tabIndex, "0"\ncall canvas.focus\ncall global.center.appendChild, canvas\nret\n\non_mouse_event:\ncmp $args[0].buttons, 1\njne on_mouse_event_end\n\n# calculate cell x\nmov temp_x, Math.max(Math.min(Math.trunc($args[0].offsetX/ratio), rowscols-1), 0)\n\n# calculate cellY\nmov temp_y, Math.max(Math.min(Math.trunc($args[0].offsetY/ratio), rowscols-1), 0)\n\n# print temp_x, temp_y\n\n# actually calculate cell index\nmov index, temp_y*rowscols + temp_x\n\ncmp index, lastChangedIndex\nje on_mouse_event_end\n\nmov lastChangedIndex, index\nmov alive, cells[index]\n# in the modern day, we can use the '!'\n# toggle cell at mouse position :)\nmov cells[index], !alive\nmov prevCells[index], !alive\n\non_mouse_event_end:\nret\n\non_mouse_up_event:\nmov lastChangedIndex, -1\nret\n\non_key_event:\n# using keyCode because we can't compare strings :[ (yet :eyes:)\ncmp $args[0].keyCode, 32\njne on_key_event_check_2\nmov paused, !paused\non_key_event_check_2:\ncmp $args[0].keyCode, 70\njne on_key_event_end\nmov paused, true\nmov step, true\non_key_event_end:\nret\n\n# $args[0] = x, $args[1] = y\n# now i just need to write one in x86 assembly!\ngetNeighbors:\nmov neighbors, 0\nmov local_x, $args[0]\nmov local_y, $args[1]\nmov local_i, -1\ngetNeighbors_for_i:\nmov local_j, -1\ngetNeighbors_for_j:\nmov temp_x, local_x+local_i\ncmp temp_x, -1\njg temp_x_check_2\n# wrap around by adding rowscols\nadd temp_x, rowscols\ntemp_x_check_2:\ncmp temp_x, rowscols\njl temp_x_done\n\n# wrap around using modulus rowscols\n# div temp_x, rowscols\n# mov $0, temp_x # using $0 like rax lol\n# call Math.trunc, $0\n# sub temp_x, $0\n# mul temp_x, rowscols\n\n# using REAL modulus operator\nmod temp_x, rowscols\n\ntemp_x_done:\nmov temp_y, local_y+local_j\ncmp temp_y, -1\njg temp_y_check_2\n# wrap around by adding rowscols\nadd temp_y, rowscols\ntemp_y_check_2:\ncmp temp_y, rowscols\njl temp_y_done\n\n# wrap around using modulus rowscols\n# div temp_y, rowscols\n# mov $0, temp_y # using $0 like rax lol\n# call Math.trunc, $0\n# sub temp_y, $0\n# mul temp_y, rowscols\n\nmod temp_y, rowscols\n\ntemp_y_done:\n# we need to calculate the index of the cell at (temp_x, temp_y)\nmov index, temp_y*rowscols + temp_x\nadd neighbors, prevCells[index]\ninc local_j\ncmp local_j, 2\njne getNeighbors_for_j\ninc local_i\ncmp local_i, 2\njne getNeighbors_for_i\nmov index, local_y*rowscols + local_x\nsub neighbors, prevCells[index]\nret neighbors\n\ndraw:\n# int3\nmov context.fillStyle, "red"\ncall context.clearRect, 0, 0, 512, 512\nmov i, 0\ndraw_loop:\n\n# mov x, i\n# div x, rowscols\n# mov $0, x\n# call Math.trunc, $0\n# mov y, $0\n# sub x, $0\n# mul x, rowscols\n\n# oh my god trying to calculate the modulus myself resulted in floating point errors! (which caused getNeighbors to return NaN)\n\nmov x, i\nmod x, rowscols\nmov y, Math.trunc(i/rowscols)\n\ncmp paused, true\njne do_logic\ncmp step, true\nje do_logic\nmov alive, cells[i]\njmp skip_logic\ndo_logic:\ncall getNeighbors, x, y\nmov neighbors, $0 # this line is actually unneeded (neighbors is already set in getNeighbors)\nmov alive, cells[i]\nmov aliveCheckArr, begin\ncmp alive, false\nje dead_cell\n# if this cell is alive, use the stay\n# array\nmov aliveCheckArr, stay\ndead_cell:\nmov alive, aliveCheckArr[neighbors]\nskip_logic:\nmov cells[i], alive\ncmp alive, false\nje continue_draw_loop\nmul x, ratio\nmul y, ratio\ncall context.fillRect, x, y, ratio, ratio\ncontinue_draw_loop:\ncmp ++i, rowscols2\njne draw_loop\ncall global.structuredClone, cells\nmov prevCells, $0\nmov step, false\ncall global.requestAnimationFrame, draw\nret\n\n# $args[0] = rulestring\napply_rulestring:\n    # yet again using $0 as temp\n    # (watch out though,\n    # some instructions (even print)\n    # will change $0!)\n    mov $0, global.RegExp("B([0-9]*)\\\\/S([0-9]*)")\n    mov $0, $args[0].match($0)\n    # if match fails, return false\n    cmp $0, 0\n    je apply_rulestring_end_bad\n    # otherwise...\n    # $0[1] = begin rules\n    # $0[2] = stay rules\n\n    #reset begin and stay arrays\n    mov begin, global.Array(10).fill(false)\n    mov stay, global.Array(10).fill(false)\n\n    mov local_i, 0\n    cmp $0[1].length, 0\n    je apply_rulestring_skip_begin\n    apply_rulestring_begin_loop:\n    mov begin[$0[1][local_i]], true\n    cmp ++local_i, $0[1].length\n    jl apply_rulestring_begin_loop\n\n    apply_rulestring_skip_begin:\n    mov local_i, 0\n    cmp $0[2].length, 0\n    je apply_rulestring_done\n    apply_rulestring_stay_loop:\n    mov stay[$0[2][local_i]], true\n    cmp ++local_i, $0[2].length\n    jl apply_rulestring_stay_loop\n    \n    apply_rulestring_done:\n    ret true\n    apply_rulestring_end_bad:\n    ret false\n\nmain:\nprint getNeighbors\nmov canvas, global.document.getElementById("canvas")\ncmp canvas, 0\n\n# if canvas != null this cmp results in\n# update_rflags being called with NaN as\n# the first parameter!\n# (somehow though it still works)\n\njne after_create_canvas\ncall create_canvas\n\nafter_create_canvas:\nmov context, canvas.getContext("2d")\ncall canvas.addEventListener, "mousedown", on_mouse_event\ncall canvas.addEventListener, "mouseup", on_mouse_up_event\ncall canvas.addEventListener, "mousemove", on_mouse_event\ncall global.document.addEventListener, "keydown", on_key_event\n\nprint "Use this console to call apply_rulestring or clear_cells!"\nprint "E.g. call apply_rulestring, \\"B3/S23\\""\nprint "Don't accidently press the parse button twice, or else things will start breaking!"\n\njmp draw`,
             "spellingmistake": "mov numb, 0\nprint ++numb\nprint numb++\nprint numb\nprint --numb\nprint numb--\nprunt numb",
             //"prefixpostfix": "mov x, 0\nprint x\nprint ++x++ # oh god\nprint x",
             "math": "mov x, 10.5\nprint x+x",
@@ -144,6 +146,69 @@
         mov global.obj, $0
         mov global.obj[+label], 1
         print global.obj[0]
+        */
+
+        /*
+        jmp main
+
+        # $args[0] = rulestring
+        apply_rulestring:
+            call global.RegExp, "B([0-9]*)\\/S([0-9]*)"
+            call $args[0].match, $0
+
+            mov $match, $0
+
+            # if match fails, return false
+            cmp $match, 0
+            je apply_rulestring_end_bad
+            # otherwise...
+            # $match[1] = begin rules
+            # $match[2] = stay rules
+
+            #reset begin and stay arrays
+            call global.Array, 10
+            call $0.fill, false
+            mov begin, $0
+
+            call global.Array, 10
+            call $0.fill, false
+            mov stay, $0
+
+            mov local_i, 0
+            cmp $match[1].length, 0
+            je apply_rulestring_skip_begin
+            apply_rulestring_begin_loop:
+            mov begin[$match[1][local_i]], true
+            cmp ++local_i, $match[1].length
+            jl apply_rulestring_begin_loop
+
+            apply_rulestring_skip_begin:
+            mov local_i, 0
+            cmp $match[2].length, 0
+            je apply_rulestring_done
+            apply_rulestring_stay_loop:
+            mov stay[$match[2][local_i]], true
+            cmp ++local_i, $match[2].length
+            jl apply_rulestring_stay_loop
+            
+            apply_rulestring_done:
+            ret true
+            apply_rulestring_end_bad:
+            ret false
+
+        main:
+            call global.Array, 10
+            call $0.fill, false
+            mov begin, $0
+
+            call global.Array, 10
+            call $0.fill, false
+            mov stay, $0
+            
+            call apply_rulestring, "B3/S23"
+            print $0
+            print begin
+            print stay
         */
 
 		function selectExample(/** @type {InputEvent} */ event) {
@@ -303,7 +368,11 @@
                 let parent = global;
                 for(const p of this.value) {
                     last = parent;
-                    parent = parent[p.get(global)];
+                    if(p instanceof MethodValue) {
+                        parent = p.get(global); //hmm i'm worried there's a better way to write this and i just haven't thought of it yet
+                    }else {
+                        parent = parent[p.get(global)];
+                    }
                 }
                 if(parent instanceof Function) {
                     parent = parent.bind(last); //right?
@@ -445,6 +514,16 @@
                 return values[0].get(global) / values[1].get(global);
             }
 
+            //new TransformedValue([function, ...args], TransformedValue.method, true);
+            static method(global, values) {
+                //idk about that slice but...
+                const f = values[0].get(global);
+                if(!(f instanceof Function)) {
+                    throw Error(`'${f}' is not a function!`);
+                }
+                return f(...values[1].map(arg=>arg.get(global)));
+            }
+
             //ok we don't need a map for 3 properties lol
             //static tkindmap = {
             //    [TokenKind.PLUS]: TransformedValue.exprUnaryPlus,
@@ -483,6 +562,13 @@
                         return TransformedValue.exprBinaryDiv;
                         break;
                 }
+            }
+        }
+
+        class MethodValue extends TransformedValue {
+            //value;
+            constructor(/** @type {Array<Value>}*/ values) {
+                super(values, TransformedValue.method, true);
             }
         }
 
@@ -1524,7 +1610,33 @@
             static default_globals = {
                 //custom function here so we can see what is printed :)
                 //in lua this would just actually be print (unless i did this too)
-                print: function(...any) {addConsoleText(false, any.map(v=>""+v)); console.log(...any)},
+                print: function(...any) {
+                    const textArr = [];
+                    for(const type of any) {
+                        //typeof has high precedence as it's one of the unary operators in javascript
+                        switch(typeof type) {
+                            case "bigint":
+                                textArr.push(type+"n"); //lol
+                                break;
+                            case "object":
+                                try {
+                                    textArr.push(JSON.stringify(type)); // apparently, passing window will cause JSON.stringify to throw an error! (of course, it would've been too much text if it worked anyways lol)
+                                }catch(e) {
+                                    console.warn(e);
+                                    textArr.push(type+"");
+                                }
+                                break;
+                            case "string":
+                                textArr.push(`'${type}'`);
+                                break;
+                            default:
+                                textArr.push(type+"");
+                                break;
+                        }
+                    }
+                    addConsoleText(false, textArr);
+                    console.log(...any)
+                },
                 global: globalThis, // would be uhh something in lua (maybe game for luau)
                 this: globalThis, // would be script in lua
                 true: true,
@@ -1637,6 +1749,9 @@
                                 case '"':
                                     current.value += '"';
                                     // i++; //let's skip the quote so we don't mistakenly end the string token
+                                    break;
+                                case '\\':
+                                    current.value += '\\'; //oops i forgot about this important one!
                                     break;
                                 default:
                                     return new Expected(undefined, new ParseError(lineNumber, charNumber, "Unimplemented escape character (lol)"));
@@ -2253,12 +2368,15 @@
                 //SHUNTING YARD 👀👀👀👀👀👀
                 //https://en.wikipedia.org/wiki/Shunting_yard_algorithm
                 //https://en.wikipedia.org/wiki/Reverse_Polish_notation
+                //oh wow this looks like what he had with recursive descent https://en.wikipedia.org/wiki/Operator-precedence_parser#Precedence_climbing_method
                 /** @type {Array<Value | TokenKind>} */
                 let values = [];
                 /** @type {Array<Token>} */
                 let valueTokens = []; //for error reporting char positions
                 /** @type {Array<TokenKind>} */
                 let operatorStack = [];
+
+                let line = tokens[loop.i].line; //we don't know anything if values is empty so we should at least know the line this happens on
 
                 let arithmetic = false;
                 let prefixKind = undefined;
@@ -2271,8 +2389,8 @@
                         case TokenKind.ARGUMENT_SEPARATOR:
                         case TokenKind.RESERVED:
                         case TokenKind.SUBSCRIPT_END:
+                        case TokenKind.CLOSING_PARENTHESIS: //yeah ok we can consume this one lol (nevermind, parseIdentifierPropertyAccess needs to know!)
                             loop.i--; //don't consume these tokens
-                        case TokenKind.CLOSING_PARENTHESIS: //yeah ok we can consume this one lol
                             break while_loop;
                         case TokenKind.PLUS:
                         case TokenKind.MINUS:
@@ -2372,6 +2490,9 @@
                             const result = this.parseExpression(tokens, loop);
                             if(!result.has_value()) {
                                 return result;
+                            }
+                            if(loop.i < tokens.length && tokens[loop.i].kind == TokenKind.CLOSING_PARENTHESIS) {
+                                loop.i++; //skip closing parenthesis
                             }
                             currentValue = result.value;
                             break;
@@ -2487,22 +2608,40 @@
                         return new Expected(undefined, new ParseError(valueTokens[1].line, valueTokens[1].char, "Values/Expressions cannot just follow each other!"));
                     }else if(values.length == 0) {
                         //ok this should probably be an error lol you shouldn't be typing things like (,) anyways
-                        values.push(new Value(undefined));
+                        //values.push(new Value(undefined));
+                        return new Expected(undefined, new ParseError(line, 1, "Expression cannot be empty! Purrhaps you have a comma in the wrong spot?"));
                     }
                     return new Expected(values[0]);
                 }
             }
 
+            /** @returns {Value} */
+            valueFromPath(path) {
+                if(path.length == 1) {
+                    //a lone identifier, it could be a label so we need to check
+                    //ok wait now it could be a method call!
+                    if(path[0] instanceof TransformedValue) {
+                        return path[0]; //method :eyes:
+                    }else if(path[0].value in this.labels) { // when we call certain instructions, we need to know if the arguments are labels or not
+                        return new LabelValue(path[0].value, this);
+                    }else {
+                        return new VariableValue(path[0].value); //lol
+                    }
+                }else {
+                    return new PropertyVariableValue(path);
+                }
+            }
+
             /** @returns {Expected<Value, ParseError>} */
             parseIdentifierPropertyAccess(/** @type {Array<Token>} */ tokens, loop) {
-                let value;
+                //let value;
                 
                 let awaitingAccess = false;
 
                 let bracketdepth = 0; //and here i though we wouldn't need this one
                 
                 /** @type {Array<Value>} */
-                const path = [];
+                let path = [];
                 
                 tokenLoop:
                 while(loop.i < tokens.length) {
@@ -2570,25 +2709,81 @@
                                 break tokenLoop;
                             }
                             break;
-                        
+                            
+                        //hmm i could lowkey make a line like 'print x.toString()' valid here (we could also do it in parseExpression but then i'd have to see if the last token was an open parenthesis and it's just easier here)
+                        //uh oh i'd have to copy what the end of parseIdentifierPropertyAccess does into this case which means we should not do this here lol
+                        case TokenKind.OPEN_PARENTHESIS: {
+                            const args = [];
+                            //this loop kind of does the same thing that the loop in CustomLangInterp.parse does
+                            while(loop.i < tokens.length && tokens[loop.i].kind != TokenKind.RESERVED && tokens[loop.i].kind != TokenKind.CLOSING_PARENTHESIS) {
+                                const result = this.parseExpression(tokens, loop);
+                                if(!result.has_value()) {
+                                    return result;
+                                }
+                                if(loop.i < tokens.length) {
+                                    //this part is a little weird since i consume the CLOSING_PARENTHESIS in parseExpression (i can't be bothered to change it because i can't be bothered to figure out what else i would have to change to make sure everything still works)                                    
+                                    //if(tokens[loop.i].kind == TokenKind.ARGUMENT_SEPARATOR) {
+                                    //    loop.i++; //skip argument separator
+                                    //}else if(tokens[loop.i-1].kind == TokenKind.CLOSING_PARENTHESIS) { //i'm a little worried about this but uhh...
+                                    //    //break;
+                                    //    loop.i--; //we'll just decrement loop.i so that the while loop sees that tokens[loop.i].kind == TokenKind.CLOSING_PARENTHESIS
+                                    //}else {
+                                    //    //wtf is this?
+                                    //    return new Expected(undefined, new ParseError(curToken.line, curToken.char, "Expected comma or closing parenthesis, although, when exactly would this happen?"));
+                                    //}
+                                    //ahh ok so that's why i was worried, if a line goes something like 'print Math.random(), 5' it sees that tokens[loop.i] is an argument separator and keeps going!
+
+                                    //we're gonna have to make it so that parseExpression doesn't consume the closing parenthesis :/
+                                    if(tokens[loop.i].kind == TokenKind.ARGUMENT_SEPARATOR) {
+                                        loop.i++;
+                                    }else if(tokens[loop.i].kind != TokenKind.CLOSING_PARENTHESIS) {
+                                        return new Expected(undefined, new ParseError(curToken.line, curToken.char, "Expected comma or closing parenthesis, although, when exactly would this happen?"));
+                                    }
+                                }
+                                args.push(result.value);
+                            }
+
+                            loop.i++; //consume closing parenthesis
+
+                            //since we need the value when it's called, we'll use a TransformedValue instead of injecting a call instruction
+                            //uhhh unfortunately we need transformed value to actually get the function it's supposed to call, so we need to create a value from the path right now...
+                            //ok i just made it method
+
+                            //                            bruh we need to copy path since we're modifying it here!
+                            //path.push(new TransformedValue([this.valueFromPath(path.slice()), args], TransformedValue.method, true));
+
+                            //hmm ok that was weird, i think i should've popped those from the path
+                            //path = [new TransformedValue([this.valueFromPath(path), args], TransformedValue.method, true)];
+
+                            //we need to use a new type so that PropertyVariableValue.get can actually call it correctly (well ok we just needed to differentiate this one from the other kinds of values, we could've just checked if it was a TransformedValue with the transformation property set to TransformedValue.method)
+                            //before, if you had a line like 'print global.toString()[0]', PropertyVariableValue would attempt to access it via global[global.toString()][0]
+                            //obviously not what we wanted!
+                            //global.toString() should return "[object Window]" and "[object Window]"[0] should be '['
+                            path = [new MethodValue([this.valueFromPath(path), args])];
+                            break;
+                        }
+
                         default:
                             return new Expected(undefined, new ParseError(curToken.line, curToken.char, "Unexpected symbol found when parsing identifier!"));
                             break;
                     }
                 }
                 
-                if(path.length == 1) {
-                    //a lone identifier, it could be a label so we need to check
-                    if(path[0].value in this.labels) { // when we call certain instructions, we need to know if the arguments are labels or not
-                        value = new LabelValue(path[0].value, this);
-                    }else {
-                        value = new VariableValue(path[0].value); //lol
-                    }
-                }else {
-                    value = new PropertyVariableValue(path);
-                }
+                // if(path.length == 1) {
+                //     //a lone identifier, it could be a label so we need to check
+                //     //ok wait now i could be a method call!
+                //     if(path[0] instanceof TransformedValue) {
+                //         value = path[0]; //lol
+                //     }else if(path[0].value in this.labels) { // when we call certain instructions, we need to know if the arguments are labels or not
+                //         value = new LabelValue(path[0].value, this);
+                //     }else {
+                //         value = new VariableValue(path[0].value); //lol
+                //     }
+                // }else {
+                //     value = new PropertyVariableValue(path);
+                // }
 
-                return new Expected(value);
+                return new Expected(this.valueFromPath(path)); //new Expected(value);
             }
 
             /** @returns {Expected<Array<Operation>, ParseError>} */
@@ -2690,7 +2885,16 @@
                                     return result;
                                 }
                                 args.push(result.value);
-                                i = _.i - 1;
+                                if(_.i < tokens.length && tokens[_.i].kind == TokenKind.CLOSING_PARENTHESIS) {
+                                    i = _.i; //consume the closing parenthesis (now that parseExpression doesn't do it themself (apparently parseExpression is nonbinary now))
+                                    //wait a second, what if a programming language forced you to give all identifiers a gender (like some actual languages do irl)
+                                    //numbers: male
+                                    //strings: female
+                                    //arrays: they/them
+                                    //i'm having trouble figuring out what purpose this would serve in a programming language...
+                                }else {
+                                    i = _.i - 1;
+                                }
 
                                 //actually parse argument
                                 //switch(curToken.kind) {
@@ -3062,7 +3266,7 @@
 
                 //oops! calling labels is kind of weird because there are no local variables (so calling a label might just leave your variables scrambled) but also even $rip is changed (so we have to remember the old value)
                 
-                this.callstack.push(this.globals.$rip);
+                this.callstack.push([this.globals.$rip, this.globals.$args]);
 
                 this.globals.$rip = $rip;
                 this.globals.$args = $args;
@@ -3072,7 +3276,7 @@
                     op.execute(this.globals);
                 }
 
-                this.globals.$rip = this.callstack.pop();
+                [this.globals.$rip, this.globals.$args] = this.callstack.pop();
                 
                 return this.globals.$0;
             }

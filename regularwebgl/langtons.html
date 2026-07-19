@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+	<title>langton's ant</title>
+</head>
+<body>
+    <center>
+        <canvas id="canvas" style="border:red 2px solid;" width="512" height="512">idk</canvas>
+    </center>
+	<script id="vertex-shader" type="x-shader/x-vertex">
+		attribute vec4 a_position;
+		//attribute vec2 a_texCoord;
+		//varying vec2 v_texCoord;
+
+		void main() {
+		    //v_texCoord = a_texCoord;
+			gl_Position = a_position;
+		}
+	</script>
+	<script id="fragment-shader" type="x-shader/x-fragment">
+		#ifdef GL_FRAGMENT_PRECISION_HIGH
+			precision highp float;
+		#else
+			precision mediump float;
+		#endif
+
+		uniform sampler2D u_texture;
+		varying vec2 v_texCoord;
+
+		//using a struct for no reason lol
+		struct Ant {
+			vec2 position;
+			vec2 facing;
+		};
+
+		//uniform Ant u_ant;
+
+		uniform sampler2D u_ant;
+		uniform vec2 u_bounds;
+
+		void main() {
+			//gl_FragColor = texture2D(u_texture, v_texCoord);
+			//gl_FragColor = vec4(1.0-gl_FragCoord.x/u_bounds.x, gl_FragCoord.x/u_bounds.x, 0.0, 1.0);
+			vec2 uv = gl_FragCoord.xy / u_bounds;
+			float color = texture2D(u_texture, uv).x;
+			Ant ant;
+			//			   trunc
+			ant.position = floor(texture2D(u_ant, vec2(0.0 + 1.0/4.0, 0.5)).xy * u_bounds) + vec2(0.5, 0.5);
+			//bruh, gl_FragCoord has a range of (0.5, width-0.5) https://stackoverflow.com/questions/16825412/what-is-the-range-of-gl-fragcoord
+			if(ant.position == gl_FragCoord.xy) {
+				color = 1.0-color; //flip
+				//gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+				//return;
+			}
+			//color = 0.0;
+			gl_FragColor = vec4(vec3(color), 1.0);
+		}
+	</script>
+	<script id="ant-fragment-shader" type="x-shader/x-fragment">
+		#ifdef GL_FRAGMENT_PRECISION_HIGH
+			precision highp float;
+		#else
+			precision mediump float;
+		#endif
+
+		#define MATH_PI 3.14159265358979323846264338327950288419716939937510582097494459230781
+
+		uniform sampler2D u_texture;
+		uniform vec2 u_bounds;
+		uniform sampler2D u_ant;
+		void main() {
+			if(gl_FragCoord.x == 0.5) {
+				gl_FragColor = texture2D(u_ant, vec2(1.0/2.0 + 1.0/4.0, 0.5));
+				//gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0);
+				return;
+			}
+			vec4 ant = texture2D(u_ant, vec2(1.0/2.0 + 1.0/4.0, 0.5));
+			vec2 position = floor(ant.xy*u_bounds);
+			vec2 uv = position/u_bounds;
+			float PI2 = MATH_PI*2.0;
+			float theta = floor((ant.z*PI2)/(MATH_PI/2.0) + 0.5)*(MATH_PI/2.0);
+			//          round
+			float map = floor(texture2D(u_texture, uv).x + 0.5)*2.0 - 1.0;
+			//theta += (90*MATH_PI/180.0)*map;
+			theta = mod(theta + PI2 + (-map*90.0*MATH_PI/180.0), PI2);
+			//			round
+			//position += floor(vec2(cos(theta)+0.5, sin(theta)+0.5));
+			//why is this position += not working?
+			//lowkey... i don't think we have the precision for allat
+			//fuck this bruh, we need webgl2 :/
+			position += vec2(cos(theta), sin(theta));
+			gl_FragColor = vec4(position.xy/u_bounds, theta/PI2, sin(theta)); 
+		}
+	</script>
+    <script src="./glwrapperex.js"></script>
+    <script>
+		debugger;
+        const canvas = document.getElementById("canvas");
+        const gl = canvas.getContext("webgl");
+
+        if(!gl) {
+            document.write("yo for some reason we couldn't get the webgl context?");
+            quit;
+        }
+
+        const program = glProgram.fromShaders(document.getElementById("vertex-shader").innerText, document.getElementById("fragment-shader").innerText).get();
+		const antProgram = glProgram.fromShaders(document.getElementById("vertex-shader").innerText, document.getElementById("ant-fragment-shader").innerText).get();
+
+		const VAO = glPolyfill.createVertexArray(gl);
+		glPolyfill.bindVertexArray(gl, VAO);
+
+		const vertexBuffer = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+		  //x    y     u    v
+			//-1.0, -1.0,0.0, 0.0,
+			//-1.0, 1.0, 0.0, 1.0,
+			//1.0, -1.0, 1.0, 0.0,
+			//1.0, 1.0,  1.0, 1.0,
+			-1.0, 1.0, //0.0, 1.0,
+			-1.0, -1.0,//0.0, 0.0,
+			1.0, 1.0,  //1.0, 1.0,
+			1.0, -1.0, //1.0, 0.0,
+		]), gl.STATIC_DRAW);
+
+		const a_position = gl.getAttribLocation(program, "a_position");
+		gl.vertexAttribPointer(a_position, 2, gl.FLOAT, false, 2*4, 0);
+		gl.enableVertexAttribArray(a_position);
+
+		//oh wait we don't need tex coords lol
+		//const a_texCoord = gl.getAttribLocation(program, "a_texCoord");
+		//gl.vertexAttribPointer(a_texCoord, 2, gl.FLOAT, false, 4*4, 2*4);
+		//gl.enableVertexAttribArray(a_texCoord);
+
+		const textureLoc = gl.getUniformLocation(program, "u_texture");
+		//const antPositionLoc = gl.getUniformLocation(program, "u_ant.position");
+		//const antFacingLoc = gl.getUniformLocation(program, "u_ant.facing");
+		const boundsLoc = gl.getUniformLocation(program, "u_bounds");
+		const antLoc = gl.getUniformLocation(program, "u_ant");
+
+		const antTextureLoc = gl.getUniformLocation(antProgram, "u_texture");
+		const antBoundsLoc = gl.getUniformLocation(antProgram, "u_bounds");
+		const antAntLoc = gl.getUniformLocation(antProgram, "u_ant");
+		
+		gl.useProgram(antProgram);
+
+		//gl.uniform2f(antPositionLoc, gl.canvas.width/2 + 0.5, gl.canvas.height/2 + 0.5);
+		gl.uniform2f(antBoundsLoc, gl.canvas.width, gl.canvas.height);
+
+		const texture = gl.createTexture();
+		gl.activeTexture(gl.TEXTURE0);
+		gl.bindTexture(gl.TEXTURE_2D, texture);
+
+		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+
+		//i'm bloody fucking chuffed, in webgl1 you MUST set the fucking texture wrap mode to gl.CLAMP_TO_EDGE if your texture is not a power of 2
+		//IN WEBGL2 YOU DON'T HAVE TO DO THAT SHIT
+		//WHY THE FUCK IS THE DEFAULT TEXTURE WRAP MODE gl.REPEAT IF YOU CAN'T USE IT IN CERTAIN CIRCUMSTANCES
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.canvas.width, gl.canvas.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(gl.canvas.width*gl.canvas.height*4).fill(255));
+
+		//{
+		//	const img = new Image();
+		//	img.onload = function(event) {
+		//		gl.activeTexture(gl.TEXTURE0);
+		//		gl.bindTexture(gl.TEXTURE_2D, texture);
+		//		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+		//		draw();
+		//	}
+		//	img.src = "./textures/noise.png";
+		//	//img.src = "./textures/utah_teapot_textures_grid.png"; //power of 2
+		//}
+
+		gl.uniform1i(antTextureLoc, gl.TEXTURE0 - gl.TEXTURE0);
+
+		const antTexture = gl.createTexture();
+		gl.activeTexture(gl.TEXTURE1);
+		gl.bindTexture(gl.TEXTURE_2D, antTexture);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+		/*gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 2, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([
+			127, 127, 0, 0,
+			0, 0, 0, 0
+		]));*/
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 2, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([
+			127, 127, 127, 0,
+			17, 127, 127, 0
+		]));
+
+		gl.uniform1i(antAntLoc, gl.TEXTURE1 - gl.TEXTURE0);
+
+		gl.useProgram(program);
+
+		gl.uniform2f(boundsLoc, gl.canvas.width, gl.canvas.height);
+		gl.uniform1i(textureLoc, gl.TEXTURE0 - gl.TEXTURE0);
+		gl.uniform1i(antLoc, gl.TEXTURE1 - gl.TEXTURE0);
+
+		const framebuffer = gl.createFramebuffer();
+		gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+		const framebufferTexture = gl.createTexture();
+		gl.activeTexture(gl.TEXTURE2);
+		gl.bindTexture(gl.TEXTURE_2D, framebufferTexture);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 2, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, framebufferTexture, 0);
+
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+		//function draw() {
+		//	gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+		//	glPolyfill.bindVertexArray(gl, VAO);
+
+		//	gl.useProgram(program);
+
+		//	gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+		//}
+
+		function draw() {
+			//gl.viewport(0, 0, gl.canvas.width, gl.canvas.height); //technically don't need to call this in le draw func
+	
+			//gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+			//gl.clearColor(1.0, 0.0, 1.0, 1.0);
+			//gl.clear(gl.COLOR_BUFFER_BIT);
+
+			glPolyfill.bindVertexArray(gl, VAO);
+
+			gl.viewport(0, 0, 2, 1);
+
+			gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+
+			gl.useProgram(antProgram);
+
+			gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+			gl.activeTexture(gl.TEXTURE1);
+			gl.bindTexture(gl.TEXTURE_2D, antTexture);
+			gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, 2, 1, 0); //copy framebuffer temp to antTexture
+
+			const pixels = new Uint8Array(2*1*4);
+			gl.readPixels(0, 0, 2, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+			console.log(`last ant: {x: ${pixels[0] * gl.canvas.width/255}, y: ${pixels[1] * gl.canvas.height/255}, theta: ${pixels[2]*Math.PI*2/255}}`);
+			console.log(`ant: {x: ${pixels[4] * gl.canvas.width/255}, y: ${pixels[5] * gl.canvas.height/255}, theta: ${pixels[6]*Math.PI*2/255}}`);
+
+			gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+			gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+			gl.useProgram(program);
+
+			gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+			gl.activeTexture(gl.TEXTURE0);
+			gl.bindTexture(gl.TEXTURE_2D, texture);
+			gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, gl.canvas.width, gl.canvas.height, 0);
+
+			//gl.activeTexture(gl.TEXTURE1);
+			//gl.bindTexture(gl.TEXTURE_2D, framebufferTexture);
+			//gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, gl.canvas.width, gl.canvas.height, 0);
+
+			//requestAnimationFrame(draw);
+        }
+
+		draw();
+    </script>
+</body>
+</html>
