@@ -313,7 +313,7 @@
                     }else {
                         result.value[0].execute(currentInterpreter.globals); //yeah this is all i got lol
                     }
-                    if(!doprint && firstToken.value == "call") {
+                    if(!doprint && (firstToken.value == "call" || firstToken.value == "eval")) {
                         addConsoleText(false, ["$0: " + currentInterpreter.globals.$0]); //lol
                     }
                 }catch(e) {
@@ -421,12 +421,12 @@
             //binary operators only lol that's just how i wrote parseExpression
             static getPrecedence(kind) {
                 switch(kind) {
-                    //unary
+                    //unary (ok wait unary operators are handled in parseExpression separately (apparently i should've implemented all operators at once, now i don't want to get rid of the hard work i did for unary operators!))
                     //case TokenKind.PLUS:
                     //case TokenKind.MINUS:
-                    case TokenKind.EXCLAMATION:
-                        return 5; //highest
-                        break;
+                    //case TokenKind.EXCLAMATION:
+                    //    return 5; //highest
+                    //    break;
                     
                     //factor
                     case TokenKind.ASTERISK:
@@ -2892,6 +2892,9 @@
                                     //strings: female
                                     //arrays: they/them
                                     //i'm having trouble figuring out what purpose this would serve in a programming language...
+                                    //Expected<Value, ParseError> nonbinary parseExpression(...);
+                                    //const foo : male = {...};
+                                    //a range operator: 0->100 generates an array of numbers from 0 to 100
                                 }else {
                                     i = _.i - 1;
                                 }
