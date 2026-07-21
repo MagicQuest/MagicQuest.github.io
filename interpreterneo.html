@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEO programs NEO shows NEO interpreters!</title>
+    <style>
+        #center {
+            position: absolute;
+            margin: auto;
+            left: 0;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            text-align: center;
+        }
+
+        button:hover {
+            font-weight: bold;
+        }
+
+        button:active {
+            font-weight: initial;
+        }
+    </style>
+</head>
+<body>
+    <div id="center">
+        <textarea id="letext" cols="40" rows="20"></textarea>
+        <br>
+        <button id="execute">Interpret ;&rpar;</button>
+    	<select id="example_selection" oninput="selectExample(event);">
+			<option value="basic">basic</option>
+			<option value="hashbang">hashbang</option>
+            <option value="nonstrict">allowed in non strict mode</option>
+            <option value="operators">operators</option>
+            <option value="alltokens" selected>all token kinds</option>
+        </select>
+    </div>
+    <script>
+        const examples = {
+            "basic": "let x = 5;",
+            "hashbang": "#!/usr/bin/env node",
+            "nonstrict": "var let = 5;",
+            "operators": "?.\n++\n--\n+\n-\n~\n!\n**\n*\n/\n%\n<\n>\n<=\n>=\n==\n!=\n===\n!==\n<<\n>>\n>>>\n&\n|\n^\n&&\n||\n??\n=\n*=\n/=\n%=\n+=\n-=\n<<=\n>>=\n>>>=\n&=\n^=\n|=\n**=\n&&=\n||=\n??=\n,\n...",
+            "alltokens": "var\nlet\n\"hi\"\n5\n5n\ntrue\nundefined\nnull\nfemale\n[\n]\n.\n(\n)\n+\n-\n*\n/\n!\n--\n++\n?.\n~\n**\n%\n<\n>\n<=\n>=\n==\n!=\n===\n!==\n<<\n>>\n>>>\n&\n|\n^\n&&\n||\n??\n? :\n=\n*=\n/=\n%=\n+=\n-=\n<<=\n>>=\n>>>=\n&=\n^=\n|=\n**=\n&&=\n||=\n??=\n,\n..."
+        }
+		function selectExample(/** @type {InputEvent} */ event) {
+			letext.value = examples[event.target.value];
+		}
+		selectExample({target: example_selection});
+
+        //expressions can happen after semicolons, in parenthesis and at the beginning of lines
+        //if a line starts with a reserved word we should switch based on the value
+        
+        //based on std::expected, but this could've also been rust's Result if i was in my rust era again
+        /** @template [T=object, K=object] */
+        class Expected {
+            /** @type {T?} */
+            value;
+            /** @type {K?} */
+            error;
+            /**
+             * @param {T?} value
+             * @param {K?} error
+             */
+            constructor(value, error = undefined) {
+                this.value = value;
+                this.error = error;
+            }
+            has_value() {
+                return this.value != undefined;
+            }
+        }
+
+        function Unexpected(error) {
+            return new Expected(undefined, error);
+        }
+
+        class ParseError {
+            line;
+            char;
+            reason;
+            constructor(line, char, reason) {
+                this.line = line;
+                this.char = char;
+                this.reason = reason;
+            }
+            /** 
+             * @param {String} source
+             * @returns {String}
+             */
+            toString(source) {
+                const lines = source.split("\n");
+                let errorMessage = `Line: ${this.line}, Character: ${this.char}\n#### ${this.reason} ####\n${lines[this.line-1]}\n`;
+                //for(let i = 0; i < this.char-1; i++) { // i feel like this loop is crazy but is there another way to do it (in javascript)
+                //    errorMessage += " ";
+                //}
+
+                //oh yeah lol padStart i did it earlier
+                errorMessage += "".padStart(this.char-1, " ");
+
+                errorMessage += "^ HERE";
+                // console.error(errorMessage);
+                //throw errorMessage;
+                return errorMessage;
+            }
+        }
+
+        class Token {
+            line;
+            char;
+            kind;
+            value;
+            constructor(line, char, kind, value) {
+                this.line = line;
+                this.char = char;
+                this.kind = kind;
+                this.value = value;
+            }
+        }
+
+        /*enum*/ class TokenKind {
+            static RESERVED = 1;
+            static IDENTIFIER = 2;
+            static STRING = 3;
+            static NUMBER = 4;
+            static BIGINT = 5;
+            static BOOLEAN = 6;
+            static UNDEFINED = 7;
+            static NULL = 8;
+            static TEMPLATE_EXPRESSION = 9; //weird...
+            static GENDER = 10;
+            static OPEN_BRACKET = 11;
+            static CLOSING_BRACKET = 12;
+            static DOT = 13;
+            //what else should become tokens... https://stackoverflow.com/questions/73226710/can-someone-explain-how-tokenizing-works-in-lexers
+            static OPEN_PARENTHESIS = 14;
+            static CLOSING_PARENTHESIS = 15;
+            //operators
+            static PLUS = 16;
+            static MINUS = 17;
+            static ASTERISK = 18;
+            static SLASH = 19;
+            static EXCLAMATION = 20;
+            static DECREMENT = 21;
+            static INCREMENT = 22;
+            static OPTIONAL_CHAINING = 23;
+            static BITWISE_NOT = 24;
+            static EXPONENTIATION = 25;
+            static REMAINDER = 26;
+            static LESS_THAN = 27;
+            static GREATER_THAN = 28;
+            static LESS_EQUAL = 29;
+            static GREATER_EQUAL = 30;
+            static EQUAL_EQUAL = 31;
+            static NOT_EQUAL = 32;
+            static STRICT_EQUAL = 33;
+            static STRICT_NOT_EQUAL = 34;
+            static BITWISE_SHIFT_LEFT = 35;
+            static BITWISE_SHIFT_RIGHT = 36;
+            static BITWISE_UNSIGNED_SHIFT_RIGHT = 37;
+            static BITWISE_AND = 38;
+            static BITWISE_OR = 39;
+            static BITWISE_XOR = 40;
+            static LOGICAL_AND = 41;
+            static LOGICAL_OR = 42;
+            static NULLISH_COALESCING = 43;
+            static QUESTION = 44; //for ternary
+            static COLON = 45;
+            static EQUALS = 46;
+            static MUL_EQUALS = 47;
+            static DIV_EQUALS = 48;
+            static REMAINDER_EQUALS = 49;
+            static PLUS_EQUALS = 50;
+            static MINUS_EQUALS = 51;
+            static BITWISE_SHIFT_LEFT_EQUALS = 52;
+            static BITWISE_SHIFT_RIGHT_EQUALS = 53;
+            static BITWISE_UNSIGNED_SHIFT_RIGHT_EQUALS = 54;
+            static BITWISE_AND_EQUALS = 55;
+            static BITWISE_XOR_EQUALS = 56;
+            static BITWISE_OR_EQUALS = 57;
+            static EXPONENTIATION_EQUALS = 58;
+            static LOGICAL_AND_EQUALS = 59;
+            static LOGICAL_OR_EQUALS = 60;
+            static NULLISH_COALESCING_EQUALS = 61;
+            static COMMA = 62;
+            static SPREAD = 63;
+        }
+
+        class Interpreter {
+            /** 
+             * @param {String} str
+             * @returns {Expected<Array, ParseError>}
+             * */
+            parse(str) {} // = 0;
+            interpret(str) {
+                const result = this.parse(str);
+                if(!result.has_value()) {
+                    const err = result.error.toString(str);
+                    letext.style.backgroundColor = "pink";
+                    //addConsoleText(true, [err]);
+                    const temp = err.split("\n");
+                    temp[temp.length-1] = "(this font isn't monospace so see the console for the correct character position)";
+                    letext.setAttribute("title", temp.join("\n"));
+                    throw err;
+                }
+                letext.style.backgroundColor = "";
+                letext.removeAttribute("title");
+                console.log(result.value);
+                //etc...
+            }
+        }
+
+        class Lexer {
+            /** @type {Interpreter} */
+            interpreter;
+            /** @param {Interpreter} interpreter */
+            constructor(interpreter) {
+                this.interpreter = interpreter;
+            }
+        }
+
+        class Environment {
+            //in javascript we do!
+            static hasBigNumbers() {
+                return true;
+            }
+        }
+
+        //lexical grammar for javascript
+        //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Lexical_grammar
+        //we're not doing that identifier unicode escape sequence shit lol (actually maybe it wouldn't be TOO hard)
+        //my number production rule implies that 100e+2e+2 and 0755n are valid but we'll fix that in post
+        //identifier ::= /[$_\p{ID_Start}][$\p{ID_Continue}]*/u
+        //number ::= sign? ((hex | octal | binary) | ([0-9]* ('.' [0-9]*)?)) ('n' | ([eE] number))?
+        //hex ::= '0' [xX] [0-9a-fA-F]+
+        //octal ::= '0' [oO] [0-7]+
+        //binary ::= '0' [bB] [0-1]+
+        //sign ::= '+' | '-'
+        //string ::= (["'`]).+\1
+        //regex ::= '/' .+ '/' [gimsuy]*
+        class JavascriptLexer extends Lexer {
+            static reserved = new Map([
+                //regular
+                ["break", true],
+                ["case", true],
+                ["catch", true],
+                ["class", true],
+                ["const", true],
+                ["continue", true],
+                ["debugger", true],
+                ["default", true],
+                ["delete", true],
+                ["do", true],
+                ["else", true],
+                ["export", true],
+                ["extends", true],
+                ["false", true],
+                ["finally", true],
+                ["for", true],
+                ["function", true],
+                ["if", true],
+                ["import", true],
+                ["in", true],
+                ["instanceof", true],
+                ["new", true],
+                ["null", true],
+                ["return", true],
+                ["super", true],
+                ["switch", true],
+                ["this", true],
+                ["throw", true],
+                ["true", true],
+                ["try", true],
+                ["typeof", true],
+                ["var", true],
+                ["void", true],
+                ["while", true],
+                ["with", true],
+
+                //strict mode
+                // ["let", true],
+                // ["static", true],
+                // ["yield", true],
+
+                //in modules or async functions
+                ["await", true],
+
+                //future reserved
+                ["enum", true],
+
+                //strict mode
+                // ["implements", true],
+                // ["interface", true],
+                // ["package", true],
+                // ["private", true],
+                // ["protected", true],
+                // ["public", true]
+            ]);
+
+            static strict_reserved = new Map([
+                //regular
+                ["let", true],
+                ["static", true],
+                ["yield", true],
+
+                //future reserved
+                ["implements", true],
+                ["interface", true],
+                ["package", true],
+                ["private", true],
+                ["protected", true],
+                ["public", true]
+            ]);
+
+            i = 0;
+
+            /** @param {JavascriptInterpreter} parentInterpreter */
+            constructor(parentInterpreter) {
+                super(parentInterpreter);
+            }
+
+            /** 
+             * @param {String} str
+             * @returns {Expected<Array<Token>, ParseError>} */
+            lex(str, readingTemplate = false) {
+                debugger;
+
+                /** @type {Array<Token>} */
+                const tokens = [];
+
+                //let i = 0;
+                let lineNumber = 1;
+                let lineIndex = 0;
+
+                let useStrict = false;
+
+                if(str.length > 1) {
+                    if(str[0] == '#' && str[1] == '!') {
+                        str = str.replace("#!", "//"); //lol
+                    }
+                }
+
+                const isNumberRegex = /[0-9]/;
+                const identifierStartRegex = /[$_\p{ID_Start}]/u;
+                const identifierRegex = /[$\p{ID_Continue}]/u;
+
+                const hexRegex = /[0-9a-f_]/i;
+                const octalRegex = /[0-7_]/;
+
+                while(this.i < str.length) {
+                    const char = str[this.i++];
+                    const charNumber = this.i - lineIndex;
+                    switch(char) {
+                        //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Lexical_grammar#white_space
+                        case '\t':
+                        case '\v':
+                        case '\f':
+                        case ' ':
+                        case '\r': //probably fine
+                        case '\u00A0': //nbsp
+                        case '\uFEFF': //bom marker
+                        //<USP>...
+                            continue;
+
+                        case '/':
+                            if(str[this.i] == '/') {
+                                //comment
+                                this.i = str.indexOf("\n", this.i);
+                                if(this.i == -1) this.i = str.length;
+                            }else if(str[this.i] == '*') {
+                                //multiline comment
+                                const target = str.indexOf("*/", this.i)+2;
+                                while((this.i = str.indexOf("\n", this.i)+1) < target) { //uhh probably right
+                                    lineNumber++;
+                                    lineIndex = this.i;
+                                }
+                                this.i = target;
+                                if(this.i == -1) this.i = str.length;
+                            }else if(str[this.i] == '=') {
+                                //consume =
+                                this.i++;
+                                tokens.push(new Token(lineNumber, charNumber, TokenKind.DIV_EQUALS, "/="));
+                            }else {
+                                tokens.push(new Token(lineNumber, charNumber, TokenKind.SLASH, "/"));
+                            }
+                            break;
+
+                        case '\n': //automagic semicolon insertion...
+                            lineNumber++;
+                            lineIndex = this.i;
+                            break;
+
+                        case '"':
+                        case '\'':
+                        case '`': {
+                            const stringToken = new Token(lineNumber, charNumber, TokenKind.STRING, "");
+                            let escaped = false;
+                            let ended = false;
+                            while(this.i < str.length) {
+                                if(str[this.i] == char) {
+                                    this.i++; //consume ending quote
+                                    ended = true;
+                                    break;
+                                }
+                                if(str[this.i] == '\n') {
+                                    lineNumber++;
+                                    lineIndex = this.i;
+                                    this.i++; //consume newline
+                                    if(!escaped) {
+                                        if(char == '`') {
+                                            //backtick allows multiline string
+                                            stringToken.value += "\n";
+                                        }else {
+                                            return Unexpected(new ParseError(lineNumber, this.i - lineIndex, "Use a backslash for multiline strings! (or use the backtick quote '`')"));
+                                        }
+                                    }else {
+                                        escaped = false;
+                                    }
+                                }else if(str[this.i] == '\\') {
+                                    //escape!
+                                    this.i++; //consume \
+                                    switch(str[this.i]) {
+                                        case '0':
+                                            stringToken.value += '\0';
+                                            break;
+                                        case '1':
+                                        case '2':
+                                        case '3':
+                                        case '4':
+                                        case '5':
+                                        case '6':
+                                        case '7':
+                                        case '8':
+                                        case '9':
+                                        case 'x':
+                                        case 'u':
+                                            return Unexpected(new ParseError(lineNumber, this.i - lineIndex, "We're not doing all that fancy escape stuff bruh"));
+                                            break;
+                                        case '\'':
+                                            stringToken.value += '\'';
+                                            break;
+                                        case '"':
+                                            stringToken.value += '\"';
+                                            break;
+                                        case '\\':
+                                            stringToken.value += '\\';
+                                            break;
+                                        case 'n':
+                                            stringToken.value += '\n';
+                                            break;
+                                        case 'r':
+                                            stringToken.value += '\r';
+                                            break;
+                                        case 'v':
+                                            stringToken.value += '\v';
+                                            break;
+                                        case 't':
+                                            stringToken.value += '\t';
+                                            break;
+                                        case 'b':
+                                            stringToken.value += '\b';
+                                            break;
+                                        case 'f':
+                                            stringToken.value += '\f';
+                                            break;
+                                        case '\r':
+                                            if(str[this.i+1] == '\n') {
+                                                //eval(`"\\\r\n"`);
+                                                this.i++; //consume \r
+                                                //[[fallthrough]]
+                                            }else {
+                                                stringToken.value += '\r';
+                                                break;
+                                            }
+                                        case '\n':
+                                            escaped = true;
+                                            this.i--; //don't consume the newline!
+                                            break;
+                                        default:
+                                            stringToken.value += str[this.i];
+                                            break;
+                                    }
+                                    this.i++; //consume whatever character that was
+                                }else if(char == '`' && str[this.i] == '$') {
+                                    if(str[this.i+1] == '{') {
+                                        const templateCharNumber = this.i - lineIndex;
+                                        this.i+=2; //consume dollar and curly bracket
+                                        //template
+                                        const result = this.lex(str, true); //i assume i'll make this work eventually lol
+                                        if(!result.has_value()) {
+                                            return result;
+                                        }
+                                        tokens.push(new Token(lineNumber, templateCharNumber, TokenKind.TEMPLATE_EXPRESSION, result.value));
+                                    }else {
+                                        stringToken.value += str[this.i++];
+                                    }
+                                }else {
+                                    stringToken.value += str[this.i++];
+                                }
+                            }
+                            if(!ended) {
+                                return Unexpected(new ParseError(lineNumber, this.i - lineIndex, "End of file reached before ending string quote!"));
+                            }
+                            tokens.push(stringToken);
+                            break;
+                        }
+
+                        case '?':
+                            if(str[this.i] == '.') {
+                                this.i++; //consume dot
+                                tokens.push(new Token(lineNumber, charNumber, TokenKind.OPTIONAL_CHAINING, "?."));
+                            }else if(str[this.i] == '?') {
+                                this.i++; //consume ?
+                                if(str[this.i] == '=') {
+                                    this.i++; //consume =
+                                    tokens.push(new Token(lineNumber, charNumber, TokenKind.NULLISH_COALESCING_EQUALS, "??="));
+                                }else {
+                                    tokens.push(new Token(lineNumber, charNumber, TokenKind.NULLISH_COALESCING, "??"));
+                                }
+                            }else {
+                                tokens.push(new Token(lineNumber, charNumber, TokenKind.QUESTION, "?"));
+                            }
+                            break;
+
+                        case ':':
+                            tokens.push(new Token(lineNumber, charNumber, TokenKind.COLON, ":"));
+                            break;
+
+                        case '+':
+                            if(str[this.i] == '+') {
+                                this.i++; //consume +
+                                tokens.push(new Token(lineNumber, charNumber, TokenKind.INCREMENT, "++"));
+                            }else if(str[this.i] == '=') {
+                                this.i++; //consume =
+                                tokens.push(new Token(lineNumber, charNumber, TokenKind.PLUS_EQUALS, "+="));
+                            }else {
+                                tokens.push(new Token(lineNumber, charNumber, TokenKind.PLUS, "+"));
+                            }
+                            break;
+
+                        case '-':
+                            if(str[this.i] == '-') {
+                                this.i++; //consume -
+                                tokens.push(new Token(lineNumber, charNumber, TokenKind.DECREMENT, "--"));
+                            }else if(str[this.i] == '=') {
+                                this.i++; //consume =
+                                tokens.push(new Token(lineNumber, charNumber, TokenKind.MINUS_EQUALS, "-="));
+                            }else {
+                                tokens.push(new Token(lineNumber, charNumber, TokenKind.MINUS, "-"));
+                            }
+                            break;
+
+                        case '*':
+                            if(str[this.i] == '*') {
+                                this.i++; //consume *
+                                if(str[this.i] == '=') {
+                                    this.i++; //consume =
+                                    tokens.push(new Token(lineNumber, charNumber, TokenKind.EXPONENTIATION_EQUALS, "**="));
+                                }else {
+                                    tokens.push(new Token(lineNumber, charNumber, TokenKind.EXPONENTIATION, "**"));
+                                }
+                            }else if(str[this.i] == '=') {
+                                this.i++; //consume =
+                                tokens.push(new Token(lineNumber, charNumber, TokenKind.MUL_EQUALS, "*="));
+                            }else {
+                                tokens.push(new Token(lineNumber, charNumber, TokenKind.ASTERISK, "*"));
+                            }
+                            break;
+
+                        case '%':
+                            if(str[this.i] == '=') {
+                                this.i++; //consume =
+                                tokens.push(new Token(lineNumber, charNumber, TokenKind.REMAINDER_EQUALS, "%="));
+                            }else {
+                                tokens.push(new Token(lineNumber, charNumber, TokenKind.REMAINDER, "%"));
+                            }
+                            break;
+
+                        case '<':
+                            if(str[this.i] == '=') {
+                                this.i++; //consume =
+                                tokens.push(new Token(lineNumber, charNumber, TokenKind.LESS_EQUAL, "<="));
+                            }else if(str[this.i] == '<') {
+                                this.i++; //consume <
+                                if(str[this.i] == '=') {
+                                    this.i++; //consume =
+                                    tokens.push(new Token(lineNumber, charNumber, TokenKind.BITWISE_SHIFT_LEFT_EQUALS, "<<="));
+                                }else {
+                                    tokens.push(new Token(lineNumber, charNumber, TokenKind.BITWISE_SHIFT_LEFT, "<<"));
+                                }
+                            }else {
+                                tokens.push(new Token(lineNumber, charNumber, TokenKind.LESS_THAN, "<"));
+                            }
+                            break;
+
+                        case '>':
+                            if(str[this.i] == '=') {
+                                this.i++; //consume =
+                                tokens.push(new Token(lineNumber, charNumber, TokenKind.GREATER_EQUAL, ">="));
+                            }else if(str[this.i] == '>') {
+                                this.i++; //consume >
+                                if(str[this.i] == '>') {
+                                    this.i++; //consume >
+                                    if(str[this.i] == '=') {
+                                        this.i++; //consume =
+                                        tokens.push(new Token(lineNumber, charNumber, TokenKind.BITWISE_UNSIGNED_SHIFT_RIGHT_EQUALS, ">>>="));
+                                    }else {
+                                        tokens.push(new Token(lineNumber, charNumber, TokenKind.BITWISE_UNSIGNED_SHIFT_RIGHT, ">>>"));
+                                    }
+                                }else {
+                                    if(str[this.i] == '=') {
+                                        this.i++; //consume =
+                                        tokens.push(new Token(lineNumber, charNumber, TokenKind.BITWISE_SHIFT_RIGHT_EQUALS, ">>="));
+                                    }else {
+                                        tokens.push(new Token(lineNumber, charNumber, TokenKind.BITWISE_SHIFT_RIGHT, ">>"));
+                                    }
+                                }
+                            }else {
+                                tokens.push(new Token(lineNumber, charNumber, TokenKind.GREATER_THAN, ">"));
+                            }
+                            break;
+
+                        case '&':
+                            if(str[this.i] == '&') {
+                                this.i++; //consume &
+                                if(str[this.i] == '=') {
+                                    this.i++; //consume =
+                                    tokens.push(new Token(lineNumber, charNumber, TokenKind.LOGICAL_AND_EQUALS, "&&="));
+                                }else {
+                                    tokens.push(new Token(lineNumber, charNumber, TokenKind.LOGICAL_AND, "&&"));
+                                }
+                            }else if(str[this.i] == '=') {
+                                this.i++; //consume =
+                                tokens.push(new Token(lineNumber, charNumber, TokenKind.BITWISE_AND_EQUALS, "&="));
+                            }else {
+                                tokens.push(new Token(lineNumber, charNumber, TokenKind.BITWISE_AND, "&"));
+                            }
+                            break;
+
+                        case '^':
+                            if(str[this.i] == '=') {
+                                this.i++; //consume =
+                                tokens.push(new Token(lineNumber, charNumber, TokenKind.BITWISE_XOR_EQUALS, "^="));
+                            }else {
+                                tokens.push(new Token(lineNumber, charNumber, TokenKind.BITWISE_XOR, "^"));
+                            }
+                            break;
+
+                        case '|':
+                            if(str[this.i] == '|') {
+                                this.i++; //consume |
+                                if(str[this.i] == '=') {
+                                    this.i++; //consume =
+                                    tokens.push(new Token(lineNumber, charNumber, TokenKind.LOGICAL_OR_EQUALS, "||="));
+                                }else {
+                                    tokens.push(new Token(lineNumber, charNumber, TokenKind.LOGICAL_OR, "||"));
+                                }
+                            }else if(str[this.i] == '=') {
+                                this.i++; //consume =
+                                tokens.push(new Token(lineNumber, charNumber, TokenKind.BITWISE_OR_EQUALS, "|="));
+                            }else {
+                                tokens.push(new Token(lineNumber, charNumber, TokenKind.BITWISE_OR, "|"));
+                            }
+                            break;
+
+                        case '!':
+                            if(str[this.i] == '=') {
+                                this.i++; //consume =
+                                if(str[this.i] == '=') {
+                                    this.i++; //consume =
+                                    tokens.push(new Token(lineNumber, charNumber, TokenKind.STRICT_NOT_EQUAL, "!=="));
+                                }else {
+                                    tokens.push(new Token(lineNumber, charNumber, TokenKind.NOT_EQUAL, "!="));
+                                }
+                            }else {
+                                tokens.push(new Token(lineNumber, charNumber, TokenKind.EXCLAMATION, "!"));
+                            }
+                            break;
+
+                        case '=':
+                            if(str[this.i] == '=') {
+                                this.i++; //consume =
+                                if(str[this.i] == '=') {
+                                    this.i++; //consume =
+                                    tokens.push(new Token(lineNumber, charNumber, TokenKind.STRICT_EQUAL, "==="));
+                                }else {
+                                    tokens.push(new Token(lineNumber, charNumber, TokenKind.EQUAL_EQUAL, "=="));
+                                }
+                            }else {
+                                tokens.push(new Token(lineNumber, charNumber, TokenKind.EQUALS, "="));
+                            }
+                            break;
+
+                        case ',':
+                            tokens.push(new Token(lineNumber, charNumber, TokenKind.COMMA, ","));
+                            break;
+
+                        case '~':
+                            tokens.push(new Token(lineNumber, charNumber, TokenKind.BITWISE_NOT, "~"));
+                            break;
+
+                        case '.':
+                            if(!isNumberRegex.test(str[this.i])) {
+                                //if this dot is not immediately followed by a number, add the DOT token (otherwise, let this dot fallthough to the default case!)
+                                if(str[this.i] == '.' && str[this.i+1] == '.') {
+                                    this.i+=2; //consume both dots
+                                    tokens.push(new Token(lineNumber, charNumber, TokenKind.SPREAD, "..."));
+                                }else {
+                                    tokens.push(new Token(lineNumber, charNumber, TokenKind.DOT, "."));
+                                }
+                                break;
+                            }else {
+                                //[[fallthrough]]
+                            }
+                        
+                        default:
+                            //could be literal (null, undefined, number) or identifier
+                            if(isNumberRegex.test(char) || char == ".") {
+                                let dots = +(char == ".");
+                                let impliedOctal = false;
+                                let numberString = char;
+                                let lookahead = undefined;
+                                if(char != '.') {
+                                    lookahead = str[this.i]; //next character could be X, O, or B (for hex, octal, and binary respectively) (note the i++ here, we consume this lookahead character!)
+                                }
+                                let special = 0; //integer/float == 0, hex == 1, octal == 2, binary == 3
+                                if(lookahead) { // && !isNumberRegex.test(lookahead)) { //if the next character is not a number, do sumn
+                                    if(/x/i.test(lookahead)) { //just remembered i could make them case insensitive
+                                        //hex
+                                        this.i++; //consume
+                                        special = 1;
+                                        numberString += lookahead;
+                                    }else if(/o/i.test(lookahead)) {
+                                        //octal
+                                        this.i++; //consume
+                                        special = 2;
+                                        numberString += lookahead;
+                                    }else if(/b/i.test(lookahead)) {
+                                        //binary
+                                        this.i++; //consume
+                                        special = 3;
+                                        numberString += lookahead;
+                                    }/*else if(lookahead == '.') {
+                                        //i++; //consume
+                                        //dots++; //don't worry, in this situation dots cannot already be 1! (this is because the dot will only fallthrough if the next character is a number)
+                                        //numberString += lookahead;
+
+                                        //what am i doing, i can just let this fallthrough lol
+                                    }*/
+                                    else {
+                                       //probably bad? 
+                                    }
+                                }
+                                if(special && char != '0') {
+                                    return Unexpected(new ParseError(lineNumber, charNumber, "Hexadecimal, octal, or binary literals must begin with 0!"));
+                                }
+                                const numberToken = new Token(lineNumber, charNumber, TokenKind.NUMBER, undefined);
+                                switch(special) {
+                                    /*case 0: //normal number
+                                    case 1: //hex (they're both here because they can have exponential literal things (i'm not exactly sure how i came to this incorrect conclusion but now i've got to fix it!))
+                                        if(special == 0) {
+                                            //normal
+                                            while(isNumberRegex.test(str[i])) {
+                                                numberString += str[i++]; //consume via i++
+                                            }
+                                            if(str[i] == '.' && dots == 0) {
+                                                //float (otherwise if dots == 1, this is a property access and we needn't do anymore here.)
+                                                dots++;
+                                                numberString += str[i++];
+                                                while(isNumberRegex.test(str[i])) {
+                                                    numberString += str[i++]; //consume via i++
+                                                }
+                                            }
+                                        }else {
+                                            //hex
+                                            while(i < str.length && hexRegex.test(str[i])) { //if we test this regex with undefined, it will be true! (also that /e/i test will also be true!)
+                                                if(/e/i.test(str[i]) && /[0-9+\-]/.test(str[i+1])) break; // stop at the exponential
+                                                numberString += str[i++]; //consume via i++;
+                                            }
+                                        }
+                                        //exponential
+                                        if(i < str.length && /e/i.test(str[i])) {
+                                            numberString += str[i++];
+                                            if(/[+\-]/.test(str[i])) {
+                                                numberString += str[i++];
+                                            }
+                                            while(isNumberRegex.test(str[i])) {
+                                                numberString += str[i++]; //consume via i++
+                                            }
+                                        }
+
+                                        if(dots) {
+                                            numberToken.value = parseFloat(numberString);
+                                        }else {
+                                            numberToken.value = parseInt(numberString);
+                                        }
+                                        break;*/
+                                    case 0: {
+                                        //let octal = char == "0";
+                                        impliedOctal = char == "0";
+                                        //normal
+                                        while(isNumberRegex.test(str[this.i]) || str[this.i] == '_') {
+                                            if(impliedOctal && !octalRegex.test(str[this.i])) {
+                                                impliedOctal = false;
+                                            }
+                                            numberString += str[this.i++]; //consume via i++
+                                        }
+                                        
+                                        if(str[this.i] == '.' && dots == 0 && !impliedOctal) {
+                                            //float (otherwise if dots == 1, this is a property access and we needn't do anymore here.)
+                                            dots++;
+                                            numberString += str[this.i++];
+                                            while(isNumberRegex.test(str[this.i]) || str[this.i] == '_') {
+                                                numberString += str[this.i++]; //consume via i++
+                                            }
+                                        }
+
+                                        if(this.i < str.length && !impliedOctal && /e/i.test(str[this.i])) {
+                                            numberString += str[this.i++];
+                                            if(/[+\-]/.test(str[this.i])) {
+                                                numberString += str[this.i++];
+                                            }
+                                            while(isNumberRegex.test(str[this.i]) || str[this.i] == '_') {
+                                                numberString += str[this.i++]; //consume via i++
+                                            }
+                                        }
+
+                                        //if(octal) {
+                                        //    //could be octal, otherwise leading zeros for some reason lol
+                                        //    numberToken.value = parseInt(numberString, 8); //this could be 0 if it's not octal (like 080)
+                                        //}else if(dots) {
+                                        //    numberToken.value = parseFloat(numberString);
+                                        //}
+                                        break;
+                                    }
+                                    case 1:
+                                        //hex
+                                        while(this.i < str.length && hexRegex.test(str[this.i])) { //if we test this regex with undefined, it will be true! (also that /e/i test will also be true!)
+                                            numberString += str[this.i++]; //consume via i++;
+                                        }
+                                        //numberToken.value = parseInt(numberString);
+                                        break;
+                                    case 2: //octal
+                                        while(octalRegex.test(str[this.i])) {
+                                            numberString += str[this.i++]; //consume via i++
+                                        }
+                                        //numberToken.value = Number(numberString); //parseInt(numberString.substring(2), 8); //for some reason parseInt doesn't respect the 0o prefix
+                                        break;
+                                    case 3: //binary
+                                        while(str[this.i] == "0" || str[this.i] == "1") {
+                                            numberString += str[this.i++];
+                                        }
+                                        //numberToken.value = Number(numberString); //parseInt(numberString.substring(2), 2); //for some reason parseInt doesn't respect the 0b prefix
+                                        break;
+                                }
+                                if(numberString.indexOf("_") != -1) {
+                                    return Unexpected(new ParseError(lineNumber, charNumber, "FUCK those number separators!"));
+                                }
+                                if(str[this.i] == "n") {
+                                    this.i++; //consume
+                                    if(dots) {
+                                        return Unexpected(new ParseError(lineNumber, charNumber, "Floats cannot be BigInts!")); // the real javascript parser probably doesn't throw here but i'm pretty sure (?) there's no situation where this is valid anyways
+                                    }
+                                    if(impliedOctal) {
+                                        return Unexpected(new ParseError(lineNumber, charNumber, "Octal numbers (without the 0o prefix) cannot be BigInts for \"legacy reasons\"!"));
+                                    }
+                                    if(Environment.hasBigNumbers()) {
+                                        numberToken.value = BigInt(numberString);
+                                        numberToken.kind = TokenKind.BIGINT;
+                                    }else {
+                                        return Unexpected(new ParseError(lineNumber, this.i - lineIndex, "BigInt not supported in the host language!"));
+                                    }
+                                }else {
+                                    if(impliedOctal) {
+                                        numberToken.value = parseInt(numberString, 8);
+                                    }else if(dots) {
+                                        numberToken.value = parseFloat(numberString);
+                                    }else {
+                                        numberToken.value = Number(numberString);
+                                    }
+                                    //-nan(ind)
+                                    if(isNaN(numberToken.value)) {
+                                        return Unexpected(new ParseError(lineNumber, charNumber, "Somehow this number is incorrect, but we don't know why! (NaN)"));
+                                    }
+                                }
+                                tokens.push(numberToken);
+                            }else if(identifierStartRegex.test(char)){
+                                //we don't know if it's really an identifier or not lol, it could be a literal like null or undefined!
+                                const tempToken = new Token(lineNumber, charNumber, undefined, char);
+                                //don't worry str[i] is the character AFTER char since we (at the beginning of this for loop) access char with str[i++]
+                                while(this.i < str.length && identifierRegex.test(str[this.i])) {
+                                    tempToken.value += str[this.i++]; //consume
+                                }
+
+                                if(JavascriptLexer.reserved.has(tempToken.value) || (useStrict && JavascriptLexer.strict_reserved.has(tempToken.value))) {
+                                    if(tempToken.value == "true" || tempToken.value == "false") {
+                                        tempToken.kind = TokenKind.BOOLEAN;
+                                    }else if(tempToken.value == "null") {
+                                        tempToken.kind = TokenKind.NULL;
+                                    }/*else if(tempToken.value == "undefined") { //uh nevermind undefined is not reserved!
+                                        tempToken.kind = TokenKind.UNDEFINED;
+                                    }*/else {
+                                        tempToken.kind = TokenKind.RESERVED;
+                                    }
+                                }else {
+                                    //valid identifier apparently
+                                    if(tempToken.value == "male" || tempToken.value == "female") {
+                                        tempToken.kind = TokenKind.GENDER; // LMAO
+                                    }else if(tempToken.value == "undefined") {
+                                        tempToken.kind = TokenKind.UNDEFINED;
+                                    }else {
+                                        tempToken.kind = TokenKind.IDENTIFIER;
+                                    }
+                                }
+
+                                tokens.push(tempToken);
+                            }else {
+                                return Unexpected(new ParseError(lineNumber, charNumber, `Unexpected character '${char}'`));
+                            }
+                            break;
+                    }
+                }
+
+                return new Expected(tokens);
+            }
+        }
+
+        class JavascriptInterpreter extends Interpreter {
+            static globals = window; //lol
+
+            //runtime
+            //scope;
+
+            constructor() {
+                super();
+                //this.scope = {};
+            }
+
+            parse(str) {
+                const lexer = new JavascriptLexer(this); //we're using an another object lol!
+                const result = lexer.lex(str); //"lexer.lex"
+                if(!result.has_value()) {
+                    return result;
+                }
+                console.log(result.value);
+                debugger;
+            }
+        }
+
+        execute.addEventListener("click", function(event) {
+            let interpreter = new JavascriptInterpreter();
+            console.log("$0:", interpreter.interpret(letext.value));
+        });
+    </script>
+</body>
+</html>
