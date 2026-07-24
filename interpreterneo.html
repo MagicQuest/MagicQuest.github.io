@@ -32,9 +32,10 @@
     	<select id="example_selection" oninput="selectExample(event);">
 			<option value="basic">basic</option>
 			<option value="hashbang">hashbang</option>
-            <option value="nonstrict">allowed in non strict mode</option>
+            <option value="nonstrict" selected>allowed in non strict mode</option>
             <option value="operators">operators</option>
-            <option value="alltokens" selected>all token kinds</option>
+            <option value="alltokens">all token kinds</option>
+            <option value="rodwave">when the bs start</option>
         </select>
     </div>
     <script>
@@ -43,7 +44,8 @@
             "hashbang": "#!/usr/bin/env node",
             "nonstrict": "var let = 5;",
             "operators": "?.\n++\n--\n+\n-\n~\n!\n**\n*\n/\n%\n<\n>\n<=\n>=\n==\n!=\n===\n!==\n<<\n>>\n>>>\n&\n|\n^\n&&\n||\n??\n=\n*=\n/=\n%=\n+=\n-=\n<<=\n>>=\n>>>=\n&=\n^=\n|=\n**=\n&&=\n||=\n??=\n,\n...",
-            "alltokens": "var\nlet\n\"hi\"\n5\n5n\ntrue\nundefined\nnull\nfemale\n[\n]\n.\n(\n)\n+\n-\n*\n/\n!\n--\n++\n?.\n~\n**\n%\n<\n>\n<=\n>=\n==\n!=\n===\n!==\n<<\n>>\n>>>\n&\n|\n^\n&&\n||\n??\n? :\n=\n*=\n/=\n%=\n+=\n-=\n<<=\n>>=\n>>>=\n&=\n^=\n|=\n**=\n&&=\n||=\n??=\n,\n..."
+            "alltokens": "var\nlet\n\"hi\"\n5\n5n\ntrue\nundefined\nnull\nfemale\n[\n]\n.\n(\n)\n+\n-\n*\n/\n!\n--\n++\n?.\n~\n**\n%\n<\n>\n<=\n>=\n==\n!=\n===\n!==\n<<\n>>\n>>>\n&\n|\n^\n&&\n||\n??\n? :\n=\n*=\n/=\n%=\n+=\n-=\n<<=\n>>=\n>>>=\n&=\n^=\n|=\n**=\n&&=\n||=\n??=\n,\n...",
+            "rodwave": "[(5+5, window.location.href.length),5,5]"
         }
 		function selectExample(/** @type {InputEvent} */ event) {
 			letext.value = examples[event.target.value];
@@ -186,6 +188,9 @@
             static NULLISH_COALESCING_EQUALS = 61;
             static COMMA = 62;
             static SPREAD = 63;
+            static SEMICOLON = 64;
+            static OPEN_CURLY_BRACKET = 65;
+            static CLOSING_CURLY_BRACKET = 66;
         }
 
         class Interpreter {
@@ -284,7 +289,7 @@
                 // ["static", true],
                 // ["yield", true],
 
-                //in modules or async functions
+                //in modules or async functions (wait a second, doesn't that make javascript context... sensitive?!)
                 ["await", true],
 
                 //future reserved
@@ -336,6 +341,12 @@
 
                 let useStrict = false;
 
+                let depth = {
+                    parenthesis: 0,
+                    bracket: 0,
+                    curly: +readingTemplate
+                };
+
                 if(str.length > 1) {
                     if(str[0] == '#' && str[1] == '!') {
                         str = str.replace("#!", "//"); //lol
@@ -349,6 +360,7 @@
                 const hexRegex = /[0-9a-f_]/i;
                 const octalRegex = /[0-7_]/;
 
+                templateStopLexing:
                 while(this.i < str.length) {
                     const char = str[this.i++];
                     const charNumber = this.i - lineIndex;
@@ -488,7 +500,7 @@
                                         const templateCharNumber = this.i - lineIndex;
                                         this.i+=2; //consume dollar and curly bracket
                                         //template
-                                        const result = this.lex(str, true); //i assume i'll make this work eventually lol
+                                        const result = this.lex(str, true); // who knew making the lexer its own object would come in handy (i'm actually talking about using this.i)
                                         if(!result.has_value()) {
                                             return result;
                                         }
@@ -502,6 +514,9 @@
                             }
                             if(!ended) {
                                 return Unexpected(new ParseError(lineNumber, this.i - lineIndex, "End of file reached before ending string quote!"));
+                            }
+                            if(tokens.length == 0 && stringToken.value == "use strict") { //lol
+                                useStrict = true;
                             }
                             tokens.push(stringToken);
                             break;
@@ -526,6 +541,10 @@
 
                         case ':':
                             tokens.push(new Token(lineNumber, charNumber, TokenKind.COLON, ":"));
+                            break;
+
+                        case ';':
+                            tokens.push(new Token(lineNumber, charNumber, TokenKind.SEMICOLON, ";"));
                             break;
 
                         case '+':
@@ -701,6 +720,47 @@
                             tokens.push(new Token(lineNumber, charNumber, TokenKind.BITWISE_NOT, "~"));
                             break;
 
+                        case '(':
+                            depth.parenthesis++;
+                            tokens.push(new Token(lineNumber, charNumber, TokenKind.OPEN_PARENTHESIS, "("));
+                            break;
+
+                        case ')':
+                            depth.parenthesis--;
+                            if(depth.parenthesis < 0) {
+                                return Unexpected(new ParseError(lineNumber, charNumber, "Extra closing parenthesis!"));
+                            }
+                            tokens.push(new Token(lineNumber, charNumber, TokenKind.CLOSING_PARENTHESIS, ")"));
+                            break;
+
+                        case '[':
+                            depth.bracket++;
+                            tokens.push(new Token(lineNumber, charNumber, TokenKind.OPEN_BRACKET, "["));
+                            break;
+
+                        case ']':
+                            depth.bracket--;
+                            if(depth.bracket < 0) {
+                                return Unexpected(new ParseError(lineNumber, charNumber, "Extra closing bracket!"));
+                            }
+                            tokens.push(new Token(lineNumber, charNumber, TokenKind.CLOSING_BRACKET, "]"));
+                            break;
+
+                        case '{':
+                            depth.curly++;
+                            tokens.push(new Token(lineNumber, charNumber, TokenKind.OPEN_CURLY_BRACKET, "{"));
+                            break;
+
+                        case '}':
+                            depth.curly--;
+                            if(depth.curly < 0) {
+                                return Unexpected(new ParseError(lineNumber, charNumber, "Extra closing curly bracket!"));
+                            }else if(readingTemplate && depth.curly == 0) {
+                                break templateStopLexing;
+                            }
+                            tokens.push(new Token(lineNumber, charNumber, TokenKind.CLOSING_CURLY_BRACKET, "}"));
+                            break;
+
                         case '.':
                             if(!isNumberRegex.test(str[this.i])) {
                                 //if this dot is not immediately followed by a number, add the DOT token (otherwise, let this dot fallthough to the default case!)
@@ -870,7 +930,7 @@
                                         numberToken.value = BigInt(numberString);
                                         numberToken.kind = TokenKind.BIGINT;
                                     }else {
-                                        return Unexpected(new ParseError(lineNumber, this.i - lineIndex, "BigInt not supported in the host language!"));
+                                        return Unexpected(new ParseError(lineNumber, this.i - lineIndex, "BigInt not supported in host language!"));
                                     }
                                 }else {
                                     if(impliedOctal) {
@@ -923,9 +983,87 @@
                     }
                 }
 
+                if(depth.parenthesis != 0) {
+                    return Unexpected(new ParseError(lineNumber, 1, `End of ${readingTemplate ? "template" : "file"} reached without closing parenthesis!`));
+                }
+                if(depth.bracket != 0) {
+                    return Unexpected(new ParseError(lineNumber, 1, `End of ${readingTemplate ? "template" : "file"} reached without closing bracket!`));
+                }
+                if(depth.curly != 0) {
+                    return Unexpected(new ParseError(lineNumber, 1, `End of ${readingTemplate ? "template" : "file"} reached without closing curly bracket!`));
+                }
+
                 return new Expected(tokens);
             }
         }
+
+        //semantic (or is it syntactic?) grammar
+        //copying identifier from lexical grammar lol
+
+        //my grammar notation actually comes from https://web.mit.edu/6.102/www/sp25/classes/12-grammars-parsing/
+        //precedence from https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Operator_precedence
+
+        //ignore
+        //unary ::= 'delete' | 'void' | 'typeof' | '+' | '-' | '~' | '!'
+        //binary ::= expression ('**' | '*' | '/' | '%' | '+' | '-' | '<' | '>' | '<=' | '>=' | 'instanceof' | 'in' | '==' | '!=' | '===' | '!==' ) expression
+
+        //               probably?
+        //javascript ::= statement*
+        //identifier ::= /[$_\p{ID_Start}][$\p{ID_Continue}]*/u
+        //identifierDeclaration ::= ('male' | 'female')? ('var' | 'const' | 'let')? identifier
+        //literal ::= boolean | null | undefined | array | object | string | number
+        //classExpression ::= 'class' identifier? ('extends' identifier)? '{' classStatement* '}'
+        //functionExpression ::= (('function' identifier? parameters) | (parameters '=>')) block
+        //expression ::= comma
+        //  comma ::= unary_misc (',' unary_misc)*
+        //  unary_misc ::= (('...' | 'yield*' | 'yield') assignment) | assignment
+        //////////////////////////////////////////////////////  assignment_misc ::= (('...' | 'yield*' | 'yield') or_nullish | (or_nullish ('=>' | ('?' or_nullish ':' or_nullish)) assignment_misc)
+        //  assigment ::= (or_nullish (('=>' | ('?' or_nullish ':') | '??=' | '||=' | '&&=' | '|=' | '^=' | '&=' | '>>>=' | '>>=' | '<<=' | '%=' | '/=' | '*=' | '**=' | '-=' | '+=' | '=') assignment)*)
+        ////////////////////////////////////////////////////// (0) (? 7 :) (6) (? 3 :) 2
+        //////////////////////////////////////////////////////  assignment ::= or_nullish ('=' assignment)*
+        //  or_nullish ::= logical_and ( ('??' '||') logical_and )*
+        //  logical_and ::= bitwise_or ('||' bitwise_or)*
+        //  bitwise_or ::= bitwise_xor ('|' bitwise_xor)*
+        //  bitwise_x0r ::= bitwise_and ('^' bitwise_and)*
+        //  bitwise_and ::= equality ('&' equality)*
+        //  equality ::= comparison (('==' | '!=' | '===' | '!==') comparison)*
+        //  comparison ::= bitwise_shift (('<' | '<=' | '>' | '>=' | 'in' | 'instanceof') bitwise_shift)*
+        //  bitwise_shift ::= term (('<<' | '>>' | '>>>') term)*
+        //  term ::= factor (('-' | '+') factor)*
+        //  factor ::= exponentiation (('%' | '/' | '*') exponentiation)*
+        //  exponentiation ::= unary_prefix ('**' exponentiation)*
+        //  unary_prefix ::= (('await' | 'delete' | 'void' | 'typeof' | '-' | '+' | '~' | '!' | '--' | '++') unary_prefix) | unary_postfix
+        //  unary_postfix ::= (('--' | '++') | new) | new
+        //  new ::= ('new' | access_call_no_associativity) | access_call_no_associativity
+        //  access_call_no_associativity ::= (('import' '(' expression ')') | ('new' expression arguments) | (expression (arguments | ('[' expression ']')))) | access_call
+        //  access_call ::= primary (('?.' | '.') access_call)*
+        //  primary ::= literal | classExpression | functionExpression | ('(' expression ')')
+        //classStatement ::= constructor | method | fieldDecl | staticInitialization
+        //  constructor ::= 'constructor' parameters block
+        //  method ::= 'static'? identifier parameters block
+        //  fieldDecl ::= 'static'? (identifier | ('[' expression ']')) ('=' expression)?
+        //  staticInitialization ::= 'static' block
+        //statement ::= (expression ';') | block | if | while | do | forloop | foriterator | classDeclStatement | functionStatement
+        //  block ::= '{' statement* '}'
+        //  if ::= 'if' '(' expression ')' else?
+        //  else ::= ((block | statement) 'else' (block | statement))
+        //  while ::= 'while' '(' expression ')' block | statement
+        //  do ::= 'do' block 'while' '(' expression ')' ';'
+        //  forloop ::= 'for' '(' expression? ';' expression? ';' expression? ')' block | statement
+        //  foriterator ::= 'for' '(' identifierDeclaration ('of' | 'in') expression ')' block | statement
+        //  classDeclStatement ::= 'class' identifier ('extends' identifier)? '{' classStatement* '}'
+        //  functionStatement ::= (('function' identifier parameters) | (parameters '=>')) block
+        //bruh i might've written this grammar inefficiently
+        //parameters ::= '(' (identifier ('=' expression)? ',')* ')'
+        //arguments ::= '(' (expression ',')* ')'
+        //array ::= '[' (expression? ',')* ']'
+        //object ::= ('{' (objectkeyvalue (',' objectkeyvalue)* ','?)? '}')
+        //objectkeyvalue ::= ((objectkey ':' expression) | identifier)
+        //objectkey ::= identifier | ('[' expression ']')
+        //return ::= 'return' expression? ';'?
+
+        //  identifierDeclaration ::= ('male' | 'female')? ('var' | 'const' | 'let') identifier '=' expression
+        //  functionDeclaration ::= ('male' | 'female')? 'function' identifier? parameters block
 
         class JavascriptInterpreter extends Interpreter {
             static globals = window; //lol
@@ -939,13 +1077,14 @@
             }
 
             parse(str) {
-                const lexer = new JavascriptLexer(this); //we're using an another object lol!
+                const lexer = new JavascriptLexer(this); //we're using an object lol!
                 const result = lexer.lex(str); //"lexer.lex"
                 if(!result.has_value()) {
                     return result;
                 }
                 console.log(result.value);
                 debugger;
+                //because arrays and objects shouldn't be too hard, we'll probably use a recursive descent solution (at least for these types)
             }
         }
 
