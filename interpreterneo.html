@@ -36,6 +36,7 @@
             <option value="operators">operators</option>
             <option value="alltokens">all token kinds</option>
             <option value="rodwave">when the bs start</option>
+            <option value="bs2">identifier gender LMAO</option>
         </select>
     </div>
     <script>
@@ -44,8 +45,9 @@
             "hashbang": "#!/usr/bin/env node",
             "nonstrict": "var let = 5;",
             "operators": "?.\n++\n--\n+\n-\n~\n!\n**\n*\n/\n%\n<\n>\n<=\n>=\n==\n!=\n===\n!==\n<<\n>>\n>>>\n&\n|\n^\n&&\n||\n??\n=\n*=\n/=\n%=\n+=\n-=\n<<=\n>>=\n>>>=\n&=\n^=\n|=\n**=\n&&=\n||=\n??=\n,\n...",
-            "alltokens": "var\nlet\n\"hi\"\n5\n5n\ntrue\nundefined\nnull\nfemale\n[\n]\n.\n(\n)\n+\n-\n*\n/\n!\n--\n++\n?.\n~\n**\n%\n<\n>\n<=\n>=\n==\n!=\n===\n!==\n<<\n>>\n>>>\n&\n|\n^\n&&\n||\n??\n? :\n=\n*=\n/=\n%=\n+=\n-=\n<<=\n>>=\n>>>=\n&=\n^=\n|=\n**=\n&&=\n||=\n??=\n,\n...",
-            "rodwave": "[(5+5, window.location.href.length),5,5]"
+            "alltokens": "var\nlet\n\"hi\"\n5\n5n\ntrue\nundefined\nnull\nfemale\n[\n]\n.\n(\n)\n+\n-\n*\n/\n!\n--\n++\n?.\n~\n**\n%\n<\n>\n<=\n>=\n==\n!=\n===\n!==\n<<\n>>\n>>>\n&\n|\n^\n&&\n||\n??\n? :\n=\n*=\n/=\n%=\n+=\n-=\n<<=\n>>=\n>>>=\n&=\n^=\n|=\n**=\n&&=\n||=\n??=\n,\n...\n;\n{\n}\n=>",
+            "rodwave": "[(5+5, window.location.href.length),5,5]",
+            "bs2": "female var hai = \"rawr\";"
         }
 		function selectExample(/** @type {InputEvent} */ event) {
 			letext.value = examples[event.target.value];
@@ -191,6 +193,7 @@
             static SEMICOLON = 64;
             static OPEN_CURLY_BRACKET = 65;
             static CLOSING_CURLY_BRACKET = 66;
+            static ARROW = 67; //
         }
 
         class Interpreter {
@@ -224,6 +227,29 @@
             constructor(interpreter) {
                 this.interpreter = interpreter;
             }
+
+            /**
+             * @param {String} str
+             * @returns {Expected<Array<Token>, ParseError>} */
+            lex(str) {}; // = 0;
+        }
+
+        class Parser {
+            /** @type {Interpreter} */
+            interpreter;
+            /** @type {Array<Token>} */
+            tokens;
+            /**
+             * @param {Interpreter} interpreter
+             * @param {Array<Token>} tokens */
+            constructor(interpreter, tokens) {
+                this.interpreter = interpreter;
+                this.tokens = tokens;
+            }
+
+            /**
+             * @returns {Expected<Array<Statement>, ParseError>} */
+            parse() {}; // = 0;
         }
 
         class Environment {
@@ -707,6 +733,9 @@
                                 }else {
                                     tokens.push(new Token(lineNumber, charNumber, TokenKind.EQUAL_EQUAL, "=="));
                                 }
+                            }else if(str[this.i] == '>') {
+                                this.i++; //consume >
+                                tokens.push(new Token(lineNumber, charNumber, TokenKind.ARROW, "=>"));
                             }else {
                                 tokens.push(new Token(lineNumber, charNumber, TokenKind.EQUALS, "="));
                             }
@@ -999,29 +1028,55 @@
 
         //semantic (or is it syntactic?) grammar
         //copying identifier from lexical grammar lol
+        //this is probably not a complete grammar and honestly i'm just throwing shit in
 
         //my grammar notation actually comes from https://web.mit.edu/6.102/www/sp25/classes/12-grammars-parsing/
         //precedence from https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Operator_precedence
 
-        //ignore
+        //unlike lox, javascript can hoist global variables such that
+        //console.log(a);
+        //var a = "hello world!";
+        //is not an error
+
+        //i don't think functionStatement should include the arrow function because the arrow function is always an expression statement
+        //both (()=>{}) (expression) and {()=>{}} (statement?) are valid
+        //also function statements must have an identifer name so i guess it makes sense to differentiate them?
+
+        //oh no, should operators used in object literals also be in the grammar like the other operators? (there are many ways to write a grammar so i'm assuming i don't have to?)
+
+        //a=5 ? b=3 : b=2
+        //is
+        //a=(5 ? b=3 : b=2)
+
+        //for(const prop = undefined of [10, 20, 30]) : for-loop variable declaration may not have an initializer
+
+
+        //bad grammar rules lol
         //unary ::= 'delete' | 'void' | 'typeof' | '+' | '-' | '~' | '!'
         //binary ::= expression ('**' | '*' | '/' | '%' | '+' | '-' | '<' | '>' | '<=' | '>=' | 'instanceof' | 'in' | '==' | '!=' | '===' | '!==' ) expression
+        //identifierDeclaration ::= ('male' | 'female')? ('var' | 'const' | 'let')? identifier
+        //  identifierDeclaration ::= ('male' | 'female')? ('var' | 'const' | 'let') identifier '=' expression
+        //  functionDeclaration ::= ('male' | 'female')? 'function' identifier? parameters block
+        //  assignment used to include these operators but maybe they shouldn't lol ? '=>' | ('?' or_nullish ':')
 
         //               probably?
         //javascript ::= statement*
         //identifier ::= /[$_\p{ID_Start}][$\p{ID_Continue}]*/u
-        //identifierDeclaration ::= ('male' | 'female')? ('var' | 'const' | 'let')? identifier
-        //literal ::= boolean | null | undefined | array | object | string | number
+        //literal ::= boolean | null | undefined | array | object | string | number | bigint
+        //gender ::= 'male' | 'female' | 'nonbinary'
         //classExpression ::= 'class' identifier? ('extends' identifier)? '{' classStatement* '}'
-        //functionExpression ::= (('function' identifier? parameters) | (parameters '=>')) block
+        //functionExpression ::= (('function' identifier? parameters) | ((identifier | parameters) '=>')) block
+        //identifierExpression ::= identifierNoAssociativity
+        //identifierNoAssociativity ::= (identifierAccess '[' expression ']') | identifierAccess
+        //identifierAccess ::= identifier ('.' identifierAccess)*
         //expression ::= comma
         //  comma ::= unary_misc (',' unary_misc)*
         //  unary_misc ::= (('...' | 'yield*' | 'yield') assignment) | assignment
         //////////////////////////////////////////////////////  assignment_misc ::= (('...' | 'yield*' | 'yield') or_nullish | (or_nullish ('=>' | ('?' or_nullish ':' or_nullish)) assignment_misc)
-        //  assigment ::= (or_nullish (('=>' | ('?' or_nullish ':') | '??=' | '||=' | '&&=' | '|=' | '^=' | '&=' | '>>>=' | '>>=' | '<<=' | '%=' | '/=' | '*=' | '**=' | '-=' | '+=' | '=') assignment)*)
-        ////////////////////////////////////////////////////// (0) (? 7 :) (6) (? 3 :) 2
+        //  assigment ::= (identifierExpression ('??=' | '||=' | '&&=' | '|=' | '^=' | '&=' | '>>>=' | '>>=' | '<<=' | '%=' | '/=' | '*=' | '**=' | '-=' | '+=' | '=') assignment) | (or_nullish ('?' assignment ':' assignment)?)
+        //////////////////////////////////////////////////////  (0) (? 7 :) (6) (? 3 :) 2
         //////////////////////////////////////////////////////  assignment ::= or_nullish ('=' assignment)*
-        //  or_nullish ::= logical_and ( ('??' '||') logical_and )*
+        //  or_nullish ::= logical_and ( ('??' | '||') logical_and )*
         //  logical_and ::= bitwise_or ('||' bitwise_or)*
         //  bitwise_or ::= bitwise_xor ('|' bitwise_xor)*
         //  bitwise_x0r ::= bitwise_and ('^' bitwise_and)*
@@ -1033,37 +1088,326 @@
         //  factor ::= exponentiation (('%' | '/' | '*') exponentiation)*
         //  exponentiation ::= unary_prefix ('**' exponentiation)*
         //  unary_prefix ::= (('await' | 'delete' | 'void' | 'typeof' | '-' | '+' | '~' | '!' | '--' | '++') unary_prefix) | unary_postfix
-        //  unary_postfix ::= (('--' | '++') | new) | new
-        //  new ::= ('new' | access_call_no_associativity) | access_call_no_associativity
-        //  access_call_no_associativity ::= (('import' '(' expression ')') | ('new' expression arguments) | (expression (arguments | ('[' expression ']')))) | access_call
+        //  unary_postfix ::= ('--' | '++')? new
+        //  new ::= 'new'? access_call_no_associativity
+        //  access_call_no_associativity ::= (('import' '(' expression ')') | ('new' access_call arguments)) | (access_call (arguments | ('[' expression ']' ('[' expression ']' | primary)*))?)
         //  access_call ::= primary (('?.' | '.') access_call)*
-        //  primary ::= literal | classExpression | functionExpression | ('(' expression ')')
+        //  primary ::= literal | identifier | 'this' | classExpression | functionExpression | ('(' expression ')')
         //classStatement ::= constructor | method | fieldDecl | staticInitialization
         //  constructor ::= 'constructor' parameters block
-        //  method ::= 'static'? identifier parameters block
+        //  method ::= 'static'? ('get' | 'set') identifier parameters block
         //  fieldDecl ::= 'static'? (identifier | ('[' expression ']')) ('=' expression)?
         //  staticInitialization ::= 'static' block
-        //statement ::= (expression ';') | block | if | while | do | forloop | foriterator | classDeclStatement | functionStatement
+        //statement ::= return | if | while | do | for | classDeclStatement | functionStatement | identifierDeclaration | (expression ';') | block
         //  block ::= '{' statement* '}'
-        //  if ::= 'if' '(' expression ')' else?
-        //  else ::= ((block | statement) 'else' (block | statement))
-        //  while ::= 'while' '(' expression ')' block | statement
+        //  return ::= 'return' expression? ';'?
+        //  if ::= 'if' '(' expression ')' (block | statement) else?
+        //  else ::= 'else' (block | statement)
+        //  while ::= 'while' '(' expression ')' (block | statement)
         //  do ::= 'do' block 'while' '(' expression ')' ';'
-        //  forloop ::= 'for' '(' expression? ';' expression? ';' expression? ')' block | statement
-        //  foriterator ::= 'for' '(' identifierDeclaration ('of' | 'in') expression ')' block | statement
+        //  for ::= 'for' (('await' '(' loop ')' ) | ('(' (loop | iterator) ')')) (block | statement)
+        //  loop ::= expression? ';' expression? ';' expression?
+        //  iterator ::= identifierDeclaration ('of' | 'in') expression
         //  classDeclStatement ::= 'class' identifier ('extends' identifier)? '{' classStatement* '}'
-        //  functionStatement ::= (('function' identifier parameters) | (parameters '=>')) block
-        //bruh i might've written this grammar inefficiently
+        //  functionStatement ::= gender? 'async'? ('function' '*'? identifier parameters) block
+        //  identifierDeclaration ::= gender? ('var' | 'const' | 'let') identifier ('=' expression)?
         //parameters ::= '(' (identifier ('=' expression)? ',')* ')'
         //arguments ::= '(' (expression ',')* ')'
         //array ::= '[' (expression? ',')* ']'
         //object ::= ('{' (objectkeyvalue (',' objectkeyvalue)* ','?)? '}')
         //objectkeyvalue ::= ((objectkey ':' expression) | identifier)
         //objectkey ::= identifier | ('[' expression ']')
-        //return ::= 'return' expression? ';'?
 
-        //  identifierDeclaration ::= ('male' | 'female')? ('var' | 'const' | 'let') identifier '=' expression
-        //  functionDeclaration ::= ('male' | 'female')? 'function' identifier? parameters block
+        //i was hating but his visitor techinque might make some sense...
+
+        class Statement {
+            accept(visitor) {} // = 0;
+        }
+
+        class Expression {
+            accept(visitor) {} // = 0;
+        }
+
+        class LiteralExpression extends Expression {
+            value;
+            constructor(value) {
+                super();
+                this.value = value;
+            }
+            accept(visitor) /*override*/ {
+                return visitor.visitLiteralExpression(this);
+            }
+        }
+
+        class BinaryExpression extends Expression {
+            /** @type {Expression} */
+            left;
+            /** @type {Token} */
+            operator;
+            /** @type {Expression} */
+            right;
+
+            /**
+             * @param {Expression} left
+             * @param {Token} operator
+             * @param {Expression} right
+             */
+            constructor(left, operator, right) {
+                super();
+                this.left = left;
+                this.operator = operator;
+                this.right = right;
+            }
+
+            accept(visitor) /*override*/ {
+                return visitor.visitBinaryExpression(this);
+            }
+        }
+
+        class ExpressionStatement extends Statement {
+            /** @type {Expression} */
+            expression;
+            /** @param {Expression} expression */
+            constructor(expression) {
+                super();
+                this.expression = expression;
+            }
+            accept(visitor) /*override*/ {
+                return visitor.visitExpressionStatement(this);
+            }
+        }
+
+        class JavascriptParser extends Parser {
+            i;
+            useStrict;
+            constructor(parentInterpreter, tokens) {
+                super(parentInterpreter, tokens);
+                this.i = 0;
+                this.useStrict = false;
+            }
+
+            /** @returns {Token | false} */
+            match(kind) {
+                if(this.tokens[this.i].kind == kind) {
+                    return this.tokens[this.i++];
+                }
+                return false;
+            }
+
+            /** @returns {Token | false} */
+            matchReserved(value) {
+                if(this.tokens[this.i].kind == TokenKind.RESERVED && this.tokens[this.i].value == value) {
+                    return this.tokens[this.i++]; //consume!
+                }
+                return false;
+            }
+
+            peek(kind) {
+                return this.i < this.tokens.length && this.tokens[this.i].kind == kind;
+            }
+
+            peekReserved(value) {
+                return this.peek(TokenKind.RESERVED) && this.tokens[this.i].value == value;
+            }
+
+            peekNext(kind) {
+                return this.i+1 < this.tokens.length && this.tokens[this.i+1].kind == kind;
+            }
+
+            consume(kind, errorMessage) {
+                if(this.tokens[this.i].kind == kind) {
+                    this.i++;
+                }else {
+                    throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, errorMessage);
+                }
+            }
+
+            expression() {
+                return this.term(); //this.comma();
+            }
+
+            //comma() {
+            //    let expr = this.unary_misc();
+            //    if(this.tokens[this.i].kind == TokenKind.COMMA) {
+            //        this.i++; //consume
+            //        const temp = new CommaExpression();
+            //        temp.expressions.push(expr);
+            //        while(this.tokens[this.i].kind == TokenKind.COMMA) {
+            //            this.i++; //consume
+            //            temp.expressions.push(this.unary_misc());
+            //        }
+            //        expr = temp;
+            //    }
+            //    return expr;
+            //}
+
+            term() {
+                let expr = this.factor();
+                while(this.peek(TokenKind.PLUS) || this.peek(TokenKind.MINUS)) {
+                    expr = new BinaryExpression(expr, this.tokens[this.i++], this.factor());
+                }
+                return expr;
+            }
+
+            factor() {
+                let expr = this.exponentiation();
+                while(this.peek(TokenKind.REMAINDER) || this.peek(TokenKind.SLASH) || this.peek(TokenKind.ASTERISK)) {
+                    expr = new BinaryExpression(expr, this.tokens[this.i++], this.exponentiation());
+                }
+                return expr;
+            }
+
+            exponentiation() {
+                let expr = this.primary();
+                while(this.peek(TokenKind.EXPONENTIATION)) {
+                    //calling exponentiation again makes it right associative right? (somehow using this.primary() actually does makes it left associative!)
+                    //ok when we use this.primary instead, it will call primary, thus making expr = (expr ** expr), if there was another exponentiation, the while loop would continue, producing ((expr ** expr) ** expr)
+                    //by calling this.exponentiation, it will return an expression already containing the next subsequent exponentiations, thus making expr = expr ** (expr ...)
+                    expr = new BinaryExpression(expr, this.tokens[this.i++], this.exponentiation());
+                }
+                return expr;
+            }
+
+            primary() {
+                //literal
+                switch(this.tokens[this.i].kind) {
+                    case TokenKind.BOOLEAN:
+                    case TokenKind.NULL:
+                    case TokenKind.UNDEFINED:
+                    case TokenKind.STRING:
+                    case TokenKind.NUMBER:
+                    case TokenKind.BIGINT:
+                        return new LiteralExpression(this.tokens[this.i++].value);
+                        break;
+                    case TokenKind.OPEN_BRACKET:
+                        //array
+                        break;
+                    case TokenKind.OPEN_CURLY_BRACKET:
+                        //object
+                        break;
+                    default:
+                        break;
+                }
+                //identifier
+                if(this.peek(TokenKind.IDENTIFIER) && !this.peekNext(TokenKind.ARROW)) {
+
+                }
+                //this
+                else if(this.matchReserved("this")) {
+
+                }
+                //class
+                else if(this.matchReserved("class")) {
+
+                }
+                //function
+                else if((this.peek(TokenKind.RESERVED) && this.tokens[this.i].value == "function") || ((this.peek(TokenKind.IDENTIFIER) || this.peek(TokenKind.OPEN_PARENTHESIS)) && this.peekNext(TokenKind.ARROW))) {
+                    if(this.matchReserved("function")) {
+                        //function
+                    }else {
+                        //arrow
+                    }
+                }
+                else if(this.match(TokenKind.OPEN_PARENTHESIS)) {
+                    const expr = this.expression();
+                    this.consume(TokenKind.CLOSING_PARENTHESIS, "grouping expression doesn't end with parenthesis? the lexer should probably not make this happen?");
+                    return expr;
+                }
+                // const cur = this.tokens[this.i];
+                // throw new ParseError(cur.line, cur.char, "");
+            }
+
+            statement() {
+                if(this.matchReserved("return")) {
+
+                }else if(this.matchReserved("if")) {
+                    this.consume(TokenKind.OPEN_PARENTHESIS, "Open parenthesis expected after if!");
+                    const condition = this.expression();
+                    //the lexer counts the parenthesis so this shouldn't fail lol
+                    this.consume(TokenKind.CLOSING_PARENTHESIS, "Closing parenthesis expected after if, although this message shouldn't ever be shown!");
+                    //hmm when i wrote block | statement in the grammar, technically we can omit that because statement includes block...
+                    const ifStatement = this.statement();
+                    if(this.matchReserved("else")) {
+                        const elseStatement = this.statement();
+                    }
+                }else if(this.matchReserved("while")) {
+
+                }else if(this.matchReserved("do")) {
+
+                }else if(this.matchReserved("for")) {
+
+                }else if(this.matchReserved("class")) {
+
+                }else {
+                    //function statement
+                    //identifier declaration
+                    //expression ';'
+                    //block
+
+                    //of course, this is not exactly what i wrote in the grammar, but how else would i short circuit if i've chosen functionStatement and it was actually identifierDeclaration?!
+                    const gender = this.match(TokenKind.GENDER);
+                    const async = this.matchReserved("async");
+                    if(this.matchReserved("function")) {
+                        //function statement (thank god)
+                    }else if(this.peekReserved("var") || this.peekReserved("const") || (this.peekReserved("let") || (this.peek(TokenKind.IDENTIFIER) && this.tokens[this.i].value == "let"))) { // bruh let is only reserved in strict mode! otherwise it will be tokenized as an identifier!
+                        //identifier declaration
+                        const qualifier = this.matchReserved("var") || this.matchReserved("const") || this.matchReserved("let") || ((this.peek(TokenKind.IDENTIFIER) && this.tokens[this.i].value == "let") ? this.tokens[this.i++] : undefined); // oh yeah, we need this lol
+                        const name = this.match(TokenKind.IDENTIFIER);
+                        if(!name) {
+                            throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Expected identifier!!");
+                        }
+                        if(this.match(TokenKind.EQUALS)) {
+                            //assignment
+                            const value = this.expression();
+                        }
+                        //probably expect a semicolon?
+                        "k";
+                    }else {
+                        //oops, these checks here might not be entirely correct!
+                        if(gender) {
+                            throw new ParseError(gender.line, gender.char, "Gender not allowed here!");
+                        }
+                        if(async) {
+                            throw new ParseError(gender.line, gender.char, "Async definitely not allowed here!");
+                        }
+                        //is there any way we can check if it's an expression instead of a block without backtracking?
+                        //oh wait actually it might not be TOO hard
+                        if(this.match(TokenKind.OPEN_CURLY_BRACKET)) {
+                            //gulpies...
+                            //could be an object (expression statement) or block!
+                        }else {
+                            //we can be sure it's an expression
+                            const expr = this.expression();
+                            this.consume(TokenKind.SEMICOLON, "Expressions must end with a semicolon"); //this line shouldn't appear because of automatic semicolon insertion right? (idk if i'll actually do that though lol)
+                            return new ExpressionStatement(expr);
+                        }
+                    }
+                }
+            }
+
+            /**
+             * @param {Array<Token>} tokens
+             * @returns {Expected<Array<Statement>, ParseError>} */
+            parse() /*override*/ {
+                if(this.tokens.length && this.tokens[0].kind == TokenKind.STRING && this.tokens[0].value == "use strict") {
+                    this.useStrict = true;
+                }
+
+                /** @type {Array<Statement>} */
+                const statements = [];
+                try {
+                    while(this.i < this.tokens.length) {
+                        statements.push(this.statement());
+                    }
+                }catch(e) {
+                    if(!(e instanceof ParseError)) {
+                        throw e; //lmao
+                    }
+                    return Unexpected(e);
+                }
+                return new Expected(statements);
+            }
+        }
 
         class JavascriptInterpreter extends Interpreter {
             static globals = window; //lol
@@ -1078,13 +1422,59 @@
 
             parse(str) {
                 const lexer = new JavascriptLexer(this); //we're using an object lol!
-                const result = lexer.lex(str); //"lexer.lex"
+                let result = lexer.lex(str); //"lexer.lex"
                 if(!result.has_value()) {
                     return result;
                 }
                 console.log(result.value);
-                debugger;
+                const parser = new JavascriptParser(this, result.value);
+                result = parser.parse();
+                if(!result.has_value()) {
+                    return result;
+                }
+                const p = new Printer;
+                p.print(result.value[0]);
+
                 //because arrays and objects shouldn't be too hard, we'll probably use a recursive descent solution (at least for these types)
+            }
+        }
+
+        class Printer {
+            print(statement) {
+                console.log(statement.accept(this));
+            }
+
+            /** @param {ExpressionStatement} expressionStatement */
+            visitExpressionStatement(expressionStatement) {
+                return expressionStatement.expression.accept(this) + ";";
+            }
+
+            /** @param {BinaryExpression} binaryExpression */
+            visitBinaryExpression(binaryExpression) {
+                return `(${binaryExpression.left.accept(this)} ${binaryExpression.operator.value} ${binaryExpression.right.accept(this)})`;
+            }
+
+            /** @param {LiteralExpression} literalExpression */
+            visitLiteralExpression(literalExpression) {
+                switch(typeof literalExpression.value) { //the dot has higher precedence
+                    case "bigint":
+                        return literalExpression.value+"n";
+                        break;
+                    case "string":
+                        return `'${literalExpression.value}'`;
+                        break;
+                    case "object":
+                        try {
+                            return JSON.stringify(literalExpression.value); // apparently, passing window will cause JSON.stringify to throw an error! (of course, it would've been too much text if it worked anyways lol)
+                            break;
+                        }catch(e) {
+                            console.warn(e);
+                            //[[fallthrough]]
+                        }
+                    default:
+                        return literalExpression.value+"";
+                        break;
+                }
             }
         }
 
