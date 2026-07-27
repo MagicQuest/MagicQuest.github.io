@@ -261,6 +261,12 @@
             static hasBigNumbers() {
                 return true;
             }
+            static isTruthy(value) {
+                return !!value;
+            }
+            static isFalsy(value) {
+                return !value;
+            }
         }
 
         //lexical grammar for javascript
@@ -999,7 +1005,7 @@
                                     }
                                 }else {
                                     //valid identifier apparently
-                                    if(tempToken.value == "male" || tempToken.value == "female") {
+                                    if(tempToken.value == "male" || tempToken.value == "female" || tempToken.value == "nonbinary") {
                                         tempToken.kind = TokenKind.GENDER; // LMAO
                                     }else if(tempToken.value == "undefined") {
                                         tempToken.kind = TokenKind.UNDEFINED;
@@ -1070,9 +1076,8 @@
         //gender ::= 'male' | 'female' | 'nonbinary'
         //classExpression ::= 'class' identifier? ('extends' identifier)? '{' classStatement* '}'
         //functionExpression ::= (('function' identifier? parameters) | ((identifier | parameters) '=>')) block
-        //identifierExpression ::= identifierNoAssociativity
-        //identifierNoAssociativity ::= (identifierAccess '[' expression ']') | identifierAccess
-        //identifierAccess ::= identifier ('.' identifierAccess)*
+        //identifierExpression ::= identifierAccess
+        //identifierAccess ::= identifier (('.' identifier) | ('[' expression ']') | (arguments))*
         //expression ::= comma
         //  comma ::= unary_misc (',' unary_misc)*
         //  unary_misc ::= (('...' | 'yield*' | 'yield') assignment) | assignment
@@ -1093,56 +1098,43 @@
         //  exponentiation ::= unary_prefix ('**' exponentiation)*
         //  unary_prefix ::= (('await' | 'delete' | 'void' | 'typeof' | '-' | '+' | '~' | '!' | '--' | '++') unary_prefix) | unary_postfix
         //  unary_postfix ::= (('--' | '++') | new) new
-        //  new ::= 'new'? access_call_no_associativity
-        //  access_call_no_associativity ::= (('import' '(' expression ')') | ('new' access_call arguments)) | (access_call (arguments | ('[' expression ']' ('[' expression ']' | primary)*))?)
-        //  access_call ::= primary (('?.' | '.') access_call)*
+        //  new ::= ('new' new) | access_call_no_associativity
+        //  access_call_no_associativity ::= ('import' '(' expression ')')? access_call
+        //  access_call ::= primary ((('?.' | '.') primary) | ('[' expression ']') | (arguments))* // well that solves it, i was confused when i wrote this line and i wondered how this could be left associative if a line exponentiation wasn't and now i know it's the recursion! the reason i didn't want to put primary was because i thought (how else will it keep matching the dot and optional chaining operators, but that's what the asterisk is for!)
         //  primary ::= literal | identifier | 'this' | classExpression | functionExpression | ('(' expression ')')
         //classStatement ::= constructor | method | fieldDecl | staticInitialization
         //  constructor ::= 'constructor' parameters block
         //  method ::= 'static'? ('get' | 'set') identifier parameters block
         //  fieldDecl ::= 'static'? (identifier | ('[' expression ']')) ('=' expression)?
         //  staticInitialization ::= 'static' block
-        //statement ::= return | if | while | do | for | classDeclStatement | functionStatement | identifierDeclaration | block | (expression ';')
+        //switchStatementBody ::= case | default
+        //  case ::= 'case' expression ':' statement
+        //  default ::= 'default' ':' statement
+        //statement ::= return | if | while | do | for | switch | classDeclStatement | functionStatement | identifierDeclaration | block | (expression ';')
         //  block ::= '{' statement* '}'
         //  return ::= 'return' expression? ';'?
-        //  if ::= 'if' '(' expression ')' (block | statement) else?
+        //  if ::= 'if' '(' expression ')' statement else?
         //  else ::= 'else' (block | statement)
-        //  while ::= 'while' '(' expression ')' (block | statement)
+        //  while ::= 'while' '(' expression ')' statement
         //  do ::= 'do' block 'while' '(' expression ')' ';'
-        //  for ::= 'for' (('await' '(' loop ')' ) | ('(' (loop | iterator) ')')) (block | statement)
+        //  for ::= 'for' (('await' '(' loop ')' ) | ('(' (loop | iterator) ')')) statement
         //  loop ::= expression? ';' expression? ';' expression?
         //  iterator ::= identifierDeclaration ('of' | 'in') expression
         //  classDeclStatement ::= 'class' identifier ('extends' identifier)? '{' classStatement* '}'
         //  functionStatement ::= gender? 'async'? ('function' '*'? identifier parameters) block
         //  identifierDeclaration ::= gender? ('var' | 'const' | 'let') identifier ('=' expression)?
-        //parameters ::= '(' (identifier ('=' expression)? ',')* ')'
-        //arguments ::= '(' (expression ',')* ')'
-        //array ::= '[' (expression? ',')* ']'
+        //  switch ::= 'switch' '(' expression ')' switchStatementBody
+        //parameters ::= '(' (identifier ('=' unary_misc)? ',')* ')' // we're using unary_misc here because allowing the comma here would be weird!
+        //arguments ::= '(' (unary_misc ',')* ')' // we're using unary_misc because allowing the comma operator would be terrible! (also you are allowed one trailing comma but it would be messy to include that in the grammar lol)
+        //array ::= '[' (unary_misc? ',')* ']'
         //object ::= ('{' (objectkeyvalue (',' objectkeyvalue)* ','?)? '}')
-        //objectkeyvalue ::= ((objectkey ':' expression) | identifier)
-        //objectkey ::= identifier | ('[' expression ']')
+        //objectkeyvalue ::= ((objectkey ':' unary_misc) | identifier)
+        //objectkey ::= identifier | ('[' unary_misc ']')
 
         //i was hating but his visitor techinque might make some sense...
 
         class Statement {
             accept(visitor) {} // = 0;
-        }
-
-        class VariableDeclarationStatement extends Statement {
-            gender;
-            qualifier;
-            name;
-            value;
-            constructor(gender, qualifier, name, value) {
-                super();
-                this.gender = gender;
-                this.qualifier = qualifier;
-                this.name = name;
-                this.value = value;
-            }
-            accept(visitor) /*override*/ {
-                return visitor.visitVariableDeclarationStatement(this);
-            }
         }
 
         class Expression {
@@ -1160,47 +1152,75 @@
             }
         }
 
+        class ArrayLiteralExpression extends LiteralExpression {
+            constructor(value = []) {
+                super(value);
+            }
+            accept(visitor) /*override*/ {
+                debugger;
+                return this.value.map(v=>v.accept(visitor)); //uh?
+            }
+        }
+
+        //probably?
+        class IdentifierExpression extends Expression {
+            /** @type {String} */
+            nameToken;
+
+            /**
+             * @param {String} nameToken
+             */
+            constructor(nameToken) {
+                super();
+                this.nameToken = nameToken;
+            }
+            accept(visitor) /*override*/ {
+                return visitor.visitIdentifierExpression(this);
+            }
+        }
+
         class UnaryExpression extends Expression {
             /** @type {Boolean} */
             postfix;
             /** @type {Token} */
-            operator;
+            operatorToken;
             /** @type {Expression} */
-            right;
+            operand;
 
             /**
              * @param {Boolean} postfix
-             * @param {Token} operator
-             * @param {Expression} right
+             * @param {Token} operatorToken
+             * @param {Expression} operand
              */
-            constructor(postfix, operator, right) {
+            constructor(postfix, operatorToken, operand) {
                 super();
                 this.postfix = postfix;
-                this.operator = operator;
-                this.right = right;
+                this.operatorToken = operatorToken;
+                this.operand = operand;
             }
 
             accept(visitor) /*override*/ {
                 return visitor.visitUnaryExpression(this);
             }
         }
+
         class BinaryExpression extends Expression {
             /** @type {Expression} */
             left;
             /** @type {Token} */
-            operator;
+            operatorToken;
             /** @type {Expression} */
             right;
 
             /**
              * @param {Expression} left
-             * @param {Token} operator
+             * @param {Token} operatorToken
              * @param {Expression} right
              */
-            constructor(left, operator, right) {
+            constructor(left, operatorToken, right) {
                 super();
                 this.left = left;
-                this.operator = operator;
+                this.operatorToken = operatorToken;
                 this.right = right;
             }
 
@@ -1231,6 +1251,32 @@
 
             accept(visitor) /*override*/ {
                 return visitor.visitTernaryExpression(this);
+            }
+        }
+        
+        class VariableDeclarationStatement extends Statement {
+            gender;
+            qualifier;
+            name;
+            value;
+            constructor(gender, qualifier, name, value) {
+                super();
+                this.gender = gender;
+                this.qualifier = qualifier;
+                this.name = name;
+                this.value = value;
+            }
+            accept(visitor) /*override*/ {
+                return visitor.visitVariableDeclarationStatement(this);
+            }
+        }
+
+        //i thought i didn't actually need to make a separate class for this but i just realized the block also has a scope so we definitely need to know that lol
+        class BlockStatement extends Statement {
+            /** @type {Array<Statement>} */
+            statements = [];
+            accept(visitor) /*override*/ {
+                return visitor.visitBlockStatement(this);
             }
         }
 
@@ -1300,6 +1346,32 @@
             //    return this.term();
             //}
 
+            identifier() {
+                const id = this.match(TokenKind.IDENTIFIER);
+                if(!id) {
+                    throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "JavaascriptParser::identifier called but this token was not an identifier?!");
+                }
+                return new IdentifierExpression(id);
+            }
+
+            $arguments() {
+                let args = [];
+                this.consume(TokenKind.OPEN_PARENTHESIS, "Arguments start with open parenthesis (this error should not happen but i'm using consume just in case!)");
+                while(this.i < this.tokens.length && !this.peek(TokenKind.CLOSING_PARENTHESIS)) {
+                    const arg = this.unary_misc(); //using unary_misc instead of expression because we need to manage commas ourselves
+                    if(!this.match(TokenKind.COMMA) && !this.peek(TokenKind.CLOSING_PARENTHESIS)) {
+                        if(this.i < this.tokens.length) {
+                            throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Expected comma in arguments!!");
+                        }else {
+                            throw new ParseError(this.tokens[this.i-1].line, this.tokens[this.i-1].char, "Expected comma in arguments!! (also the file shouldn't just end here lol)");
+                        }
+                    }
+                    args.push(arg);
+                }
+                this.consume(TokenKind.CLOSING_PARENTHESIS, "Call requires closing parenthesis!");
+                return args;
+            }
+
             expression() {
                 return this.comma();
             }
@@ -1330,7 +1402,7 @@
             unary_misc() {
                 if(this.match(TokenKind.SPREAD)) {
                     //...
-                }else if(this.matchReserved("yield")) {
+                }else if(this.matchReserved("yield")) { //uhh yield is only reserved in strict mode
                     if(this.match(TokenKind.ASTERISK)) {
                         //yield*
                     }else {
@@ -1340,20 +1412,57 @@
                 return this.assignment();
             }
 
+            identifierExpression() {
+                return this.identifierAccess();
+            }
+
+            //idk why mdn says some operators have no associativity but don't they? doesn't the array subscript have left associativity?
+            //identifierNoAssociativity() {
+            //    let expr = this.identifierAccess();
+            //}
+
+            identifierAccess() {
+                let expr = this.identifier();
+                //no optional chaining here because it's expressly forbidden! (somewhere)
+                //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Optional_chaining#invalid_optional_chaining
+                while(this.peek(TokenKind.DOT) || this.peek(TokenKind.OPEN_BRACKET) || this.peek(TokenKind.OPEN_PARENTHESIS)) {
+                    if(this.peek(TokenKind.DOT)) {
+                        expr = new BinaryExpression(expr, this.tokens[this.i++], this.identifier());
+                    }else if(this.peek(TokenKind.OPEN_BRACKET)) {
+                        //let eexpr = this.expression();
+                        expr = new BinaryExpression(expr, this.tokens[this.i++], this.expression());
+                        this.consume(TokenKind.CLOSING_BRACKET, "Closing bracket expected after Array subscript/computed member access");
+                    }else {
+                        const args = this.$arguments();
+                        //...
+                    }
+                }
+                return expr;
+            }
+
             assignment() {
+                let expr;
                 if(this.peek(TokenKind.IDENTIFIER)) {
                     //actually bother parsing identifierExpression
-                }else {
-                    let expr = this.or_nullish();
-                    if(this.match(TokenKind.QUESTION)) {
-                        //ternary
-                        const trueExpr = this.assignment();
-                        this.consume(TokenKind.COLON, "Ternary expression missing colon!!");
-                        const falseExpr = this.assignment();
-                        expr = new TernaryExpression(expr, trueExpr, falseExpr);
+                    expr = this.identifierExpression();
+                    if(this.peek(TokenKind.NULLISH_COALESCING_EQUALS) || this.peek(TokenKind.LOGICAL_OR_EQUALS) || this.peek(TokenKind.LOGICAL_AND_EQUALS) || this.peek(TokenKind.BITWISE_OR_EQUALS) || this.peek(TokenKind.BITWISE_XOR_EQUALS) || this.peek(TokenKind.BITWISE_AND_EQUALS) || this.peek(TokenKind.BITWISE_UNSIGNED_SHIFT_RIGHT_EQUALS) || this.peek(TokenKind.BITWISE_SHIFT_RIGHT_EQUALS) || this.peek(TokenKind.BITWISE_SHIFT_LEFT_EQUALS) || this.peek(TokenKind.REMAINDER_EQUALS) || this.peek(TokenKind.DIV_EQUALS) || this.peek(TokenKind.MUL_EQUALS) || this.peek(TokenKind.EXPONENTIATION_EQUALS) || this.peek(TokenKind.MINUS_EQUALS) || this.peek(TokenKind.PLUS_EQUALS) || this.peek(TokenKind.EQUALS)) {
+                        return new BinaryExpression(expr, this.tokens[this.i++], this.assignment());
                     }
-                    return expr;
+                }else {
+                    expr = this.or_nullish();
                 }
+
+                //yeah probably idk
+
+                if(this.match(TokenKind.QUESTION)) {
+                    //ternary
+                    const trueExpr = this.assignment();
+                    this.consume(TokenKind.COLON, "Ternary expression missing colon!!");
+                    const falseExpr = this.assignment();
+                    expr = new TernaryExpression(expr, trueExpr, falseExpr);
+                }
+                
+                return expr;
             }
 
             or_nullish() {
@@ -1457,31 +1566,107 @@
 
             unary_postfix() {
                 if(this.peek(TokenKind.DECREMENT) || this.peek(TokenKind.INCREMENT)) {
-                    return new UnaryExpression(true, this.tokens[this.i++], this.primary());
+                    return new UnaryExpression(true, this.tokens[this.i++], this.new_operator());
                 }else {
-                    return this.primary();
+                    return this.new_operator();
                 }
             }
 
-            //new
-            //access_call_no_associativity
-            //access_call
+            
+            new_operator() {
+                if(this.matchReserved("new")) {
+                    return new UnaryExpression(false, this.tokens[this.i++], this.new_operator());
+                }else {
+                    return this.access_call_no_associativity();
+                }
+            }
+
+            access_call_no_associativity() {
+                let expr;
+                if(this.peekReserved("import")) {
+                    throw new ParseError(this.tokens[this.i++].line, this.tokens[this.i++].char, "Chill man, we're not trying to interpret anything too fancy here.");
+                }else {
+                    expr = this.access_call();
+
+                    //this should happen with access_call and also doesn't it have left associativity? mdn tweaking
+                    //if(this.match(TokenKind.OPEN_PARENTHESIS)) {
+                    //    //arguments
+                    //    while(this.i < this.tokens.length && !this.peek(TokenKind.CLOSING_PARENTHESIS)) {
+                    //        let arg = this.expression();
+                    //        arg;
+                    //    }
+                    //    this.consume(TokenKind.CLOSING_PARENTHESIS, "Call requires closing parenthesis!");
+                    //}
+                }
+                return expr;
+            }
+
+            access_call() {
+                let expr = this.primary();
+                while(this.peek(TokenKind.OPTIONAL_CHAINING) || this.peek(TokenKind.DOT) || this.peek(TokenKind.OPEN_BRACKET) || this.peek(TokenKind.OPEN_PARENTHESIS)) {
+                    if(this.peek(TokenKind.OPEN_BRACKET)) {
+
+                    }else if(this.peek(TokenKind.OPEN_PARENTHESIS)) {
+                        const args = this.$arguments();
+                        //...
+                    }else {
+                        const operator = this.tokens[this.i++];
+                        const right = this.primary();
+                        //definitely throw some syntax error here if it's something weird like an object or array lol
+                        expr = new BinaryExpression(expr, operator, right);
+                    }
+                }
+                return expr;
+            }
 
             primary() {
                 //literal
                 switch(this.tokens[this.i].kind) {
                     case TokenKind.BOOLEAN:
+                        return new LiteralExpression(this.tokens[this.i++].value == "true");
+                        break;
                     case TokenKind.NULL:
+                        this.i++; //consume!
+                        return new LiteralExpression(null);
+                        break;
                     case TokenKind.UNDEFINED:
+                        this.i++; //consume!
+                        return new LiteralExpression(undefined);
+                        break;
                     case TokenKind.STRING:
                     case TokenKind.NUMBER:
                     case TokenKind.BIGINT:
                         return new LiteralExpression(this.tokens[this.i++].value);
                         break;
-                    case TokenKind.OPEN_BRACKET:
+                    case TokenKind.OPEN_BRACKET: {
                         //array
                         this.tokens[this.i++];
+                        //const array = new ArrayLiteralExpression();
+                        const array = new ArrayLiteralExpression();
+                        let index = 0; //this would be weird in lua since arrays start at 1!
+                        while(this.i < this.tokens.length && !this.peek(TokenKind.CLOSING_BRACKET)) {
+                            if(this.match(TokenKind.COMMA)) {
+                                //hole
+                            }else {
+                                let expr = this.unary_misc(); //can't use expression because commas are used for the array
+                                
+                                //this.consume(TokenKind.COMMA, "Comma expected in array literal!");
+                                if(!this.match(TokenKind.COMMA) && !this.peek(TokenKind.CLOSING_BRACKET)) {
+                                    if(this.i < this.tokens.length) {
+                                        throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Comma expected in array literal!");
+                                    }else {
+                                        throw new ParseError(this.tokens[this.i-1].line, this.tokens[this.i-1].char, "Comma expected in array literal! (line ended unexpectedly!)");
+                                    }
+                                }
+
+                                array.value[index] = expr;
+                            }
+                            index++;
+                        }
+                        this.consume(TokenKind.CLOSING_BRACKET, "Array literal requires closing bracket!");
+                        return array;
                         break;
+                    }
                     case TokenKind.OPEN_CURLY_BRACKET:
                         //object
                         break;
@@ -1490,7 +1675,7 @@
                 }
                 //identifier
                 if(this.peek(TokenKind.IDENTIFIER) && !this.peekNext(TokenKind.ARROW)) {
-
+                    return this.identifier();
                 }
                 //this
                 else if(this.matchReserved("this")) {
@@ -1536,6 +1721,8 @@
 
                 }else if(this.matchReserved("for")) {
 
+                }else if(this.matchReserved("switch")) {
+
                 }else if(this.matchReserved("class")) {
 
                 }else {
@@ -1549,17 +1736,27 @@
                     const async = this.matchReserved("async");
                     if(this.matchReserved("function")) {
                         //function statement (thank god)
-                    }else if(this.peekReserved("var") || this.peekReserved("const") || (this.peekReserved("let") || (this.peek(TokenKind.IDENTIFIER) && this.tokens[this.i].value == "let"))) { // bruh let is only reserved in strict mode! otherwise it will be tokenized as an identifier!
+                    }else if(this.peekReserved("var") || this.peekReserved("const") || (this.peekReserved("let") || (this.peek(TokenKind.IDENTIFIER) && this.tokens[this.i].value == "let" && this.peekNext(TokenKind.IDENTIFIER)))) { // bruh let is only reserved in strict mode! otherwise it will be tokenized as an identifier!
                         //identifier declaration
                         const qualifier = this.matchReserved("var") || this.matchReserved("const") || this.matchReserved("let") || ((this.peek(TokenKind.IDENTIFIER) && this.tokens[this.i].value == "let") ? this.tokens[this.i++] : undefined); // oh yeah, we need this lol
                         const name = this.match(TokenKind.IDENTIFIER);
                         if(!name) {
-                            throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Expected identifier!!");
+                            if(this.peekReserved("let")) {
+                                throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, `Expected identifier!! (Unexpected strict mode reserved word)`);
+                            }else {
+                                throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, `Expected identifier!! (Unexpected token '${this.tokens[this.i].value}')`);
+                            }
+                        }
+                        if(qualifier.value != "var" && name.value == "let") {
+                            throw new ParseError(this.tokens[this.i-1].line, this.tokens[this.i-1].char, "let is disallowed as a lexically bound name (even though the statement var let = ...; is allowed in non strict mode)");
                         }
                         let value = undefined;
                         if(this.match(TokenKind.EQUALS)) {
                             //assignment
                             value = this.expression();
+                        }else if(qualifier.value == "const") {
+                            let temp = +!this.peek(TokenKind.SEMICOLON); //we'll do the token before this one if this one isn't a semicolon (because whatever token that isn't a semicolon might be on another line!)
+                            throw new ParseError(this.tokens[this.i-temp].line, this.tokens[this.i-temp].char, "Missing initializer in const declaration");
                         }
                         //probably expect a semicolon?
                         this.consume(TokenKind.SEMICOLON, "Semicolon expected after variable declaration!");
@@ -1568,7 +1765,7 @@
                     }else {
                         //oops, these checks here might not be entirely correct!
                         if(gender) {
-                            throw new ParseError(gender.line, gender.char, "Gender not allowed here!");
+                            throw new ParseError(gender.line, gender.char, "Gender not expected here!");
                         }
                         if(async) {
                             throw new ParseError(gender.line, gender.char, "Async definitely not allowed here!");
@@ -1588,10 +1785,12 @@
                         //ok, the google says that block statements should come before object expression statements (and i guess that makes sense because immediately following if (...) with an object expression statement doesn't really make sense anyways)
                         if(this.match(TokenKind.OPEN_CURLY_BRACKET)) {
                             //block
-                            //while(this.i < this.tokens.length && !this.peek(TokenKind.CLOSING_CURLY_BRACKET)) {
-                            //    
-                            //}
+                            const expr = new BlockStatement();
+                            while(this.i < this.tokens.length && !this.peek(TokenKind.CLOSING_CURLY_BRACKET)) {
+                                expr.statements.push(this.statement());
+                            }
                             this.consume(TokenKind.CLOSING_CURLY_BRACKET, "Expected closing bracket!!");
+                            return expr;
                         }else {
                             const expr = this.expression();
                             this.consume(TokenKind.SEMICOLON, "Expressions must end with a semicolon"); //this line shouldn't appear because of automatic semicolon insertion right? (idk if i'll actually do that though lol)
@@ -1616,6 +1815,7 @@
                         statements.push(this.statement());
                     }
                 }catch(e) {
+                    //when i was using std expected i never thought to throw instead of propagating the expected out
                     if(!(e instanceof ParseError)) {
                         throw e; //lmao
                     }
@@ -1649,9 +1849,267 @@
                     return result;
                 }
                 const p = new Printer;
-                p.print(result.value[0]);
+                for(const statement of result.value) {
+                    p.print(statement);
+                }
+                console.log(Printer.prototype.visitLiteralExpression({value: result.value[0].accept(this)}));
 
                 //because arrays and objects shouldn't be too hard, we'll probably use a recursive descent solution (at least for these types)
+            }
+
+            /** @param {UnaryExpression} unaryExpression */
+            visitUnaryExpression(unaryExpression) {
+                if(unaryExpression.postfix) {
+                    //unary_postfix
+                    switch(unaryExpression.operatorToken.kind) {
+                        case TokenKind.INCREMENT:
+                            break;
+                        case TokenKind.DECREMENT:
+                            break;
+                    }
+                }else {
+                    const value = unaryExpression.operand.accept(this);
+                    switch(unaryExpression.operatorToken.kind) {
+                        //unary_misc
+                        case TokenKind.SPREAD:
+                            //...
+                            break;
+                        //yield but yield is only reserved if strict mode!
+                        
+                        case TokenKind.RESERVED:
+                            switch(unaryExpression.operatorToken.value) {
+                                //new
+                                case "new":
+                                    break;
+                                
+                                //import
+                                case "import":
+                                    break;
+
+                                //unary_prefix
+                                case "await":
+                                    break;
+                                case "delete":
+                                    //return delete value; //uhh
+                                    break;
+                                case "void":
+                                    return undefined;
+                                    break;
+                                case "typeof":
+                                    return typeof value;
+                                    break;
+                            }
+                            break;
+                        
+                        //unary_prefix cont.
+                        case TokenKind.MINUS:
+                            return -value;
+                            break;
+                        case TokenKind.PLUS:
+                            return +value;
+                            break;
+                        case TokenKind.BITWISE_NOT:
+                            return ~value;
+                            break;
+                        case TokenKind.EXCLAMATION:
+                            return !value;
+                            break;
+                        case TokenKind.DECREMENT:
+                            //return --value; //uhh
+                            break;
+                        case TokenKind.INCREMENT:
+                            //return ++value; //uhh
+                            break;
+                    }
+                }
+            }
+
+            /** @param {BlockStatement} blockStatement */
+            visitBlockStatement(blockStatement) {
+                //uhh do that..
+            }
+
+            /** @param {ExpressionStatement} exprStatement */
+            visitExpressionStatement(exprStatement) {
+                return exprStatement.expression.accept(this);
+            }
+
+            /** @param {IdentifierExpression} identifierExpression */
+            visitIdentifierExpression(identifierExpression) {
+                //no scope yet lol
+                return globalThis[identifierExpression.nameToken.value];
+            }
+
+            /** @param {LiteralExpression} literalExpression */
+            visitLiteralExpression(literalExpression) {
+                return literalExpression.value; //right?
+            }
+            
+            /** @param {BinaryExpression} binaryExpression */
+            visitBinaryExpression(binaryExpression) {
+                const left = binaryExpression.left.accept(this);
+                //short circuiting operators
+                if(binaryExpression.operatorToken.kind == TokenKind.NULLISH_COALESCING) {
+                    //or_nullish
+                    if(left != null && left != undefined) {
+                        return left;
+                    }else {
+                        return binaryExpression.right.accept(this);
+                    }
+                }else if(binaryExpression.operatorToken.kind == TokenKind.LOGICAL_OR) {
+                    //short circuit!
+                    if(Environment.isTruthy(left)) {
+                        return left;
+                    }else {
+                        return binaryExpression.right.accept(this);
+                    }
+                }else if(binaryExpression.operatorToken.kind == TokenKind.LOGICAL_AND) {
+                    //short circuit!
+                    if(!Environment.isFalsy(left)) {
+                        return left;
+                    }else {
+                        return binaryExpression.right.accept(this);
+                    }
+                }
+                //access call, not short circuiting but we shouldn't evaluate the right identifier!
+                else if(binaryExpression.operatorToken.kind == TokenKind.OPTIONAL_CHAINING) {
+                    //we SHOULD be able to assume that the right is an identifier because of JavascriptParser
+                    return left?.[binaryExpression.right.nameToken.value];
+                }else if(binaryExpression.operatorToken.kind == TokenKind.DOT) {
+                    return left[binaryExpression.right.nameToken.value]; //lol!
+                }
+                //we can safely evaluate the right :)
+                const right = binaryExpression.right.accept(this);
+                switch(binaryExpression.operatorToken.kind) {
+                    //comma
+                    case TokenKind.COMMA: {
+                        //left;
+                        return right;
+                        break;
+                    }
+
+                    //assignment
+                    //we need the location of the identifier instead of the value!
+                    case TokenKind.NULLISH_COALESCING_EQUALS:
+                        break;
+                    case TokenKind.LOGICAL_OR_EQUALS:
+                        break;
+                    case TokenKind.LOGICAL_AND_EQUALS:
+                        break;
+                    case TokenKind.BITWISE_OR_EQUALS:
+                        break;
+                    case TokenKind.BITWISE_XOR_EQUALS:
+                        break;
+                    case TokenKind.BITWISE_AND_EQUALS:
+                        break;
+                    case TokenKind.BITWISE_UNSIGNED_SHIFT_RIGHT_EQUALS:
+                        break;
+                    case TokenKind.BITWISE_SHIFT_RIGHT_EQUALS:
+                        break;
+                    case TokenKind.BITWISE_SHIFT_LEFT_EQUALS:
+                        break;
+                    case TokenKind.REMAINDER_EQUALS:
+                        break;
+                    case TokenKind.DIV_EQUALS:
+                        break;
+                    case TokenKind.MUL_EQUALS:
+                        break;
+                    case TokenKind.EXPONENTIATION_EQUALS:
+                        break;
+                    case TokenKind.MINUS_EQUALS:
+                        break;
+                    case TokenKind.PLUS_EQUALS:
+                        break;
+                    case TokenKind.EQUALS:
+                        break;
+                    
+                    //bitwise_or
+                    case TokenKind.BITWISE_OR:
+                        return left | right;
+                        break;
+                    
+                    //bitwise_x0r
+                    case TokenKind.BITWISE_XOR:
+                        return left ^ right;
+                        break;
+                    
+                    //bitwise_and
+                    case TokenKind.BITWISE_AND:
+                        return left & right;
+                        break;
+                    
+                    //equality
+                    case TokenKind.STRICT_NOT_EQUAL:
+                        break;
+                    case TokenKind.STRICT_EQUAL:
+                        break;
+                    case TokenKind.NOT_EQUAL:
+                        break;
+                    case TokenKind.EQUAL_EQUAL:
+                        break;
+                    
+                    //comparison
+                    case TokenKind.LESS_THAN:
+                        break;
+                    case TokenKind.LESS_EQUAL:
+                        break;
+                    case TokenKind.GREATER_THAN:
+                        break;
+                    case TokenKind.GREATER_EQUAL:
+                        break;
+                    
+                    //bitwise_shift
+                    case TokenKind.BITWISE_SHIFT_LEFT:
+                        break;
+                    case TokenKind.BITWISE_SHIFT_RIGHT:
+                        break;
+                    case TokenKind.BITWISE_UNSIGNED_SHIFT_RIGHT:
+                        break;
+                    
+                    //term
+                    case TokenKind.PLUS:
+                        return left + right; //string concatenation uses a different operator in lua so i'd have to check the types!
+                        break;
+                    case TokenKind.MINUS:
+                        return left - right; //i don't think there's a single math operator that will throw in javascript (which seems crazy but even something like 2 ** [] still works!) so i'd have to do some extra stuff in lua here too.
+                        break;
+
+                    //factor
+                    case TokenKind.REMAINDER:
+                        return left % right;
+                        break;
+                    case TokenKind.SLASH:
+                        return left / right;
+                        break;
+                    case TokenKind.ASTERISK:
+                        return left * right;
+                        break;
+                    
+                    //exponentiation
+                    case TokenKind.EXPONENTIATION:
+                        return left ** right;
+                        break;
+
+                    //access_call
+                    case TokenKind.OPEN_BRACKET:
+                        return left[right];
+                        break;
+                }
+            }
+
+            /** @param {TernaryExpression} ternaryExpression */
+            visitTernaryExpression(ternaryExpression) {
+                //if(Environment.isTruthy(ternaryExpression.condition)) {
+                //    return ternaryExpression.trueExpr.accept(this);
+                //}else {
+                //    return ternaryExpression.falseExpr.accept(this);
+                //}
+                return Environment.isTruthy(ternaryExpression.condition.accept(this)) ? ternaryExpression.trueExpr.accept(this) : ternaryExpression.falseExpr.accept(this);
+            }
+
+            /** @param {VariableDeclarationStatement} varDeclStatement */
+            visitVariableDeclarationStatement(varDeclStatement) {
+                //uhh do that..
             }
         }
 
@@ -1660,19 +2118,37 @@
                 console.log(statement.accept(this));
             }
 
+            /** @param {BlockStatement} blockStatement */
+            visitBlockStatement(blockStatement) {
+                let block = "{\n";
+                for(const statement of blockStatement.statements) {
+                    block += statement.accept(this) + "\n";
+                }
+                return block + "}";
+            }
+
             /** @param {ExpressionStatement} expressionStatement */
             visitExpressionStatement(expressionStatement) {
                 return expressionStatement.expression.accept(this) + ";";
             }
 
+            /** @param {IdentifierExpression} identifierExpression */
+            visitIdentifierExpression(identifierExpression) {
+                return identifierExpression.nameToken.value;
+            }
+
             /** @param {UnaryExpression} unaryExpression */
             visitUnaryExpression(unaryExpression) {
-                return `(${unaryExpression.operator.value} ${unaryExpression.right.accept(this)})`;
+                if(unaryExpression.postfix) {
+                    return `(${unaryExpression.operand.accept(this)} ${unaryExpression.operatorToken.value})`;
+                }else {
+                    return `(${unaryExpression.operatorToken.value} ${unaryExpression.operand.accept(this)})`;
+                }
             }
             
             /** @param {BinaryExpression} binaryExpression */
             visitBinaryExpression(binaryExpression) {
-                return `(${binaryExpression.left.accept(this)} ${binaryExpression.operator.value} ${binaryExpression.right.accept(this)})`;
+                return `(${binaryExpression.left.accept(this)} ${binaryExpression.operatorToken.value} ${binaryExpression.right.accept(this)}${binaryExpression.operatorToken.value == '[' ? " ]" : ""})`;
             }
 
             /** @param {TernaryExpression} ternaryExpression */
