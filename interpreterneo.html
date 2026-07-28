@@ -32,7 +32,8 @@
     	<select id="example_selection" oninput="selectExample(event);">
 			<option value="basic">basic</option>
 			<option value="hashbang">hashbang</option>
-            <option value="nonstrict" selected>allowed in non strict mode</option>
+            <option value="helloworld" selected>hello world</option>
+            <option value="nonstrict">allowed in non strict mode</option>
             <option value="operators">operators</option>
             <option value="alltokens">all token kinds</option>
             <option value="rodwave">when the bs start</option>
@@ -45,6 +46,7 @@
         const examples = {
             "basic": "let x = 5;",
             "hashbang": "#!/usr/bin/env node",
+            "helloworld": "console.log(\"Hello World!\");",
             "nonstrict": "var let = 5;",
             "operators": "?.\n++\n--\n+\n-\n~\n!\n**\n*\n/\n%\n<\n>\n<=\n>=\n==\n!=\n===\n!==\n<<\n>>\n>>>\n&\n|\n^\n&&\n||\n??\n=\n*=\n/=\n%=\n+=\n-=\n<<=\n>>=\n>>>=\n&=\n^=\n|=\n**=\n&&=\n||=\n??=\n,\n...",
             "alltokens": "var\nlet\n\"hi\"\n5\n5n\ntrue\nundefined\nnull\nfemale\n[\n]\n.\n(\n)\n+\n-\n*\n/\n!\n--\n++\n?.\n~\n**\n%\n<\n>\n<=\n>=\n==\n!=\n===\n!==\n<<\n>>\n>>>\n&\n|\n^\n&&\n||\n??\n? :\n=\n*=\n/=\n%=\n+=\n-=\n<<=\n>>=\n>>>=\n&=\n^=\n|=\n**=\n&&=\n||=\n??=\n,\n...\n;\n{\n}\n=>",
@@ -256,7 +258,7 @@
             parse() {}; // = 0;
         }
 
-        class Environment {
+        class HostLanguage {
             //in javascript we do!
             static hasBigNumbers() {
                 return true;
@@ -965,7 +967,7 @@
                                     if(impliedOctal) {
                                         return Unexpected(new ParseError(lineNumber, charNumber, "Octal numbers (without the 0o prefix) cannot be BigInts for \"legacy reasons\"!"));
                                     }
-                                    if(Environment.hasBigNumbers()) {
+                                    if(HostLanguage.hasBigNumbers()) {
                                         numberToken.value = BigInt(numberString);
                                         numberToken.kind = TokenKind.BIGINT;
                                     }else {
@@ -1075,7 +1077,7 @@
         //literal ::= boolean | null | undefined | array | object | string | number | bigint
         //gender ::= 'male' | 'female' | 'nonbinary'
         //classExpression ::= 'class' identifier? ('extends' identifier)? '{' classStatement* '}'
-        //functionExpression ::= (('function' identifier? parameters) | ((identifier | parameters) '=>')) block
+        //functionExpression ::= (('function' identifier? parameters) | ((identifier | parameters) '=>')) statement
         //identifierExpression ::= identifierAccess
         //identifierAccess ::= identifier (('.' identifier) | ('[' expression ']') | (arguments))*
         //expression ::= comma
@@ -1122,7 +1124,7 @@
         //  iterator ::= identifierDeclaration ('of' | 'in') expression
         //  classDeclStatement ::= 'class' identifier ('extends' identifier)? '{' classStatement* '}'
         //  functionStatement ::= gender? 'async'? ('function' '*'? identifier parameters) block
-        //  identifierDeclaration ::= gender? ('var' | 'const' | 'let') identifier ('=' expression)?
+        //  identifierDeclaration ::= gender? ('var' | 'const' | 'let') identifier (',' identifier)* ('=' expression)?
         //  switch ::= 'switch' '(' expression ')' switchStatementBody
         //parameters ::= '(' (identifier ('=' unary_misc)? ',')* ')' // we're using unary_misc here because allowing the comma here would be weird!
         //arguments ::= '(' (unary_misc ',')* ')' // we're using unary_misc because allowing the comma operator would be terrible! (also you are allowed one trailing comma but it would be messy to include that in the grammar lol)
@@ -1132,6 +1134,33 @@
         //objectkey ::= identifier | ('[' unary_misc ']')
 
         //i was hating but his visitor techinque might make some sense...
+
+        /**
+         * @param {Expression} expression
+         */
+        function isValidLeftHandAssignment(expression) {
+            if(expression instanceof BinaryExpression) {
+                let valid = isValidLeftHandAssignment(expression.left);
+                if(!valid) {
+                    return false;
+                }
+                switch(expression.operatorToken.kind) {
+                    case TokenKind.DOT:
+                    case TokenKind.OPEN_PARENTHESIS:
+                    case TokenKind.OPEN_BRACKET:
+                        return isValidLeftHandAssignment(expression.right);
+                        break;
+                    
+                    default:
+                        return false;
+                        break;
+                }
+            }else if(expression instanceof FunctionCallExpression) {
+                return isValidLeftHandAssignment(expression.functionExpr);
+            }else if(expression instanceof IdentifierExpression) {
+                return true;
+            }
+        }
 
         class Statement {
             accept(visitor) {} // = 0;
@@ -1253,12 +1282,44 @@
                 return visitor.visitTernaryExpression(this);
             }
         }
+
+        class FunctionCallExpression extends Expression {
+            /** @type {Expression} */
+            functionExpr;
+            /** @type {Array<Expression>} */
+            argumentsExprArr;
+
+            /**
+             * @param {Expression} functionExpr
+             * @param {Expression} argumentsExprArr
+             */
+            constructor(functionExpr, argumentsExprArr) {
+                super();
+                this.functionExpr = functionExpr;
+                this.argumentsExprArr = argumentsExprArr;
+            }
+
+            accept(visitor) /*override*/ {
+                return visitor.visitFunctionCallExpression(this);
+            }
+        }
         
         class VariableDeclarationStatement extends Statement {
+            /** @type {Token} */
             gender;
+            /** @type {Token} */
             qualifier;
+            /** @type {String} */
             name;
+            /** @type {Expression} */
             value;
+
+            /**
+             * @param {Token} gender
+             * @param {Token} qualifier
+             * @param {String} name
+             * @param {Expression} value
+             */
             constructor(gender, qualifier, name, value) {
                 super();
                 this.gender = gender;
@@ -1296,10 +1357,13 @@
         class JavascriptParser extends Parser {
             i;
             useStrict;
+            /** @type {Array<Token>} */
+            hoistedVars;
             constructor(parentInterpreter, tokens) {
                 super(parentInterpreter, tokens);
                 this.i = 0;
                 this.useStrict = false;
+                this.hoistedVars = [];
             }
 
             /** @returns {Token | false} */
@@ -1434,7 +1498,7 @@
                         this.consume(TokenKind.CLOSING_BRACKET, "Closing bracket expected after Array subscript/computed member access");
                     }else {
                         const args = this.$arguments();
-                        //...
+                        expr = new FunctionCallExpression(expr, args);
                     }
                 }
                 return expr;
@@ -1442,14 +1506,32 @@
 
             assignment() {
                 let expr;
-                if(this.peek(TokenKind.IDENTIFIER)) {
-                    //actually bother parsing identifierExpression
-                    expr = this.identifierExpression();
-                    if(this.peek(TokenKind.NULLISH_COALESCING_EQUALS) || this.peek(TokenKind.LOGICAL_OR_EQUALS) || this.peek(TokenKind.LOGICAL_AND_EQUALS) || this.peek(TokenKind.BITWISE_OR_EQUALS) || this.peek(TokenKind.BITWISE_XOR_EQUALS) || this.peek(TokenKind.BITWISE_AND_EQUALS) || this.peek(TokenKind.BITWISE_UNSIGNED_SHIFT_RIGHT_EQUALS) || this.peek(TokenKind.BITWISE_SHIFT_RIGHT_EQUALS) || this.peek(TokenKind.BITWISE_SHIFT_LEFT_EQUALS) || this.peek(TokenKind.REMAINDER_EQUALS) || this.peek(TokenKind.DIV_EQUALS) || this.peek(TokenKind.MUL_EQUALS) || this.peek(TokenKind.EXPONENTIATION_EQUALS) || this.peek(TokenKind.MINUS_EQUALS) || this.peek(TokenKind.PLUS_EQUALS) || this.peek(TokenKind.EQUALS)) {
-                        return new BinaryExpression(expr, this.tokens[this.i++], this.assignment());
+                //if(this.peek(TokenKind.IDENTIFIER)) {
+                //    //actually bother parsing identifierExpression
+                //    //expr = this.identifierExpression();
+                //    // expr = this.identifierExpression();
+                //    
+                //    //wait a second bruh i could just do or_nullish here too and check if it's an IdentifierExpression or not
+                //    expr = this.or_nullish();
+                //    if(this.peek(TokenKind.NULLISH_COALESCING_EQUALS) || this.peek(TokenKind.LOGICAL_OR_EQUALS) || this.peek(TokenKind.LOGICAL_AND_EQUALS) || this.peek(TokenKind.BITWISE_OR_EQUALS) || this.peek(TokenKind.BITWISE_XOR_EQUALS) || this.peek(TokenKind.BITWISE_AND_EQUALS) || this.peek(TokenKind.BITWISE_UNSIGNED_SHIFT_RIGHT_EQUALS) || this.peek(TokenKind.BITWISE_SHIFT_RIGHT_EQUALS) || this.peek(TokenKind.BITWISE_SHIFT_LEFT_EQUALS) || this.peek(TokenKind.REMAINDER_EQUALS) || this.peek(TokenKind.DIV_EQUALS) || this.peek(TokenKind.MUL_EQUALS) || this.peek(TokenKind.EXPONENTIATION_EQUALS) || this.peek(TokenKind.MINUS_EQUALS) || this.peek(TokenKind.PLUS_EQUALS) || this.peek(TokenKind.EQUALS)) {
+                //        if(!(expr instanceof IdentifierExpression)) {
+                //            throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Invalid left-hand side in assignment");
+                //        }
+                //        return new BinaryExpression(expr, this.tokens[this.i++], this.assignment());
+                //    }
+                //}else {
+                //    expr = this.or_nullish();
+                //}
+
+                expr = this.or_nullish();
+                if(this.peek(TokenKind.NULLISH_COALESCING_EQUALS) || this.peek(TokenKind.LOGICAL_OR_EQUALS) || this.peek(TokenKind.LOGICAL_AND_EQUALS) || this.peek(TokenKind.BITWISE_OR_EQUALS) || this.peek(TokenKind.BITWISE_XOR_EQUALS) || this.peek(TokenKind.BITWISE_AND_EQUALS) || this.peek(TokenKind.BITWISE_UNSIGNED_SHIFT_RIGHT_EQUALS) || this.peek(TokenKind.BITWISE_SHIFT_RIGHT_EQUALS) || this.peek(TokenKind.BITWISE_SHIFT_LEFT_EQUALS) || this.peek(TokenKind.REMAINDER_EQUALS) || this.peek(TokenKind.DIV_EQUALS) || this.peek(TokenKind.MUL_EQUALS) || this.peek(TokenKind.EXPONENTIATION_EQUALS) || this.peek(TokenKind.MINUS_EQUALS) || this.peek(TokenKind.PLUS_EQUALS) || this.peek(TokenKind.EQUALS)) {
+                    //if(!(expr instanceof IdentifierExpression)) {
+                    //    throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Invalid left-hand side in assignment");
+                    //}
+                    if(!isValidLeftHandAssignment(expr) || this.tokens[this.i-1].kind == TokenKind.CLOSING_PARENTHESIS) {
+                        throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Invalid left-hand side in assignment");
                     }
-                }else {
-                    expr = this.or_nullish();
+                    return new BinaryExpression(expr, this.tokens[this.i++], this.assignment());
                 }
 
                 //yeah probably idk
@@ -1515,7 +1597,7 @@
 
             comparison() {
                 let expr = this.bitwise_shift();
-                while(this.peek(TokenKind.LESS_THAN) || this.peek(TokenKind.LESS_EQUAL) || this.peek(TokenKind.GREATER_THAN) || this.peek(TokenKind.GREATER_EQUAL)) {
+                while(this.peek(TokenKind.LESS_THAN) || this.peek(TokenKind.LESS_EQUAL) || this.peek(TokenKind.GREATER_THAN) || this.peek(TokenKind.GREATER_EQUAL) || this.peekReserved("in") || this.peekReserved("instanceof")) {
                     expr = new BinaryExpression(expr, this.tokens[this.i++], this.bitwise_shift());
                 }
                 return expr;
@@ -1605,9 +1687,13 @@
                 let expr = this.primary();
                 while(this.peek(TokenKind.OPTIONAL_CHAINING) || this.peek(TokenKind.DOT) || this.peek(TokenKind.OPEN_BRACKET) || this.peek(TokenKind.OPEN_PARENTHESIS)) {
                     if(this.peek(TokenKind.OPEN_BRACKET)) {
-
+                        //let eexpr = this.expression();
+                        expr = new BinaryExpression(expr, this.tokens[this.i++], this.expression());
+                        this.consume(TokenKind.CLOSING_BRACKET, "Closing bracket expected after Array subscript/computed member access");
                     }else if(this.peek(TokenKind.OPEN_PARENTHESIS)) {
+                        // const parenthesis = this.tokens[this.i]; //no consume here because we do that in $arguments
                         const args = this.$arguments();
+                        expr = new FunctionCallExpression(expr, args);
                         //...
                     }else {
                         const operator = this.tokens[this.i++];
@@ -1733,9 +1819,15 @@
 
                     //of course, this is not exactly what i wrote in the grammar, but how else would i short circuit if i've chosen functionStatement and it was actually identifierDeclaration?!
                     const gender = this.match(TokenKind.GENDER);
-                    const async = this.matchReserved("async");
+                    const async = this.matchReserved("async"); //i should actually peek async and make it a part of expression
                     if(this.matchReserved("function")) {
                         //function statement (thank god)
+                        const generator = this.match(TokenKind.ASTERISK);
+                        const name = this.match(TokenKind.IDENTIFIER);
+                        if(!name) {
+                            const temp = +(this.i >= this.tokens.length);
+                            throw new ParseError(this.tokens[this.i-temp].line, this.tokens[this.i-temp].char, `Function statements require a function name`);
+                        }
                     }else if(this.peekReserved("var") || this.peekReserved("const") || (this.peekReserved("let") || (this.peek(TokenKind.IDENTIFIER) && this.tokens[this.i].value == "let" && this.peekNext(TokenKind.IDENTIFIER)))) { // bruh let is only reserved in strict mode! otherwise it will be tokenized as an identifier!
                         //identifier declaration
                         const qualifier = this.matchReserved("var") || this.matchReserved("const") || this.matchReserved("let") || ((this.peek(TokenKind.IDENTIFIER) && this.tokens[this.i].value == "let") ? this.tokens[this.i++] : undefined); // oh yeah, we need this lol
@@ -1750,18 +1842,22 @@
                         if(qualifier.value != "var" && name.value == "let") {
                             throw new ParseError(this.tokens[this.i-1].line, this.tokens[this.i-1].char, "let is disallowed as a lexically bound name (even though the statement var let = ...; is allowed in non strict mode)");
                         }
+                        if(qualifier.value == "var") {
+                            //lowkey this is cap because we don't have scopes yet!
+                            this.hoistedVars.push({gender: gender || undefined, qualifier, name});
+                        }
                         let value = undefined;
                         if(this.match(TokenKind.EQUALS)) {
                             //assignment
                             value = this.expression();
                         }else if(qualifier.value == "const") {
-                            let temp = +!this.peek(TokenKind.SEMICOLON); //we'll do the token before this one if this one isn't a semicolon (because whatever token that isn't a semicolon might be on another line!)
+                            const temp = +!this.peek(TokenKind.SEMICOLON); //we'll do the token before this one if this one isn't a semicolon (because whatever token that isn't a semicolon might be on another line!)
                             throw new ParseError(this.tokens[this.i-temp].line, this.tokens[this.i-temp].char, "Missing initializer in const declaration");
                         }
                         //probably expect a semicolon?
                         this.consume(TokenKind.SEMICOLON, "Semicolon expected after variable declaration!");
                         // "k";
-                        return new VariableDeclarationStatement(gender, qualifier, name.value, value);
+                        return new VariableDeclarationStatement(gender || undefined, qualifier, name.value, value);
                     }else {
                         //oops, these checks here might not be entirely correct!
                         if(gender) {
@@ -1825,11 +1921,36 @@
             }
         }
 
+        class Variable {
+            /** @type {qualifier: Token | undefined, gender: Token | undefined} */
+            properties;
+            /** @type {any} */
+            value;
+
+            /** 
+             * @param {qualifier: Token | undefined, gender: Token | undefined} properties
+             * @param {any} value
+             */
+            constructor(properties = {qualifier: undefined, gender: undefined}, value) {
+                this.properties = properties;
+                this.value = value;
+            }
+        }
+
+        //Environment
+        class RuntimeState {
+            /** @type {Map<String, Variable>} */
+            variables = new Map([
+                ["globalThis", new Variable(undefined, globalThis)],
+            ]);
+        }
+
         class JavascriptInterpreter extends Interpreter {
             static globals = window; //lol
 
             //runtime
             //scope;
+            state = new RuntimeState;
 
             constructor() {
                 super();
@@ -1844,7 +1965,7 @@
                 }
                 console.log(result.value);
                 const parser = new JavascriptParser(this, result.value);
-                result = parser.parse();
+                result = parser.parse(); //javascript parser also needs to keep track of vars for hoisting!
                 if(!result.has_value()) {
                     return result;
                 }
@@ -1852,7 +1973,14 @@
                 for(const statement of result.value) {
                     p.print(statement);
                 }
-                console.log(Printer.prototype.visitLiteralExpression({value: result.value[0].accept(this)}));
+                //hoistedVars could be returned from parse but i don't feel like it lol
+                for(const {gender, qualifier, name} of parser.hoistedVars) {
+                    this.state.variables.set(name.value, new Variable({qualifier, gender}, undefined));
+                }
+                for(let i = 0; i < result.value.length-1; i++) {
+                    result.value[i].accept(this);
+                }
+                console.log(Printer.prototype.visitLiteralExpression({value: result.value.at(-1).accept(this)}));
 
                 //because arrays and objects shouldn't be too hard, we'll probably use a recursive descent solution (at least for these types)
             }
@@ -1937,7 +2065,16 @@
             /** @param {IdentifierExpression} identifierExpression */
             visitIdentifierExpression(identifierExpression) {
                 //no scope yet lol
-                return globalThis[identifierExpression.nameToken.value];
+                //return globalThis[identifierExpression.nameToken.value];
+                const name = identifierExpression.nameToken.value;
+                if(this.state.variables.has(name)) {
+                    return this.state.variables.get(name).value;
+                }else {
+                    if(!(name in globalThis)) {
+                        throw new ReferenceError(`${name} is not defined`);
+                    }
+                    return globalThis[name];
+                }
             }
 
             /** @param {LiteralExpression} literalExpression */
@@ -1947,81 +2084,88 @@
             
             /** @param {BinaryExpression} binaryExpression */
             visitBinaryExpression(binaryExpression) {
+                const kind = binaryExpression.operatorToken.kind;
+                switch(kind) {
+                    //assignment
+                    //we need the location of the identifier instead of the value!
+                    case TokenKind.NULLISH_COALESCING_EQUALS:
+                    case TokenKind.LOGICAL_OR_EQUALS:
+                    case TokenKind.LOGICAL_AND_EQUALS:
+                    case TokenKind.BITWISE_OR_EQUALS:
+                    case TokenKind.BITWISE_XOR_EQUALS:
+                    case TokenKind.BITWISE_AND_EQUALS:
+                    case TokenKind.BITWISE_UNSIGNED_SHIFT_RIGHT_EQUALS:
+                    case TokenKind.BITWISE_SHIFT_RIGHT_EQUALS:
+                    case TokenKind.BITWISE_SHIFT_LEFT_EQUALS:
+                    case TokenKind.REMAINDER_EQUALS:
+                    case TokenKind.DIV_EQUALS:
+                    case TokenKind.MUL_EQUALS:
+                    case TokenKind.EXPONENTIATION_EQUALS:
+                    case TokenKind.MINUS_EQUALS:
+                    case TokenKind.PLUS_EQUALS:
+                    case TokenKind.EQUALS: {
+                        //const name = binaryExpression.left.nameToken.value;
+                        //if(this.state.variables.has(name)) {
+                        //    const $var = this.state.variables.get(name);
+                        //    if($var.properties.qualifier?.value == "") { //tuff optional chain
+                        //
+                        //    }
+                        //}
+                        break;
+                    }
+                    
+                    default:
+                        break;
+                }
+
                 const left = binaryExpression.left.accept(this);
                 //short circuiting operators
-                if(binaryExpression.operatorToken.kind == TokenKind.NULLISH_COALESCING) {
+                if(kind == TokenKind.NULLISH_COALESCING) {
                     //or_nullish
                     if(left != null && left != undefined) {
                         return left;
                     }else {
                         return binaryExpression.right.accept(this);
                     }
-                }else if(binaryExpression.operatorToken.kind == TokenKind.LOGICAL_OR) {
+                }else if(kind == TokenKind.LOGICAL_OR) {
                     //short circuit!
-                    if(Environment.isTruthy(left)) {
+                    if(HostLanguage.isTruthy(left)) {
                         return left;
                     }else {
                         return binaryExpression.right.accept(this);
                     }
-                }else if(binaryExpression.operatorToken.kind == TokenKind.LOGICAL_AND) {
+                }else if(kind == TokenKind.LOGICAL_AND) {
                     //short circuit!
-                    if(!Environment.isFalsy(left)) {
+                    if(!HostLanguage.isFalsy(left)) {
                         return left;
                     }else {
                         return binaryExpression.right.accept(this);
                     }
                 }
                 //access call, not short circuiting but we shouldn't evaluate the right identifier!
-                else if(binaryExpression.operatorToken.kind == TokenKind.OPTIONAL_CHAINING) {
+                else if(kind == TokenKind.OPTIONAL_CHAINING) {
                     //we SHOULD be able to assume that the right is an identifier because of JavascriptParser
-                    return left?.[binaryExpression.right.nameToken.value];
-                }else if(binaryExpression.operatorToken.kind == TokenKind.DOT) {
-                    return left[binaryExpression.right.nameToken.value]; //lol!
+                    let value = left?.[binaryExpression.right.nameToken.value];
+                    if(value instanceof Function) {
+                        value = value.bind(left); // for some reason i thought we wouldn't have to do this this time lol
+                    }
+                    return value;
+                }else if(kind == TokenKind.DOT) {
+                    let value = left[binaryExpression.right.nameToken.value];
+                    if(value instanceof Function) {
+                        value = value.bind(left); // for some reason i thought we wouldn't have to do this this time lol
+                    }
+                    return value; //lol!
                 }
                 //we can safely evaluate the right :)
                 const right = binaryExpression.right.accept(this);
-                switch(binaryExpression.operatorToken.kind) {
+                switch(kind) {
                     //comma
                     case TokenKind.COMMA: {
                         //left;
                         return right;
                         break;
                     }
-
-                    //assignment
-                    //we need the location of the identifier instead of the value!
-                    case TokenKind.NULLISH_COALESCING_EQUALS:
-                        break;
-                    case TokenKind.LOGICAL_OR_EQUALS:
-                        break;
-                    case TokenKind.LOGICAL_AND_EQUALS:
-                        break;
-                    case TokenKind.BITWISE_OR_EQUALS:
-                        break;
-                    case TokenKind.BITWISE_XOR_EQUALS:
-                        break;
-                    case TokenKind.BITWISE_AND_EQUALS:
-                        break;
-                    case TokenKind.BITWISE_UNSIGNED_SHIFT_RIGHT_EQUALS:
-                        break;
-                    case TokenKind.BITWISE_SHIFT_RIGHT_EQUALS:
-                        break;
-                    case TokenKind.BITWISE_SHIFT_LEFT_EQUALS:
-                        break;
-                    case TokenKind.REMAINDER_EQUALS:
-                        break;
-                    case TokenKind.DIV_EQUALS:
-                        break;
-                    case TokenKind.MUL_EQUALS:
-                        break;
-                    case TokenKind.EXPONENTIATION_EQUALS:
-                        break;
-                    case TokenKind.MINUS_EQUALS:
-                        break;
-                    case TokenKind.PLUS_EQUALS:
-                        break;
-                    case TokenKind.EQUALS:
-                        break;
                     
                     //bitwise_or
                     case TokenKind.BITWISE_OR:
@@ -2040,30 +2184,48 @@
                     
                     //equality
                     case TokenKind.STRICT_NOT_EQUAL:
+                        return left !== right;
                         break;
                     case TokenKind.STRICT_EQUAL:
+                        return left === right;
                         break;
                     case TokenKind.NOT_EQUAL:
+                        return left != right;
                         break;
                     case TokenKind.EQUAL_EQUAL:
+                        return left == right;
                         break;
                     
                     //comparison
                     case TokenKind.LESS_THAN:
+                        return left < right;
                         break;
                     case TokenKind.LESS_EQUAL:
+                        return left <= right;
                         break;
                     case TokenKind.GREATER_THAN:
+                        return left > right;
                         break;
                     case TokenKind.GREATER_EQUAL:
+                        return left >= right;
                         break;
-                    
+                    case TokenKind.RESERVED:
+                        if(binaryExpression.operatorToken.value == "in") {
+                            return left in right;
+                        }else if(binaryExpression.operatorToken.value == "instanceof") {
+                            return left instanceof right;
+                        }
+                        break;
+
                     //bitwise_shift
                     case TokenKind.BITWISE_SHIFT_LEFT:
+                        return left << right;
                         break;
                     case TokenKind.BITWISE_SHIFT_RIGHT:
+                        return left >> right;
                         break;
                     case TokenKind.BITWISE_UNSIGNED_SHIFT_RIGHT:
+                        return left >>> right;
                         break;
                     
                     //term
@@ -2092,7 +2254,11 @@
 
                     //access_call
                     case TokenKind.OPEN_BRACKET:
-                        return left[right];
+                        let value = left[right];
+                        if(value instanceof Function) {
+                            value = value.bind(left);
+                        }
+                        return value;
                         break;
                 }
             }
@@ -2104,12 +2270,31 @@
                 //}else {
                 //    return ternaryExpression.falseExpr.accept(this);
                 //}
-                return Environment.isTruthy(ternaryExpression.condition.accept(this)) ? ternaryExpression.trueExpr.accept(this) : ternaryExpression.falseExpr.accept(this);
+                return HostLanguage.isTruthy(ternaryExpression.condition.accept(this)) ? ternaryExpression.trueExpr.accept(this) : ternaryExpression.falseExpr.accept(this);
+            }
+
+            /** @param {FunctionCallExpression} funcCallExpression */
+            visitFunctionCallExpression(funcCallExpression) {
+                const func = funcCallExpression.functionExpr.accept(this);
+                return func(...funcCallExpression.argumentsExprArr.map(v=>v.accept(this)));
             }
 
             /** @param {VariableDeclarationStatement} varDeclStatement */
             visitVariableDeclarationStatement(varDeclStatement) {
-                //uhh do that..
+                //let z, w = (z = 2, 3);
+                //initializing 2 vars with let!
+                if(this.state.variables.has(varDeclStatement.name)) {
+                    const decl = this.state.variables.get(varDeclStatement.name);
+                    const oldQualifier = decl.properties.qualifier.value;
+                    const oldGender = decl.properties.gender?.value;
+                    if(varDeclStatement.qualifier.value == "const" || varDeclStatement.qualifier.value == "let" || oldQualifier != varDeclStatement.qualifier.value || oldGender != varDeclStatement.gender?.value) {
+                        throw new SyntaxError(`Identifier '${varDeclStatement.name}' has already been declared${oldGender != varDeclStatement.gender?.value ? ` (with gender '${oldGender}')` : ""}`);
+                    }
+                    if(varDeclStatement.value == undefined && varDeclStatement.qualifier.value == "var") {
+                        return;
+                    }
+                }
+                this.state.variables.set(varDeclStatement.name, new Variable({qualifier: varDeclStatement.qualifier, gender: varDeclStatement.gender}, varDeclStatement.value.accept(this)));
             }
         }
 
@@ -2154,6 +2339,11 @@
             /** @param {TernaryExpression} ternaryExpression */
             visitTernaryExpression(ternaryExpression) {
                 return `(${ternaryExpression.condition.accept(this)} ? ${ternaryExpression.trueExpr.accept(this)} : ${ternaryExpression.falseExpr.accept(this)})`;
+            }
+
+            /** @param {FunctionCallExpression} funcCallExpression */
+            visitFunctionCallExpression(funcCallExpression) {
+                return `${funcCallExpression.functionExpr.accept(this)}(${funcCallExpression.argumentsExprArr.map(v=>v.accept(this))})`;
             }
 
             /** @param {LiteralExpression} literalExpression */
