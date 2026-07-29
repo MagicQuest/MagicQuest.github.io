@@ -40,6 +40,10 @@
             <option value="ternary">ternary</option>
             <option value="bs2">identifier gender LMAO</option>
             <option value="scope">scope</option>
+            <option value="scope2">scope 2</option>
+            <option value="varscope">var scope</option>
+            <option value="inconsistent">inconsistent</option>
+            <option value="COMPREHENSION">ARRAY COMPREHENSION?!</option>
         </select>
     </div>
     <script>
@@ -53,7 +57,11 @@
             "rodwave": "[(5+5, window.location.href.length),5,5]",
             "ternary": "5 ? 7 : 6 ? 3 : 2;",
             "bs2": "female var hai = \"rawr\";",
-            "scope": "{\n    let sogga = \"wet\";\n}"
+            "scope": "{\n    let sogga = \"wet\";\n}",
+            "scope2": 'let a = "global a";\nlet b = "global b";\nlet c = "global c";\n{\n  let a = "outer a";\n  let b = "outer b";\n  {\n    let a = "inner a";\n    console.log(a);\n    console.log(b);\n    console.log(c);\n  }\n  console.log(a);\n  console.log(b);\n  console.log(c);\n}\nconsole.log(a);\nconsole.log(b);\nconsole.log(c);\n',
+            "varscope": 'var a = "global a";\nvar b = "global b";\nvar c = "global c";\n{\n  var a = "outer a";\n  var b = "outer b";\n  {\n    var a = "inner a";\n    var a;\n    console.log(a);\n    console.log(b);\n    console.log(c);\n  }\n  console.log(a);\n  console.log(b);\n  console.log(c);\n}\nconsole.log(a);\nconsole.log(b);\nconsole.log(c);\n',
+            "inconsistent": "let x = 2;\n{\n    console.log(x); //should be ReferenceError because of let shadow!\n    let x;\n}",
+            "COMPREHENSION": "let split = [for (const x of \"string\") x];"
         }
 		function selectExample(/** @type {InputEvent} */ event) {
 			letext.value = examples[event.target.value];
@@ -263,10 +271,10 @@
             static hasBigNumbers() {
                 return true;
             }
-            static isTruthy(value) {
+            static isJavascriptTruthy(value) {
                 return !!value;
             }
-            static isFalsy(value) {
+            static isJavascriptFalsy(value) {
                 return !value;
             }
         }
@@ -1072,14 +1080,18 @@
         //  assignment used to include these operators but maybe they shouldn't lol ? '=>' | ('?' or_nullish ':')
 
         //               probably?
+        //               aw man, let and const aren't allowed in single statement contexts
         //javascript ::= statement*
         //identifier ::= /[$_\p{ID_Start}][$\p{ID_Continue}]*/u
         //literal ::= boolean | null | undefined | array | object | string | number | bigint
         //gender ::= 'male' | 'female' | 'nonbinary'
-        //classExpression ::= 'class' identifier? ('extends' identifier)? '{' classStatement* '}'
-        //functionExpression ::= (('function' identifier? parameters) | ((identifier | parameters) '=>')) statement
+        //classExpression ::= 'class' identifier? ('extends' unary_misc)? '{' classStatement* '}'
+        //functionExpression ::= 'async'? (('function' '*'? identifier? parameters) | ((identifier | parameters) '=>')) block
         //identifierExpression ::= identifierAccess
         //identifierAccess ::= identifier (('.' identifier) | ('[' expression ']') | (arguments))*
+        //arrayComprehensionExpression ::= '[' listFor (listFor | listIf)* expression ']' ';'
+        //  listFor ::= 'for' '(' optionalIdentifierQualifiers identifier 'of' unary_misc ')'
+        //  listIf ::= 'if' '(' expression ')'
         //expression ::= comma
         //  comma ::= unary_misc (',' unary_misc)*
         //  unary_misc ::= (('...' | 'yield*' | 'yield') assignment) | assignment
@@ -1099,33 +1111,40 @@
         //  factor ::= exponentiation (('%' | '/' | '*') exponentiation)*
         //  exponentiation ::= unary_prefix ('**' exponentiation)*
         //  unary_prefix ::= (('await' | 'delete' | 'void' | 'typeof' | '-' | '+' | '~' | '!' | '--' | '++') unary_prefix) | unary_postfix
-        //  unary_postfix ::= (('--' | '++') | new) new
+        //  unary_postfix ::= new ('--' | '++')?
         //  new ::= ('new' new) | access_call_no_associativity
         //  access_call_no_associativity ::= ('import' '(' expression ')')? access_call
         //  access_call ::= primary ((('?.' | '.') primary) | ('[' expression ']') | (arguments))* // well that solves it, i was confused when i wrote this line and i wondered how this could be left associative if a line exponentiation wasn't and now i know it's the recursion! the reason i didn't want to put primary was because i thought (how else will it keep matching the dot and optional chaining operators, but that's what the asterisk is for!)
-        //  primary ::= literal | identifier | 'this' | classExpression | functionExpression | ('(' expression ')')
+        //  primary ::= arrayComprehensionExpression | literal | functionExpression | identifier | classExpression | ('(' expression ')')
         //classStatement ::= constructor | method | fieldDecl | staticInitialization
         //  constructor ::= 'constructor' parameters block
-        //  method ::= 'static'? ('get' | 'set') identifier parameters block
+        //  method ::= 'static'? (('get' | 'set') | (async? '*'))? (identifier | ('[' expression ']')) parameters block
         //  fieldDecl ::= 'static'? (identifier | ('[' expression ']')) ('=' expression)?
         //  staticInitialization ::= 'static' block
-        //switchStatementBody ::= case | default
+        //switchStatementBody ::= (case | default | statement)*
         //  case ::= 'case' expression ':' statement
         //  default ::= 'default' ':' statement
-        //statement ::= return | if | while | do | for | switch | classDeclStatement | functionStatement | identifierDeclaration | block | (expression ';')
+        //declaration ::= scopedIdentifierDeclaration | statement
+        //  scopedIdentifierDeclaration ::= gender? ('const' | 'let') identifier ('=' expression)? (',' identifier ('=' expression)?)* //well that explains why the comma isn't allowed!
+        //statement ::= return | if | while | do | for | switch | with | throw | classDeclStatement | functionStatement | varStatement | block | empty | (expression ';')
         //  block ::= '{' statement* '}'
-        //  return ::= 'return' expression? ';'?
+        //  return ::= 'return' expression? ';'
         //  if ::= 'if' '(' expression ')' statement else?
-        //  else ::= 'else' (block | statement)
+        //  else ::= 'else' statement
         //  while ::= 'while' '(' expression ')' statement
-        //  do ::= 'do' block 'while' '(' expression ')' ';'
-        //  for ::= 'for' (('await' '(' loop ')' ) | ('(' (loop | iterator) ')')) statement
-        //  loop ::= expression? ';' expression? ';' expression?
-        //  iterator ::= identifierDeclaration ('of' | 'in') expression
-        //  classDeclStatement ::= 'class' identifier ('extends' identifier)? '{' classStatement* '}'
-        //  functionStatement ::= gender? 'async'? ('function' '*'? identifier parameters) block
-        //  identifierDeclaration ::= gender? ('var' | 'const' | 'let') identifier (',' identifier)* ('=' expression)?
+        //  do ::= 'do' statement 'while' '(' expression ')' ';'
+        //  for ::= 'for' await | ('(' (iterator | loop) ')') statement
+        //  await ::= 'await' '(' optionalIdentifierQualifiers identifier 'of' unary_misc ')'
+        //  loop ::= (scopedIdentifierDeclaration | varStatement | expression)? ';' expression? ';' expression?
+        //  iterator ::= (scopedIdentifierDeclaration | varStatement | expression) ('of' | 'in') unary_misc
+        //  classDeclStatement ::= 'class' identifier ('extends' unary_misc)? '{' classStatement* '}'
+        //  functionStatement ::= gender? 'async'? 'function' '*'? identifier parameters block
+        //  varStatement ::= gender? 'var' identifier ('=' unary_misc)? (',' identifier ('=' unary_misc)?)* //well that explains why the comma isn't allowed!
         //  switch ::= 'switch' '(' expression ')' switchStatementBody
+        //  with ::= 'with' '(' expression ')' statement
+        //  throw ::= 'throw' expression
+        //  empty ::= ';'
+        //optionalIdentifierQualifiers = gender? ('var' | 'const' | 'let')?
         //parameters ::= '(' (identifier ('=' unary_misc)? ',')* ')' // we're using unary_misc here because allowing the comma here would be weird!
         //arguments ::= '(' (unary_misc ',')* ')' // we're using unary_misc because allowing the comma operator would be terrible! (also you are allowed one trailing comma but it would be messy to include that in the grammar lol)
         //array ::= '[' (unary_misc? ',')* ']'
@@ -1133,7 +1152,7 @@
         //objectkeyvalue ::= ((objectkey ':' unary_misc) | identifier)
         //objectkey ::= identifier | ('[' unary_misc ']')
 
-        //i was hating but his visitor techinque might make some sense...
+        //i was hating but that visitor techinque might make some sense...
 
         /**
          * @param {Expression} expression
@@ -1303,6 +1322,12 @@
                 return visitor.visitFunctionCallExpression(this);
             }
         }
+
+        class EmptyStatement extends Statement {
+            accept(visitor) /*override*/ {
+                return visitor.visitEmptyStatement();
+            }
+        };
         
         class VariableDeclarationStatement extends Statement {
             /** @type {Token} */
@@ -1341,6 +1366,119 @@
             }
         }
 
+        class IfStatement extends Statement {
+            /** @type {Expression} */
+            condition;
+            /** @type {Statement} */
+            ifClause;
+            /** @type {Statement | undefined} */
+            elseClause;
+
+            /** 
+             * @param {Expression} condition
+             * @param {Statement} ifClause
+             * @param {Statement | undefined} elseClause
+             */
+            constructor(condition, ifClause, elseClause) {
+                super();
+                this.condition = condition;
+                this.ifClause = ifClause;
+                this.elseClause = elseClause;
+            }
+
+            accept(visitor) /*override*/ {
+                return visitor.visitIfStatement(this);
+            }
+        }
+
+        /*abstract*/ class ConditionalStatement extends Statement {
+            /** @type {Expression} */
+            condition;
+            /** @type {Statement} */
+            body;
+
+            /** 
+             * @param {Expression} condition
+             * @param {Statement} body
+             */
+            constructor(condition, body) {
+                super();
+                this.condition = condition;
+                this.body = body;
+            }
+        }
+
+        class WhileStatement extends ConditionalStatement {
+            /** 
+             * @param {Expression} condition
+             * @param {Statement} body
+             */
+            constructor(condition, body) {
+                super(condition, body);
+            }
+        }
+
+        //we're writing unique permutations of the for loops as their own classes because i suddenly feel like caring about performance
+        class ForLoopStatement extends ConditionalStatement {
+            /** @type {Expression} */
+            initialization;
+            /** @type {Expression} */
+            afterthought;
+
+            /** 
+             * @param {Expression} initialization
+             * @param {Expression} condition
+             * @param {Expression} afterthought
+             * @param {Statement} body
+             */
+            constructor(initialization, condition, afterthought, body) {
+                super(condition, body);
+                this.initialization = initialization;
+                this.afterthought = afterthought;
+            }
+
+            accept(visitor) /*override*/ {
+                return visitor.visitForLoopStatement(this);
+            }
+        }
+
+        class ForOfStatement extends Statement {
+            /** @type {Expression} */
+            identifierDeclaration;
+            /** @type {Expression} */
+            iterableExpr;
+            /** @type {Statement} */
+            body;
+
+            /**
+             * @param {Expression} identifierDeclaration
+             * @param {Expression} iterableExpr
+             * @param {Statement} body
+             */
+            constructor(identifierDeclaration, iterableExpr, body) {
+                super();
+                this.identifierDeclaration = identifierDeclaration;
+                this.iterableExpr = iterableExpr;
+                this.body = body;
+            }
+
+            accept(visitor) /*override*/ {
+                return visitor.visitForOfStatement(this);
+            }
+        }
+
+        class ForInStatement extends ForOfStatement {
+            accept(visitor) /*override*/ {
+                return visitor.visitForInStatement(this);
+            }
+        }
+
+        class ForAwaitOfStatement extends ForOfStatement {
+            accept(visitor) /*override*/ {
+                return visitor.visitForAwaitOfStatement(this);
+            }
+        }
+
         class ExpressionStatement extends Statement {
             /** @type {Expression} */
             expression;
@@ -1357,13 +1495,22 @@
         class JavascriptParser extends Parser {
             i;
             useStrict;
-            /** @type {Array<Token>} */
+            /** @type {Array<{gender: Token | undefined, qualifier: Token, name: Token}>} */
             hoistedVars;
+            inFunction;
+            /** @type {Array<Statement>} */
+            statements;
             constructor(parentInterpreter, tokens) {
                 super(parentInterpreter, tokens);
                 this.i = 0;
                 this.useStrict = false;
+                this.inFunction = false; // for var
+                
+                //hoistedVars are cleared before/after function statements and when parsing is finished!
+                //these will translate to variable decl statements at the beginning of the scope (global or function)
                 this.hoistedVars = [];
+
+                this.statements = []; // the only reason this is now a property of JavascriptParser is because we must hoist global vars any time function is declared!
             }
 
             /** @returns {Token | false} */
@@ -1413,7 +1560,7 @@
             identifier() {
                 const id = this.match(TokenKind.IDENTIFIER);
                 if(!id) {
-                    throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "JavaascriptParser::identifier called but this token was not an identifier?!");
+                    throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Expected identifier!!!");
                 }
                 return new IdentifierExpression(id);
             }
@@ -1647,11 +1794,11 @@
             }
 
             unary_postfix() {
+                let expr = this.new_operator();
                 if(this.peek(TokenKind.DECREMENT) || this.peek(TokenKind.INCREMENT)) {
-                    return new UnaryExpression(true, this.tokens[this.i++], this.new_operator());
-                }else {
-                    return this.new_operator();
+                    expr = new UnaryExpression(true, this.tokens[this.i++], expr);
                 }
+                return expr;
             }
 
             
@@ -1725,32 +1872,47 @@
                         return new LiteralExpression(this.tokens[this.i++].value);
                         break;
                     case TokenKind.OPEN_BRACKET: {
-                        //array
+                        //array literal or array comprehension!!! 👀👀👀
                         this.tokens[this.i++];
-                        //const array = new ArrayLiteralExpression();
-                        const array = new ArrayLiteralExpression();
-                        let index = 0; //this would be weird in lua since arrays start at 1!
-                        while(this.i < this.tokens.length && !this.peek(TokenKind.CLOSING_BRACKET)) {
-                            if(this.match(TokenKind.COMMA)) {
-                                //hole
-                            }else {
-                                let expr = this.unary_misc(); //can't use expression because commas are used for the array
-                                
-                                //this.consume(TokenKind.COMMA, "Comma expected in array literal!");
-                                if(!this.match(TokenKind.COMMA) && !this.peek(TokenKind.CLOSING_BRACKET)) {
-                                    if(this.i < this.tokens.length) {
-                                        throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Comma expected in array literal!");
-                                    }else {
-                                        throw new ParseError(this.tokens[this.i-1].line, this.tokens[this.i-1].char, "Comma expected in array literal! (line ended unexpectedly!)");
-                                    }
-                                }
+                        if(this.matchReserved("for")) {
+                            //ARRAY COMPREHENSION 🤑🤑🤑
+                            //https://lia.disi.unibo.it/materiale/JS/developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Array_comprehensions.html
+                            //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Deprecated_and_obsolete_features#legacy_generator_and_iterator
+                            //ETC...
+                        }else {
+                            //const array = new ArrayLiteralExpression();
+                            const array = new ArrayLiteralExpression();
+                            //let index = 0; //this would be weird in lua since arrays start at 1!
+                            while(this.i < this.tokens.length && !this.peek(TokenKind.CLOSING_BRACKET)) {
+                                if(this.match(TokenKind.COMMA)) {
+                                    //hole
+                                    
+                                    //array.value[index] = undefined;
+                                    //delete array.value[index]; //how the hell do you make a hole in an array without the array literal!?
 
-                                array.value[index] = expr;
+                                    //delete array.value[array.value.push(undefined)-1];
+
+                                    array.value.length++; //das right
+                                }else {
+                                    let expr = this.unary_misc(); //can't use expression because commas are used for the array
+                                    
+                                    //this.consume(TokenKind.COMMA, "Comma expected in array literal!");
+                                    if(!this.match(TokenKind.COMMA) && !this.peek(TokenKind.CLOSING_BRACKET)) {
+                                        if(this.i < this.tokens.length) {
+                                            throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Comma expected in array literal!");
+                                        }else {
+                                            throw new ParseError(this.tokens[this.i-1].line, this.tokens[this.i-1].char, "Comma expected in array literal! (line ended unexpectedly!)");
+                                        }
+                                    }
+
+                                    //array.value[index] = expr;
+                                    array.value.push(expr);
+                                }
+                                //index++;
                             }
-                            index++;
+                            this.consume(TokenKind.CLOSING_BRACKET, "Array literal requires closing bracket!");
+                            return array;
                         }
-                        this.consume(TokenKind.CLOSING_BRACKET, "Array literal requires closing bracket!");
-                        return array;
                         break;
                     }
                     case TokenKind.OPEN_CURLY_BRACKET:
@@ -1759,33 +1921,228 @@
                     default:
                         break;
                 }
-                //identifier
-                if(this.peek(TokenKind.IDENTIFIER) && !this.peekNext(TokenKind.ARROW)) {
-                    return this.identifier();
-                }
-                //this
-                else if(this.matchReserved("this")) {
+                //this (i think we should treat this like a "normal" identifier)
+                /*else if(this.matchReserved("this")) {
 
-                }
+                }*/
                 //class
-                else if(this.matchReserved("class")) {
-
-                }
-                //function
-                else if((this.peek(TokenKind.RESERVED) && this.tokens[this.i].value == "function") || ((this.peek(TokenKind.IDENTIFIER) || this.peek(TokenKind.OPEN_PARENTHESIS)) && this.peekNext(TokenKind.ARROW))) {
-                    if(this.matchReserved("function")) {
-                        //function
-                    }else {
-                        //arrow
+                if(this.matchReserved("class")) {
+                    const name = this.match(TokenKind.IDENTIFIER);
+                    if(this.matchReserved("extends")) {
+                        const extendsName = this.match(TokenKind.IDENTIFIER);
+                        //jesus christ...
+                        //the following lines are *gulp*... valid
+                        /*
+                        function x() {
+                            return class {
+                                constructor() {
+                                
+                                }
+                            }
+                        }
+                        (class abc extends x() {
+                            constructor() {
+                                super();
+                            }
+                        });
+                        */
+                        /*
+                        (class abc extends class {
+                            constructor() {
+                                console.log("Hello from anonymous class!");
+                            }
+                        } {
+                            constructor() {
+                                super();
+                                console.log("Hello from subclass!");
+                            }
+                        });
+                        */
                     }
                 }
-                else if(this.match(TokenKind.OPEN_PARENTHESIS)) {
-                    const expr = this.expression();
-                    this.consume(TokenKind.CLOSING_PARENTHESIS, "grouping expression doesn't end with parenthesis? the lexer should probably not make this happen?");
-                    return expr;
+                else {
+                    //function/arrow/expression
+                    const async = this.peek(TokenKind.IDENTIFIER) && this.tokens[this.i].value == "async" && this.tokens[this.i++];
+                    //identifier
+                    if(this.peek(TokenKind.IDENTIFIER) && !this.peekNext(TokenKind.ARROW)) {
+                        if(async) {
+                            throw new ParseError(async.line, async.char, "Async not expected here!");
+                        }
+                        return this.identifier();
+                    }else if(this.peekReserved("function") || (this.peek(TokenKind.IDENTIFIER) && this.peekNext(TokenKind.ARROW))) {
+                        //this if statement matches the following lines:
+                        //async? function ...
+                        //async? x=> ...
+                        if(this.matchReserved("function")) {
+                            //function
+                            const generator = this.match(TokenKind.ASTERISK);
+                            const name = this.match(TokenKind.IDENTIFIER);
+                            const parameters = this.parameters();
+                            const body = this.block();
+                        }else {
+                            //arrow
+                            const parameter = this.match(TokenKind.IDENTIFIER);
+                            this.consume(TokenKind.ARROW, "Expected arrow after arrow function?? this shouldn't happen right?");
+                            const body = this.block();
+                        }
+                    }
+                    else if(this.match(TokenKind.OPEN_PARENTHESIS)) {
+                        const expr = this.expression();
+                        this.consume(TokenKind.CLOSING_PARENTHESIS, "grouping expression doesn't end with parenthesis? the lexer should probably not allow this?");
+                        //this could still be an arrow function!
+                        if(this.match(TokenKind.ARROW)) {
+                            //arrow!
+                            //uh oh, we'll have to translate expr so that it's actually usable as parameters!
+                            //the only allowed operators are the equal sign and the comma!
+                            const body = this.block();
+                        }else if(async) {
+                            throw new ParseError(async.line, async.char, "Async not expected here!");
+                        }
+                        return expr;
+                    }
                 }
                 // const cur = this.tokens[this.i];
                 // throw new ParseError(cur.line, cur.char, "");
+            }
+
+            /**
+             * @param {Token | false} gender
+             * @param {Token} qualifier
+             * @param {Token} name
+             */
+            doCommonIdentifierDeclStuff(gender, qualifier, name) {
+                let value = undefined;
+                const equals = this.match(TokenKind.EQUALS);
+                //this probably shouldn't happen this way but hush!
+                const inFor = this.peekReserved("in") || (this.peek(TokenKind.IDENTIFIER) && this.tokens[this.i].value == "of");
+                if(equals) {
+                    //assignment
+                    value = this.unary_misc();
+                }else if(!inFor && qualifier.value == "const") {
+                    const temp = +!this.peek(TokenKind.SEMICOLON); //we'll do the token before this one if this one isn't a semicolon (because whatever token that isn't a semicolon might be on another line!)
+                    throw new ParseError(this.tokens[this.i-temp].line, this.tokens[this.i-temp].char, "Missing initializer in const declaration");
+                }
+
+                //probably expect a semicolon?
+                //yeah this seems very not recursive descent in that this isn't specified in the grammar but lowkey this for shit is weird so hush!
+                if(!inFor) {
+                    this.consume(TokenKind.SEMICOLON, "Semicolon expected after variable declaration!");
+                }
+                // "k";
+                if(qualifier.value == "var") {
+                    //according to mdn, since vars are hoisted, the declarations are moved to the top and written declarations are changed to assignments
+                    const id = new IdentifierExpression(name);
+                    if(equals) {
+                        return new BinaryExpression(id, equals, value);
+                    }else {
+                        //var redeclarations with no value don't change the previous value of the variable!
+
+                        //not gonna be the fastest implementation in the west...
+                        //i can't be bothered to allow declaration to come up undefined so we'll return an expression statement that does nothing, effectively resulting in the following statement:
+                        //id;
+                        return new ExpressionStatement(id);
+                    }
+                }else {
+                    return new VariableDeclarationStatement(gender || undefined, qualifier, name.value, value);
+                }
+            }
+
+            //for let and const :/
+            declaration() {
+                const genderbutouhhiwillhavetobacktrackifthisnexttokenisnotconstorlet = this.match(TokenKind.GENDER);
+                if(this.peekReserved("const") || (this.peekReserved("let") || (this.peek(TokenKind.IDENTIFIER) && this.tokens[this.i].value == "let" && this.peekNext(TokenKind.IDENTIFIER)))) {
+                    const qualifier = this.matchReserved("const") || this.matchReserved("let") || this.match(TokenKind.IDENTIFIER);
+                    const name = this.match(TokenKind.IDENTIFIER);
+                    if(!name) {
+                        if(this.peekReserved("let")) {
+                            throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, `Expected identifier!! (Unexpected strict mode reserved word)`);
+                        }else {
+                            throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, `Expected identifier!! (Unexpected token '${this.tokens[this.i].value}')`);
+                        }
+                    }
+                    //only applies to const and let
+                    if(name.value == "let") {
+                        throw new ParseError(this.tokens[this.i-1].line, this.tokens[this.i-1].char, "let is disallowed as a lexically bound name (even though the statement var let = ...; is allowed in non strict mode)");
+                    }
+                    return this.doCommonIdentifierDeclStuff(genderbutouhhiwillhavetobacktrackifthisnexttokenisnotconstorlet, qualifier, name);
+                }
+                if(genderbutouhhiwillhavetobacktrackifthisnexttokenisnotconstorlet) {
+                    //the gender might be needed elsewhere!
+                    this.i--;
+                }
+                return this.statement();
+            }
+
+            parameters() {
+                const parameters = [];
+                this.consume(TokenKind.OPEN_PARENTHESIS, "Expected parameters but didn't find open parenthesis?!");
+                while(this.i < this.tokens.length && !this.peek(TokenKind.CLOSING_PARENTHESIS)) {
+                    const identifier = this.identifier();
+                    let $default;
+                    if(this.match(TokenKind.EQUALS)) {
+                        $default = this.unary_misc();
+                    }
+                    parameters.push({identifier, default: $default}); //uh oh i don't think in my implementation you are allowed to access properties with reserved names like i did here with default!
+                    if(!this.match(TokenKind.COMMA) && !this.peek(TokenKind.CLOSING_PARENTHESIS)) {
+                        throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Expected comma in parameters!");
+                    }
+                }
+                this.consume(TokenKind.CLOSING_PARENTHESIS, "Expected closing parenthesis!");
+                return parameters;
+            }
+
+            block() {
+                this.consume(TokenKind.OPEN_CURLY_BRACKET, "Block statement expected but didn't find open curly bracket?");
+                const expr = new BlockStatement();
+                while(this.i < this.tokens.length && !this.peek(TokenKind.CLOSING_CURLY_BRACKET)) {
+                    expr.statements.push(this.declaration());
+                }
+                this.consume(TokenKind.CLOSING_CURLY_BRACKET, "Expected closing bracket!!");
+                if(this.inFunction) {
+                    //the only time var isn't globally scoped is in a function!
+                    //we need to hoist any vars declared in this block!
+                    this.pushHoistedDeclarations(expr.statements);
+                }
+                return expr;
+            }
+
+            /** @returns {Statement | Expression} */
+            variableDeclarationOrExpression(gender, qualifier) {
+                if(qualifier && this.peek(TokenKind.IDENTIFIER)) {
+                    //must be a variable declaration!
+                    if(gender) {
+                        this.i--;
+                    }
+                    if(qualifier) {
+                        this.i--;
+                    }
+                    
+                    const index = this.i;
+                    const temp = this.declaration();
+                    if(qualifier.value == "var") {
+                        if(temp instanceof ExpressionStatement) {
+                            return temp.expression; // because of hoisting, var will actually return an expression statement!
+                        }else {
+                            return temp;
+                        }
+                    }else if(!(temp instanceof VariableDeclarationStatement)) {
+                        throw new ParseError(this.tokens[index].line, this.tokens[index].char, "Expected variable declaration!");
+                    }else if(temp.value) {
+                        throw new ParseError(this.tokens[index].line, this.tokens[index].char, "Variable declaration may not have an initializer.");
+                    }
+                    return temp;
+                }else {
+                    if(gender) {
+                        //throw new ParseError(gender.line, gender.char, "i don't think gender is allowed here, but what do i know!");
+                        console.warn("i don't think gender is allowed here, but what do i know!");
+                        this.i--;
+                    }
+                    if(qualifier) {
+                        this.i--;
+                    }
+                    
+                    return this.expression();
+                }
             }
 
             statement() {
@@ -1795,42 +2152,202 @@
                     this.consume(TokenKind.OPEN_PARENTHESIS, "Open parenthesis expected after if!");
                     const condition = this.expression();
                     //the lexer counts the parenthesis so this shouldn't fail lol
-                    this.consume(TokenKind.CLOSING_PARENTHESIS, "Closing parenthesis expected after if, although this message shouldn't ever be shown!");
+                    //this.consume(TokenKind.CLOSING_PARENTHESIS, "Closing parenthesis expected after if, although this message shouldn't ever be shown!");
+                    //nevermind i just realized that a statement like if (true;) would cause this to fail because of the semicolon!
+                    this.consume(TokenKind.CLOSING_PARENTHESIS, "Closing parenthesis expected after if, what is this!");
                     //hmm when i wrote block | statement in the grammar, technically we can omit that because statement includes block...
                     const ifStatement = this.statement();
+                    let elseStatement = undefined;
                     if(this.matchReserved("else")) {
-                        const elseStatement = this.statement();
+                        elseStatement = this.statement();
                     }
+
+                    //holy shit i just realized that
+                    //if (true) switch(...) {
+                    //
+                    //}
+                    //is valid javascript!
+                    
+                    //with([1,2,3]) if(length == 3) console.log(length);
+
+                    return new IfStatement(condition, ifStatement, elseStatement);
                 }else if(this.matchReserved("while")) {
-
+                    this.consume(TokenKind.OPEN_PARENTHESIS, "Open parenthesis expected after while!");
+                    const condition = this.expression();
+                    this.consume(TokenKind.CLOSING_PARENTHESIS, "Closing parenthesis expected after while, what is this!");
+                    const body = this.statement();
+                    return new WhileStatement(condition, body);
                 }else if(this.matchReserved("do")) {
-
+                    const statement = this.statement();
+                    if(!this.matchReserved("while")) {
+                        throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Expected 'while', what is this!");
+                    }
                 }else if(this.matchReserved("for")) {
+                    //oh yeah lol await is reserved
+                    //const await = 
+                    const $await = this.matchReserved("await");
+                    this.consume(TokenKind.OPEN_PARENTHESIS, "Open parenthesis expected after for!");
+                    // if($await) {
+                        const gender = this.match(TokenKind.GENDER);
+                        const qualifier = this.matchReserved("var") || this.matchReserved("const") || this.matchReserved("let") || (this.peek(TokenKind.IDENTIFIER) && this.tokens[this.i].value == "let" && this.tokens[this.i++]);
+                        //const idExpr = this.identifier();
+                        //of is not reserved but in is!
+                        if((this.peekNext(TokenKind.IDENTIFIER) && this.tokens[this.i+1].value == "of") || (this.peekNext(TokenKind.RESERVED) && this.tokens[this.i+1].value == "in")) {
+                            //for...of, for...in, or for await...of
+                            // const idExpr = this.identifier();
+                            
+                            //oh no it can be an expression like
+                            //for(obj.stuff of "string");
+                            //obj.stuff; // = "g"
 
+                            const idExpr = this.variableDeclarationOrExpression(gender, qualifier);
+                            if(idExpr instanceof Expression) {
+                                //we need to make sure the left hand side is valid! (somehow)
+                                //...
+                            }
+
+                                          //the lexer (and i swear this time) will not let this happen
+                            if($await && (/*this.i >= this.tokens.length ||*/ this.tokens[this.i].value != "of")) {
+                                throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Expected of, there is no for await...in!");
+                            }
+                            const operator = (this.matchReserved("in") || this.match(TokenKind.IDENTIFIER));
+                            const iterableExpr = this.unary_misc();
+
+                            this.consume(TokenKind.CLOSING_PARENTHESIS, "Closing parenthesis expected after for, what is this!");
+
+                            const body = this.statement();
+                            let clazz;
+                            if(operator.value == "in") {
+                                //in
+                                clazz = ForInStatement;
+                            }else if($await) {
+                                //await of
+                                clazz = ForAwaitOfStatement;
+                            }else { 
+                                //of
+                                clazz = ForOfStatement;
+                            }
+                            return new clazz(idExpr, iterableExpr, body);
+                        }else if($await) {
+                            throw new ParseError($await.line, $await.char, "Await not expected here!");
+                        }else {
+                            //regular for loop
+                            //these probably belong to the first inner expression lol
+
+                            //i honestly had no idea the for loop expressions had names!
+                            let initialization = new EmptyStatement;
+                            let condition = new EmptyStatement;
+                            let afterthought = new EmptyStatement;
+                            if(!this.match(TokenKind.SEMICOLON)) {
+                                initialization = this.variableDeclarationOrExpression(gender, qualifier);
+                            }
+                            if(!this.match(TokenKind.SEMICOLON)) {
+                                condition = this.expression();
+                                this.consume(TokenKind.SEMICOLON, "Semicolon expected after condition in for loop!");
+                            }
+                            if(!this.peek(TokenKind.CLOSING_PARENTHESIS)) {
+                                afterthought = this.expression();
+                            }
+
+                            //if(qualifier && this.peek(TokenKind.IDENTIFIER)) {
+                            //    //must be a variable declaration!
+                            //    if(gender) {
+                            //        this.i--;
+                            //    }
+                            //    if(qualifier) {
+                            //        this.i--;
+                            //    }
+                            //    
+                            //    const index = this.i;
+                            //    initialization = this.declaration();
+                            //    if(!(initialization instanceof VariableDeclarationStatement)) {
+                            //        throw new ParseError(this.tokens[index].line, this.tokens[index].char, "Expected variable declaration!");
+                            //    }
+                            //}else {
+                            //    if(gender) {
+                            //        //throw new ParseError(gender.line, gender.char, "i don't think gender is allowed here, but what do i know!");
+                            //        console.warn("i don't think gender is allowed here, but what do i know!");
+                            //        this.i--;
+                            //    }
+                            //    if(qualifier) {
+                            //        this.i--;
+                            //    }
+                            //    
+                            //    initialization = this.expression();
+                            //    //empty statements consume the semicolon!
+                            //    if(!(initialization instanceof EmptyStatement)) {
+                            //        this.consume(TokenKind.SEMICOLON, "Expected semicolon after for-loop initialization expression");
+                            //    }
+                            //}
+
+                            //const index = this.i;
+                            //const initialization = this.declaration();
+                            //if(!(initialization instanceof VariableDeclarationStatement) && (!(initialization instanceof BinaryExpression) || initialization.operatorToken.value != "=")) {
+                            //    //bad
+                            //    throw new ParseError(this.tokens[index].line, this.tokens[index].char, "Expected variable declaration or assignment here!");
+                            //}
+                            
+                            this.consume(TokenKind.CLOSING_PARENTHESIS, "Closing parenthesis expected after for, what is this!");
+
+                            const body = this.statement();
+
+                            return new ForLoopStatement(initialization, condition, afterthought, body);
+                        }
+
+                    // }
                 }else if(this.matchReserved("switch")) {
+
+                }else if(this.matchReserved("with")) {
+
+                }else if(this.matchReserved("throw")) {
 
                 }else if(this.matchReserved("class")) {
 
+                }else if(this.peek(TokenKind.OPEN_CURLY_BRACKET)) {
+                    //block
+                    // if(async) {
+                    //     throw new ParseError(gender.line, gender.char, "Async definitely not allowed here!");
+                    // }
+                    return this.block();
                 }else {
                     //function statement
                     //identifier declaration
                     //expression ';'
-                    //block
 
                     //of course, this is not exactly what i wrote in the grammar, but how else would i short circuit if i've chosen functionStatement and it was actually identifierDeclaration?!
                     const gender = this.match(TokenKind.GENDER);
-                    const async = this.matchReserved("async"); //i should actually peek async and make it a part of expression
+                    if(this.match(TokenKind.SEMICOLON)) {
+                        //empty statement, we're putting this here because i thought it would be funny if empty statements were allowed to have a gender behind them.
+                        //imagine: while(true) female;
+                        //hmm... maybe this is a bad idea lol it looks like an expression statement!
+                        
+                        //wait that would be dumb because i'd be making more of the same exact class
+                        return new EmptyStatement; /*class extends Statement {
+                            
+                        };*/
+                    }
+                    const async = this.peek(TokenKind.IDENTIFIER) && this.tokens[this.i].value == "async" && this.tokens[this.i++]; //we make sure to backtrack async if we think it's an expression instead!
                     if(this.matchReserved("function")) {
                         //function statement (thank god)
+                        this.pushHoistedDeclarations(this.statements);
                         const generator = this.match(TokenKind.ASTERISK);
                         const name = this.match(TokenKind.IDENTIFIER);
                         if(!name) {
                             const temp = +(this.i >= this.tokens.length);
                             throw new ParseError(this.tokens[this.i-temp].line, this.tokens[this.i-temp].char, `Function statements require a function name`);
                         }
-                    }else if(this.peekReserved("var") || this.peekReserved("const") || (this.peekReserved("let") || (this.peek(TokenKind.IDENTIFIER) && this.tokens[this.i].value == "let" && this.peekNext(TokenKind.IDENTIFIER)))) { // bruh let is only reserved in strict mode! otherwise it will be tokenized as an identifier!
+                        this.inFunction = true;
+                        const parameters = this.parameters();
+                        const functionBody = this.block();
+                        this.inFuncton = false;
+                    }
+                    //we're still allowing const and let here as a sort of cover grammar like thing so we can catch it
+                    else if(this.peekReserved("var") || this.peekReserved("const") || (this.peekReserved("let") || (this.peek(TokenKind.IDENTIFIER) && this.tokens[this.i].value == "let" && this.peekNext(TokenKind.IDENTIFIER)))) { // bruh let is only reserved in strict mode! otherwise it will be tokenized as an identifier!
                         //identifier declaration
-                        const qualifier = this.matchReserved("var") || this.matchReserved("const") || this.matchReserved("let") || ((this.peek(TokenKind.IDENTIFIER) && this.tokens[this.i].value == "let") ? this.tokens[this.i++] : undefined); // oh yeah, we need this lol
+                        const qualifier = this.matchReserved("var"); // only match var since let and const aren't allowed here!
+                        if(!qualifier) {
+                            throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Lexical declaration cannot appear in a single-statement context (use a block statement or var instead buddy)");
+                        }
                         const name = this.match(TokenKind.IDENTIFIER);
                         if(!name) {
                             if(this.peekReserved("let")) {
@@ -1839,32 +2356,30 @@
                                 throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, `Expected identifier!! (Unexpected token '${this.tokens[this.i].value}')`);
                             }
                         }
-                        if(qualifier.value != "var" && name.value == "let") {
-                            throw new ParseError(this.tokens[this.i-1].line, this.tokens[this.i-1].char, "let is disallowed as a lexically bound name (even though the statement var let = ...; is allowed in non strict mode)");
-                        }
-                        if(qualifier.value == "var") {
-                            //lowkey this is cap because we don't have scopes yet!
-                            this.hoistedVars.push({gender: gender || undefined, qualifier, name});
-                        }
-                        let value = undefined;
-                        if(this.match(TokenKind.EQUALS)) {
-                            //assignment
-                            value = this.expression();
-                        }else if(qualifier.value == "const") {
-                            const temp = +!this.peek(TokenKind.SEMICOLON); //we'll do the token before this one if this one isn't a semicolon (because whatever token that isn't a semicolon might be on another line!)
-                            throw new ParseError(this.tokens[this.i-temp].line, this.tokens[this.i-temp].char, "Missing initializer in const declaration");
-                        }
-                        //probably expect a semicolon?
-                        this.consume(TokenKind.SEMICOLON, "Semicolon expected after variable declaration!");
-                        // "k";
-                        return new VariableDeclarationStatement(gender || undefined, qualifier, name.value, value);
+                        // if(qualifier.value == "var") {
+                            //lowkey this is fairs.
+                            const prevIndex = this.hoistedVars.findIndex($var=>$var.name.value == name.value);
+                            if(prevIndex != -1) {
+                                //we don't have to do this for const and let because you aren't allowed to use let or const on previously defined identifiers!
+                                const prevHoist = this.hoistedVars[prevIndex];
+                                if(prevHoist.gender?.value != gender?.value) { //gender must be the same for all var declarations using the same name!
+                                    //bad (boy | girl | thing)!
+                                    let line, char;
+                                    if(gender) {
+                                        ({line, char} = gender); //oh man this would be hell to parse...
+                                    }else {
+                                        ({line, char} = qualifier);
+                                    }
+                                    throw new ParseError(line, char, "Gender must be the same for all var redeclarations");
+                                }
+                            }else {
+                                this.hoistedVars.push({gender: gender || undefined, qualifier, name}); //hoistedVars are cleared before/after function statements and when parsing is finished!
+                            }
+                        // }
+                        return this.doCommonIdentifierDeclStuff(gender, qualifier, name);
                     }else {
-                        //oops, these checks here might not be entirely correct!
                         if(gender) {
                             throw new ParseError(gender.line, gender.char, "Gender not expected here!");
-                        }
-                        if(async) {
-                            throw new ParseError(gender.line, gender.char, "Async definitely not allowed here!");
                         }
                         //is there any way we can check if it's an expression instead of a block without backtracking?
                         //oh wait actually it might not be TOO hard
@@ -1879,21 +2394,39 @@
                         //}
 
                         //ok, the google says that block statements should come before object expression statements (and i guess that makes sense because immediately following if (...) with an object expression statement doesn't really make sense anyways)
-                        if(this.match(TokenKind.OPEN_CURLY_BRACKET)) {
-                            //block
-                            const expr = new BlockStatement();
-                            while(this.i < this.tokens.length && !this.peek(TokenKind.CLOSING_CURLY_BRACKET)) {
-                                expr.statements.push(this.statement());
+                        //i should move this out of here lol
+                        //if(this.match(TokenKind.OPEN_CURLY_BRACKET)) {
+                        //    //block
+                        //    if(async) {
+                        //        throw new ParseError(gender.line, gender.char, "Async definitely not allowed here!");
+                        //    }
+                        //    const expr = new BlockStatement();
+                        //    while(this.i < this.tokens.length && !this.peek(TokenKind.CLOSING_CURLY_BRACKET)) {
+                        //        expr.statements.push(this.declaration());
+                        //    }
+                        //    this.consume(TokenKind.CLOSING_CURLY_BRACKET, "Expected closing bracket!!");
+                        //    return expr;
+                        //}else {
+                            //backtrack async since this could be an async arrow or function expression!
+                            if(async) {
+                                this.i--;
                             }
-                            this.consume(TokenKind.CLOSING_CURLY_BRACKET, "Expected closing bracket!!");
-                            return expr;
-                        }else {
                             const expr = this.expression();
                             this.consume(TokenKind.SEMICOLON, "Expressions must end with a semicolon"); //this line shouldn't appear because of automatic semicolon insertion right? (idk if i'll actually do that though lol)
                             return new ExpressionStatement(expr);
-                        }
+                        //}
                     }
                 }
+            }
+
+            pushHoistedDeclarations(statements) {
+                for(let i = 0; i < this.hoistedVars.length; i++) {
+                    const $var = this.hoistedVars[i];
+                    //splicing at i so they're in order even though that's probably not important
+                    statements.splice(i, 0, new VariableDeclarationStatement($var.gender, $var.qualifier, $var.name.value, undefined));
+                }
+
+                this.hoistedVars = [];
             }
 
             /**
@@ -1905,10 +2438,10 @@
                 }
 
                 /** @type {Array<Statement>} */
-                const statements = [];
+                //const statements = [];
                 try {
                     while(this.i < this.tokens.length) {
-                        statements.push(this.statement());
+                        this.statements.push(this.declaration());
                     }
                 }catch(e) {
                     //when i was using std expected i never thought to throw instead of propagating the expected out
@@ -1917,7 +2450,10 @@
                     }
                     return Unexpected(e);
                 }
-                return new Expected(statements);
+
+                this.pushHoistedDeclarations(this.statements);
+
+                return new Expected(this.statements);
             }
         }
 
@@ -1939,10 +2475,12 @@
 
         //Environment
         class RuntimeState {
-            /** @type {Map<String, Variable>} */
-            variables = new Map([
+            //tis an array of maps for scoping
+            /** @type {Array<Map<String, Variable>>} */
+            variables = [new Map([
                 ["globalThis", new Variable(undefined, globalThis)],
-            ]);
+                ["this", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "const"}, gender: undefined}, globalThis)],
+            ])];
         }
 
         class JavascriptInterpreter extends Interpreter {
@@ -1974,9 +2512,9 @@
                     p.print(statement);
                 }
                 //hoistedVars could be returned from parse but i don't feel like it lol
-                for(const {gender, qualifier, name} of parser.hoistedVars) {
-                    this.state.variables.set(name.value, new Variable({qualifier, gender}, undefined));
-                }
+                //for(const {gender, qualifier, name} of parser.hoistedVars) {
+                //    this.state.variables[0].set(name.value, new Variable({qualifier, gender}, undefined));
+                //}
                 for(let i = 0; i < result.value.length-1; i++) {
                     result.value[i].accept(this);
                 }
@@ -2021,7 +2559,7 @@
                                     //return delete value; //uhh
                                     break;
                                 case "void":
-                                    return undefined;
+                                    return undefined; // we already evaluated value earlier lol
                                     break;
                                 case "typeof":
                                     return typeof value;
@@ -2054,7 +2592,32 @@
 
             /** @param {BlockStatement} blockStatement */
             visitBlockStatement(blockStatement) {
-                //uhh do that..
+                this.state.variables.push(new Map());
+                let last = undefined;
+                for(const statement of blockStatement.statements) {
+                    last = statement.accept(this);
+                }
+                this.state.variables.pop();
+                return last;
+            }
+
+            /** @param {IfStatement} ifStatement */
+            visitIfStatement(ifStatement) {
+                if(HostLanguage.isJavascriptTruthy(ifStatement.condition.accept(this))) {
+                    return ifStatement.ifClause.accept(this); //the devtools console will tell you the last thing evaluated in a statement so shall return the result too
+                }else if(ifStatement.elseClause) {
+                    return ifStatement.elseClause.accept(this);
+                }
+            }
+
+            /** @param {WhileStatement} whileStatement */
+            visitWhileStatement(whileStatement) {
+                //while without while!
+                //for(;HostLanguage.isJavascriptTruthy(whileStatement.condition.accept(this));) {
+                let last = undefined;
+                while(HostLanguage.isJavascriptTruthy(whileStatement.condition.accept(this))) {
+                    last = whileStatement.body.accept(this);
+                }
             }
 
             /** @param {ExpressionStatement} exprStatement */
@@ -2066,15 +2629,30 @@
             visitIdentifierExpression(identifierExpression) {
                 //no scope yet lol
                 //return globalThis[identifierExpression.nameToken.value];
+
                 const name = identifierExpression.nameToken.value;
-                if(this.state.variables.has(name)) {
-                    return this.state.variables.get(name).value;
-                }else {
-                    if(!(name in globalThis)) {
-                        throw new ReferenceError(`${name} is not defined`);
+
+                //if(this.state.variables.has(name)) {
+                //    return this.state.variables.get(name).value;
+                //}else {
+                //    if(!(name in globalThis)) {
+                //        throw new ReferenceError(`${name} is not defined`);
+                //    }
+                //    return globalThis[name];
+                //}
+
+                //i wonder if i should check outer to inner or inner to outer
+                for(let i = this.state.variables.length-1; i >= 0; i--) {
+                    const scope = this.state.variables[i];
+                    if(scope.has(name)) {
+                        return scope.get(name).value;
                     }
-                    return globalThis[name];
                 }
+
+                if(!(name in globalThis)) {
+                    throw new ReferenceError(`${name} is not defined`);
+                }
+                return globalThis[name];
             }
 
             /** @param {LiteralExpression} literalExpression */
@@ -2111,6 +2689,13 @@
                         //
                         //    }
                         //}
+
+                        //blehhhhhh
+                        //i wonder how the guy solved this problem... (i'm not there yet lol! i'm only at the bottom of chapter 8!)
+                        // (oh yeah the problem in question is getting the *location* of an expression like (console.log); ! )
+                        //yeah alright i've already solved this one before lol let's go see what his solution is just in case mine sucks!
+
+                        //identifiers that haven't been defined before are added to globalThis (strict mode disallows this, though!)
                         break;
                     }
                     
@@ -2129,14 +2714,14 @@
                     }
                 }else if(kind == TokenKind.LOGICAL_OR) {
                     //short circuit!
-                    if(HostLanguage.isTruthy(left)) {
+                    if(HostLanguage.isJavascriptTruthy(left)) {
                         return left;
                     }else {
                         return binaryExpression.right.accept(this);
                     }
                 }else if(kind == TokenKind.LOGICAL_AND) {
                     //short circuit!
-                    if(!HostLanguage.isFalsy(left)) {
+                    if(!HostLanguage.isJavascriptFalsy(left)) {
                         return left;
                     }else {
                         return binaryExpression.right.accept(this);
@@ -2270,7 +2855,7 @@
                 //}else {
                 //    return ternaryExpression.falseExpr.accept(this);
                 //}
-                return HostLanguage.isTruthy(ternaryExpression.condition.accept(this)) ? ternaryExpression.trueExpr.accept(this) : ternaryExpression.falseExpr.accept(this);
+                return HostLanguage.isJavascriptTruthy(ternaryExpression.condition.accept(this)) ? ternaryExpression.trueExpr.accept(this) : ternaryExpression.falseExpr.accept(this);
             }
 
             /** @param {FunctionCallExpression} funcCallExpression */
@@ -2279,12 +2864,18 @@
                 return func(...funcCallExpression.argumentsExprArr.map(v=>v.accept(this)));
             }
 
+            visitEmptyStatement() {};
+
             /** @param {VariableDeclarationStatement} varDeclStatement */
             visitVariableDeclarationStatement(varDeclStatement) {
-                //let z, w = (z = 2, 3);
-                //initializing 2 vars with let!
-                if(this.state.variables.has(varDeclStatement.name)) {
-                    const decl = this.state.variables.get(varDeclStatement.name);
+                //let z, w = (z = 6, 7); //to answer your curiosity, the expression is only evaluated once! let i = 0; let z, w = (i++, z=2, 3);
+                //"initializing" 2 vars with let!
+                //wait what the fuck?! when i wrote this i thought you couldn't do 2 vars at once!!
+                //apparently i could've done let z = 6, w = 7; and it would've worked
+                const scope = this.state.variables.at(-1);
+                if(scope.has(varDeclStatement.name)) {
+                    /** @type {Variable} */
+                    const decl = scope.get(varDeclStatement.name);
                     const oldQualifier = decl.properties.qualifier.value;
                     const oldGender = decl.properties.gender?.value;
                     if(varDeclStatement.qualifier.value == "const" || varDeclStatement.qualifier.value == "let" || oldQualifier != varDeclStatement.qualifier.value || oldGender != varDeclStatement.gender?.value) {
@@ -2293,12 +2884,19 @@
                     if(varDeclStatement.value == undefined && varDeclStatement.qualifier.value == "var") {
                         return;
                     }
+                    decl.value = varDeclStatement.value.accept(this);
+                }else {
+                    scope.set(varDeclStatement.name, new Variable({qualifier: varDeclStatement.qualifier, gender: varDeclStatement.gender}, varDeclStatement.value && varDeclStatement.value.accept(this)));
                 }
-                this.state.variables.set(varDeclStatement.name, new Variable({qualifier: varDeclStatement.qualifier, gender: varDeclStatement.gender}, varDeclStatement.value.accept(this)));
             }
         }
 
         class Printer {
+            tabs;
+            constructor() {
+                this.tabs = 0;
+            }
+
             print(statement) {
                 console.log(statement.accept(this));
             }
@@ -2306,10 +2904,21 @@
             /** @param {BlockStatement} blockStatement */
             visitBlockStatement(blockStatement) {
                 let block = "{\n";
+                this.tabs += 4;
                 for(const statement of blockStatement.statements) {
-                    block += statement.accept(this) + "\n";
+                    block += "".padStart(this.tabs) + statement.accept(this) + "\n";
                 }
-                return block + "}";
+                return block + "}\n";
+            }
+
+            /** @param {IfStatement} ifStatement */
+            visitIfStatement(ifStatement) {
+                return `if ( ${ifStatement.condition.accept(this)} ) ${ifStatement.ifClause.accept(this)}${ifStatement.elseClause ? "else " + ifStatement.elseClause.accept(this) : ""}`;
+            }
+
+            /** @param {WhileStatement} whileStatement */
+            visitWhileStatement(whileStatement) {
+                return `while ( ${whileStatement.condition.accept(this)} ) ${whileStatement.body.accept(this)}`;
             }
 
             /** @param {ExpressionStatement} expressionStatement */
@@ -2369,6 +2978,10 @@
                 }
             }
 
+            visitEmptyStatement() {
+                return ';';
+            }
+
             /** @param {VariableDeclarationStatement} varDeclStatement */
             visitVariableDeclarationStatement(varDeclStatement) {
                 let optionalshit = "";
@@ -2379,6 +2992,52 @@
                     optionalshit += varDeclStatement.qualifier.value + " ";
                 }
                 return optionalshit + varDeclStatement.name + (varDeclStatement.value != undefined ? " = " + varDeclStatement.value.accept(this) : "") + ";"; //don't worry lol ternary operator has lower precedence!
+            }
+
+            handleForStatementLazilyLol(statement, kind) {
+                let result = `for${kind == "await" ? " "+kind : ""} (`;
+                switch(kind) {
+                    case "loop":
+                        result += statement.initialization.accept(this);
+                        result += statement.condition.accept(this);
+                        result += statement.afterthought.accept(this);
+                        break;
+                    case "await":
+                    case "of":
+                        result += statement.identifierDeclaration.accept(this);
+                        result += " of ";
+                        result += statement.iterableExpr.accept(this);
+                        break;
+                    case "in":
+                        result += statement.identifierDeclaration.accept(this);
+                        result += " in ";
+                        result += statement.iterableExpr.accept(this);
+                        break;
+                }
+                if(result[result.length-1] == ';') {
+                    result = result.substring(0, result.length-1);
+                }
+                return result + ")" + statement.body.accept(this);
+            }
+
+            /** @param {ForLoopStatement} forLoopStatement */
+            visitForLoopStatement(forLoopStatement) {
+                return this.handleForStatementLazilyLol(forLoopStatement, "loop");
+            }
+
+            /** @param {ForOfStatement} forOfStatement */
+            visitForOfStatement(forOfStatement) {
+                return this.handleForStatementLazilyLol(forOfStatement, "of");
+            }
+
+            /** @param {ForInStatement} forInStatement */
+            visitForInStatement(forInStatement) {
+                return this.handleForStatementLazilyLol(forInStatement, "in");
+            }
+
+            /** @param {ForAwaitOfStatement} forAwaitOfStatement */
+            visitForAwaitOfStatement(forAwaitOfStatement) {
+                return this.handleForStatementLazilyLol(forAwaitOfStatement, "await");
             }
         }
 
