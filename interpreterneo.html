@@ -34,16 +34,19 @@
 			<option value="hashbang">hashbang</option>
             <option value="helloworld" selected>hello world</option>
             <option value="nonstrict">allowed in non strict mode</option>
-            <option value="operators">operators</option>
-            <option value="alltokens">all token kinds</option>
-            <option value="rodwave">when the bs start</option>
+            <option value="forloop">for loop</option>
             <option value="ternary">ternary</option>
-            <option value="bs2">identifier gender LMAO</option>
             <option value="scope">scope</option>
             <option value="scope2">scope 2</option>
             <option value="varscope">var scope</option>
-            <option value="inconsistent">inconsistent</option>
+            <option value="varscope2">var scope 2</option>
+            <option value="rodwave">when the bs start</option>
+            <option value="bs2">identifier gender LMAO</option>
+            <option value="consistent">consistent</option>
             <option value="COMPREHENSION">ARRAY COMPREHENSION?!</option>
+            <option value="closures">closures</option>
+            <option value="operators">operators</option>
+            <option value="alltokens">all token kinds</option>
         </select>
     </div>
     <script>
@@ -52,16 +55,19 @@
             "hashbang": "#!/usr/bin/env node",
             "helloworld": "console.log(\"Hello World!\");",
             "nonstrict": "var let = 5;",
+            "forloop": "for(let x = 0; x < 10; x++) {\n    console.log(x);\n    x;\n}",
             "operators": "?.\n++\n--\n+\n-\n~\n!\n**\n*\n/\n%\n<\n>\n<=\n>=\n==\n!=\n===\n!==\n<<\n>>\n>>>\n&\n|\n^\n&&\n||\n??\n=\n*=\n/=\n%=\n+=\n-=\n<<=\n>>=\n>>>=\n&=\n^=\n|=\n**=\n&&=\n||=\n??=\n,\n...",
             "alltokens": "var\nlet\n\"hi\"\n5\n5n\ntrue\nundefined\nnull\nfemale\n[\n]\n.\n(\n)\n+\n-\n*\n/\n!\n--\n++\n?.\n~\n**\n%\n<\n>\n<=\n>=\n==\n!=\n===\n!==\n<<\n>>\n>>>\n&\n|\n^\n&&\n||\n??\n? :\n=\n*=\n/=\n%=\n+=\n-=\n<<=\n>>=\n>>>=\n&=\n^=\n|=\n**=\n&&=\n||=\n??=\n,\n...\n;\n{\n}\n=>",
             "rodwave": "[(5+5, window.location.href.length),5,5]",
             "ternary": "5 ? 7 : 6 ? 3 : 2;",
             "bs2": "female var hai = \"rawr\";",
             "scope": "{\n    let sogga = \"wet\";\n}",
-            "scope2": 'let a = "global a";\nlet b = "global b";\nlet c = "global c";\n{\n  let a = "outer a";\n  let b = "outer b";\n  {\n    let a = "inner a";\n    console.log(a);\n    console.log(b);\n    console.log(c);\n  }\n  console.log(a);\n  console.log(b);\n  console.log(c);\n}\nconsole.log(a);\nconsole.log(b);\nconsole.log(c);\n',
-            "varscope": 'var a = "global a";\nvar b = "global b";\nvar c = "global c";\n{\n  var a = "outer a";\n  var b = "outer b";\n  {\n    var a = "inner a";\n    var a;\n    console.log(a);\n    console.log(b);\n    console.log(c);\n  }\n  console.log(a);\n  console.log(b);\n  console.log(c);\n}\nconsole.log(a);\nconsole.log(b);\nconsole.log(c);\n',
-            "inconsistent": "let x = 2;\n{\n    console.log(x); //should be ReferenceError because of let shadow!\n    let x;\n}",
-            "COMPREHENSION": "let split = [for (const x of \"string\") x];"
+            "scope2": "let a = \"global a\";\nlet b = \"global b\";\nlet c = \"global c\";\n{\n  let a = \"outer a\";\n  let b = \"outer b\";\n  {\n    let a = \"inner a\";\n    console.log(a);\n    console.log(b);\n    console.log(c);\n  }\n  console.log(a);\n  console.log(b);\n  console.log(c);\n}\nconsole.log(a);\nconsole.log(b);\nconsole.log(c);\n",
+            "varscope": "var a = \"global a\";\nvar b = \"global b\";\nvar c = \"global c\";\n{\n  var a = \"outer a\";\n  var b = \"outer b\";\n  {\n    var a = \"inner a\";\n    var a;\n    console.log(a);\n    console.log(b);\n    console.log(c);\n  }\n  console.log(a);\n  console.log(b);\n  console.log(c);\n}\nconsole.log(a);\nconsole.log(b);\nconsole.log(c);\n",
+            "varscope2": "var hoist = \"okay\";\n{\n    var block = true;\n}\nvar after = \"yes\";\n\nconsole.log(hoist, block, after);",
+            "consistent": "let x = 2;\n{\n    console.log(x); //should be ReferenceError because of let shadow!\n    let x;\n}",
+            "COMPREHENSION": "let split = [for (const x of \"string\") x];",
+            "closures": "function makeCounter() {\n  let i = 0;\n  function count() {\n    i = i + 1;\n    console.log(i);\n  }\n\n  return count;\n}\n\nlet counter = makeCounter();\ncounter(); // \"1\".\ncounter(); // \"2\".",
         }
 		function selectExample(/** @type {InputEvent} */ event) {
 			letext.value = examples[event.target.value];
@@ -1086,7 +1092,7 @@
         //literal ::= boolean | null | undefined | array | object | string | number | bigint
         //gender ::= 'male' | 'female' | 'nonbinary'
         //classExpression ::= 'class' identifier? ('extends' unary_misc)? '{' classStatement* '}'
-        //functionExpression ::= 'async'? (('function' '*'? identifier? parameters) | ((identifier | parameters) '=>')) block
+        //functionExpression ::= 'async'? (('function' '*'? identifier? parameters) | ((identifier | parameters) '=>')) functionBlock
         //identifierExpression ::= identifierAccess
         //identifierAccess ::= identifier (('.' identifier) | ('[' expression ']') | (arguments))*
         //arrayComprehensionExpression ::= '[' listFor (listFor | listIf)* expression ']' ';'
@@ -1126,23 +1132,28 @@
         //  default ::= 'default' ':' statement
         //declaration ::= scopedIdentifierDeclaration | statement
         //  scopedIdentifierDeclaration ::= gender? ('const' | 'let') identifier ('=' expression)? (',' identifier ('=' expression)?)* //well that explains why the comma isn't allowed!
-        //statement ::= return | if | while | do | for | switch | with | throw | classDeclStatement | functionStatement | varStatement | block | empty | (expression ';')
-        //  block ::= '{' statement* '}'
+        //controlFlowStatement ::= if | while | do | for | switch | with | throw | classDeclStatement | functionStatement | varStatement | controlFlowBlock | empty | (expression ';')
+        //  controlFlowBlock ::= '{' (break | continue | declaration)* '}'
+        //  break ::= 'break' identifier?
+        //  continue ::= 'continue' identifier?
+        //functionBlock ::= '{' (return | declaration)* '}'
         //  return ::= 'return' expression? ';'
+        //statement ::= if | while | do | for | switch | with | throw | classDeclStatement | functionStatement | varStatement | block | empty | (expression ';')
+        //  block ::= '{' declaration* '}'
         //  if ::= 'if' '(' expression ')' statement else?
         //  else ::= 'else' statement
-        //  while ::= 'while' '(' expression ')' statement
+        //  while ::= 'while' '(' expression ')' controlFlowStatement
         //  do ::= 'do' statement 'while' '(' expression ')' ';'
         //  for ::= 'for' await | ('(' (iterator | loop) ')') statement
         //  await ::= 'await' '(' optionalIdentifierQualifiers identifier 'of' unary_misc ')'
         //  loop ::= (scopedIdentifierDeclaration | varStatement | expression)? ';' expression? ';' expression?
         //  iterator ::= (scopedIdentifierDeclaration | varStatement | expression) ('of' | 'in') unary_misc
         //  classDeclStatement ::= 'class' identifier ('extends' unary_misc)? '{' classStatement* '}'
-        //  functionStatement ::= gender? 'async'? 'function' '*'? identifier parameters block
+        //  functionStatement ::= gender? 'async'? 'function' '*'? identifier parameters functionBlock
         //  varStatement ::= gender? 'var' identifier ('=' unary_misc)? (',' identifier ('=' unary_misc)?)* //well that explains why the comma isn't allowed!
         //  switch ::= 'switch' '(' expression ')' switchStatementBody
         //  with ::= 'with' '(' expression ')' statement
-        //  throw ::= 'throw' expression
+        //  throw ::= 'throw' expression ';'
         //  empty ::= ';'
         //optionalIdentifierQualifiers = gender? ('var' | 'const' | 'let')?
         //parameters ::= '(' (identifier ('=' unary_misc)? ',')* ')' // we're using unary_misc here because allowing the comma here would be weird!
@@ -1157,27 +1168,31 @@
         /**
          * @param {Expression} expression
          */
-        function isValidLeftHandAssignment(expression) {
+        //this could be a visitor too lol!
+        function isValidLeftHandAssignment(expression, depth = 0) {
             if(expression instanceof BinaryExpression) {
-                let valid = isValidLeftHandAssignment(expression.left);
+                let valid = isValidLeftHandAssignment(expression.left, depth+1);
                 if(!valid) {
                     return false;
                 }
                 switch(expression.operatorToken.kind) {
+                    //no optional chaining because you can't do that
                     case TokenKind.DOT:
                     case TokenKind.OPEN_PARENTHESIS:
                     case TokenKind.OPEN_BRACKET:
-                        return isValidLeftHandAssignment(expression.right);
+                        return isValidLeftHandAssignment(expression.right, depth+1);
                         break;
                     
                     default:
                         return false;
                         break;
                 }
-            }else if(expression instanceof FunctionCallExpression) {
-                return isValidLeftHandAssignment(expression.functionExpr);
+            }else if(expression instanceof FunctionCallExpression && depth != 0) { // a function expression is not assignable! if we just entered this function, don't allow this!
+                return isValidLeftHandAssignment(expression.functionExpr, depth+1);
             }else if(expression instanceof IdentifierExpression) {
-                return true;
+                return depth != 0 || expression.nameToken.value != "this"; //this is not assignable!
+            }else {
+                return false; //uhh i guess if it's none of those this shit probably not valid (i guess all unary operators are bad?)
             }
         }
 
@@ -1357,10 +1372,18 @@
             }
         }
 
+        //not a real statement but uhhh idk how javascript does it lol
+        class TemporalDeadZoneDeclarationStatement extends VariableDeclarationStatement {
+            accept(visitor) /*override*/ {
+                return visitor.visitTemporalDeclarationStatement(this);
+            }
+        }
+
         //i thought i didn't actually need to make a separate class for this but i just realized the block also has a scope so we definitely need to know that lol
         class BlockStatement extends Statement {
             /** @type {Array<Statement>} */
             statements = [];
+            isFunctionSoDontBotherMakingScopeBecauseJavascriptBS = false;
             accept(visitor) /*override*/ {
                 return visitor.visitBlockStatement(this);
             }
@@ -1479,6 +1502,141 @@
             }
         }
 
+        class FunctionStatement extends Statement {
+            /** @type {Token | undefined} */
+            genderToken;
+            /** @type {Boolean} */
+            isStrict;
+            /** @type {Boolean} */
+            isAsync;
+            /** @type {Boolean} */
+            isGenerator;
+            /** @type {Token} */
+            nameToken;
+            /** @type {Array<{identifier: IdentifierExpression, default: Expression | undefined}>} */
+            parameters;
+            /** @type {Statement} */
+            body;
+
+            /**
+             * @param {Token | undefined} genderToken
+             * @param {Boolean} isStrict
+             * @param {Boolean} isAsync
+             * @param {Boolean} isGenerator
+             * @param {Token} nameToken
+             * @param {Array<{identifier: IdentifierExpression, default: Expression | undefined}>} parameters
+             * @param {Statement} body
+             */
+            constructor(genderToken, isStrict, isAsync, isGenerator, nameToken, parameters, body) {
+                super();
+                this.genderToken = genderToken;
+                this.isStrict = isStrict;
+                this.isAsync = isAsync;
+                this.isGenerator = isGenerator;
+                this.nameToken = nameToken;
+                this.parameters = parameters;
+                this.body = body;
+            }
+
+            accept(visitor) {
+                return visitor.visitFunctionStatement(this);
+            }
+        }
+
+        class ReturnStatement extends Statement {
+            expr;
+            constructor(expr) {
+                super();
+                this.expr = expr;
+            }
+            accept(visitor) {
+                return visitor.visitReturnStatement(this);
+            }
+        }
+
+        class FunctionWrapper {
+            /** @type {FunctionStatement} */
+            declaration;
+            //how the hell am i doing closures
+            /** @type {Array<Map<String, Variable>>} */
+            scope;
+            /** @type {any} */
+            boundThis;
+            /** @type {Array<any>} */
+            boundParameters;
+            /** @type {Map<String, any>} */
+            javascriptProperties;
+
+            //@param {Map<String, Variable>} scope
+            /**
+             * @param {FunctionStatement} declaration
+             * @param {any} boundThis
+             * @param {Array<any>} boundParameters
+             */
+            constructor(declaration, scope, boundThis, boundParameters = []) {
+                this.declaration = declaration;
+                this.scope = scope;
+                this.boundThis = boundThis;
+                this.boundParameters = boundParameters;
+                //this.length = declaration.parameters.length;
+                this.javascriptProperties = new Map([
+                    ["length", declaration.parameters.length],
+                    ["name", this.declaration.nameToken.value],
+                ]);
+            }
+
+            /** 
+             * @param {JavascriptInterpreter} interpreter
+             * @param {Array<any>} $arguments
+             */
+            invoke(interpreter, callingThis, $arguments) {
+                //interpreter.state.variables.push(new Map()); //push scope
+                //const scope = interpreter.state.variables.at(-1);
+                const old = interpreter.state.variables;
+                interpreter.state.variables = this.scope;
+                this.scope.push(new Map());
+                const scope = this.scope.at(-1);
+                //we're forcing this to be const but i'm pretty sure this isn't actually how it works lol
+                scope.set("this", new Variable({qualifier: {line: 1, char: 1, value: "const", kind: TokenKind.RESERVED}, gender: undefined, name: "this"}, this.boundThis || callingThis));
+                for(let i = 0; i < this.declaration.parameters.length; i++) {
+                    const {identifier, default: $default} = this.declaration.parameters[i];
+                    let value;
+                    if(i < this.boundParameters.length) {
+                        value = this.boundParameters[i];
+                    }else if(i < $arguments.length) {
+                        value = $arguments[i];
+                    }else {
+                        value = $default?.accept(interpreter);
+                    }
+                    //const value = (i < this.boundParameters.length && this.boundParameters[i]) || (i < $arguments.length && $arguments[i]) || $default?.accept(interpreter);
+                    //we are cheating by saying the parameter variable has been declared with var so that var is allowed to shadow it or whatever var does (because this allowed)
+                    scope.set(identifier.nameToken.value, new Variable({qualifier: {line: 1, char: 1, value: "var", kind: TokenKind.RESERVED, name: identifier.nameToken.value}, gender: undefined}, value));
+                }
+                let retval = undefined;
+                
+                //oh wow he used an exception... (yet again not the fastest interpreter in the west!)
+                //oh wait lua can do that thank god
+                try {
+                    this.declaration.body.accept(interpreter); //somehow he needs to handle return statements
+                }catch(e) {
+                    if(e instanceof Error) {
+                        throw e;
+                    }
+                    retval = e; //the return expression is evaluated when we reach it (i honestly wasn't sure if that was the right move, but with scopes you could try to return a local var!)
+                }
+                
+                // interpreter.state.variables.pop();
+                this.scope.pop();
+                interpreter.state.variables = old;
+                return retval;
+            }
+
+            //All arguments must already be evaluated!
+            bind(thisArg, ...args) {
+                return new FunctionWrapper(this.declaration, thisArg, args);
+            }
+        }
+
         class ExpressionStatement extends Statement {
             /** @type {Expression} */
             expression;
@@ -1492,11 +1650,68 @@
             }
         }
 
+        class StaticAnalysisVariable {
+            /** @type {Token | undefined} */
+            gender;
+            /** @type {Token} */
+            qualifier;
+            /** @type {Token} */
+            name;
+
+            /** 
+             * @param {Token | undefined} gender
+             * @param {Token} qualifier
+             * @param {Token} name
+             */
+            constructor(gender, qualifier, name) {
+                this.gender = gender;
+                this.qualifier = qualifier;
+                this.name = name;
+            }
+        }
+
+        class StaticAnalysisFunctionVariable extends StaticAnalysisVariable {
+            /** @type {FunctionStatement} */
+            statement;
+
+            /** 
+             * @param {Token | undefined} gender
+             * @param {Token} qualifier
+             * @param {Token} name
+             */
+            constructor(gender, qualifier, name) {
+                super(gender, qualifier, name);
+            }
+        }
+
+        class StaticAnalysisScope {
+            /** @type {Map<String, StaticAnalysisVariable>} */
+            variables = new Map();
+            /** @type {Array<StaticAnalysisVariable>} */
+            hoisted = [];
+            /** @type {Array<Statement>} */
+            blockStatementArray;
+            /** @type {String} */
+            kind;
+            constructor(kind, blockStatementArray) {
+                this.kind = kind;
+                this.blockStatementArray = blockStatementArray;
+            }
+        }
+
         class JavascriptParser extends Parser {
             i;
             useStrict;
-            /** @type {Array<{gender: Token | undefined, qualifier: Token, name: Token}>} */
-            hoistedVars;
+            //** @type {Array<{gender: Token | undefined, qualifier: Token, name: Token}>} */
+            //hoistedVars;
+
+            /** @type {Array<{kind: String, variables: Map<String, {qualifier: Token | undefined, gender: Token | undefined}, hoisted: Array<String>}>>} */
+            //scope;
+
+            /** @type {Array<StaticAnalysisScope>} */
+            scope;
+
+            /** @type {Array<Boolean | Array<Statement>>} */
             inFunction;
             /** @type {Array<Statement>} */
             statements;
@@ -1504,13 +1719,17 @@
                 super(parentInterpreter, tokens);
                 this.i = 0;
                 this.useStrict = false;
-                this.inFunction = false; // for var
+                this.inFunction = [false]; // for var
                 
                 //hoistedVars are cleared before/after function statements and when parsing is finished!
                 //these will translate to variable decl statements at the beginning of the scope (global or function)
-                this.hoistedVars = [];
+                //hmm im not sure about this again...
+                //this.hoistedVars = [];
 
+                
                 this.statements = []; // the only reason this is now a property of JavascriptParser is because we must hoist global vars any time function is declared!
+
+                this.scope = [new StaticAnalysisScope("global", this.statements)];
             }
 
             /** @returns {Token | false} */
@@ -1581,6 +1800,49 @@
                 }
                 this.consume(TokenKind.CLOSING_PARENTHESIS, "Call requires closing parenthesis!");
                 return args;
+            }
+
+            arrayComprehension() {
+                this.consume(TokenKind.OPEN_BRACKET, "Expected open bracket for array comprehension expression!");
+                const $for = this.listFor();
+                while(this.i < this.tokens.length && (this.peekReserved("for") || this.peekReserved("if"))) {
+                    let subexpr;
+                    if(this.peekReserved("for")) {
+                        subexpr = this.listFor();
+                    }else {
+                        subexpr = this.listIf();
+                    }
+                }
+                const expr = this.expression();
+                this.consume(TokenKind.CLOSING_BRACKET, "Expected open bracket for array comprehension expression!");
+                this.consume(TokenKind.SEMICOLON, "Semicolon expected after array comprehension expression");
+            }
+
+            listFor() {
+                if(!this.matchReserved("for")) {
+                    throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Expected 'for' in array comprehension expression!");
+                }
+                this.consume(TokenKind.OPEN_PARENTHESIS, "Expected open parenthesis in 'for' array comprehension expression!");
+                const gender = this.match(TokenKind.GENDER);
+                const qualifier = this.matchReserved("var") || this.matchReserved("const") || this.matchReserved("let") || (this.peek(TokenKind.IDENTIFIER) && this.tokens[this.i].value == "let" && this.tokens[this.i++]);
+                const identifier = this.identifier();
+                if(this.tokens[this.i].value != "of") {
+                    throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Expected 'of' in array comprehension expression!");
+                }
+                this.i++; //consume lol
+                const iterableExpr = this.unary_misc();
+                this.consume(TokenKind.OPEN_PARENTHESIS, "Expected closing parenthesis in 'for' array comprehension expression!");
+                //return whatever...
+            }
+
+            listIf() {
+                if(!this.matchReserved("if")) {
+                    throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Expected 'if' in array comprehension expression!");
+                }
+                this.consume(TokenKind.OPEN_PARENTHESIS, "Expected open parenthesis in 'if' array comprehension expression!");
+                const expr = this.expression();
+                this.consume(TokenKind.OPEN_PARENTHESIS, "Expected closing parenthesis in 'if' array comprehension expression!");
+                //return whatever...
             }
 
             expression() {
@@ -1675,7 +1937,8 @@
                     //if(!(expr instanceof IdentifierExpression)) {
                     //    throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Invalid left-hand side in assignment");
                     //}
-                    if(!isValidLeftHandAssignment(expr) || this.tokens[this.i-1].kind == TokenKind.CLOSING_PARENTHESIS) {
+                    // if(!isValidLeftHandAssignment(expr) || this.tokens[this.i-1].kind == TokenKind.CLOSING_PARENTHESIS) {
+                    if(!isValidLeftHandAssignment(expr)) {
                         throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Invalid left-hand side in assignment");
                     }
                     return new BinaryExpression(expr, this.tokens[this.i++], this.assignment());
@@ -1922,9 +2185,10 @@
                         break;
                 }
                 //this (i think we should treat this like a "normal" identifier)
-                /*else if(this.matchReserved("this")) {
-
-                }*/
+                //oh wait this is actually reserved i thought it wasn't lol
+                if(this.peekReserved("this")) {
+                    return new IdentifierExpression(this.match(TokenKind.RESERVED));
+                }
                 //class
                 if(this.matchReserved("class")) {
                     const name = this.match(TokenKind.IDENTIFIER);
@@ -2014,10 +2278,13 @@
                 let value = undefined;
                 const equals = this.match(TokenKind.EQUALS);
                 //this probably shouldn't happen this way but hush!
-                const inFor = this.peekReserved("in") || (this.peek(TokenKind.IDENTIFIER) && this.tokens[this.i].value == "of");
+                let inFor = this.peekReserved("in") || (this.peek(TokenKind.IDENTIFIER) && this.tokens[this.i].value == "of");
                 if(equals) {
                     //assignment
                     value = this.unary_misc();
+
+                    //we'll just peek again lol
+                    inFor = this.peekReserved("in") || (this.peek(TokenKind.IDENTIFIER) && this.tokens[this.i].value == "of");
                 }else if(!inFor && qualifier.value == "const") {
                     const temp = +!this.peek(TokenKind.SEMICOLON); //we'll do the token before this one if this one isn't a semicolon (because whatever token that isn't a semicolon might be on another line!)
                     throw new ParseError(this.tokens[this.i-temp].line, this.tokens[this.i-temp].char, "Missing initializer in const declaration");
@@ -2029,6 +2296,27 @@
                     this.consume(TokenKind.SEMICOLON, "Semicolon expected after variable declaration!");
                 }
                 // "k";
+
+                let index = this.scope.length-1;
+                let scope = this.scope[index];
+                if(qualifier.value == "var") {
+                    while(scope.kind == "block") { //var declarations are only scoped to functions/global
+                        scope = this.scope[--index];
+                    }
+                }
+                if(scope.variables.has(name.value)) {
+                    const old = scope.variables.get(name.value);
+                    if(qualifier.value != "var" || qualifier.value != old.qualifier.value || gender?.value != old.gender?.value) { //we can redeclare with var, but not with let or const!
+                        //bad (boy | girl | thing)!
+                        //i forgot where i wrote this originally but i just knew this was where it should go once more...
+                        throw new ParseError(name.line, name.char, `Identifier '${name.value}' has already been declared!`);
+                    }
+                }else {
+                    const $var = new StaticAnalysisVariable(gender || undefined, qualifier, name);
+                    scope.variables.set(name.value, $var);
+                    scope.hoisted.push($var);
+                }
+
                 if(qualifier.value == "var") {
                     //according to mdn, since vars are hoisted, the declarations are moved to the top and written declarations are changed to assignments
                     const id = new IdentifierExpression(name);
@@ -2073,7 +2361,9 @@
                 return this.statement();
             }
 
+            /** @returns {{identifier: IdentifierExpression, default: Expression | undefined}} */
             parameters() {
+                const duplicateMap = new Map();
                 const parameters = [];
                 this.consume(TokenKind.OPEN_PARENTHESIS, "Expected parameters but didn't find open parenthesis?!");
                 while(this.i < this.tokens.length && !this.peek(TokenKind.CLOSING_PARENTHESIS)) {
@@ -2082,6 +2372,13 @@
                     if(this.match(TokenKind.EQUALS)) {
                         $default = this.unary_misc();
                     }
+                    if(duplicateMap.has(identifier.nameToken.value)) {
+                        const $$default = duplicateMap.get(identifier.nameToken.value);
+                        if($$default || $default) {
+                            throw new ParseError(identifier.nameToken.line, identifier.nameToken.char, "Duplicate parameter name not allowed in this context"); //apparently, you can't have duplicate parameter names if you try to give one a default value! (the first time i've ever seen this error was yesterday!)
+                        }
+                    }
+                    duplicateMap.set(identifier.nameToken.value, $default);
                     parameters.push({identifier, default: $default}); //uh oh i don't think in my implementation you are allowed to access properties with reserved names like i did here with default!
                     if(!this.match(TokenKind.COMMA) && !this.peek(TokenKind.CLOSING_PARENTHESIS)) {
                         throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Expected comma in parameters!");
@@ -2091,17 +2388,38 @@
                 return parameters;
             }
 
-            block() {
+            // block(insideFunction = false) {
+            block(dontMakeScopeBecauseFunctionAlreadyDidIt = false) {
                 this.consume(TokenKind.OPEN_CURLY_BRACKET, "Block statement expected but didn't find open curly bracket?");
                 const expr = new BlockStatement();
+                //this.scope.push(new StaticAnalysisScope(insideFunction ? "function" : "block", expr.statements));
+                if(!dontMakeScopeBecauseFunctionAlreadyDidIt) {
+                    this.scope.push(new StaticAnalysisScope("block", expr.statements));
+                }
                 while(this.i < this.tokens.length && !this.peek(TokenKind.CLOSING_CURLY_BRACKET)) {
-                    expr.statements.push(this.declaration());
+                    const statement = this.declaration();
+                    if(statement instanceof FunctionStatement) {
+                        //we hoist function statements to the top of the scope
+                        //expr.statements.splice(0, 0, statement);
+
+                        //nevermind, this happens with hoisted vars too
+                    }else {
+                        expr.statements.push(statement);
+                    }
                 }
                 this.consume(TokenKind.CLOSING_CURLY_BRACKET, "Expected closing bracket!!");
-                if(this.inFunction) {
-                    //the only time var isn't globally scoped is in a function!
-                    //we need to hoist any vars declared in this block!
-                    this.pushHoistedDeclarations(expr.statements);
+                //if(this.inFunction.at(-1)) {
+                //    //the only time var isn't globally scoped is in a function!
+                //    //we need to hoist any vars declared in this block!
+                //    //this.pushHoistedDeclarations(this.inFunction.at(-1));
+                //    this.pushHoistedDeclarations();
+                //}
+                //if(insideFunction) {
+                //    this.inFunction.pop();
+                //}
+                if(!dontMakeScopeBecauseFunctionAlreadyDidIt) {
+                    this.pushHoistedDeclarations();
+                    this.scope.pop();
                 }
                 return expr;
             }
@@ -2127,9 +2445,9 @@
                         }
                     }else if(!(temp instanceof VariableDeclarationStatement)) {
                         throw new ParseError(this.tokens[index].line, this.tokens[index].char, "Expected variable declaration!");
-                    }else if(temp.value) {
+                    }/*else if(temp.value && !assignment) {
                         throw new ParseError(this.tokens[index].line, this.tokens[index].char, "Variable declaration may not have an initializer.");
-                    }
+                    }*/
                     return temp;
                 }else {
                     if(gender) {
@@ -2147,7 +2465,17 @@
 
             statement() {
                 if(this.matchReserved("return")) {
-
+                    //if(!this.inFunction.at(-1)) {
+                    let scope = this.scope.findIndex(scope=>scope.kind=="function");
+                    if(scope == -1) {
+                        throw new ParseError(this.tokens[this.i-1].line, this.tokens[this.i-1].char, "Illegal return statement");
+                    }
+                    let expr = new LiteralExpression(undefined);
+                    if(!this.match(TokenKind.SEMICOLON)) {
+                        expr = this.expression();
+                    }
+                    this.consume(TokenKind.SEMICOLON, "Semicolon expected after return statement!");
+                    return new ReturnStatement(expr);
                 }else if(this.matchReserved("if")) {
                     this.consume(TokenKind.OPEN_PARENTHESIS, "Open parenthesis expected after if!");
                     const condition = this.expression();
@@ -2192,7 +2520,12 @@
                         const qualifier = this.matchReserved("var") || this.matchReserved("const") || this.matchReserved("let") || (this.peek(TokenKind.IDENTIFIER) && this.tokens[this.i].value == "let" && this.tokens[this.i++]);
                         //const idExpr = this.identifier();
                         //of is not reserved but in is!
-                        if((this.peekNext(TokenKind.IDENTIFIER) && this.tokens[this.i+1].value == "of") || (this.peekNext(TokenKind.RESERVED) && this.tokens[this.i+1].value == "in")) {
+                        let initialization_or_decl = new EmptyStatement;
+                        if(!this.peek(TokenKind.SEMICOLON)) {
+                            initialization_or_decl = this.variableDeclarationOrExpression(gender, qualifier);
+                        }
+                        //if((this.peekNext(TokenKind.IDENTIFIER) && this.tokens[this.i+1].value == "of") || (this.peekNext(TokenKind.RESERVED) && this.tokens[this.i+1].value == "in")) {
+                        if(!(initialization_or_decl instanceof EmptyStatement) && ((this.peek(TokenKind.IDENTIFIER) && this.tokens[this.i].value == "of") || (this.peekReserved("in")))) {
                             //for...of, for...in, or for await...of
                             // const idExpr = this.identifier();
                             
@@ -2200,10 +2533,15 @@
                             //for(obj.stuff of "string");
                             //obj.stuff; // = "g"
 
-                            const idExpr = this.variableDeclarationOrExpression(gender, qualifier);
-                            if(idExpr instanceof Expression) {
+                            if(initialization_or_decl instanceof VariableDeclarationStatement && initialization_or_decl.value != undefined) {
+                                throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Variable declaration may not have an initializer.");
+                            }
+                            if(initialization_or_decl instanceof Expression) {
                                 //we need to make sure the left hand side is valid! (somehow)
                                 //...
+                                if(!isValidLeftHandAssignment(initialization_or_decl)) {// || this.tokens[this.i-1].kind == TokenKind.CLOSING_PARENTHESIS) {
+                                    throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Invalid left-hand side in for-loop"); //this is not exactly the same as v8 because it shows this error instead of the previous one if you use var!
+                                }
                             }
 
                                           //the lexer (and i swear this time) will not let this happen
@@ -2227,7 +2565,7 @@
                                 //of
                                 clazz = ForOfStatement;
                             }
-                            return new clazz(idExpr, iterableExpr, body);
+                            return new clazz(initialization_or_decl, iterableExpr, body);
                         }else if($await) {
                             throw new ParseError($await.line, $await.char, "Await not expected here!");
                         }else {
@@ -2235,11 +2573,14 @@
                             //these probably belong to the first inner expression lol
 
                             //i honestly had no idea the for loop expressions had names!
-                            let initialization = new EmptyStatement;
+                            let initialization = initialization_or_decl;
                             let condition = new EmptyStatement;
                             let afterthought = new EmptyStatement;
-                            if(!this.match(TokenKind.SEMICOLON)) {
-                                initialization = this.variableDeclarationOrExpression(gender, qualifier);
+                            // if(!this.match(TokenKind.SEMICOLON)) {
+                            //     initialization = this.variableDeclarationOrExpression(gender, qualifier);
+                            // }
+                            if(!(initialization instanceof VariableDeclarationStatement)) {
+                                this.consume(TokenKind.SEMICOLON, "Semicolon expected after initialization in for loop!");
                             }
                             if(!this.match(TokenKind.SEMICOLON)) {
                                 condition = this.expression();
@@ -2327,19 +2668,75 @@
                         };*/
                     }
                     const async = this.peek(TokenKind.IDENTIFIER) && this.tokens[this.i].value == "async" && this.tokens[this.i++]; //we make sure to backtrack async if we think it's an expression instead!
-                    if(this.matchReserved("function")) {
+                    if(this.peekReserved("function")) {
+                        const funcToken = this.match(TokenKind.RESERVED);
                         //function statement (thank god)
-                        this.pushHoistedDeclarations(this.statements);
+                        //this.pushHoistedDeclarations(this.statements);
+                        //this.pushHoistedDeclarations();
+                        //function statements are also hoisted! we need to push this entire function to the top of the scope
+                        /*
+                        function x() {
+                            return y();
+                            function y() {
+                                return "hello world";
+                            }
+                        }
+                        */
                         const generator = this.match(TokenKind.ASTERISK);
                         const name = this.match(TokenKind.IDENTIFIER);
                         if(!name) {
                             const temp = +(this.i >= this.tokens.length);
                             throw new ParseError(this.tokens[this.i-temp].line, this.tokens[this.i-temp].char, `Function statements require a function name`);
                         }
-                        this.inFunction = true;
+                        const scope = this.scope[this.scope.length-1];
+                        let $var;
+                        if(scope.variables.has(name.value)) {
+                            const old = scope.variables.get(name.value);
+                            if(qualifier.value != old.qualifier.value) {
+                                throw new ParseError(name.line, name.char, `Identifier '${name.value}' has already been declared!`);
+                            }
+                            $var = scope.get(name.value);
+                        }else {
+                            $var = new StaticAnalysisFunctionVariable(gender || undefined, funcToken, name);
+                            scope.variables.set(name.value, $var);
+                            scope.hoisted.push($var);
+                        }
+
+                        
                         const parameters = this.parameters();
-                        const functionBody = this.block();
-                        this.inFuncton = false;
+                        //this.inFunction = true;
+                        //this.inFunction.push(true);
+                        const scopeRef = new StaticAnalysisScope("function", undefined);
+                        this.scope.push(scopeRef);
+
+                        for(const {identifier, default: $default} of parameters) {
+                            scopeRef.variables.set(identifier.nameToken.value, new StaticAnalysisVariable(undefined, {line: 1, char: 1, value: "var", kind: TokenKind.RESERVED}, identifier.nameToken.value));
+                        }
+
+                        const functionBody = this.block(true); //purrhaps i could just pass inFunction to block lol
+                        
+                        scopeRef.blockStatementArray = functionBody.statements;
+                        this.pushHoistedDeclarations();
+                        this.scope.pop();
+                        
+                        functionBody.isFunctionSoDontBotherMakingScopeBecauseJavascriptBS = true; //when the function is visited it will create a scope for its parameters so the block needn't create another.
+                        // this.inFuncton = false; //bruh
+                        // this.inFunction = false;
+                        //this.inFunction.pop();
+                        let strict = this.useStrict;
+                        if((functionBody.statements[0] instanceof ExpressionStatement) && functionBody.statements[0].expression?.value == "use strict") {
+                            //we need to make sure the parameter list is "simple" otherwise throw
+                            for(const parameter of parameters) {
+                                if(parameter.default) {
+                                    throw new ParseError(name.line, name.char, "Illegal 'use strict' directive in function with non-simple parameter list");
+                                }
+                            }
+                            strict = true;
+                        }
+
+                        $var.statement = new FunctionStatement(gender || undefined, strict, !!async, !!generator, name, parameters, functionBody);
+                        
+                        return $var.statement;
                     }
                     //we're still allowing const and let here as a sort of cover grammar like thing so we can catch it
                     else if(this.peekReserved("var") || this.peekReserved("const") || (this.peekReserved("let") || (this.peek(TokenKind.IDENTIFIER) && this.tokens[this.i].value == "let" && this.peekNext(TokenKind.IDENTIFIER)))) { // bruh let is only reserved in strict mode! otherwise it will be tokenized as an identifier!
@@ -2358,24 +2755,26 @@
                         }
                         // if(qualifier.value == "var") {
                             //lowkey this is fairs.
-                            const prevIndex = this.hoistedVars.findIndex($var=>$var.name.value == name.value);
-                            if(prevIndex != -1) {
-                                //we don't have to do this for const and let because you aren't allowed to use let or const on previously defined identifiers!
-                                const prevHoist = this.hoistedVars[prevIndex];
-                                if(prevHoist.gender?.value != gender?.value) { //gender must be the same for all var declarations using the same name!
-                                    //bad (boy | girl | thing)!
-                                    let line, char;
-                                    if(gender) {
-                                        ({line, char} = gender); //oh man this would be hell to parse...
-                                    }else {
-                                        ({line, char} = qualifier);
-                                    }
-                                    throw new ParseError(line, char, "Gender must be the same for all var redeclarations");
-                                }
-                            }else {
-                                this.hoistedVars.push({gender: gender || undefined, qualifier, name}); //hoistedVars are cleared before/after function statements and when parsing is finished!
-                            }
+                            //const prevIndex = this.hoistedVars.findIndex($var=>$var.name.value == name.value);
+                            //if(prevIndex != -1) {
+                            //    //we don't have to do this for const and let because you aren't allowed to use let or const on previously defined identifiers!
+                            //    const prevHoist = this.hoistedVars[prevIndex];
+                            //    if(prevHoist.gender?.value != gender?.value) { //gender must be the same for all var declarations using the same name!
+                            //        //bad (boy | girl | thing)!
+                            //        let line, char;
+                            //        if(gender) {
+                            //            ({line, char} = gender); //oh man this would be hell to parse...
+                            //        }else {
+                            //            ({line, char} = qualifier);
+                            //        }
+                            //        throw new ParseError(line, char, "Gender must be the same for all var redeclarations");
+                            //    }
+                            //}else {
+                            //    this.hoistedVars.push({gender: gender || undefined, qualifier, name}); //hoistedVars are cleared before/after function statements and when parsing is finished!
+                            //}
                         // }
+
+                        //doCommonIdentifierDeclStuff does that hoisting ish
                         return this.doCommonIdentifierDeclStuff(gender, qualifier, name);
                     }else {
                         if(gender) {
@@ -2419,14 +2818,33 @@
                 }
             }
 
-            pushHoistedDeclarations(statements) {
-                for(let i = 0; i < this.hoistedVars.length; i++) {
-                    const $var = this.hoistedVars[i];
-                    //splicing at i so they're in order even though that's probably not important
-                    statements.splice(i, 0, new VariableDeclarationStatement($var.gender, $var.qualifier, $var.name.value, undefined));
+            pushHoistedDeclarations() {
+                // const statements = this.inFunction.at(-1) || this.statements;
+                const scope = this.scope[this.scope.length-1]; //not using .at because for some reason vscode acts like it doesn't know the types anymore
+                const statements = scope.blockStatementArray;
+                /** @type {Array<StaticAnalysisFunctionVariable>} */
+                const tempFunctions = [];
+                let i = 0;
+                for(i; i < scope.hoisted.length; i++) {
+                    const $var = scope.hoisted[i];
+                    if($var.qualifier.value == "var") {
+                        //splicing at i so they're in order even though that's probably not important
+                        statements.splice(i, 0, new VariableDeclarationStatement($var.gender, $var.qualifier, $var.name.value, undefined));
+                    }else {
+                        //temporal dead zone...
+                        statements.splice(i, 0, new TemporalDeadZoneDeclarationStatement($var.gender, $var.qualifier, $var.name.value, undefined));
+                        if($var.qualifier.value == "function") {
+                            tempFunctions.push($var);
+                        }
+                    }
+                }
+                for(const $var of tempFunctions) {
+                    //we put actual functions after all declarations so that the functions can reference each other as well as all local variables
+                    statements.splice(i, 0, $var.statement);
+                    i++;
                 }
 
-                this.hoistedVars = [];
+                // this.hoistedVars = [];
             }
 
             /**
@@ -2437,11 +2855,19 @@
                     this.useStrict = true;
                 }
 
-                /** @type {Array<Statement>} */
+                ///** @type {Array<Statement>} */
                 //const statements = [];
                 try {
                     while(this.i < this.tokens.length) {
-                        this.statements.push(this.declaration());
+                        const statement = this.declaration();
+                        if(statement instanceof FunctionStatement) {
+                            //we hoist function statements to the top of the scope
+                            //this.statements.splice(0, 0, statement);
+
+                            //actually we'll do this with the rest of the hoisted vars
+                        }else {
+                            this.statements.push(statement);
+                        }
                     }
                 }catch(e) {
                     //when i was using std expected i never thought to throw instead of propagating the expected out
@@ -2451,35 +2877,49 @@
                     return Unexpected(e);
                 }
 
-                this.pushHoistedDeclarations(this.statements);
+                //this.pushHoistedDeclarations(this.statements);
+                this.pushHoistedDeclarations();
 
                 return new Expected(this.statements);
             }
         }
 
         class Variable {
-            /** @type {qualifier: Token | undefined, gender: Token | undefined} */
+            /** @type {qualifier: Token | undefined, gender: Token | undefined, name: Token} */
             properties;
             /** @type {any} */
             value;
 
             /** 
-             * @param {qualifier: Token | undefined, gender: Token | undefined} properties
+             * @param {qualifier: Token | undefined, gender: Token | undefined, name: String} properties
              * @param {any} value
              */
-            constructor(properties = {qualifier: undefined, gender: undefined}, value) {
+            constructor(properties, value) {
                 this.properties = properties;
                 this.value = value;
+            }
+
+            get() {
+                return this.value;
+            }
+        }
+
+        class TemporalDeadZoneVariable extends Variable {
+            get() {
+                throw new ReferenceError(`${this.properties.name} is not defined`);
             }
         }
 
         //Environment
         class RuntimeState {
             //tis an array of maps for scoping
+            //uh oh, i'm beginning to see a problem with this array approach...
+            //for closures, i need to copy the entire array! i wouldn't have to do this if i did it his way...
+            //damn what else could i do to instead of using his solution lol
             /** @type {Array<Map<String, Variable>>} */
             variables = [new Map([
-                ["globalThis", new Variable(undefined, globalThis)],
-                ["this", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "const"}, gender: undefined}, globalThis)],
+                ["globalThis", new Variable({qualifier: undefined, gender: undefined, name: "globalThis"}, globalThis)],
+                ["this", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "const"}, gender: undefined, name: "this"}, globalThis)],
             ])];
         }
 
@@ -2592,12 +3032,13 @@
 
             /** @param {BlockStatement} blockStatement */
             visitBlockStatement(blockStatement) {
-                this.state.variables.push(new Map());
+                !blockStatement.isFunctionSoDontBotherMakingScopeBecauseJavascriptBS && this.state.variables.push(new Map());
                 let last = undefined;
                 for(const statement of blockStatement.statements) {
                     last = statement.accept(this);
+                    //how can i do return statements without checking if it's a return statement every time lol (apparently the answer is throwing an exception)
                 }
-                this.state.variables.pop();
+                !blockStatement.isFunctionSoDontBotherMakingScopeBecauseJavascriptBS && this.state.variables.pop();
                 return last;
             }
 
@@ -2642,10 +3083,11 @@
                 //}
 
                 //i wonder if i should check outer to inner or inner to outer
+                //of course, the answer was inner to outer!
                 for(let i = this.state.variables.length-1; i >= 0; i--) {
                     const scope = this.state.variables[i];
                     if(scope.has(name)) {
-                        return scope.get(name).value;
+                        return scope.get(name).get();
                     }
                 }
 
@@ -2658,6 +3100,23 @@
             /** @param {LiteralExpression} literalExpression */
             visitLiteralExpression(literalExpression) {
                 return literalExpression.value; //right?
+            }
+
+            getVariable(expression) {
+                if(expression instanceof IdentifierExpression) {
+                    const name = expression.nameToken.value;
+                    for(let i = this.state.variables.length-1; i >= 0; i--) {
+                        const scope = this.state.variables[i];
+                        if(scope.has(name)) {
+                            return scope.get(name);
+                        }
+                    }
+                    //if(!(name in globalThis)) {
+                        //could be an implicit declaration :eyes:
+                    //}else {
+                        return [globalThis, name]; // yeah this is weird but we'll handle it lol
+                    //}
+                }
             }
             
             /** @param {BinaryExpression} binaryExpression */
@@ -2696,6 +3155,26 @@
                         //yeah alright i've already solved this one before lol let's go see what his solution is just in case mine sucks!
 
                         //identifiers that haven't been defined before are added to globalThis (strict mode disallows this, though!)
+                        
+                        //if(binaryExpression.left instanceof IdentifierExpression) {
+                        //    //we need to get the information about this variable so we can throw if const
+                        //    const $var = this.getVariableLocation(binaryExpression.left);
+                        //}
+                        const $var = this.getVariable(binaryExpression.left);
+                        if($var instanceof Variable) {
+                            if($var instanceof TemporalDeadZoneVariable) {
+                                $var.get(); //force throw
+                            }
+                            //qualifier could be undefined right?
+                            if($var.properties.qualifier?.value == "const") {
+                                //this could probably be statically analyzed but i didn't do that, okay?
+                                throw new TypeError(`Assignment to constant variable.`);
+                            }
+                            return $var.value = binaryExpression.right.accept(this);
+                        }else {
+                            const [parent, v] = $var;
+                            return parent[v] = binaryExpression.right.accept(this);
+                        }
                         break;
                     }
                     
@@ -2861,7 +3340,15 @@
             /** @param {FunctionCallExpression} funcCallExpression */
             visitFunctionCallExpression(funcCallExpression) {
                 const func = funcCallExpression.functionExpr.accept(this);
-                return func(...funcCallExpression.argumentsExprArr.map(v=>v.accept(this)));
+                if(func instanceof FunctionWrapper) {
+                    let parent = globalThis;
+                    if(func.declaration.isStrict) {
+                        parent = undefined;
+                    }
+                    return func.invoke(this, parent, funcCallExpression.argumentsExprArr.map(v=>v.accept(this)));
+                }else {
+                    return func(...funcCallExpression.argumentsExprArr.map(v=>v.accept(this)));
+                }
             }
 
             visitEmptyStatement() {};
@@ -2876,18 +3363,86 @@
                 if(scope.has(varDeclStatement.name)) {
                     /** @type {Variable} */
                     const decl = scope.get(varDeclStatement.name);
-                    const oldQualifier = decl.properties.qualifier.value;
-                    const oldGender = decl.properties.gender?.value;
-                    if(varDeclStatement.qualifier.value == "const" || varDeclStatement.qualifier.value == "let" || oldQualifier != varDeclStatement.qualifier.value || oldGender != varDeclStatement.gender?.value) {
-                        throw new SyntaxError(`Identifier '${varDeclStatement.name}' has already been declared${oldGender != varDeclStatement.gender?.value ? ` (with gender '${oldGender}')` : ""}`);
+                    if(decl instanceof TemporalDeadZoneVariable) { //this only applies to let and const
+                        //promote to regular var lol
+                        const temp = new Variable(decl.properties, varDeclStatement.value?.accept(this));
+                        scope.set(varDeclStatement.name, temp);
+                    }/*else {
+                        //my static analysis should handle all this?
+                        const oldQualifier = decl.properties.qualifier?.value;
+                        const oldGender = decl.properties.gender?.value;
+                        if(varDeclStatement.qualifier.value == "const" || varDeclStatement.qualifier.value == "let" || oldQualifier != varDeclStatement.qualifier.value || oldGender != varDeclStatement.gender?.value) {
+                            throw new SyntaxError(`Identifier '${varDeclStatement.name}' has already been declared${oldGender != varDeclStatement.gender?.value ? ` (with gender '${oldGender}')` : ""}`);
+                        }
+                        if(varDeclStatement.value == undefined && varDeclStatement.qualifier.value == "var") {
+                            return;
+                        }
+                    }*/
+                    else { //in theory, this only applies to var
+                        //using optional chaining here because i still want the distinction between var let; and var let = undefined;
+                        decl.value = varDeclStatement.value?.accept(this);
                     }
-                    if(varDeclStatement.value == undefined && varDeclStatement.qualifier.value == "var") {
-                        return;
-                    }
-                    decl.value = varDeclStatement.value.accept(this);
-                }else {
-                    scope.set(varDeclStatement.name, new Variable({qualifier: varDeclStatement.qualifier, gender: varDeclStatement.gender}, varDeclStatement.value && varDeclStatement.value.accept(this)));
+                }else { //this will only happen for var
+                    scope.set(varDeclStatement.name, new Variable({qualifier: varDeclStatement.qualifier, gender: varDeclStatement.gender, name: varDeclStatement.name}, varDeclStatement.value && varDeclStatement.value.accept(this)));
                 }
+            }
+
+            /** @param {TemporalDeadZoneDeclarationStatement} temporalDeclStatement */
+            visitTemporalDeclarationStatement(temporalDeclStatement) {
+                const scope = this.state.variables.at(-1);
+                scope.set(temporalDeclStatement.name, new TemporalDeadZoneVariable({qualifier: temporalDeclStatement.qualifier, gender: temporalDeclStatement.gender, name: temporalDeclStatement.name}, undefined));
+            }
+            
+            //oops, he desugars the for loop but i won't because idk what if i wanted to transpile this to lua or something lol
+            /** @param {ForLoopStatement} forLoopStatement */
+            visitForLoopStatement(forLoopStatement) {
+                //let's create a new scope here so that const or let variables will be vanished after we're done
+                this.state.variables.push(new Map());
+                forLoopStatement.initialization.accept(this);
+                let last;
+                while(HostLanguage.isJavascriptTruthy(forLoopStatement.condition.accept(this))) {
+                    last = forLoopStatement.body.accept(this);
+                    forLoopStatement.afterthought.accept(this);
+                }
+                this.state.variables.pop();
+                return last;
+            }
+
+            /** @param {FunctionStatement} functionStatement */
+            visitFunctionStatement(functionStatement) {
+                const scope = this.state.variables.at(-1);
+                const closure = [];
+                for(const map of this.state.variables) {
+                    //const newMap = new Map();
+                    //for(const [key, value] of map.entries()) {
+                    //    newMap.set(key, value);
+                    //}
+                    closure.push(map); //we're creating a copy of the array so that push and pop don't affect our closure
+                }
+                if(scope.has(functionStatement.nameToken.value)) {
+                    const old = scope.get(functionStatement.nameToken.value);
+                    if(old instanceof TemporalDeadZoneVariable) {
+                        //promote to regular var lol
+                        const temp = new Variable(old.properties, new FunctionWrapper(functionStatement, closure, undefined));
+                        scope.set(functionStatement.nameToken.value, temp);
+                    }else {
+                        //my static analysis should handle all this?
+                        //const oldGender = old.properties.gender?.value;
+                        ////some kind of function object idk
+                        //if(!(old.value instanceof FunctionWrapper)) {
+                        //    throw new SyntaxError(`Identifier '${functionStatement.nameToken.value}' has already been declared${oldGender != functionStatement.genderToken?.value ? ` (with gender '${oldGender}')` : ""}`);
+                        //}
+                        old.value = new FunctionWrapper(functionStatement, closure, undefined);
+                    }
+                }else {
+                    scope.set(functionStatement.nameToken.value, new Variable({qualifier: undefined, gender: functionStatement.genderToken, name: functionStatement.nameToken.value}, new FunctionWrapper(functionStatement, closure, undefined)));
+                    //closure.at(-1).set(functionStatement.nameToken.value, scope.get(functionStatement.nameToken.value)); //reference
+                }
+            }
+
+            /** @param {ReturnStatement} returnStatement */
+            visitReturnStatement(returnStatement) {
+                throw returnStatement.expr.accept(this); //lol
             }
         }
 
@@ -2994,6 +3549,11 @@
                 return optionalshit + varDeclStatement.name + (varDeclStatement.value != undefined ? " = " + varDeclStatement.value.accept(this) : "") + ";"; //don't worry lol ternary operator has lower precedence!
             }
 
+            /** @param {TemporalDeadZoneDeclarationStatement} temporalDeclStatement */
+            visitTemporalDeclarationStatement(temporalDeclStatement) {
+                return `// ${temporalDeclStatement.qualifier.value} ${temporalDeclStatement.name}; <- temporal dead zone starts here`;
+            }
+
             handleForStatementLazilyLol(statement, kind) {
                 let result = `for${kind == "await" ? " "+kind : ""} (`;
                 switch(kind) {
@@ -3038,6 +3598,31 @@
             /** @param {ForAwaitOfStatement} forAwaitOfStatement */
             visitForAwaitOfStatement(forAwaitOfStatement) {
                 return this.handleForStatementLazilyLol(forAwaitOfStatement, "await");
+            }
+
+            parameters(parameters) {
+                let result = "(";
+                for(let i = 0; i < parameters.length; i++) {
+                    const {identifier, default: $default} = parameters[i];
+                    result += identifier.nameToken.value;
+                    if($default) {
+                        result += " = " + $default.accept(this);
+                    }
+                    if(i != parameters.length-1) {
+                        result += ", ";
+                    }
+                }
+                return result + ")";
+            }
+
+            /** @param {FunctionStatement} functionStatement */
+            visitFunctionStatement(functionStatement) {
+                return `${functionStatement.genderToken ? functionStatement.genderToken.value+" " : ""}${functionStatement.isAsync ? "async " : ""}function${functionStatement.isGenerator ? "*" : ""} ${functionStatement.nameToken.value} ${this.parameters(functionStatement.parameters)} ${functionStatement.body.accept(this)}`;
+            }
+
+            /** @param {ReturnStatement} returnStatement */
+            visitReturnStatement(returnStatement) {
+                return `return ${returnStatement.expr.accept(this)};`;
             }
         }
 
