@@ -1138,7 +1138,7 @@
         //  continue ::= 'continue' identifier?
         //functionBlock ::= '{' (return | declaration)* '}'
         //  return ::= 'return' expression? ';'
-        //statement ::= if | while | do | for | switch | with | throw | classDeclStatement | functionStatement | varStatement | block | empty | (expression ';')
+        //statement ::= if | while | do | for | switch | with | throw | debugger | classDeclStatement | functionStatement | varStatement | block | empty | (expression ';')
         //  block ::= '{' declaration* '}'
         //  if ::= 'if' '(' expression ')' statement else?
         //  else ::= 'else' statement
@@ -1154,6 +1154,7 @@
         //  switch ::= 'switch' '(' expression ')' switchStatementBody
         //  with ::= 'with' '(' expression ')' statement
         //  throw ::= 'throw' expression ';'
+        //  debugger ::= 'debugger' ';'
         //  empty ::= ';'
         //optionalIdentifierQualifiers = gender? ('var' | 'const' | 'let')?
         //parameters ::= '(' (identifier ('=' unary_misc)? ',')* ')' // we're using unary_misc here because allowing the comma here would be weird!
@@ -1549,9 +1550,423 @@
                 super();
                 this.expr = expr;
             }
-            accept(visitor) {
+            accept(visitor) /*override*/ {
                 return visitor.visitReturnStatement(this);
             }
+        }
+
+
+        class DebuggerStatement extends Statement {
+            accept(visitor) /*override*/ {
+                return visitor.visitDebuggerStatement(this);
+            }
+        }
+
+        //important abstract operations
+        class ECMAScript {
+            //https://tc39.es/ecma262/#sec-iscallable
+            /** @returns {Boolean} */
+            static IsCallable(arg) {
+                if(!(arg instanceof JavascriptObjectWrapper)) {
+                    return false;
+                }
+                return "[[Call]]" in arg; //fairs
+            }
+
+            //https://tc39.es/ecma262/#sec-call
+            /** @returns {any} */
+            //wait maybe argList is actually an array lol
+            static Call(func, thisValue, ...argList) {
+                if(!ECMAScript.IsCallable(func)) {
+                    if(func instanceof Function) {
+                        //our version of built-in functions i suppose
+                        return func.apply(thisValue, argList);
+                    }else {
+                        throw TypeError(func.toString() + " is not a function");
+                    }
+                }
+                return func["[[Call]]"](thisValue, argList);
+            }
+
+            //https://tc39.es/ecma262/#sec-makebasicobject
+            /** 
+             * @param {Array<String>} internalSlotsList
+             * @returns {JavascriptObjectWrapper}
+             */
+            static MakeBasicObject(internalSlotsList) {
+                internalSlotsList = [...internalSlotsList, "[[PrivateElements]]"];
+                const obj = new JavascriptObjectWrapper; //we create a new object here since it has all the essential internal methods
+                for(const slot of internalSlotsList) {
+                    obj[slot] = undefined;
+                }
+                obj["[[PrivateElements]]"] = [];
+                //by creating a new JavascriptObjectWrapper, the essential internal methods are at their defaults
+                //Assert...
+                if(internalSlotsList.includes("[[Extensible]]")) {
+                    obj["[[Extensible]]"] = true;
+                }
+                return obj;
+            }
+
+            /** 
+             * @param {JavascriptObjectWrapper} proto
+             * @param {...String} additionalInternalSlotsList
+             * @returns {JavascriptObjectWrapper}
+             */
+            static OrdinaryObjectCreate(proto, ...additionalInternalSlotsList) {
+                const internalSlotsList = ["[[Prototype]]", "[[Extensible]]", ...additionalInternalSlotsList];
+                const obj = ECMAScript.MakeBasicObject(internalSlotsList);
+                obj["[[Prototype]]"] = proto;
+                return obj;
+            }
+
+            static ToObject(arg) {
+                if(arg == undefined || arg == null) {
+                    //Object.prototype.__lookupGetter__("__proto__")();
+                    throw TypeError("Cannot convert undefined or null to object");
+                }
+                //Boolean
+                //Number
+                //String
+                //Symbol
+                //BigInt
+                //Assert: arg instanceof JavascriptObjectWrapper
+                return arg;
+            }
+
+            //first time i've ever used this!
+            //aw nevermind... i access JavascriptObjectWrapper before it's initialized
+            //static {
+            //    debugger;
+            //    //https://tc39.es/ecma262/#sec-properties-of-the-object-prototype-object
+            //    const objProto = this.MakeBasicObject(["[[Extensible]]"]);
+            //    //https://tc39.es/ecma262/#sec-immutable-prototype-exotic-objects-setprototypeof-v
+            //    // objProto["[[SetPrototypeOf]]"] = ImmutablePrototypeExoticObject.prototype["[[SetPrototypeOf]]"].bind(objProto); //this that metaprogramming shit
+            //    objProto["[[SetPrototypeOf]]"] = ImmutablePrototypeExoticObject.prototype["[[SetPrototypeOf]]"]; //wait, because we know that "this" is determined by how the function is called, this will be totally valid (also yes i just looked at jbs' divinedebugger.js and realized i wrote some bullshit in there)
+            //    objProto["[[Prototype]]"] = null;
+            //    this["%Object.prototype%"] = objProto;
+            //}
+        }
+        
+        class ImmutablePrototypeExoticObject {
+            /** @returns {Boolean} */
+            static ["[[SetPrototypeOf]]"](proto) {
+                //return SetImmutablePrototype(obj, proto);
+                //SameValue
+                return (proto == this["[[GetPrototypeOf]]"]());
+            }
+        }
+
+        //https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#table-object-property-attributes
+        /*abstract*/ class JavascriptPropertyAttributes {
+            /** @type {Boolean} */
+            enumerable;
+            /** @type {Boolean} */
+            configurable;
+
+            /**
+             * @param {Boolean} enumerable
+             * @param {Boolean} configurable
+             */
+            constructor(enumerable, configurable) {
+                this.enumerable = enumerable;
+                this.configurable = configurable;
+            }
+        }
+
+        class JavascriptDataProperty extends JavascriptPropertyAttributes {
+            /** @type {any} */
+            value;
+            /** @type {Boolean} */
+            writable;
+
+            /**
+             * @param {Boolean} enumerable
+             * @param {Boolean} configurable
+             * @param {any} value
+             * @param {Boolean} writable
+             */
+            constructor(writable = false, enumerable = false, configurable = false, value = undefined) {
+                super(enumerable, configurable);
+                this.value = value;
+                this.writable = writable;
+            }
+        }
+
+        class JavascriptAccessorProperty extends JavascriptPropertyAttributes {
+            /** @type {Function | undefined} */
+            getter;
+            /** @type {Function | undefined} */
+            setter;
+
+            /**
+             * @param {Boolean} enumerable
+             * @param {Boolean} configurable
+             * @param {Function | undefined} getter
+             * @param {Function | undefined} setter
+             */
+            constructor(enumerable = false, configurable = false, getter = undefined, setter = undefined) {
+                super(enumerable, configurable);
+                this.getter = getter;
+                this.setter = setter;
+            }
+        }
+
+        class JavascriptObjectWrapper {
+            /** @type {Map<String | Symbol, JavascriptPropertyAttributes>} */
+            properties = new Map();
+
+            //https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-object-internal-methods-and-internal-slots
+            //all objects have the [[PrivateElements]] internal slot (which is a list for some reason?)
+            //ordinary objects also have [[Extensible]] and [[Prototype]]
+
+            //https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#table-essential-internal-methods
+            //ordinary objects all have
+            //[[GetPrototypeOf]]
+            //[[SetPrototypeOf]]
+            //[[IsExtensible]]
+            //[[PreventExtensions]]
+            //[[GetOwnProperty]]
+            //[[DefineOwnProperty]]
+            //[[HasProperty]]
+            //[[Get]]
+            //[[Set]]
+            //[[Delete]]
+            //[[OwnPropertyKeys]]
+
+            //function objects have
+            //[[Call]]
+
+            //constructors have (and must also have [[Call]])
+            //[[Construct]]
+
+            //definitions at https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-ordinary-object-internal-methods-and-internal-slots
+
+            // ["[[Prototype]]"];
+            // ["[[Extensible]]"];
+
+            /** @type {JavascriptObjectWrapper | Null} */
+            ["[[GetPrototypeOf]]"]() {
+                //return OrdinaryGetPrototypeOf(this);
+                return this["[[Prototype]]"];
+            }
+
+            /**
+             * @param {JavascriptObjectWrapper | Null} proto
+             * @returns {Boolean}
+             */
+            ["[[SetPrototypeOf]]"](proto) {
+                //return OrdinarySetPrototypeOf(this, proto);
+                //SameValue
+                if(this["[[Prototype]]"] == proto) return true;
+                if(!this["[[Extensible]]"]) return false;
+                let cursor = proto;
+                let done = false;
+                while(!done) {
+                    if(cursor == null) {
+                        done = true;
+                    }else if(cursor == this) { //SameValue
+                        return false;
+                    }else {
+                        //sure? https://tc39.es/ecma262/#sec-ordinarysetprototypeof
+                        if(cursor["[[GetPrototypeOf]]"] != JavascriptObjectWrapper.prototype["[[GetPrototypeOf]]"]) {
+                            done = true;
+                        }else {
+                            cursor = cursor["[[Prototype]]"];
+                        }
+                    }
+                }
+                this["[[Prototype]]"] = proto;
+                return true;
+            }
+
+            /** @returns {Boolean} */
+            ["[[IsExtensible]]"]() {
+                //return OrdinaryIsExtensible(this);
+                return this["[[Extensible]]"];
+            }
+
+            /** @returns {Boolean} */
+            ["[[PreventExtensions]]"]() {
+                //return OrdinaryPreventExtensions(this);
+                this["[[Extensible]]"] = false;
+                return true;
+            }
+
+            /** 
+             * @param {String | Symbol} propertyKey
+             * @returns {undefined | JavascriptPropertyAttributes}
+             */
+            ["[[GetOwnProperty]]"](propertyKey) {
+                //return OrdinaryGetOwnProperty(this, propertyKey);
+                if(!this.properties.has(propertyKey)) return undefined;
+                const property = this.properties.get(propertyKey);
+                let propertyDesc;
+                if(property instanceof JavascriptDataProperty) {
+                    propertyDesc = new JavascriptDataProperty;
+                    propertyDesc.value = property.value;
+                    propertyDesc.writable = property.writable;
+                }else {
+                    //Assert
+                    //if(!(property instanceof JavascriptAccessorProperty)) {
+                    //
+                    //}
+
+                    propertyDesc = new JavascriptAccessorProperty;
+                    propertyDesc.getter = property.getter;
+                    propertyDesc.setter = property.setter;
+                }
+                propertyDesc.enumerable = property.enumerable;
+                propertyDesc.configurable = property.configurable;
+                return propertyDesc;
+            }
+
+            /** 
+             * @param {String | Symbol} propertyKey
+             * @param {Object} propertyDesc
+             * @returns {Boolean}
+             */
+            ["[[DefineOwnProperty]]"](propertyKey, propertyDesc) {
+                //return OrdinaryDefineOwnProperty(this, propertyKey, propertyDesc);
+                const current = this["[[GetOwnProperty]]"](propertyKey);
+                const extensible = this["[[IsExtensible]]"]();
+                //return ValidateAndApplyPropertyDescriptor(obj, propertyKey, extensible, propertyDesc, current);
+                //Assert: propertyKey is a property key.
+                if(current == undefined) {
+                    if(!extensible) return false;
+                    if(this == undefined) return true;
+                    let desc;
+                    //IsAccessorDescriptor
+                    if("getter" in propertyDesc || "setter" in propertyDesc) {
+                        desc = new JavascriptAccessorProperty;
+                    }else {
+                        //defaults
+                        desc = new JavascriptDataProperty;
+                    }
+                    for(const prop in propertyDesc) {
+                        desc[prop] = propertyDesc[prop];
+                    }
+                    this.properties.set(propertyKey, desc);
+                    return true;
+                }
+                //Assert: current is a fully populated Property Descriptor.
+            }
+
+            //this looks crazy
+            /** 
+             * @param {String | Symbol} propertyKey
+             * @returns {Boolean}
+             */
+            ["[[HasProperty]]"](propertyKey) {
+                //return OrdinaryHasProperty(this, propertyKey);
+                if(this["[[GetOwnProperty]]"](propertyKey) != undefined) return true;
+                const parent = this["[[GetPrototypeOf]]"]();
+                if(parent != null) {
+                    return parent["[[HasProperty]]"](propertyKey);
+                }
+                return false;
+            }
+
+            /** 
+             * @param {String | Symbol} propertyKey
+             * @param {JavascriptObjectWrapper} receiver
+             * @returns {any}
+             */
+            ["[[Get]]"](propertyKey, receiver) {
+                //return OrdinaryGet(this, propertyKey, receiver);
+                const propertyDesc = this["[[GetOwnProperty]]"](propertyKey);
+                if(propertyDesc == undefined) {
+                    const parent = this["[[GetPrototypeOf]]"]();
+                    if(parent == null) return undefined;
+                    return parent["[[Get]]"](propertyKey, receiver);
+                }
+                //IsDataDescriptor
+                if(propertyDesc instanceof JavascriptDataProperty) {
+                    return propertyDesc.value; //[[Value]]
+                }
+                //Assert: IsAccessDescriptor(propertyDesc)
+                if(propertyDesc.getter == undefined) return undefined;
+                return ECMAScript.Call(propertyDesc.getter, receiver);
+            }
+
+            /** 
+             * @param {String | Symbol} propertyKey
+             * @param {any} value
+             * @param {JavascriptObjectWrapper} receiver
+             * @returns {any}
+             */            
+            ["[[Set]]"](propertyKey, value, receiver) {
+                //return OrdinarySet(this, propertyKey, value, receiver);
+                let ownDesc = this["[[GetOwnProperty]]"](propertyKey);
+                //return OrdinarySetWithOwnDescriptor(obj, propertyKey, value, receiver, ownDesc);
+                if(ownDesc == undefined) {
+                    const parent = this["[[GetPrototypeOf]]"]();
+                    if(parent != null) return parent["[[Set]]"](propertyKey, value, receiver);
+                    ownDesc = new JavascriptDataProperty(true, true, true, undefined);
+                }
+                if(ownDesc instanceof JavascriptDataProperty) {
+                    if(!ownDesc.writable) return false;
+                    if(!(receiver instanceof JavascriptObjectWrapper)) return false;
+                    const existingDesc = receiver["[[GetOwnProperty]]"](propertyKey);
+                    if(existingDesc == undefined) {
+                        //Assert: receiver does not current have a property propertyKey.
+                        //return CreateDataProperty(receiver, propertyKey, value);
+                        const newDesc = new JavascriptDataProperty(true, true, true, value);
+                        return receiver["[[DefineOwnProperty]]"](propertyKey, newDesc);
+                    }
+                    if(existingDesc instanceof JavascriptAccessorProperty) return false;
+                    if(!existingDesc.writable) return false;
+                    //const valueDesc = new JavascriptDataProperty;
+                    //valueDesc.value = value;
+                    return receiver["[[DefineOwnProperty]]"](propertyKey, {value});
+                }
+                //Assert: ownDesc instanceof JavascriptAccessorProperty
+                if(ownDesc.setter == undefined) return false;
+                ECMAScript.Call(ownDesc.setter, receiver, value);
+                return true;
+            }
+
+            //helper methods lol
+            SetDataProperty(key, writable, enumerable, configurable, value) {
+                this.properties.set(key, new JavascriptDataProperty(writable, enumerable, configurable, value));
+            }
+            SetAccessorProperty(key, enumerable, configurable, getter, setter) {
+                this.properties.set(key, new JavascriptAccessorProperty(enumerable, configurable, getter, setter));
+            }
+        }
+
+        //"static" ;(
+        {
+            //debugger;
+            //https://tc39.es/ecma262/#sec-properties-of-the-object-prototype-object
+            const objProto = ECMAScript.MakeBasicObject(["[[Extensible]]"]);
+            //https://tc39.es/ecma262/#sec-immutable-prototype-exotic-objects-setprototypeof-v
+            // objProto["[[SetPrototypeOf]]"] = ImmutablePrototypeExoticObject["[[SetPrototypeOf]]"].bind(objProto); //this that metaprogramming shit
+            objProto["[[SetPrototypeOf]]"] = ImmutablePrototypeExoticObject["[[SetPrototypeOf]]"]; //wait, because we know that "this" is determined by how the function is called, this will be totally valid (also yes i just looked at jbs' divinedebugger.js and realized i wrote some bullshit in there)
+            objProto["[[Prototype]]"] = null;
+            //now the properties...
+            
+            //objProto.properties.set("__NEO__", new JavascriptDataProperty(false, false, false, "Hello interpreterneo!"));
+            objProto.SetDataProperty("__NEO__", false, false, false, "Hello interpreted javascript!");
+            
+            //NORMATIVE OPTIONAL, LEGACY
+            //https://tc39.es/ecma262/#sec-object.prototype.__proto__
+            objProto.SetAccessorProperty("__proto__", false, true, function() {
+                const obj = ECMAScript.ToObject(this);
+                return this["[[GetPrototypeOf]]"]();
+            }, function(proto) {
+                let thisValue = this;
+                // ECMAScript.RequireObjectCoercible(thisValue);
+                if(thisValue == null || thisValue == undefined) {
+                    //Object.prototype.__lookupSetter__("__proto__")();
+                    throw TypeError(`set ${"Object.prototype.__proto__"} called on null or undefined`);
+                }
+                if(!(proto instanceof JavascriptObjectWrapper) && proto != null) return undefined;
+                if(!(thisValue instanceof JavascriptObjectWrapper)) return undefined;
+                if(!thisValue["[[SetPrototypeOf]]"](proto)) throw TypeError(`Immutable prototype object ${"Object.prototype"} cannot have their prototype set`); //i think this is where this error comes from? Object.prototype.__proto__ = Number;
+                return undefined;
+            });
+            ECMAScript["%Object.prototype%"] = objProto;
         }
 
         class FunctionWrapper {
@@ -1711,15 +2126,15 @@
             /** @type {Array<StaticAnalysisScope>} */
             scope;
 
-            /** @type {Array<Boolean | Array<Statement>>} */
-            inFunction;
+            ///** @type {Array<Boolean | Array<Statement>>} */
+            //inFunction;
             /** @type {Array<Statement>} */
             statements;
             constructor(parentInterpreter, tokens) {
                 super(parentInterpreter, tokens);
                 this.i = 0;
                 this.useStrict = false;
-                this.inFunction = [false]; // for var
+                //this.inFunction = [false]; // for var
                 
                 //hoistedVars are cleared before/after function statements and when parsing is finished!
                 //these will translate to variable decl statements at the beginning of the scope (global or function)
@@ -1729,6 +2144,7 @@
                 
                 this.statements = []; // the only reason this is now a property of JavascriptParser is because we must hoist global vars any time function is declared!
 
+                //he did this analysis in another pass after parsing!
                 this.scope = [new StaticAnalysisScope("global", this.statements)];
             }
 
@@ -1831,7 +2247,7 @@
                 }
                 this.i++; //consume lol
                 const iterableExpr = this.unary_misc();
-                this.consume(TokenKind.OPEN_PARENTHESIS, "Expected closing parenthesis in 'for' array comprehension expression!");
+                this.consume(TokenKind.CLOSING_PARENTHESIS, "Expected closing parenthesis in 'for' array comprehension expression!");
                 //return whatever...
             }
 
@@ -1841,7 +2257,7 @@
                 }
                 this.consume(TokenKind.OPEN_PARENTHESIS, "Expected open parenthesis in 'if' array comprehension expression!");
                 const expr = this.expression();
-                this.consume(TokenKind.OPEN_PARENTHESIS, "Expected closing parenthesis in 'if' array comprehension expression!");
+                this.consume(TokenKind.CLOSING_PARENTHESIS, "Expected closing parenthesis in 'if' array comprehension expression!");
                 //return whatever...
             }
 
@@ -1941,6 +2357,8 @@
                     if(!isValidLeftHandAssignment(expr)) {
                         throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Invalid left-hand side in assignment");
                     }
+                    //damn if i wrote mine like he wrote his assignment grammar this would be easier!
+                    //now i have to do the ECMAScript reference record technique
                     return new BinaryExpression(expr, this.tokens[this.i++], this.assignment());
                 }
 
@@ -2136,13 +2554,14 @@
                         break;
                     case TokenKind.OPEN_BRACKET: {
                         //array literal or array comprehension!!! 👀👀👀
-                        this.tokens[this.i++];
-                        if(this.matchReserved("for")) {
+                        if(this.peekNext(TokenKind.RESERVED) && this.tokens[this.i+1].value == "for") {
                             //ARRAY COMPREHENSION 🤑🤑🤑
                             //https://lia.disi.unibo.it/materiale/JS/developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Array_comprehensions.html
                             //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Deprecated_and_obsolete_features#legacy_generator_and_iterator
                             //ETC...
+                            const comprehension = this.arrayComprehension();
                         }else {
+                            this.tokens[this.i++];
                             //const array = new ArrayLiteralExpression();
                             const array = new ArrayLiteralExpression();
                             //let index = 0; //this would be weird in lua since arrays start at 1!
@@ -2642,6 +3061,9 @@
 
                 }else if(this.matchReserved("throw")) {
 
+                }else if(this.matchReserved("debugger")) {
+                    this.consume(TokenKind.SEMICOLON, "Expected semicolon after debugger statement!");
+                    return new DebuggerStatement();
                 }else if(this.matchReserved("class")) {
 
                 }else if(this.peek(TokenKind.OPEN_CURLY_BRACKET)) {
@@ -2906,7 +3328,7 @@
 
         class TemporalDeadZoneVariable extends Variable {
             get() {
-                throw new ReferenceError(`${this.properties.name} is not defined`);
+                throw new ReferenceError(`Cannot access '${this.properties.name}' before initialization`);
             }
         }
 
@@ -2933,6 +3355,12 @@
             constructor() {
                 super();
                 //this.scope = {};
+                // debugger;
+                const $Math = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]); //fairs, https://tc39.es/ecma262/#sec-math-object
+                // $Math.properties.set("E", new JavascriptDataProperty(false, false, false, Math.E));
+                $Math.SetDataProperty("E", false, false, false, Math.E);
+                $Math.SetDataProperty("self", false, false, false, $Math);
+                this.state.variables[0].set("Math", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Math"}, $Math));
             }
 
             parse(str) {
@@ -2973,8 +3401,19 @@
                         case TokenKind.DECREMENT:
                             break;
                     }
+                }else if(unaryExpression.operatorToken.kind == TokenKind.INCREMENT) {
+                    //const ref = this.evaluate(unaryExpression.operand, false);
+                    //return ++ref.value;
+                    debugger;
+                }else if(unaryExpression.operatorToken.kind == TokenKind.DECREMENT) {
+                    //const ref = this.evaluate(unaryExpression.operand, false);
+                    //return --ref.value;
+                    debugger;
+                }else if(unaryExpression.operatorToken.kind == TokenKind.RESERVED && unaryExpression.operatorToken.value == "delete") {
+                    //const ref = this.evaluate(unaryExpression.operand, false);
+                    debugger;
                 }else {
-                    const value = unaryExpression.operand.accept(this);
+                    const value = this.evaluate(unaryExpression.operand);
                     switch(unaryExpression.operatorToken.kind) {
                         //unary_misc
                         case TokenKind.SPREAD:
@@ -2994,9 +3433,6 @@
 
                                 //unary_prefix
                                 case "await":
-                                    break;
-                                case "delete":
-                                    //return delete value; //uhh
                                     break;
                                 case "void":
                                     return undefined; // we already evaluated value earlier lol
@@ -3019,12 +3455,6 @@
                             break;
                         case TokenKind.EXCLAMATION:
                             return !value;
-                            break;
-                        case TokenKind.DECREMENT:
-                            //return --value; //uhh
-                            break;
-                        case TokenKind.INCREMENT:
-                            //return ++value; //uhh
                             break;
                     }
                 }
@@ -3095,6 +3525,12 @@
                     throw new ReferenceError(`${name} is not defined`);
                 }
                 return globalThis[name];
+                //good god man.
+                //return new class extends Variable {
+                //    get() {
+                //        return globalThis[name];
+                //    }
+                //};
             }
 
             /** @param {LiteralExpression} literalExpression */
@@ -3116,7 +3552,42 @@
                     //}else {
                         return [globalThis, name]; // yeah this is weird but we'll handle it lol
                     //}
+                    //const result = expression.accept(this);
+                    //if(result != undefined) {
+                    //    return result;
+                    //}else {
+                    //    return [globalThis, name];
+                    //}
+                }else if((expression instanceof BinaryExpression) && (expression.operatorToken.value == "." || expression.operatorToken.value == "[")) {
+                    //Math.x = 2;
+                    //window.prompt().length = 4;
+
+                    //let e = expression;
+                    //let last = undefined;
+                    //while((e instanceof BinaryExpression) && (expression.operatorToken.value == '.' || expression.operatorToken.value == "[")) {
+                    //    last = e;
+                    //    e = expression.right;
+                    //}
+                    const obj = this.evaluate(expression.left);
+                    let key;
+                    if(expression.right instanceof IdentifierExpression) {
+                        key = expression.right.nameToken.value;
+                    }else {
+                        key = this.evaluate(expression.right);
+                    }
+                    return [obj, key];
                 }
+                throw "idk";
+            }
+
+            evaluate(expression, resolveReferences = true) {
+                const value = expression.accept(this);
+                //if(!resolveReferences) {
+                //    return value;
+                //}else if(value instanceof Variable) {
+                //    return value.get();
+                //}
+                return value;
             }
             
             /** @param {BinaryExpression} binaryExpression */
@@ -3160,7 +3631,12 @@
                         //    //we need to get the information about this variable so we can throw if const
                         //    const $var = this.getVariableLocation(binaryExpression.left);
                         //}
+
+                        //huh, it seems in his solution, he had a custom object with a get method...
+                        //i think i should've ONLY been using wrapper values for everything...
+
                         const $var = this.getVariable(binaryExpression.left);
+                        // const $var = this.evaluate(binaryExpression.left, false);
                         if($var instanceof Variable) {
                             if($var instanceof TemporalDeadZoneVariable) {
                                 $var.get(); //force throw
@@ -3170,10 +3646,22 @@
                                 //this could probably be statically analyzed but i didn't do that, okay?
                                 throw new TypeError(`Assignment to constant variable.`);
                             }
-                            return $var.value = binaryExpression.right.accept(this);
+                            return $var.value = this.evaluate(binaryExpression.right);
                         }else {
                             const [parent, v] = $var;
-                            return parent[v] = binaryExpression.right.accept(this);
+                            if(parent instanceof JavascriptObjectWrapper) {
+                                //https://tc39.es/ecma262/#sec-putvalue
+                                const rhs = this.evaluate(binaryExpression.right);
+                                const result = parent["[[Set]]"](v, rhs, parent); //VERY simplified again!!
+                                if(!result) {
+                                    //if we were in strict mode, this would be a TypeError
+                                    //"use strict";
+                                    //undefined = 5;
+                                }
+                                return rhs;
+                            }else {
+                                return parent[v] = this.evaluate(binaryExpression.right);
+                            }
                         }
                         break;
                     }
@@ -3182,28 +3670,36 @@
                         break;
                 }
 
-                const left = binaryExpression.left.accept(this);
+                //let left = binaryExpression.left.accept(this);
+                //if(left instanceof Variable) {
+                //    left = left.get();
+                //}
+                let left = this.evaluate(binaryExpression.left);
                 //short circuiting operators
                 if(kind == TokenKind.NULLISH_COALESCING) {
                     //or_nullish
                     if(left != null && left != undefined) {
                         return left;
                     }else {
-                        return binaryExpression.right.accept(this);
+                        //let right = binaryExpression.right.accept(this);
+                        //if(right instanceof Variable) {
+                        //    right = right.get();
+                        //}
+                        return this.evaluate(binaryExpression.right);
                     }
                 }else if(kind == TokenKind.LOGICAL_OR) {
                     //short circuit!
                     if(HostLanguage.isJavascriptTruthy(left)) {
                         return left;
                     }else {
-                        return binaryExpression.right.accept(this);
+                        return this.evaluate(binaryExpression.right);
                     }
                 }else if(kind == TokenKind.LOGICAL_AND) {
                     //short circuit!
                     if(!HostLanguage.isJavascriptFalsy(left)) {
                         return left;
                     }else {
-                        return binaryExpression.right.accept(this);
+                        return this.evaluate(binaryExpression.right);
                     }
                 }
                 //access call, not short circuiting but we shouldn't evaluate the right identifier!
@@ -3214,15 +3710,35 @@
                         value = value.bind(left); // for some reason i thought we wouldn't have to do this this time lol
                     }
                     return value;
-                }else if(kind == TokenKind.DOT) {
-                    let value = left[binaryExpression.right.nameToken.value];
+                }else if(kind == TokenKind.DOT || kind == TokenKind.OPEN_BRACKET) {
+                    //for custom objects we would look up properties on the prototype chain (however that works...)
+                    let key;
+                    if(kind == TokenKind.DOT) {
+                        key = binaryExpression.right.nameToken.value;
+                    }else {
+                        //key = binaryExpression.right.accept(this);
+                        //if(key instanceof Variable) {
+                        //    key = key.get();
+                        //}
+                        key = this.evaluate(binaryExpression.right);
+                    }
+                    let value;
+                    if(left instanceof JavascriptObjectWrapper) {
+                        //https://tc39.es/ecma262/#sec-property-accessors
+                        value = left["[[Get]]"](key, left); //VERY simplified version of what actually happens, receiver should be the reference record of the left hand side?
+                    }else {
+                        value = left[key];
+                    }
                     if(value instanceof Function) {
                         value = value.bind(left); // for some reason i thought we wouldn't have to do this this time lol
                     }
                     return value; //lol!
+
+                    //https://tc39.es/ecma262/#sec-evaluate-property-access-with-identifier-key
+                    //const key = this.evaluate(binaryExpression.right).toString(); //explicit toString
                 }
                 //we can safely evaluate the right :)
-                const right = binaryExpression.right.accept(this);
+                const right = this.evaluate(binaryExpression.right);
                 switch(kind) {
                     //comma
                     case TokenKind.COMMA: {
@@ -3317,13 +3833,13 @@
                         break;
 
                     //access_call
-                    case TokenKind.OPEN_BRACKET:
-                        let value = left[right];
-                        if(value instanceof Function) {
-                            value = value.bind(left);
-                        }
-                        return value;
-                        break;
+                    //case TokenKind.OPEN_BRACKET:
+                    //    let value = left[right];
+                    //    if(value instanceof Function) {
+                    //        value = value.bind(left);
+                    //    }
+                    //    return value;
+                    //    break;
                 }
             }
 
@@ -3345,13 +3861,17 @@
                     if(func.declaration.isStrict) {
                         parent = undefined;
                     }
-                    return func.invoke(this, parent, funcCallExpression.argumentsExprArr.map(v=>v.accept(this)));
+                    return func.invoke(this, parent, funcCallExpression.argumentsExprArr.map(v=>this.evaluate(v)));
                 }else {
-                    return func(...funcCallExpression.argumentsExprArr.map(v=>v.accept(this)));
+                    return func(...funcCallExpression.argumentsExprArr.map(v=>this.evaluate(v)));
                 }
             }
 
             visitEmptyStatement() {};
+
+            visitDebuggerStatement(debuggerStatement) {
+                debugger; //lol
+            }
 
             /** @param {VariableDeclarationStatement} varDeclStatement */
             visitVariableDeclarationStatement(varDeclStatement) {
@@ -3463,7 +3983,8 @@
                 for(const statement of blockStatement.statements) {
                     block += "".padStart(this.tabs) + statement.accept(this) + "\n";
                 }
-                return block + "}\n";
+                this.tabs -= 4;
+                return block + "".padStart(this.tabs) + "}\n";
             }
 
             /** @param {IfStatement} ifStatement */
@@ -3551,7 +4072,7 @@
 
             /** @param {TemporalDeadZoneDeclarationStatement} temporalDeclStatement */
             visitTemporalDeclarationStatement(temporalDeclStatement) {
-                return `// ${temporalDeclStatement.qualifier.value} ${temporalDeclStatement.name}; <- temporal dead zone starts here`;
+                return `// (TDZ) ${temporalDeclStatement.qualifier.value} ${temporalDeclStatement.name};`; // <- temporal dead zone starts here
             }
 
             handleForStatementLazilyLol(statement, kind) {
@@ -3623,6 +4144,11 @@
             /** @param {ReturnStatement} returnStatement */
             visitReturnStatement(returnStatement) {
                 return `return ${returnStatement.expr.accept(this)};`;
+            }
+
+            /** @param {DebuggerStatement} debuggerStatement */
+            visitDebuggerStatement(debuggerStatement) {
+                return `debugger;`;
             }
         }
 
