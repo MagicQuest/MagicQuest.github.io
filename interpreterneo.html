@@ -1585,6 +1585,12 @@
             }
         }
 
+        class EnumerateKind {
+            static KEY = 1;
+            static VALUE = 2;
+            static KEY_VALUE = 3;
+        }
+
         //important abstract operations
         class ECMAScript {
             //https://tc39.es/ecma262/#sec-iscallable
@@ -1599,14 +1605,15 @@
             //https://tc39.es/ecma262/#sec-call
             /** @returns {any} */
             //wait maybe argList is actually an array lol
-            static Call(func, thisValue, argList) {
+            static Call(func, thisValue, argList = []) {
                 if(!ECMAScript.IsCallable(func)) {
-                    if(func instanceof Function) {
-                        //our version of built-in functions i suppose
-                        return func.apply(thisValue, argList);
-                    }else {
+                    //i hadn't found the builtin function part yet lol
+                    //if(func instanceof Function) {
+                    //    //our version of built-in functions i suppose
+                    //    return func.apply(thisValue, argList);
+                    //}else {
                         throw TypeError(func.toString() + " is not a function");
-                    }
+                    //}
                 }
                 return func["[[Call]]"](thisValue, argList);
             }
@@ -1616,9 +1623,9 @@
              * @param {Array<String>} internalSlotsList
              * @returns {JavascriptObjectWrapper}
              */
-            static MakeBasicObject(internalSlotsList) {
+            static MakeBasicObject(internalSlotsList, typebecauseimlazyfuckthis = JavascriptObjectWrapper) {
                 internalSlotsList = [...internalSlotsList, "[[PrivateElements]]"];
-                const obj = new JavascriptObjectWrapper; //we create a new object here since it has all the essential internal methods
+                const obj = new typebecauseimlazyfuckthis; //we create a new object here since it has all the essential internal methods
                 for(const slot of internalSlotsList) {
                     obj[slot] = undefined;
                 }
@@ -1643,6 +1650,184 @@
                 return obj;
             }
 
+            /**
+             * @param {JavascriptInterpreter} interpreter
+             * @param {JavascriptObjectWrapper} proto
+             * @param {String} sourceText
+             * @param {Array<{identifier: IdentifierExpression, default: Expression | undefined}>} paramList
+             * @param {Statement} body
+             * @param {ThisMode} thisMode
+             * @param {Array<Map<String, Variable>>} envRecord
+             * @param {PrivateEnvironment | null} privateEnv
+             */
+            static OrdinaryFunctionCreate(interpreter, proto, sourceText, paramList, body, thisMode, envRecord, privateEnv) {
+                const internalSlotsList = ["[[Prototype]]", "[[Extensible]]"];
+                /** @type {JavascriptFunctionWrapper} */
+                const func = ECMAScript.MakeBasicObject(internalSlotsList, JavascriptFunctionWrapper);
+                func["[[Prototype]]"] = proto;
+                func.interpreter = interpreter;
+                //by using JavascriptFunctionWrapper all that internal slot stuff + [[Call]] is already set
+                func.sourceText = sourceText;
+                func.formalParameters = paramList;
+                func.ECMAScriptCode = body;
+                //IsStrict(body);
+                const strict = false;
+                func.strict = strict;
+                if(thisMode == ThisMode.LEXICAL) {
+                    func.thisMode = ThisMode.LEXICAL;
+                }else if(strict) {
+                    func.thisMode = ThisMode.STRICT;
+                }else {
+                    func.thisMode = ThisMode.GLOBAL;
+                }
+                func.isClassConstructor = false;
+                func.environment = envRecord;
+                func.privateEnvironment = privateEnv;
+                //func.scriptOrModule = ...;
+                //func.realm = ...;
+                func.homeObject = undefined;
+                //func.fields = [];
+                //func.privateMethods = [];
+                func.classFieldInitializerName = "";
+                //SetFunctionLength(func, length);
+                //DefineOwnProperty
+                let length;
+                for(length = 0; length < paramList.length; length++) {
+                    if(paramList[length].default) { //parameters with default values don't count
+                        break;
+                    }
+                }
+                const success = func["[[DefineOwnProperty]]"]("length", new JavascriptDataProperty(false, false, true, length)); // i was gonna just set it directly!
+                if(!success) {
+                    //this might be the error that shows up in this case?
+                    //let x = {};
+                    //Object.defineProperty(x, "length", {enumerable: false, configurable: false, writable: false, value: undefined});
+                    //Object.defineProperty(x, "length", {enumerable: false, configurable: false, writable: false, value: 1});
+                    throw TypeError(`Cannot redefine property: length`);
+                }
+
+                return func;
+            }
+
+            //https://tc39.es/ecma262/#sec-ordinarycreatefromconstructor
+            /**
+             * @param {JavascriptObjectWrapper} ctor
+             * @param {String} intrinsicDefaultProto
+             * @param {Array<String>} internalSlotsList
+             */
+            static OrdinaryCreateFromConstructor(ctor, intrinsicDefaultProto, internalSlotsList = []) {
+                /*Assert:*/ if(!ECMAScript.hasOwnProperty(intrinsicDefaultProto)) {
+                    throw Error("ey man");
+                }
+                //GetPrototypeFromConstructor(ctor, intrinsicDefaultProto);
+                /*Assert: if(!ECMAScript.hasOwnProperty(intrinsicDefaultProto)) {
+                    throw Error("ey man");
+                }*/
+                let proto = ctor["[[Get]]"]("prototype", ctor);
+                if(!(proto instanceof JavascriptObjectWrapper)) {
+                    proto = ECMAScript[intrinsicDefaultProto];
+                }
+
+                return ECMAScript.OrdinaryObjectCreate(proto, ...internalSlotsList);
+            }
+
+            //https://tc39.es/ecma262/#sec-makeconstructor
+            static MakeConstructor(func, writableProto, proto) {
+                if(!("realm" in func)) {
+                    //Assert: IsConstructor(func) == false
+                    //Assert: func["[[IsExtensible]]"] && func["[[hasOwnProperty]]"]("prototype") == undefined
+                    func["[[Construct]]"] = JavascriptFunctionWrapper["[[Construct]]"];
+                }else { //2.a
+                    func["[[Construct]]"] = BuiltInFunction["[[Construct]]"];
+                }
+                func.constructorKind = ConstructorKind.BASE;
+                writableProto ??= true;
+                if(proto == undefined) {
+                    proto = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]);
+                    const success = proto["[[DefineOwnProperty]]"]("constructor", new JavascriptDataProperty(writableProto, false, true, func));
+                    if(!success) {
+                        throw TypeError("Cannot redefine property: constructor");
+                    }
+                }
+                const success = func["[[DefineOwnProperty]]"]("prototype", new JavascriptDataProperty(writableProto, false, false, proto));
+                if(!success) {
+                    throw TypeError("Cannot redefine property: prototype");
+                }
+            }
+
+            static SetFunctionName(func, name, prefix) {
+                //Assert: func is extensible and does not have "name" property
+                if(typeof name == "symbol") {
+                    //it actually uses [[Description]]
+                    if(name.description == undefined) {
+                        name = "";
+                    }else {
+                        name = `[${name.description}]`;
+                    }
+                }//else if name is a private name...
+                if("initialName" in func) {
+                    func.initialName = name;
+                }
+                if(prefix) {
+                    let prefixedName = name + " " + prefix;
+                    if("initialName" in func) {
+                        //i guess we'll use the prefixed name? idk lol.
+                        func.initialName = prefixedName;
+                    }
+                    name = prefixedName;
+                }
+                const success = func["[[DefineOwnProperty]]"]("name", new JavascriptDataProperty(false, false, true, name));
+                if(!success) {
+                    //this might be the error that shows up in this case?
+                    throw TypeError(`Cannot redefine property: name`);
+                }
+            }
+
+            /**
+             * @param {(thisArg: undefined | JavascriptObjectWrapper, argList: Array<any>, newTarget: undefined | JavascriptObjectWrapper) => any} behavior
+             * @param {Number} length
+             * @param {String} name
+             * @param {Array<String>} additionalInternalSlots
+             * @param {JavascriptObjectWrapper | null} proto
+             * @param {String} prefix
+             * @param {Boolean} async
+             */
+            static CreateBuiltinFunction(behavior, length, name, additionalInternalSlots, realm, proto, prefix, async = false) {
+                //if not realm...
+                //if not proto set to realm %Function.prototype%
+                if(proto == undefined) {
+                    proto = ECMAScript["%Function.prototype%"];
+                }
+                let internalSlotsList = ["realm", "initialName", "async", ...additionalInternalSlots];
+                const func = ECMAScript.MakeBasicObject(internalSlotsList, JavascriptFunctionWrapper);
+                func.async = async;
+                func["[[Prototype]]"] = proto;
+                func["[[Extensible]]"] = true;
+                func.realm = realm;
+                func.initialName = null;
+
+                //this isn't in the specification, but how else am i gonna call the function?
+                func.behavior = behavior;
+                func["[[Call]]"] = BuiltInFunction["[[Call]]"];
+
+                //SetFunctionLength
+                const success = func["[[DefineOwnProperty]]"]("length", new JavascriptDataProperty(false, false, true, length));
+                if(!success) {
+                    //this might be the error that shows up in this case?
+                    throw TypeError(`Cannot redefine property: length`);
+                }
+                ECMAScript.SetFunctionName(func, name, prefix);
+                return func;
+            }
+
+            static BuiltinCallOrConstruct(func, thisArg, argList, newTarget) {
+                if(func.async) {
+                    //do bs that we're probably not gonna implement
+                    //return promise;
+                }
+                return func.behavior(thisArg, argList, newTarget);
+            }
+
             static ToObject(arg) {
                 if(arg == undefined || arg == null) {
                     //Object.prototype.__lookupGetter__("__proto__")();
@@ -1655,6 +1840,50 @@
                 //BigInt
                 //Assert: arg instanceof JavascriptObjectWrapper
                 return arg;
+            }
+
+            static ToPropertyKey(arg) {
+                // const key = ToPrimitive(arg);
+                let key;
+                if(arg instanceof JavascriptObjectWrapper) {
+                    throw Error("ToPropertyKey arg is an object!");
+                }
+                key = arg;
+                if(typeof key == "symbol") {
+                    return key;
+                }
+                return key.toString(); //definitely close enough
+            }
+
+            /**
+             * @param {JavascriptObjectWrapper} obj
+             * @param {EnumerateKind} kind
+             */
+            static EnumerableOwnProperties(obj, kind) {
+                const ownKeys = obj["[[OwnPropertyKeys]]"]();
+                const results = [];
+                for(const key of ownKeys) {
+                    if(typeof key == "string") {
+                        const propertyDesc = obj["[[GetOwnProperty]]"](key);
+                        if(propertyDesc && propertyDesc.enumerable) {
+                            if(kind == EnumerateKind.KEY) {
+                                results.push(key);
+                            }else {
+                                //Get(obj, key);
+                                const value = obj["[[Get]]"](key, obj);
+                                if(kind == EnumerateKind.VALUE) {
+                                    results.push(value);
+                                }else {
+                                    //Assert: kind is EnumerateKind.KEY_VALUE
+                                    //https://tc39.es/ecma262/#sec-enumerableownproperties
+                                    //3.a.ii.2.c
+                                    throw Error("EnumerateKind.KEY_VALUE not implemented because we'd have to do arrays somehow!");
+                                }
+                            }
+                        }
+                    }
+                }
+                return results;
             }
 
             //first time i've ever used this!
@@ -1916,16 +2145,51 @@
                     return true;
                 }
                 if(current.configurable == false) {
-                    console.error("[[DefineOwnProperty]] current.configurable == false, finish this part lol");
-                    //...
+                    //in has higher precedence unless i'm reading my grammar wrong lol
+                    if("configurable" in propertyDesc && propertyDesc.configurable) return false;
+                    if("enumerable" in propertyDesc && propertyDesc.enumerable != current.enumerable) return false;
+                    //IsGenericDescriptor
+                    const IsGenericDescriptor = "writable" in propertyDesc || "value" in propertyDesc || "getter" in propertyDesc || "setter" in propertyDesc;
+                    const IsCurrentAccess = ("getter" in current || "setter" in current);
+                    if(!IsGenericDescriptor && (("getter" in propertyDesc || "setter" in propertyDesc) != IsCurrentAccess)) {
+                        return false;
+                    }
+                    if(IsCurrentAccess) {
+                        //                                            !SameValue
+                        if("getter" in propertyDesc && propertyDesc.getter != current.getter) return false;
+                        //                                            !SameValue
+                        if("setter" in propertyDesc && propertyDesc.setter != current.setter) return false;
+                    }else if(!current.writable) {
+                        if("writable" in propertyDesc && propertyDesc.writable) return false;
+                        //lowkey it has a note about SameValue returning true for NaN but let's be honest... that's not what i wrote
+                        if("value" in propertyDesc) return propertyDesc.value == current.value;
+                    }
                 }
                 if(this != undefined) {
                     //IsDataDescriptor
                     //IsAccessDescriptor
                     if(("value" in current || "writable" in current) && ("getter" in propertyDesc || "setter" in propertyDesc)) {
-                        console.error("[[DefineOwnProperty]] configurable shit");
+                        const configurable = "configurable" in propertyDesc ? propertyDesc.configurable : current.configurable;
+                        const enumerable = "enumerable" in propertyDesc ? propertyDesc.enumerable : current.enumerable;
+                        const newDesc = new JavascriptAccessorProperty(enumerable, configurable);
+                        if("getter" in propertyDesc) {
+                            newDesc.getter = propertyDesc.getter;
+                        }
+                        if("setter" in propertyDesc) {
+                            newDesc.setter = propertyDesc.setter;
+                        }
+                        this.properies.set(propertyKey, newDesc);
                     }else if(("getter" in current || "setter" in current) && ("value" in propertyDesc || "writable" in propertyDesc)) {
-                        console.error("[[DefineOwnProperty]] configurable shit");
+                        const configurable = "configurable" in propertyDesc ? propertyDesc.configurable : current.configurable;
+                        const enumerable = "enumerable" in propertyDesc ? propertyDesc.enumerable : current.enumerable;
+                        const newDesc = new JavascriptDataProperty(undefined, enumerable, configurable, undefined);
+                        if("writable" in propertyDesc) {
+                            newDesc.writable = propertyDesc.writable;
+                        }
+                        if("value" in propertyDesc) {
+                            newDesc.value = propertyDesc.value1;
+                        }
+                        this.properies.set(propertyKey, newDesc);
                     }else { //10.1.6.3 step 6.c
                         const property = this.properties.get(propertyKey);
                         for(const field in propertyDesc) {
@@ -2010,6 +2274,36 @@
                 return true;
             }
 
+            ["[[Delete]]"](propertyKey) {
+                //return OrdinaryDelete(this, propertyKey);
+                const propertyDesc = this["[[GetOwnProperty]]"](propertyKey);
+                if(propertyDesc == undefined) return true;
+                if(propertyDesc.configurable) {
+                    this.properties.delete(propertyKey);
+                    return true;
+                }
+                return false;
+            }
+
+            ["[[OwnPropertyKeys]]"]() {
+                //return OrdinaryOwnPropertyKeys(this);
+                const arrayindices = [];
+                const strings = [];
+                const symbols = [];
+                //aw damn we gotta do this manually
+                //apparently map.keys just returns keys in the order they were inserted
+                for(const key of map.keys()) {
+                    if(isFinite(key) && key >= 0) {
+                        arrayindices.push(key);
+                    }else if(typeof key != "symbol") {
+                        strings.push(key);
+                    }else {
+                        symbols.push(key);
+                    }
+                }
+                return [...arrayindices, ...strings, ...symbols]; //brug
+            }
+
             //helper methods lol
             SetDataProperty(key, writable, enumerable, configurable, value) {
                 this.properties.set(key, new JavascriptDataProperty(writable, enumerable, configurable, value));
@@ -2019,122 +2313,230 @@
             }
         }
 
-        //"static" ;(
-        {
-            //debugger;
-            //https://tc39.es/ecma262/#sec-properties-of-the-object-prototype-object
-            const objProto = ECMAScript.MakeBasicObject(["[[Extensible]]"]);
-            //https://tc39.es/ecma262/#sec-immutable-prototype-exotic-objects-setprototypeof-v
-            // objProto["[[SetPrototypeOf]]"] = ImmutablePrototypeExoticObject["[[SetPrototypeOf]]"].bind(objProto); //this that metaprogramming shit
-            objProto["[[SetPrototypeOf]]"] = ImmutablePrototypeExoticObject["[[SetPrototypeOf]]"]; //wait, because we know that "this" is determined by how the function is called, this will be totally valid (also yes i just looked at jbs' divinedebugger.js and realized i wrote some bullshit in there)
-            objProto["[[Prototype]]"] = null;
-            //now the properties...
-            
-            //objProto.properties.set("__NEO__", new JavascriptDataProperty(false, false, false, "Hello interpreterneo!"));
-            objProto.SetDataProperty("__NEO__", false, false, false, "Hello interpreted javascript!");
-            
-            //NORMATIVE OPTIONAL, LEGACY
-            //https://tc39.es/ecma262/#sec-object.prototype.__proto__
-            objProto.SetAccessorProperty("__proto__", false, true, function() {
-                const obj = ECMAScript.ToObject(this);
-                return this["[[GetPrototypeOf]]"]();
-            }, function(proto) {
-                let thisValue = this;
-                // ECMAScript.RequireObjectCoercible(thisValue);
-                if(thisValue == null || thisValue == undefined) {
-                    //Object.prototype.__lookupSetter__("__proto__")();
-                    throw TypeError(`set ${"Object.prototype.__proto__"} called on null or undefined`);
-                }
-                if(!(proto instanceof JavascriptObjectWrapper) && proto != null) return undefined;
-                if(!(thisValue instanceof JavascriptObjectWrapper)) return undefined;
-                if(!thisValue["[[SetPrototypeOf]]"](proto)) throw TypeError(`Immutable prototype object ${"Object.prototype"} cannot have their prototype set`); //i think this is where this error comes from? Object.prototype.__proto__ = Number;
-                return undefined;
-            });
-            ECMAScript["%Object.prototype%"] = objProto;
+        class ThisMode {
+            static LEXICAL = 1; //arrow i think
+            static STRICT = 2; //strict mode
+            static GLOBAL = 3; //regular functions in non strict mode
+            //not for use in [[Call]]
+            static NON_LEXICAL_THIS = 4;
         }
 
-        class FunctionWrapper {
-            /** @type {FunctionStatement} */
-            declaration;
-            //how the hell am i doing closures
-            /** @type {Array<Map<String, Variable>>} */
-            scope;
-            /** @type {any} */
-            boundThis;
-            /** @type {Array<any>} */
-            boundParameters;
-            /** @type {Map<String, any>} */
-            javascriptProperties; //see JavascriptObjectWrapper for the real implementation
+        class ConstructorKind {
+            static BASE = 1;
+            static DERIVED = 2;
+        }
+        
+        class JavascriptFunctionWrapper extends JavascriptObjectWrapper {
+            interpreter;
+            
+            environment; //scope
+            privateEnvironment;
+            formalParameters; //declaration.parameters
+            ECMAScriptCode; //declaration.body
+            constructorKind;
+            realm;
+            //scriptOrModule
+            thisMode;
+            strict;
+            homeObject; //parent
+            sourceText;
+            //fields
+            //privateMethods
+            classFieldInitializerName;
+            isClassConstructor;
 
-            //@param {Map<String, Variable>} scope
-            /**
-             * @param {FunctionStatement} declaration
-             * @param {any} boundThis
-             * @param {Array<any>} boundParameters
-             */
-            constructor(declaration, scope, boundThis, boundParameters = []) {
-                this.declaration = declaration;
-                this.scope = scope;
-                this.boundThis = boundThis;
-                this.boundParameters = boundParameters;
-                //this.length = declaration.parameters.length;
-                this.javascriptProperties = new Map([
-                    ["length", declaration.parameters.length],
-                    ["name", this.declaration.nameToken.value],
-                ]);
-            }
+            //https://tc39.es/ecma262/#sec-ecmascript-function-objects-call-thisargument-argumentslist
+            ["[[Call]]"](thisArg, argList = []) {
+                //bound functions are their own *exotic* objects so they will call this method with the appropriate thisArg and argList as seen here https://tc39.es/ecma262/#sec-bound-function-exotic-objects-call-thisargument-argumentslist
+                //we're mostly gonna copy what FunctionWrapper::invoke said
 
-            /** 
-             * @param {JavascriptInterpreter} interpreter
-             * @param {Array<any>} $arguments
-             */
-            invoke(interpreter, callingThis, $arguments) {
-                //interpreter.state.variables.push(new Map()); //push scope
-                //const scope = interpreter.state.variables.at(-1);
-                const old = interpreter.state.variables;
-                interpreter.state.variables = this.scope;
-                this.scope.push(new Map());
-                const scope = this.scope.at(-1);
-                //we're forcing this to be const but i'm pretty sure this isn't actually how it works lol
-                scope.set("this", new Variable({qualifier: {line: 1, char: 1, value: "const", kind: TokenKind.RESERVED}, gender: undefined, name: "this"}, this.boundThis || callingThis));
-                for(let i = 0; i < this.declaration.parameters.length; i++) {
-                    const {identifier, default: $default} = this.declaration.parameters[i];
+                const old = this.interpreter.state.variables;
+                this.interpreter.state.variables = this.environment;
+                const scope = new Map();
+                this.environment.push(scope);
+
+                if(this.isClassConstructor) {
+                    this.environment.pop();
+                    this.interpreter.state.variables = old;
+                    throw TypeError(`Class constructor ${this.classFieldInitializerName} cannot be invoked without 'new'`);
+                }
+
+                //https://tc39.es/ecma262/#sec-ordinarycallbindthis
+                if(this.thisMode == ThisMode.LEXICAL) {
+                    //return UNUSED;
+                }else if(thisArg == undefined || thisArg == null) {
+                    const thisValue = globalThis;
+                    scope.set("this", new Variable({qualifier: {line: 1, char: 1, value: "const", kind: TokenKind.RESERVED}, gender: undefined, name: "this"}, thisValue));
+                }else {
+                    const thisValue = ECMAScript.ToObject(thisArg);
+                    scope.set("this", new Variable({qualifier: {line: 1, char: 1, value: "const", kind: TokenKind.RESERVED}, gender: undefined, name: "this"}, thisValue));
+                }
+
+                for(let i = 0; i < this.formalParameters.length; i++) {
+                    const {identifier, default: $default} = this.formalParameters[i];
                     let value;
-                    if(i < this.boundParameters.length) {
-                        value = this.boundParameters[i];
-                    }else if(i < $arguments.length) {
-                        value = $arguments[i];
+                    if(i < argList.length) {
+                        value = argList[i];
                     }else {
-                        value = $default?.accept(interpreter);
+                        value = $default?.accept(this.interpreter);
                     }
-                    //const value = (i < this.boundParameters.length && this.boundParameters[i]) || (i < $arguments.length && $arguments[i]) || $default?.accept(interpreter);
+
                     //we are cheating by saying the parameter variable has been declared with var so that var is allowed to shadow it or whatever var does (because this allowed)
                     scope.set(identifier.nameToken.value, new Variable({qualifier: {line: 1, char: 1, value: "var", kind: TokenKind.RESERVED, name: identifier.nameToken.value}, gender: undefined}, value));
                 }
-                let retval = undefined;
                 
-                //oh wow he used an exception... (yet again not the fastest interpreter in the west!)
-                //oh wait lua can do that thank god
+                //evaluate...
+                let retval = undefined;
                 try {
-                    this.declaration.body.accept(interpreter); //somehow he needs to handle return statements
+                    this.ECMAScriptCode.accept(this.interpreter); //somehow he needs to handle return statements
                 }catch(e) {
                     if(e instanceof Error) {
                         throw e;
                     }
                     retval = e; //the return expression is evaluated when we reach it (i honestly wasn't sure if that was the right move, but with scopes you could try to return a local var!)
                 }
-                
-                // interpreter.state.variables.pop();
-                this.scope.pop();
-                interpreter.state.variables = old;
+
+                this.environment.pop();
+                this.interpreter.state.variables = old;
                 return retval;
             }
 
-            //All arguments must already be evaluated!
-            bind(thisArg, ...args) {
-                return new FunctionWrapper(this.declaration, thisArg, args);
+            //static because not required
+            static ["[[Construct]]"](argList, newTarget) {
+                let thisArg;
+                if(this.constructorKind == ConstructorKind.BASE) {
+                    thisArg = ECMAScript.OrdinaryCreateFromConstructor(newTarget, "%Object.prototype%");
+                }
+                //do scope stuff (but we're being lazy and just using call)
+                if(this.constructorKind == ConstructorKind.BASE) {
+                    //bind this, handle instance elements...
+                }
+                const result = this["[[Call]]"](thisArg, argList);
+                if(result instanceof JavascriptObjectWrapper) {
+                    return result;
+                }
+                if(this.constructorKind == ConstructorKind.BASE) {
+                    return thisArg;
+                }
+                if(result != undefined) {
+                    //damn that was kind of hard to replicate
+                    //class y {
+                    //    constructor() {
+                    //        return 2;
+                    //    }
+                    //}
+                    //class z extends y {
+                    //    constructor() {
+                    //        super();
+                    //        return 2;
+                    //    }
+                    //}
+                    throw TypeError("Derived constructors may only return objects or undefined");
+                }
+                //GetThisBinding
+                if(this.interpreter.state.strict) {
+                    return undefined;
+                }else {
+                    return globalThis; //sure?..
+                }
             }
         }
+
+        //https://tc39.es/ecma262/#sec-built-in-function-objects-call-thisargument-argumentslist
+        class BuiltInFunction {
+            static ["[[Call]]"](thisArg, argList) {
+                return ECMAScript.BuiltinCallOrConstruct(this, thisArg, argList, undefined);
+            }
+
+            static ["[[Construct]]"](argList, newTarget) {
+                //Assert: return value is a JavascriptObjectWrapper
+                return ECMAScript.BuiltinCallOrConstruct(this, undefined, argList, newTarget);
+            }
+        }
+
+        //see JavascriptFunctionWrapper for the "real" implementation
+        //class FunctionWrapper {
+        //    /** @type {FunctionStatement} */
+        //    declaration;
+        //    //how the hell am i doing closures
+        //    /** @type {Array<Map<String, Variable>>} */
+        //    scope;
+        //    /** @type {any} */
+        //    boundThis;
+        //    /** @type {Array<any>} */
+        //    boundParameters;
+        //    /** @type {Map<String, any>} */
+        //    javascriptProperties; //see JavascriptObjectWrapper for the real implementation
+        //
+        //    //@param {Map<String, Variable>} scope
+        //    /**
+        //     * @param {FunctionStatement} declaration
+        //     * @param {any} boundThis
+        //     * @param {Array<any>} boundParameters
+        //     */
+        //    constructor(declaration, scope, boundThis, boundParameters = []) {
+        //        this.declaration = declaration;
+        //        this.scope = scope;
+        //        this.boundThis = boundThis;
+        //        this.boundParameters = boundParameters;
+        //        //this.length = declaration.parameters.length;
+        //        this.javascriptProperties = new Map([
+        //            ["length", declaration.parameters.length],
+        //            ["name", this.declaration.nameToken.value],
+        //        ]);
+        //    }
+        //
+        //    /** 
+        //     * @param {JavascriptInterpreter} interpreter
+        //     * @param {Array<any>} $arguments
+        //     */
+        //    invoke(interpreter, callingThis, $arguments) {
+        //        //interpreter.state.variables.push(new Map()); //push scope
+        //        //const scope = interpreter.state.variables.at(-1);
+        //        const old = interpreter.state.variables;
+        //        interpreter.state.variables = this.scope;
+        //        this.scope.push(new Map());
+        //        const scope = this.scope.at(-1);
+        //        //we're forcing this to be const but i'm pretty sure this isn't actually how it works lol
+        //        scope.set("this", new Variable({qualifier: {line: 1, char: 1, value: "const", kind: TokenKind.RESERVED}, gender: undefined, name: "this"}, this.boundThis || callingThis));
+        //        for(let i = 0; i < this.declaration.parameters.length; i++) {
+        //            const {identifier, default: $default} = this.declaration.parameters[i];
+        //            let value;
+        //            if(i < this.boundParameters.length) {
+        //                value = this.boundParameters[i];
+        //            }else if(i < $arguments.length) {
+        //                value = $arguments[i];
+        //            }else {
+        //                value = $default?.accept(interpreter);
+        //            }
+        //            //const value = (i < this.boundParameters.length && this.boundParameters[i]) || (i < $arguments.length && $arguments[i]) || $default?.accept(interpreter);
+        //            //we are cheating by saying the parameter variable has been declared with var so that var is allowed to shadow it or whatever var does (because this allowed)
+        //            scope.set(identifier.nameToken.value, new Variable({qualifier: {line: 1, char: 1, value: "var", kind: TokenKind.RESERVED, name: identifier.nameToken.value}, gender: undefined}, value));
+        //        }
+        //        let retval = undefined;
+        //        
+        //        //oh wow he used an exception... (yet again not the fastest interpreter in the west!)
+        //        //oh wait lua can do that thank god
+        //        try {
+        //            this.declaration.body.accept(interpreter); //somehow he needs to handle return statements
+        //        }catch(e) {
+        //            if(e instanceof Error) {
+        //                throw e;
+        //            }
+        //            retval = e; //the return expression is evaluated when we reach it (i honestly wasn't sure if that was the right move, but with scopes you could try to return a local var!)
+        //        }
+        //        
+        //        // interpreter.state.variables.pop();
+        //        this.scope.pop();
+        //        interpreter.state.variables = old;
+        //        return retval;
+        //    }
+        //
+        //    //All arguments must already be evaluated!
+        //    bind(thisArg, ...args) {
+        //        return new FunctionWrapper(this.declaration, thisArg, args);
+        //    }
+        //}
 
         class ExpressionStatement extends Statement {
             /** @type {Expression} */
@@ -3518,11 +3920,122 @@
                 super();
                 //this.scope = {};
                 // debugger;
+
+                {
+                    //https://tc39.es/ecma262/#sec-properties-of-the-object-prototype-object
+                    const objProto = ECMAScript.MakeBasicObject(["[[Extensible]]"]);
+                    //https://tc39.es/ecma262/#sec-immutable-prototype-exotic-objects-setprototypeof-v
+                    // objProto["[[SetPrototypeOf]]"] = ImmutablePrototypeExoticObject["[[SetPrototypeOf]]"].bind(objProto); //this that metaprogramming shit
+                    objProto["[[SetPrototypeOf]]"] = ImmutablePrototypeExoticObject["[[SetPrototypeOf]]"]; //wait, because we know that "this" is determined by how the function is called, this will be totally valid (also yes i just looked at jbs' divinedebugger.js and realized i wrote some bullshit in there)
+                    objProto["[[Prototype]]"] = null;
+                    //now the properties...
+                    
+                    //objProto.properties.set("__NEO__", new JavascriptDataProperty(false, false, false, "Hello interpreterneo!"));
+                    objProto.SetDataProperty("__NEO__", false, false, false, "Hello interpreted javascript!");
+                    
+                    //NORMATIVE OPTIONAL, LEGACY
+                    //https://tc39.es/ecma262/#sec-object.prototype.__proto__
+                    objProto.SetAccessorProperty("__proto__", false, true, function() {
+                        const obj = ECMAScript.ToObject(this);
+                        return this["[[GetPrototypeOf]]"]();
+                    }, function(proto) {
+                        let thisValue = this;
+                        // ECMAScript.RequireObjectCoercible(thisValue);
+                        if(thisValue == null || thisValue == undefined) {
+                            //Object.prototype.__lookupSetter__("__proto__")();
+                            throw TypeError(`set ${"Object.prototype.__proto__"} called on null or undefined`);
+                        }
+                        if(!(proto instanceof JavascriptObjectWrapper) && proto != null) return undefined;
+                        if(!(thisValue instanceof JavascriptObjectWrapper)) return undefined;
+                        if(!thisValue["[[SetPrototypeOf]]"](proto)) throw TypeError(`Immutable prototype object ${"Object.prototype"} cannot have their prototype set`); //i think this is where this error comes from? Object.prototype.__proto__ = Number;
+                        return undefined;
+                    });
+                    ECMAScript["%Object.prototype%"] = objProto;
+
+                    //https://tc39.es/ecma262/#sec-properties-of-the-function-prototype-object
+                    // const funcProto = ECMAScript.OrdinaryObjectCreate(objProto);
+                    const funcProto = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {},
+                        0, "", [], this, objProto
+                    );
+                    //constructor is actually equal to the %Function% object!! we haven't created it yet though!
+                    funcProto.SetDataProperty("constructor", true, false, true, "Function() {}");
+                    // funcProto["[[Call]]"] = function(thisArg, argList) {}; //compatibility apparently
+                    // funcProto.SetDataProperty("length", false, false, true, 0); //https://tc39.es/ecma262/#sec-ecmascript-standard-built-in-objects
+                    // funcProto.SetDataProperty("name", false, false, true, ""); //https://tc39.es/ecma262/#sec-ecmascript-standard-built-in-objects
+                    {
+                        //what are the exact steps for creating a method...
+                        //wait, is ECMAScript.Call even right? (probably)
+                        //wait, is this even right?!?!
+                        //const $call = ECMAScript.MakeBasicObject([]);
+                        //$call["[[Call]]"] = function(thisArg, ...args) {
+                        //    //PrepareForTailCall...
+                        //    return ECMAScript.Call(this, thisArg, args);
+                        //}
+                        //funcProto.SetDataProperty("call", true, false, true, $call); //not enumerable apparently
+
+                        //oh they've got a section for builtin function objects
+                        //https://tc39.es/ecma262/#sec-built-in-function-objects
+                        //const $apply = ECMAScript.OrdinaryObjectCreate(funcProto);
+                        //$apply["[[Call]]"] = function(thisArg, argList) {
+                        //    return ECMAScript.Call(thisArg, argList[0], argList[1]);
+                        //}
+
+                        //ok this is the REAL implementation
+                        const $apply = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                return ECMAScript.Call(thisArg, argList[0], argList[1]);
+                            },
+                            2, "apply", [], this, funcProto
+                        );
+
+                        //i've been looking for this for a while!
+                        //https://tc39.es/ecma262/#sec-ecmascript-standard-built-in-objects
+                        //data properties are only writable and configurable!
+                        //accessor properties are only configurable!
+                        funcProto.SetDataProperty("apply", true, false, true, $apply);
+                    }
+                    ECMAScript["%Function.prototype%"] = funcProto;
+                }
+
+                //https://tc39.es/ecma262/#sec-object-constructor
+                //Object constructor...
+                //const $Object = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Function.prototype%"]);
+                const $Object = ECMAScript.CreateBuiltinFunction(
+                    //i'm starting to recognize why v8 is the way it is...
+                    function(thisArg, argList, newTarget) {
+                        if(newTarget != undefined && newTarget != globalThis) { //?
+                            return ECMAScript.OrdinaryCreateFromConstructor(newTarget, "%Object.prototype%");
+                        }
+                        const value = argList[0];
+                        if(value == undefined || value == null) {
+                            return ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]);
+                        }
+                        return ECMAScript.ToObject(value);
+                    },
+                    1, "Object", [], this, ECMAScript["%Function.prototype%"]
+                );
+                ECMAScript.MakeConstructor($Object, false);
+                //$Object["[[Call]]"] = function(value) {
+                //    //active function object?
+                //    if(new.target != undefined && new.target != globalThis) { //?
+                //        throw Error(`OrdinaryCreateFromConstructor(new.target, "%Object.prototype%");`);
+                //    }
+                //    if(value == undefined || value == null) {
+                //        return ECMAScript.OrdinaryObjectCreate(objProto);
+                //    }
+                //    return ECMAScript.ToObject(value);
+                //}
+                // $Object.SetDataProperty("keys", );
+
+                this.state.variables[0].set("Object", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Object"}, $Object));
+
                 const $Math = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]); //fairs, https://tc39.es/ecma262/#sec-math-object
                 // $Math.properties.set("E", new JavascriptDataProperty(false, false, false, Math.E));
                 $Math.SetDataProperty("E", false, false, false, Math.E);
                 $Math.SetDataProperty("self", false, false, false, $Math);
                 this.state.variables[0].set("Math", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Math"}, $Math));
+                // const $Object = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Function.prototype%"]);
             }
 
             parse(str) {
@@ -3579,7 +4092,48 @@
                     const value = this.GetValue(ref);
                     return this.PutValue(ref, value-1);
                 }else if(unaryExpression.operatorToken.kind == TokenKind.RESERVED && unaryExpression.operatorToken.value == "delete") {
-                    debugger;
+                    //https://tc39.es/ecma262/#sec-delete-operator-runtime-semantics-evaluation
+                    const ref = this.evaluate(unaryExpression.operand, false);
+                    if(!(ref instanceof ReferenceRecord)) return true;
+                    if(ref.base == undefined) {
+                        //Assert: ref.strict == false
+                        return true;
+                    }
+                    //IsPropertyReference(ref);
+                    if(!(ref.base instanceof Map)) {
+                        //Assert: IsPrivateReference(ref) == false
+                        //IsSuperReference(ref);
+                        //holy shit i'm actually discovering errors that i've never seen in my life
+                        //new (class {
+                        //    constructor() {
+                        //        console.log(super.xyz); //undefined
+                        //        console.log(delete super.xyz); //ReferenceError!
+                        //    }
+                        //});
+                        if(ref.thisValue != undefined) throw ReferenceError("Unsupported reference to 'super'");
+                        // const baseObj = ECMAScript.ToObject(ref.base);
+                        if(typeof ref.referencedName != "string" && typeof ref.referencedName != "symbol") {
+                            //ToPropertyKey
+                            ref.referencedName = ECMAScript.ToPropertyKey(ref.referencedName);
+                        }
+                        if(ref.base == globalThis) {
+                            return delete globalThis[ref.referencedName];
+                        }else {
+                            const deleteStatus = ref.base["[[Delete]]"](ref.referencedName);
+                            if(deleteStatus == false && this.state.strict) {
+                                throw TypeError("Delete of an unqualified identifier in strict mode.");
+                            }
+                            return deleteStatus;
+                        }
+                    }
+                    //Assert: ref.base instanceof Map
+                    //const had = ref.base.has(ref.referencedName);
+                    //return ref.base.delete(ref.referencedName) || had; //DeleteBinding returns true if the property was deleted or didn't exist, false if it couldn't be deleted (which i guess won't happen here?)
+                    
+                    //wait a second i forgot this shit was supposed to be a scope
+                    //we aren't allowed to delete any declared variables (besides the ones that come with the environment and yeah this implementation is lowkey ignoring that until i come up with a way of knowing lol)
+                    //ah yes there are different kind of environments, that could maybe do it?
+                    return false;
                 }else {
                     const value = this.evaluate(unaryExpression.operand);
                     switch(unaryExpression.operatorToken.kind) {
@@ -3769,12 +4323,12 @@
                 if(value.base instanceof Map) { //6.2.5.5 (4)
                     return value.base.get(value.referencedName).get();
                 }else if(value.base instanceof JavascriptObjectWrapper) { //6.2.5.5 (3)
-                    //baseObj = ToObject(value.base);
+                    //const baseObj = ECMAScript.ToObject(value.base);
                     //if IsPrivateReference
                     //  return PrivateGet(baseObj, value.referencedName);
                     if(typeof value.referencedName != "string" && typeof value.referencedName != "symbol") { // is property key
                         //ToPropertyKey (kind of)
-                        value.referencedName = value.referencedName.toString();
+                        value.referencedName = ECMAScript.ToPropertyKey(value.referencedName);
                     }
                     return value.base["[[Get]]"](value.referencedName, value.GetThisValue());
                 }
@@ -3806,7 +4360,10 @@
                     //set mutable binding
                     return $var.value = rightValue;
                 }else if(record.base instanceof JavascriptObjectWrapper) { //6.2.5.6 (3)
-                    const result = record.base["[[Set]]"](record.referencedName.toString(), rightValue, record.GetThisValue());
+                    if(typeof record.referencedName != "string" || typeof record.referencedName != "symbol") {
+                        record.referencedName = ECMAScript.ToPropertyKey(record.referencedName);
+                    }
+                    const result = record.base["[[Set]]"](record.referencedName, rightValue, record.GetThisValue());
                     if(!result && this.state.strict) {
                         throw new TypeError(`Cannot assign to read only property '${record.referencedName} of object '#<${record.base.constructor.name}>'`);
                     }
@@ -4111,15 +4668,20 @@
                     thisValue = undefined; //2.a
                 }
 
+                const argList = funcCallExpression.argumentsExprArr.map(v=>this.evaluate(v));
+
                 //duktape
-                if(func instanceof FunctionWrapper) {
-                    //let parent = globalThis;
-                    //if(func.declaration.isStrict) {
-                    //    parent = undefined;
-                    //}
-                    return func.invoke(this, /*parent*/ thisValue, funcCallExpression.argumentsExprArr.map(v=>this.evaluate(v)));
+                //if(func instanceof FunctionWrapper) {
+                //    //let parent = globalThis;
+                //    //if(func.declaration.isStrict) {
+                //    //    parent = undefined;
+                //    //}
+                //    return func.invoke(this, /*parent*/ thisValue, argList);
+                //}else
+                if(func instanceof JavascriptObjectWrapper) {
+                    return ECMAScript.Call(func, thisValue, argList);
                 }else {
-                    return func.apply(thisValue, funcCallExpression.argumentsExprArr.map(v=>this.evaluate(v)));
+                    return func.apply(thisValue, argList); //we'll still need something like this in lua so we can call methods of outside objects
                 }
 
                 //wait Call will already do these checks :)
@@ -4266,23 +4828,38 @@
                     //}
                     closure.push(map); //we're creating a copy of the array so that push and pop don't affect our closure
                 }
+                // const wrapper = new FunctionWrapper(functionStatement, closure, undefined);
+                //https://tc39.es/ecma262/#sec-runtime-semantics-instantiateordinaryfunctionobject
+                const privateEnv = null;
+                const wrapper = ECMAScript.OrdinaryFunctionCreate(this, ECMAScript["%Function.prototype%"], "insert source text here...", functionStatement.parameters, functionStatement.body, ThisMode.NON_LEXICAL_THIS, closure, privateEnv);
+                //for some reason SetFunctionName is actually special
+                //https://tc39.es/ecma262/#sec-setfunctionname
+                //const success = wrapper["[[DefineOwnProperty]]"]("name", new JavascriptDataProperty(false, false, true, functionStatement.nameToken.value)); //simplified!
+                //if(!success) {
+                //    throw TypeError("Cannot redefine property: name");
+                //}
+                ECMAScript.SetFunctionName(wrapper, functionStatement.nameToken.value);
+                //bruh i forgot the very next line
+                ECMAScript.MakeConstructor(wrapper);
+                
                 if(scope.has(functionStatement.nameToken.value)) {
                     const old = scope.get(functionStatement.nameToken.value);
                     if(old instanceof TemporalDeadZoneVariable) {
                         //promote to regular var lol
-                        const temp = new Variable(old.properties, new FunctionWrapper(functionStatement, closure, undefined));
+                        const temp = new Variable(old.properties, wrapper);
                         scope.set(functionStatement.nameToken.value, temp);
-                    }else {
+                    }else { //for some reason you can redeclare functions with the same name
+
                         //my static analysis should handle all this?
                         //const oldGender = old.properties.gender?.value;
                         ////some kind of function object idk
                         //if(!(old.value instanceof FunctionWrapper)) {
                         //    throw new SyntaxError(`Identifier '${functionStatement.nameToken.value}' has already been declared${oldGender != functionStatement.genderToken?.value ? ` (with gender '${oldGender}')` : ""}`);
                         //}
-                        old.value = new FunctionWrapper(functionStatement, closure, undefined);
+                        old.value = wrapper;
                     }
                 }else {
-                    scope.set(functionStatement.nameToken.value, new Variable({qualifier: undefined, gender: functionStatement.genderToken, name: functionStatement.nameToken.value}, new FunctionWrapper(functionStatement, closure, undefined)));
+                    scope.set(functionStatement.nameToken.value, new Variable({qualifier: undefined, gender: functionStatement.genderToken, name: functionStatement.nameToken.value}, wrapper));
                     //closure.at(-1).set(functionStatement.nameToken.value, scope.get(functionStatement.nameToken.value)); //reference
                 }
             }
