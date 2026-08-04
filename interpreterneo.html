@@ -36,6 +36,10 @@
             <option value="nonstrict">allowed in non strict mode</option>
             <option value="forloop">for loop</option>
             <option value="ternary">ternary</option>
+            <option value="customobjectkeys">working object keys</option>
+            <option value="boundfuncs!">bound function test</option>
+            <option value="symbolstuff">accurate symbol overloading</option>
+            <option value="functionclasses">function classes</option>
             <option value="scope">scope</option>
             <option value="scope2">scope 2</option>
             <option value="varscope">var scope</option>
@@ -58,6 +62,11 @@
             "forloop": "for(let x = 0; x < 10; x++) {\n    console.log(x);\n    x;\n}",
             "operators": "?.\n++\n--\n+\n-\n~\n!\n**\n*\n/\n%\n<\n>\n<=\n>=\n==\n!=\n===\n!==\n<<\n>>\n>>>\n&\n|\n^\n&&\n||\n??\n=\n*=\n/=\n%=\n+=\n-=\n<<=\n>>=\n>>>=\n&=\n^=\n|=\n**=\n&&=\n||=\n??=\n,\n...",
             "alltokens": "var\nlet\n\"hi\"\n5\n5n\ntrue\nundefined\nnull\nfemale\n[\n]\n.\n(\n)\n+\n-\n*\n/\n!\n--\n++\n?.\n~\n**\n%\n<\n>\n<=\n>=\n==\n!=\n===\n!==\n<<\n>>\n>>>\n&\n|\n^\n&&\n||\n??\n? :\n=\n*=\n/=\n%=\n+=\n-=\n<<=\n>>=\n>>>=\n&=\n^=\n|=\n**=\n&&=\n||=\n??=\n,\n...\n;\n{\n}\n=>",
+            "customobjectkeys": "let x = new Object;\nx.hello = 2;\nx[0] = false;\nx[-1] = \"undefined\";\nx[1] = true;\nconsole.log(Object.keys(x));\n// should be ['0', '1', 'hello', '-1']\nnumbers greater than 0 are first, then string keys (and numbers), then symbols",
+            "boundfuncs!": `function abc(x, y) {\n    console.log(this, x, y);\n    return 5;\n}\n\nlet temp = abc.bind(true, "x");\n\nconsole.log(temp.length, temp.name, temp("temp y"));`,
+            "symbolstuff": "function abc(x, y) {\n    console.log(x, y);\n    return 4;\n}\nlet x = Object();\nx[Symbol.toPrimitive] = abc;\nlet y = Object();\ny[x] = 2;\nconsole.log(Object.keys(y));",
+            //"functionclasses": "function abc(x) {\n    console.log(this);\n    this.x = 2;\n}\n\nconsole.log(Object.keys(new abc));",
+            "functionclasses": "function ScreenObject(x, y) {\n    this.x = x;\n    this.y = y;\n    this.vx = 1;\n    this.vy = 1;\n    function update() {\n        this.x = this.x + this.vx;\n        this.y = this.y + this.vy;\n    }\n    this.update = update;\n}\n\nconst instance = new ScreenObject(100, 100);\nconsole.log(instance.x, instance.y);\ninstance.update();\nconsole.log(instance.x, instance.y);",
             "rodwave": "[(5+5, window.location.href.length),5,5]",
             "ternary": "5 ? 7 : 6 ? 3 : 2;",
             "bs2": "female var hai = \"rawr\";",
@@ -1087,7 +1096,7 @@
 
         //               probably?
         //               aw man, let and const aren't allowed in single statement contexts
-        //javascript ::= statement*
+        //javascript ::= declaration*
         //identifier ::= /[$_\p{ID_Start}][$\p{ID_Continue}]*/u
         //literal ::= boolean | null | undefined | array | object | string | number | bigint
         //gender ::= 'male' | 'female' | 'nonbinary'
@@ -1192,9 +1201,8 @@
                 return isValidLeftHandAssignment(expression.functionExpr, depth+1);
             }else if(expression instanceof IdentifierExpression) {
                 return depth != 0 || expression.nameToken.value != "this"; //this is not assignable!
-            }else {
-                return false; //uhh i guess if it's none of those this shit probably not valid (i guess all unary operators are bad?)
             }
+            return depth != 0; //return false if depth == 0
         }
 
         class Statement {
@@ -1221,8 +1229,9 @@
                 super(value);
             }
             accept(visitor) /*override*/ {
-                debugger;
-                return this.value.map(v=>v.accept(visitor)); //uh?
+                //debugger;
+                //return this.value.map(v=>v.accept(visitor)); //uh?
+                return visitor.visitArrayLiteralExpression(this);
             }
         }
 
@@ -1591,6 +1600,11 @@
             static KEY_VALUE = 3;
         }
 
+        class PreferredType {
+            static STRING = 1;
+            static NUMBER = 2;
+        }
+
         //important abstract operations
         class ECMAScript {
             //https://tc39.es/ecma262/#sec-iscallable
@@ -1667,7 +1681,7 @@
                 func["[[Prototype]]"] = proto;
                 func.interpreter = interpreter;
                 //by using JavascriptFunctionWrapper all that internal slot stuff + [[Call]] is already set
-                func.sourceText = sourceText;
+                func["[[SourceText]]"] = sourceText;
                 func.formalParameters = paramList;
                 func.ECMAScriptCode = body;
                 //IsStrict(body);
@@ -1733,7 +1747,10 @@
 
             //https://tc39.es/ecma262/#sec-makeconstructor
             static MakeConstructor(func, writableProto, proto) {
-                if(!("realm" in func)) {
+                //func is an ecmascript function object
+                //!func is a built-in
+                // if(!("realm" in func)) {
+                if(func["[[Call]]"] != BuiltInFunction["[[Call]]"]) {
                     //Assert: IsConstructor(func) == false
                     //Assert: func["[[IsExtensible]]"] && func["[[hasOwnProperty]]"]("prototype") == undefined
                     func["[[Construct]]"] = JavascriptFunctionWrapper["[[Construct]]"];
@@ -1769,7 +1786,7 @@
                     func.initialName = name;
                 }
                 if(prefix) {
-                    let prefixedName = name + " " + prefix;
+                    let prefixedName = prefix + " " + name; //bro i had these backwards
                     if("initialName" in func) {
                         //i guess we'll use the prefixed name? idk lol.
                         func.initialName = prefixedName;
@@ -1788,7 +1805,7 @@
              * @param {Number} length
              * @param {String} name
              * @param {Array<String>} additionalInternalSlots
-             * @param {JavascriptObjectWrapper | null} proto
+             * @param {JavascriptObjectWrapper | undefined} proto
              * @param {String} prefix
              * @param {Boolean} async
              */
@@ -1820,6 +1837,31 @@
                 return func;
             }
 
+            //https://tc39.es/ecma262/#sec-boundfunctioncreate
+            static BoundFunctionCreate(targetFunc, boundThis, boundArgs) {
+                let internalSlotsList = ["[[Prototype]]", "[[Extensible]]", "[[BoundTargetFunction]]", "[[BoundThis]]", "[[BoundArguments]]"];
+                const obj = ECMAScript.MakeBasicObject(internalSlotsList);
+                obj["[[Prototype]]"] = targetFunc["[[GetPrototypeOf]]"]();
+                obj["[[Call]]"] = BoundFunction["[[Call]]"];
+                if(targetFunc instanceof JavascriptObjectWrapper && "[[Construct]]" in targetFunc) {
+                    obj["[[Construct]]"] = BoundFunction["[[Construct]]"];
+                }
+                obj["[[BoundTargetFunction]]"] = targetFunc;
+                obj["[[BoundThis]]"] = ECMAScript.ToObject(boundThis); //the specification doesn't actually say to use ToObject here but for some reason in regular javascript this seems to happen
+                /*
+                function abc(x, y) {
+                    console.log(this, x, y);
+                    return 5;
+                }
+
+                let temp = abc.bind(true, "x", "y");
+
+                console.log(temp.length, temp.name, temp());
+                */
+                obj["[[BoundArguments]]"] = boundArgs;
+                return obj;
+            }
+
             static BuiltinCallOrConstruct(func, thisArg, argList, newTarget) {
                 if(func.async) {
                     //do bs that we're probably not gonna implement
@@ -1833,26 +1875,215 @@
                     //Object.prototype.__lookupGetter__("__proto__")();
                     throw TypeError("Cannot convert undefined or null to object");
                 }
-                //Boolean
+                if(typeof arg == "boolean") {
+                    //modified from the $Boolean constructor
+                    const obj = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Boolean.prototype%"], "[[BooleanData]]");
+                    obj["[[BooleanData]]"] = arg;
+                    return obj;
+                }
                 //Number
                 //String
-                //Symbol
+                if(typeof arg == "symbol") {
+                    //probably
+                    const newSymbol = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Symbol.prototype%"], "[[SymbolData]]");
+                    newSymbol["[[Description]]"] = arg.description;
+                    newSymbol["[[SymbolData]]"] = arg; //yeah!
+                    return newSymbol;
+                }
                 //BigInt
                 //Assert: arg instanceof JavascriptObjectWrapper
                 return arg;
             }
 
-            static ToPropertyKey(arg) {
-                // const key = ToPrimitive(arg);
-                let key;
-                if(arg instanceof JavascriptObjectWrapper) {
-                    throw Error("ToPropertyKey arg is an object!");
+            //https://tc39.es/ecma262/#sec-toboolean
+            static ToBoolean(arg) {
+                if(typeof arg == "boolean") {
+                    return arg;
                 }
-                key = arg;
+                return !!arg; //yeah
+            }
+
+            //https://tc39.es/ecma262/#sec-thisbooleanvalue
+            static ThisBooleanValue(arg) {
+                if(typeof arg == "boolean") {
+                    return arg;
+                }
+                if(arg instanceof JavascriptObjectWrapper && "[[BooleanData]]" in arg) {
+                    //Assert: typeof arg["[[BooleanData]]"] == "boolean"
+                    return arg["[[BooleanData]]"];
+                }
+                throw TypeError("Boolean.prototype method requires that 'this' be a Boolean");
+            }
+
+            static ThisSymbolValue(arg) {
+                if("[[Description]]" in arg) {
+                    return arg;
+                }
+                if(arg instanceof JavascriptObjectWrapper && "[[SymbolData]]" in arg) {
+                    //Assert arg["[[SymbolData]]"] is a symbol
+                    return arg["[[SymbolData]]"];
+                }
+                throw TypeError("Symbol.prototype method requires that 'this' be a Symbol"); //basically
+            }
+
+            //this method is only used twice in the whole spec lol
+            //https://tc39.es/ecma262/#sec-ordinarytoprimitive
+            static OrdinaryToPrimitive(obj, hint) {
+                let methodNames;
+                if(hint == PreferredType.STRING) {
+                    methodNames = ["toString", "valueOf"];
+                }else {
+                    methodNames = ["valueOf", "toString"];
+                }
+                for(const name of methodNames) {
+                    const method = obj["[[Get]]"](name, obj);
+                    if(ECMAScript.IsCallable(method)) {
+                        const result = method["[[Call]]"](obj, []); //ECMAScript.Call but that would be redundant
+                        if(!(result instanceof JavascriptObjectWrapper)) {
+                            return result;
+                        }
+                    }
+                }
+                //this too was a hard error to replicate!
+                /*
+                Boolean.prototype.toString = undefined;
+                Boolean.prototype.valueOf = undefined;
+                const x = new Boolean(true);
+                BigInt(x); // Cannot convert object to primitive value
+                */
+                throw TypeError(`Cannot convert ${typeof obj} to primitive value`); //something like that
+            }
+
+            static GetMethod(value, propertyKey) {
+                //const func = GetV(value, propertyKey);
+                const obj = ECMAScript.ToObject(value);
+                const func = obj["[[Get]]"](propertyKey, obj);
+                if(func == undefined || func == null) {
+                    return undefined;
+                }
+                if(!ECMAScript.IsCallable(func)) {
+                    /*
+                    const special = {};
+                    special[Symbol.toPrimitive] = 5;
+                    Number(special); // number 5 is not a function
+                    */
+                    let err;
+                    if(typeof func == "object") {
+                        err = `${typeof func} is not a function`;
+                    }else {
+                        err = `${typeof func} ${func} is not a function`;
+                    }
+                    throw TypeError(err);
+                }
+                return func;
+            }
+
+            //https://tc39.es/ecma262/#sec-toprimitive
+            static ToPrimitive(input, preferredType) {
+                if(input instanceof JavascriptObjectWrapper) {
+                    const exoticToPrimitive = ECMAScript.GetMethod(input, ECMAScript["%Symbol.toPrimitive%"]);
+                    if(exoticToPrimitive != undefined) {
+                        let hint;
+                        if(preferredType == undefined) {
+                            hint = "default";
+                        }else if(preferredType == PreferredType.STRING) {
+                            hint = "string";
+                        }else {
+                            //Assert: preferredType == PreferredType.NUMBER
+                            hint = "number";
+                        }
+                        const result = exoticToPrimitive["[[Call]]"](input, [hint]); //ECMAScript Call but that would be redundant, GetMethod ensures it tis
+                        if(!(result instanceof JavascriptObjectWrapper)) {
+                            return result;
+                        }
+                        /*
+                        const special = {};
+                        special[Symbol.toPrimitive] = ()=>window;
+                        Number(special); // Cannot convert object to primitive value
+                        */
+                        throw TypeError("Cannot convert object to primitive value");
+                    }
+                    if(preferredType == undefined) {
+                        preferredType = PreferredType.NUMBER;
+                    }
+                    return ECMAScript.OrdinaryToPrimitive(input, preferredType);
+                }
+                return input;
+            }
+
+            //https://tc39.es/ecma262/#sec-topropertykey
+            static ToPropertyKey(arg) {
+                const key = ECMAScript.ToPrimitive(arg, PreferredType.STRING);
+                //let key;
+                //if(arg instanceof JavascriptObjectWrapper) {
+                //    throw Error("ToPropertyKey arg is an object!");
+                //}
+                //key = arg;
                 if(typeof key == "symbol") {
                     return key;
                 }
-                return key.toString(); //definitely close enough
+                return ECMAScript.ToString(key);
+            }
+
+            static ToString(arg) {
+                if(typeof arg == "string") {
+                    return arg;
+                }
+                if(typeof arg == "symbol") {
+                    //this was a hard one!
+                    //parseFloat(Symbol.asyncDispose);
+                    throw TypeError("Cannot convert a Symbol value to a string");
+                }
+                if(!(arg instanceof Object)) {
+                    return arg.toString(); //lol bro
+                }
+                //Assert: arg instanceof JavascriptObjectWrapper
+                const primitiveValue = ECMAScript.ToPrimitive(arg, PreferredType.STRING);
+                //Assert: !(primitiveValue instanceof JavascriptObjectWrapper)
+                return ECMAScript.ToString(primitiveValue);
+            }
+
+            static OrdinaryHasInstance(ctor, instance) {
+                if(!ECMAScript.IsCallable(ctor)) return false;
+                if("[[BoundTargetFunction]]" in ctor) {
+                    //let's do that bound function shit now
+                    //ok i'm done writing that bound function shit now
+                    return ECMAScript.InstanceofOperator(instance, ctor["[[BoundTargetFunction]]"]);
+                }
+                if(!(instance instanceof JavascriptObjectWrapper)) {
+                    return false;
+                }
+                const proto = ctor["[[Get]]"]("prototype", ctor);
+                if(!(proto instanceof JavascriptObjectWrapper)) {
+                    /*
+                    let x = ()=>{};
+                    x.prototype = undefined;
+                    window instanceof x;
+                    */
+                    throw TypeError(`Function has non-object prototype '${proto}' in instanceof check`); //i was really worried but somehow this error wasn't that hard to get
+                }
+                for(;;) {
+                    instance = instance["[[GetPrototypeOf]]"]();
+                    if(instance == null) return false;
+                    if(proto == instance) return true;
+                }
+            }
+
+            static InstanceofOperator(value, target) {
+                if(!(target instanceof JavascriptObjectWrapper)) {
+                    //5 instanceof 5;
+                    throw TypeError("Right-hand side of 'instanceof' is not an object");
+                }
+                const instOfHandler = ECMAScript.GetMethod(target, ECMAScript["%Symbol.hasInstance%"]);
+                if(instOfHandler != undefined) {
+                    return ECMAScript.ToBoolean(instOfHandler["[[Call]]"](target, [value]));
+                }
+                //compatibility
+                if(!ECMAScript.IsCallable(target)) {
+                    //5 instanceof {}; //Right-hand side of 'instanceof' is not callable
+                    throw TypeError("Right-hand side of 'instanceof' is not callable");
+                }
+                return ECMAScript.OrdinaryHasInstance(target, value);
             }
 
             /**
@@ -1865,7 +2096,7 @@
                 for(const key of ownKeys) {
                     if(typeof key == "string") {
                         const propertyDesc = obj["[[GetOwnProperty]]"](key);
-                        if(propertyDesc && propertyDesc.enumerable) {
+                        if(propertyDesc?.enumerable == true) {
                             if(kind == EnumerateKind.KEY) {
                                 results.push(key);
                             }else {
@@ -2291,14 +2522,14 @@
                 const strings = [];
                 const symbols = [];
                 //aw damn we gotta do this manually
-                //apparently map.keys just returns keys in the order they were inserted
-                for(const key of map.keys()) {
-                    if(isFinite(key) && key >= 0) {
-                        arrayindices.push(key);
-                    }else if(typeof key != "symbol") {
-                        strings.push(key);
-                    }else {
+                //apparently Map.prototype.keys just returns keys in the order they were inserted
+                for(const key of this.properties.keys()) {
+                    if(typeof key == "symbol") {
                         symbols.push(key);
+                    }else if(isFinite(key) && key >= 0) { //isFinite threw an error if key was a symbol lol
+                        arrayindices.push(key);
+                    }else {
+                        strings.push(key);
                     }
                 }
                 return [...arrayindices, ...strings, ...symbols]; //brug
@@ -2339,7 +2570,7 @@
             thisMode;
             strict;
             homeObject; //parent
-            sourceText;
+            ["[[SourceText]]"];
             //fields
             //privateMethods
             classFieldInitializerName;
@@ -2451,6 +2682,22 @@
             static ["[[Construct]]"](argList, newTarget) {
                 //Assert: return value is a JavascriptObjectWrapper
                 return ECMAScript.BuiltinCallOrConstruct(this, undefined, argList, newTarget);
+            }
+        }
+
+        class BoundFunction {
+            static ["[[Call]]"](thisArg, argList) {
+                const args = [...this["[[BoundArguments]]"], ...argList];
+                return this["[[BoundTargetFunction]]"]["[[Call]]"](this["[[BoundThis]]"], args);
+            }
+
+            static ["[[Construct]]"](argList, newTarget) {
+                //Assert: IsConstructor(this["[[BoundTargetFunction]]"]);
+                const args = [...this["[[BoundArguments]]"], ...argList];
+                if(this == newTarget || newTarget == undefined) {
+                    newTarget = this["[[BoundTargetFunction]]"];
+                }
+                return this["[[BoundTargetFunction]]"]["[[Construct]]"](args, newTarget);   
             }
         }
 
@@ -3019,21 +3266,24 @@
                 return expr;
             }
 
-            
-            new_operator() {
-                if(this.matchReserved("new")) {
-                    return new UnaryExpression(false, this.tokens[this.i++], this.new_operator());
+            //some how i'm supposed to give new with arguments a higher precedence but how tf will i know?
+            //we're doing some bs here as always...
+            new_operator($new) {
+                if(this.peekReserved("new")) {
+                    const token = this.tokens[this.i++];
+                    const unary = new UnaryExpression(false, token, undefined);
+                    return this.new_operator(unary);
                 }else {
-                    return this.access_call_no_associativity();
+                    return this.access_call_no_associativity($new);
                 }
             }
 
-            access_call_no_associativity() {
+            access_call_no_associativity($new) {
                 let expr;
                 if(this.peekReserved("import")) {
                     throw new ParseError(this.tokens[this.i++].line, this.tokens[this.i++].char, "Chill man, we're not trying to interpret anything too fancy here.");
                 }else {
-                    expr = this.access_call();
+                    expr = this.access_call($new);
 
                     //this should happen with access_call and also doesn't it have left associativity? mdn tweaking
                     //if(this.match(TokenKind.OPEN_PARENTHESIS)) {
@@ -3048,7 +3298,7 @@
                 return expr;
             }
 
-            access_call() {
+            access_call($new) {
                 let expr = this.primary();
                 while(this.peek(TokenKind.OPTIONAL_CHAINING) || this.peek(TokenKind.DOT) || this.peek(TokenKind.OPEN_BRACKET) || this.peek(TokenKind.OPEN_PARENTHESIS)) {
                     if(this.peek(TokenKind.OPEN_BRACKET)) {
@@ -3059,6 +3309,10 @@
                         // const parenthesis = this.tokens[this.i]; //no consume here because we do that in $arguments
                         const args = this.$arguments();
                         expr = new FunctionCallExpression(expr, args);
+                        if($new) {
+                            $new.operand = expr;
+                            expr = $new;
+                        }
                         //...
                     }else {
                         const operator = this.tokens[this.i++];
@@ -3066,6 +3320,10 @@
                         //definitely throw some syntax error here if it's something weird like an object or array lol
                         expr = new BinaryExpression(expr, operator, right);
                     }
+                }
+                if($new && !$new.operand) {
+                    $new.operand = expr;
+                    return $new;
                 }
                 return expr;
             }
@@ -3932,24 +4190,45 @@
                     
                     //objProto.properties.set("__NEO__", new JavascriptDataProperty(false, false, false, "Hello interpreterneo!"));
                     objProto.SetDataProperty("__NEO__", false, false, false, "Hello interpreted javascript!");
+                    objProto.SetDataProperty("constructor", true, false, true, "Object() {}");
                     
                     //NORMATIVE OPTIONAL, LEGACY
                     //https://tc39.es/ecma262/#sec-object.prototype.__proto__
-                    objProto.SetAccessorProperty("__proto__", false, true, function() {
-                        const obj = ECMAScript.ToObject(this);
-                        return this["[[GetPrototypeOf]]"]();
-                    }, function(proto) {
-                        let thisValue = this;
-                        // ECMAScript.RequireObjectCoercible(thisValue);
-                        if(thisValue == null || thisValue == undefined) {
-                            //Object.prototype.__lookupSetter__("__proto__")();
-                            throw TypeError(`set ${"Object.prototype.__proto__"} called on null or undefined`);
-                        }
-                        if(!(proto instanceof JavascriptObjectWrapper) && proto != null) return undefined;
-                        if(!(thisValue instanceof JavascriptObjectWrapper)) return undefined;
-                        if(!thisValue["[[SetPrototypeOf]]"](proto)) throw TypeError(`Immutable prototype object ${"Object.prototype"} cannot have their prototype set`); //i think this is where this error comes from? Object.prototype.__proto__ = Number;
-                        return undefined;
-                    });
+                    //objProto.SetAccessorProperty("__proto__", false, true, function() {
+                    //    const obj = ECMAScript.ToObject(this);
+                    //    return this["[[GetPrototypeOf]]"]();
+                    //}, function(proto) {
+                    //    let thisValue = this;
+                    //    // ECMAScript.RequireObjectCoercible(thisValue);
+                    //    if(thisValue == null || thisValue == undefined) {
+                    //        //Object.prototype.__lookupSetter__("__proto__")();
+                    //        throw TypeError(`set ${"Object.prototype.__proto__"} called on null or undefined`);
+                    //    }
+                    //    if(!(proto instanceof JavascriptObjectWrapper) && proto != null) return undefined;
+                    //    if(!(thisValue instanceof JavascriptObjectWrapper)) return undefined;
+                    //    if(!thisValue["[[SetPrototypeOf]]"](proto)) throw TypeError(`Immutable prototype object ${"Object.prototype"} cannot have their prototype set`); //i think this is where this error comes from? Object.prototype.__proto__ = Number;
+                    //    return undefined;
+                    //});
+                    objProto.SetAccessorProperty("__proto__", false, true, ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            const obj = ECMAScript.ToObject(thisArg);
+                            return obj["[[GetPrototypeOf]]"]();
+                        }, 0, "__proto__", [], this, undefined, "get"
+                    ), ECMAScript.CreateBuiltinFunction( 
+                        function(thisArg, argList, newTarget) {
+                            let thisValue = thisArg;
+                            // ECMAScript.RequireObjectCoercible(thisValue);
+                            if(thisValue == null || thisValue == undefined) {
+                                //Object.prototype.__lookupSetter__("__proto__")();
+                                throw TypeError(`set ${"Object.prototype.__proto__"} called on null or undefined`);
+                            }
+                            const proto = argList[0];
+                            if(!(proto instanceof JavascriptObjectWrapper) && proto != null) return undefined;
+                            if(!(thisValue instanceof JavascriptObjectWrapper)) return undefined;
+                            if(!thisValue["[[SetPrototypeOf]]"](proto)) throw TypeError(`Immutable prototype object ${"Object.prototype"} cannot have their prototype set`); //i think this is where this error comes from? Object.prototype.__proto__ = Number;
+                            return undefined;
+                        }, 0, "__proto__", [], this, undefined, "set"
+                    ));
                     ECMAScript["%Object.prototype%"] = objProto;
 
                     //https://tc39.es/ecma262/#sec-properties-of-the-function-prototype-object
@@ -3958,8 +4237,6 @@
                         function(thisArg, argList, newTarget) {},
                         0, "", [], this, objProto
                     );
-                    //constructor is actually equal to the %Function% object!! we haven't created it yet though!
-                    funcProto.SetDataProperty("constructor", true, false, true, "Function() {}");
                     // funcProto["[[Call]]"] = function(thisArg, argList) {}; //compatibility apparently
                     // funcProto.SetDataProperty("length", false, false, true, 0); //https://tc39.es/ecma262/#sec-ecmascript-standard-built-in-objects
                     // funcProto.SetDataProperty("name", false, false, true, ""); //https://tc39.es/ecma262/#sec-ecmascript-standard-built-in-objects
@@ -3986,16 +4263,165 @@
                             function(thisArg, argList, newTarget) {
                                 return ECMAScript.Call(thisArg, argList[0], argList[1]);
                             },
-                            2, "apply", [], this, funcProto
+                            2, "apply", [], this
                         );
+
+                        //https://tc39.es/ecma262/#sec-function.prototype.bind
+                        const $bind = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                const target = thisArg;
+                                if(!ECMAScript.IsCallable(target)) {
+                                    //Function.prototype.bind.apply({})
+                                    throw TypeError("Bind must be called on a function");
+                                }
+                                const boundFunc = ECMAScript.BoundFunctionCreate(target, argList[0], argList.slice(1));
+                                let length = 0;
+                                if(target["[[GetOwnProperty]]"]("length") != undefined) {
+                                    const targetLength = target["[[Get]]"]("length", target);
+                                    if(typeof targetLength == "number") {
+                                        if(targetLength == Infinity) {
+                                            length = Infinity;
+                                        }else if(targetLength == -Infinity) {
+                                            length = 0;
+                                        }else {
+                                            //not exactly what was written but
+                                            const targetLengthAsInt = Math.trunc(targetLength);
+                                            length = Math.max(targetLengthAsInt - (argList.length - 1), 0);
+                                        }
+                                    }
+                                }
+                                //SetFunctionLength
+                                const success = boundFunc["[[DefineOwnProperty]]"]("length", new JavascriptDataProperty(false, false, true, length));
+                                if(!success) {
+                                    //this might be the error that shows up in this case?
+                                    throw TypeError(`Cannot redefine property: length`);
+                                }
+                                let targetName = target["[[Get]]"]("name", target);
+                                if(typeof targetName != "string") {
+                                    targetName = "";
+                                }
+                                ECMAScript.SetFunctionName(boundFunc, targetName, "bound");
+                                return boundFunc;
+                            },
+                            1, "bind", [], this
+                        );
+
+                        const $call = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                const func = thisArg;
+                                if(!ECMAScript.IsCallable(func)) {
+                                    //Function.prototype.call.apply({})
+                                    const name = func["[[Get]]"]("constructor", func)["[[Get]]"]("name", func);
+                                    throw TypeError(`Function.prototype.call was called on #<${name}>, which is an object and not a function`);
+                                }
+                                //PrepareForTailCall
+                                return func["[[Call]]"](argList[0], argList.slice(1));//ECMAScript.Call but that would be redundant
+                            },
+                            1, "call", [], this
+                        );
+
+                        const $toString = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                const func = thisArg;
+                                if(func instanceof JavascriptObjectWrapper && func["[[SourceText]]"]) {
+                                    return func["[[SourceText]]"];
+                                }
+                                //func is a built-in function object
+                                if(func["[[Call]]"] == BuiltInFunction["[[Call]]"]) {
+                                    return `${func.initialName}() { [native code] }`;
+                                }
+                                if(func instanceof JavascriptObjectWrapper && ECMAScript.IsCallable(func)) {
+                                    return `${func["[[Get]]"]("name", func)}() { [...] }`;
+                                }
+                                //Function.prototype.toString.apply(5);
+                                throw TypeError("Function.prototype.toString requires that 'this' be a Function");
+                            },
+                            0, "toString", [], this
+                        );
+
+                        const $hasInstance = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                return ECMAScript.OrdinaryHasInstance(thisArg, argList[0]); //brug
+                            },
+                            1, "[Symbol.hasInstance]", [], this
+                        )
 
                         //i've been looking for this for a while!
                         //https://tc39.es/ecma262/#sec-ecmascript-standard-built-in-objects
                         //data properties are only writable and configurable!
                         //accessor properties are only configurable!
                         funcProto.SetDataProperty("apply", true, false, true, $apply);
+                        funcProto.SetDataProperty("bind", true, false, true, $bind);
+                        funcProto.SetDataProperty("call", true, false, true, $call);
+                        //constructor is actually equal to the %Function% object!! we haven't created it yet though!
+                        funcProto.SetDataProperty("constructor", true, false, true, "Function() {}");
+                        funcProto.SetDataProperty("toString", true, false, true, $toString);
+                        funcProto.SetDataProperty(ECMAScript["%Symbol.hasInstance%"], false, false, false, $hasInstance);
                     }
                     ECMAScript["%Function.prototype%"] = funcProto;
+
+                    const symbolProto = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]);
+                    symbolProto.SetDataProperty("constructor", true, false, true, "Symbol() {}");
+                    symbolProto.SetAccessorProperty("description", false, true, ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            const symbol = ECMAScript.ThisSymbolValue(thisArg);
+                            return symbol["[[Description]]"];
+                        },
+                        0, "description", [], this, undefined, "get"
+                    ), undefined);
+                    symbolProto.SetDataProperty("toString", true, false, true, ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            const symbol = ECMAScript.ThisSymbolValue(thisArg);
+                            //return SymbolDescriptiveString(symbol);
+                            let description = symbol["[[Description]]"];
+                            if(description == undefined) {
+                                description = "";
+                            }
+                            return `Symbol(${description})`;
+                        },
+                        0, "toString", [], this
+                    ));
+                    symbolProto.SetDataProperty("valueOf", true, false, true, ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            return ECMAScript.ThisSymbolValue(thisArg);
+                        },
+                        0, "valueOf", [], this
+                    ));
+                    
+                    ECMAScript["%Symbol.prototype%"] = symbolProto;
+                    ECMAScript["%Symbol.asyncDispose%"] = Symbol.asyncDispose;
+                    ECMAScript["%Symbol.asyncIterator%"] = Symbol.asyncIterator;
+                    ECMAScript["%Symbol.dispose%"] = Symbol.dispose;
+                    ECMAScript["%Symbol.hasInstance%"] = Symbol.hasInstance;
+                    ECMAScript["%Symbol.isConcatSpreadable%"] = Symbol.isConcatSpreadable;
+                    ECMAScript["%Symbol.iterator%"] = Symbol.iterator;
+                    ECMAScript["%Symbol.match%"] = Symbol.match;
+                    ECMAScript["%Symbol.matchAll%"] = Symbol.matchAll;
+                    ECMAScript["%Symbol.replace%"] = Symbol.replace;
+                    ECMAScript["%Symbol.search%"] = Symbol.search;
+                    ECMAScript["%Symbol.species%"] = Symbol.species;
+                    ECMAScript["%Symbol.split%"] = Symbol.split;
+                    ECMAScript["%Symbol.toPrimitive%"] = Symbol.toPrimitive;
+                    ECMAScript["%Symbol.toStringTag%"] = Symbol.toStringTag;
+                    ECMAScript["%Symbol.unscopables%"] = Symbol.unscopables;
+
+                    const boolProto = ECMAScript.OrdinaryObjectCreate(objProto, "[[BooleanData]]");
+                    boolProto.SetDataProperty("constructor", true, false, true, "Boolean() {}");
+                    boolProto["[[BooleanData]]"] = false;
+                    boolProto.SetDataProperty("toString", true, false, true, ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            const bool = ECMAScript.ThisBooleanValue(thisArg);
+                            return bool ? "true" : "false";
+                        },
+                        0, "toString", [], this
+                    ));
+                    boolProto.SetDataProperty("valueOf", true, false, true, ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            return ECMAScript.ThisBooleanValue(thisArg);
+                        },
+                        0, "valueOf", [], this
+                    ));
+                    ECMAScript["%Boolean.prototype%"] = boolProto;
                 }
 
                 //https://tc39.es/ecma262/#sec-object-constructor
@@ -4004,7 +4430,7 @@
                 const $Object = ECMAScript.CreateBuiltinFunction(
                     //i'm starting to recognize why v8 is the way it is...
                     function(thisArg, argList, newTarget) {
-                        if(newTarget != undefined && newTarget != globalThis) { //?
+                        if(newTarget != undefined && newTarget != $Object) {
                             return ECMAScript.OrdinaryCreateFromConstructor(newTarget, "%Object.prototype%");
                         }
                         const value = argList[0];
@@ -4016,6 +4442,11 @@
                     1, "Object", [], this, ECMAScript["%Function.prototype%"]
                 );
                 ECMAScript.MakeConstructor($Object, false);
+
+                $Object.SetDataProperty("prototype", false, false, false, ECMAScript["%Object.prototype%"]);
+
+                ECMAScript["%Object.prototype%"].properties.get("constructor").value = $Object;
+                
                 //$Object["[[Call]]"] = function(value) {
                 //    //active function object?
                 //    if(new.target != undefined && new.target != globalThis) { //?
@@ -4026,7 +4457,14 @@
                 //    }
                 //    return ECMAScript.ToObject(value);
                 //}
-                // $Object.SetDataProperty("keys", );
+                $Object.SetDataProperty("keys", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        const coerced = ECMAScript.ToObject(argList[0]);
+                        //return CreateArrayFromList(keyList);
+                        return ECMAScript.EnumerableOwnProperties(coerced, EnumerateKind.KEY);
+                    },
+                    1, "keys", [], this
+                ));
 
                 this.state.variables[0].set("Object", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Object"}, $Object));
 
@@ -4036,6 +4474,79 @@
                 $Math.SetDataProperty("self", false, false, false, $Math);
                 this.state.variables[0].set("Math", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Math"}, $Math));
                 // const $Object = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Function.prototype%"]);
+
+                //https://tc39.es/ecma262/#sec-boolean-objects
+                const $Boolean = ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        debugger;
+                        const bool = ECMAScript.ToBoolean(argList[0]);
+                        if(newTarget == undefined) {
+                            return bool;
+                        }
+                        const obj = ECMAScript.OrdinaryCreateFromConstructor(newTarget, "%Boolean.prototype%", ["[[BooleanData]]"]);
+                        obj["[[BooleanData]]"] = bool;
+                        return obj;
+                    },
+                    1, "Boolean", [], this, ECMAScript["%Function.prototype%"]
+                );
+                ECMAScript.MakeConstructor($Boolean, false);
+                $Boolean.SetDataProperty("prototype", false, false, false, ECMAScript["%Boolean.prototype%"]);
+                ECMAScript["%Boolean.prototype%"].properties.get("constructor").value = $Boolean;
+                this.state.variables[0].set("Boolean", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Boolean"}, $Boolean));
+
+                //https://tc39.es/ecma262/#sec-symbol-objects
+                const $Symbol = ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        //20.4.1.1
+                        if(newTarget != undefined) {
+                            throw TypeError("Symbol is not a constructor");
+                        }
+                        let descString = undefined;
+                        if(argList[0] != undefined) {
+                            descString = ECMAScript.ToString(argList[0]);
+                        }
+                        
+                        //ok i was confused for a second but when it describes the symbol constructor, that is this
+                        //when it says to return a new symbol object, that object will have the %Symbol.prototype% described further below.
+                        //const newSymbol = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Symbol.prototype%"], "[[SymbolData]]");
+                        //newSymbol["[[Description]]"] = descString;
+                        //newSymbol["[[SymbolData]]"] = Symbol(descString); //?
+                        //return newSymbol;
+
+                        //what the fuck is the different between types and values in this ecmascript specification bruh
+                        //how come numbers aren't actually objects but still have methods
+                        //how the hell are symbols immutable
+                        //ok wait i think i might've had the answer the whole time
+                        //when you use the dot, the specification says to use the GetValue abstract operation which will convert the left hand value into a NEW TEMPORARY object if it's not already one
+                        return Symbol(descString);
+                    },
+                    0, "Symbol", [], this, ECMAScript["%Function.prototype%"]
+                );
+                ECMAScript.MakeConstructor($Symbol, false);
+                //{
+                //    const $asyncDispose = ;
+                //}
+                $Symbol.SetDataProperty("prototype", false, false, false, ECMAScript["%Symbol.prototype%"]);
+                $Symbol.SetDataProperty("asyncDispose", false, false, false, ECMAScript["%Symbol.asyncDispose%"]); //20.4.2.1
+                $Symbol.SetDataProperty("asyncIterator", false, false, false, ECMAScript["%Symbol.asyncIterator%"]);
+                $Symbol.SetDataProperty("dispose", false, false, false, ECMAScript["%Symbol.dispose%"]);
+                $Symbol.SetDataProperty("hasInstance", false, false, false, ECMAScript["%Symbol.hasInstance%"]);
+                $Symbol.SetDataProperty("isConcatSpreadable", false, false, false, ECMAScript["%Symbol.isConcatSpreadable%"]);
+                $Symbol.SetDataProperty("iterator", false, false, false, ECMAScript["%Symbol.iterator%"]);
+                $Symbol.SetDataProperty("match", false, false, false, ECMAScript["%Symbol.match%"]);
+                $Symbol.SetDataProperty("matchAll", false, false, false, ECMAScript["%Symbol.matchAll%"]);
+                $Symbol.SetDataProperty("replace", false, false, false, ECMAScript["%Symbol.replace%"]);
+                $Symbol.SetDataProperty("search", false, false, false, ECMAScript["%Symbol.search%"]);
+                $Symbol.SetDataProperty("species", false, false, false, ECMAScript["%Symbol.species%"]);
+                $Symbol.SetDataProperty("split", false, false, false, ECMAScript["%Symbol.split%"]);
+                $Symbol.SetDataProperty("toPrimitive", false, false, false, ECMAScript["%Symbol.toPrimitive%"]);
+                $Symbol.SetDataProperty("toStringTag", false, false, false, ECMAScript["%Symbol.toStringTag%"]);
+                $Symbol.SetDataProperty("unscopables", false, false, false, ECMAScript["%Symbol.unscopables%"]);
+
+                //oh my god earlier i accidently set ECMAScript["%Symbol.prototype%"] to funcProto instead of symbolProto and i was changing the constructor of function!!
+                ECMAScript["%Symbol.prototype%"].properties.get("constructor").value = $Symbol;
+
+                this.state.variables[0].set("Symbol", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Symbol"}, $Symbol));
             }
 
             parse(str) {
@@ -4134,6 +4645,45 @@
                     //we aren't allowed to delete any declared variables (besides the ones that come with the environment and yeah this implementation is lowkey ignoring that until i come up with a way of knowing lol)
                     //ah yes there are different kind of environments, that could maybe do it?
                     return false;
+                }else if(unaryExpression.operatorToken.kind == TokenKind.RESERVED && unaryExpression.operatorToken.value == "new") {
+                    //hmm.
+                    let ctor;
+                    let argList;
+                    if(unaryExpression.operand instanceof FunctionCallExpression) {
+                        //new x(y)
+                        ctor = this.evaluate(unaryExpression.operand.functionExpr);
+                        argList = unaryExpression.operand.argumentsExprArr.map(v=>this.evaluate(v));
+                    }else {
+                        //new x
+                        ctor = this.evaluate(unaryExpression.operand);
+                        argList = [];
+                    }
+                    if(ctor instanceof JavascriptObjectWrapper) {
+                        if(!("[[Construct]]" in ctor)) {
+                            throw TypeError(`${ctor} is not a constructor`);
+                        }
+                        let newTarget = ctor;
+                        return ctor["[[Construct]]"](argList, newTarget);
+                    }else {
+                        //ctor could be an external constructor like globalThis.RegExp
+                        //should i convert the wrapped objects into regular javascript objects in this situation?
+                        //we should also consider this in visitFunctionCallExpression too
+                        if(!(ctor instanceof Function)) {
+                            throw TypeError(`${ctor} is not a constructor`);
+                        }
+                        return new ctor;
+                    }
+                }else if(unaryExpression.operatorToken.kind == TokenKind.RESERVED && unaryExpression.operatorToken.value == "typeof") {
+                    let value = this.evaluate(unaryExpression.operand, false);
+                    if(value instanceof ReferenceRecord && value.base == undefined) {
+                        return "undefined";
+                    }
+                    value = this.GetValue(value);
+                    //[[IsHTMLDDA]]
+                    if(value instanceof JavascriptObjectWrapper && "[[Call]]" in value) {
+                        return "function";
+                    }
+                    return typeof value;
                 }else {
                     const value = this.evaluate(unaryExpression.operand);
                     switch(unaryExpression.operatorToken.kind) {
@@ -4144,11 +4694,7 @@
                         //yield but yield is only reserved if strict mode!
                         
                         case TokenKind.RESERVED:
-                            switch(unaryExpression.operatorToken.value) {
-                                //new
-                                case "new":
-                                    break;
-                                
+                            switch(unaryExpression.operatorToken.value) {                                
                                 //import
                                 case "import":
                                     break;
@@ -4158,9 +4704,6 @@
                                     break;
                                 case "void":
                                     return undefined; // we already evaluated value earlier lol
-                                    break;
-                                case "typeof":
-                                    return typeof value;
                                     break;
                             }
                             break;
@@ -4322,17 +4865,19 @@
                 }
                 if(value.base instanceof Map) { //6.2.5.5 (4)
                     return value.base.get(value.referencedName).get();
-                }else if(value.base instanceof JavascriptObjectWrapper) { //6.2.5.5 (3)
-                    //const baseObj = ECMAScript.ToObject(value.base);
-                    //if IsPrivateReference
-                    //  return PrivateGet(baseObj, value.referencedName);
-                    if(typeof value.referencedName != "string" && typeof value.referencedName != "symbol") { // is property key
-                        //ToPropertyKey (kind of)
-                        value.referencedName = ECMAScript.ToPropertyKey(value.referencedName);
+                }else {
+                    if(!(value.base instanceof Object) || value.base instanceof JavascriptObjectWrapper) { //6.2.5.5 (3)
+                        const baseObj = ECMAScript.ToObject(value.base);
+                        //if IsPrivateReference
+                        //  return PrivateGet(baseObj, value.referencedName);
+                        if(typeof value.referencedName != "string" && typeof value.referencedName != "symbol") { // is property key
+                            //ToPropertyKey (kind of)
+                            value.referencedName = ECMAScript.ToPropertyKey(value.referencedName);
+                        }
+                        return baseObj["[[Get]]"](value.referencedName, value.GetThisValue());
                     }
-                    return value.base["[[Get]]"](value.referencedName, value.GetThisValue());
                 }
-                return value.base[value.referencedName];
+                return value.base[value.referencedName]; //for external stuff i haven't implemented yet
             }
 
             /**
@@ -4359,15 +4904,20 @@
                     }
                     //set mutable binding
                     return $var.value = rightValue;
-                }else if(record.base instanceof JavascriptObjectWrapper) { //6.2.5.6 (3)
-                    if(typeof record.referencedName != "string" || typeof record.referencedName != "symbol") {
+                }else if(!(record.base instanceof Object) || record.base instanceof JavascriptObjectWrapper) { //6.2.5.6 (3)
+                    const baseObj = ECMAScript.ToObject(record.base);
+                    if(typeof record.referencedName != "string" && typeof record.referencedName != "symbol") {
                         record.referencedName = ECMAScript.ToPropertyKey(record.referencedName);
                     }
-                    const result = record.base["[[Set]]"](record.referencedName, rightValue, record.GetThisValue());
+                    const result = baseObj["[[Set]]"](record.referencedName, rightValue, record.GetThisValue());
                     if(!result && this.state.strict) {
-                        throw new TypeError(`Cannot assign to read only property '${record.referencedName} of object '#<${record.base.constructor.name}>'`);
+                        throw new TypeError(`Cannot assign to read only property '${record.referencedName} of object '#<${baseObj["[[Get]]"]("constructor", baseObj)["[[Get]]"]("name", baseObj)}>'`);
                     }
                     return rightValue;
+                }else {
+                    //for external stuff i haven't implemented yet (e.g. globalThis.alert.name = "...")
+                    //this is also the place i would do fancy binding stuff so that we could call back into our javascript if rightValue was a JavascriptFunctionWrapper
+                    return record.base[record.referencedName] = rightValue;
                 }
             }
             
@@ -4579,8 +5129,15 @@
                         break;
                     case TokenKind.RESERVED:
                         if(binaryExpression.operatorToken.value == "in") {
-                            return left in right;
+                            if(right instanceof JavascriptObjectWrapper) {
+                                return right["[[HasProperty]]"](ECMAScript.ToPropertyKey(left));
+                            }else {
+                                return left in right;
+                            }
                         }else if(binaryExpression.operatorToken.value == "instanceof") {
+                            if(left instanceof JavascriptObjectWrapper || right instanceof JavascriptObjectWrapper) {
+                                return ECMAScript.InstanceofOperator(left, right);
+                            }
                             return left instanceof right;
                         }
                         break;
@@ -4868,6 +5425,11 @@
             visitReturnStatement(returnStatement) {
                 throw this.evaluate(returnStatement.expr); //lol
             }
+
+            /** @param {ArrayLiteralExpression} arrayLiteralExpression */
+            visitArrayLiteralExpression(arrayLiteralExpression) {
+                return arrayLiteralExpression.value.map(v=>this.evaluate(v));
+            }
         }
 
         class Printer {
@@ -5065,6 +5627,11 @@
             /** @param {DebuggerStatement} debuggerStatement */
             visitDebuggerStatement(debuggerStatement) {
                 return `debugger;`;
+            }
+
+            /** @param {ArrayLiteralExpression} arrayLiteralExpression */
+            visitArrayLiteralExpression(arrayLiteralExpression) {
+                return arrayLiteralExpression.value.map(v=>v.accept(this));
             }
         }
 
