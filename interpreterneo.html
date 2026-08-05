@@ -47,6 +47,7 @@
             <option value="rodwave">when the bs start</option>
             <option value="bs2">identifier gender LMAO</option>
             <option value="consistent">consistent</option>
+            <option value="discrepancies">discrepancies</option>
             <option value="COMPREHENSION">ARRAY COMPREHENSION?!</option>
             <option value="closures">closures</option>
             <option value="operators">operators</option>
@@ -75,6 +76,7 @@
             "varscope": "var a = \"global a\";\nvar b = \"global b\";\nvar c = \"global c\";\n{\n  var a = \"outer a\";\n  var b = \"outer b\";\n  {\n    var a = \"inner a\";\n    var a;\n    console.log(a);\n    console.log(b);\n    console.log(c);\n  }\n  console.log(a);\n  console.log(b);\n  console.log(c);\n}\nconsole.log(a);\nconsole.log(b);\nconsole.log(c);\n",
             "varscope2": "var hoist = \"okay\";\n{\n    var block = true;\n}\nvar after = \"yes\";\n\nconsole.log(hoist, block, after);",
             "consistent": "let x = 2;\n{\n    console.log(x); //should be ReferenceError because of let shadow!\n    let x;\n}",
+            "discrepancies": "Math.abs(new Boolean(5)); // should be 1!", // it should coerce (new Boolean(5)) into the primitive '1' (but i haven't done that)
             "COMPREHENSION": "let split = [for (const x of \"string\") x];",
             "closures": "function makeCounter() {\n  let i = 0;\n  function count() {\n    i = i + 1;\n    console.log(i);\n  }\n\n  return count;\n}\n\nlet counter = makeCounter();\ncounter(); // \"1\".\ncounter(); // \"2\".",
         }
@@ -1535,6 +1537,8 @@
             parameters;
             /** @type {Statement} */
             body;
+            /** @type {String} */
+            sourceText;
 
             /**
              * @param {Token | undefined} genderToken
@@ -1544,8 +1548,9 @@
              * @param {Token} nameToken
              * @param {Array<{identifier: IdentifierExpression, default: Expression | undefined}>} parameters
              * @param {Statement} body
+             * @param {String} sourceText
              */
-            constructor(genderToken, isStrict, isAsync, isGenerator, nameToken, parameters, body) {
+            constructor(genderToken, isStrict, isAsync, isGenerator, nameToken, parameters, body, sourceText) {
                 super();
                 this.genderToken = genderToken;
                 this.isStrict = isStrict;
@@ -1554,6 +1559,7 @@
                 this.nameToken = nameToken;
                 this.parameters = parameters;
                 this.body = body;
+                this.sourceText = sourceText;
             }
 
             accept(visitor) {
@@ -1842,9 +1848,9 @@
                 let internalSlotsList = ["[[Prototype]]", "[[Extensible]]", "[[BoundTargetFunction]]", "[[BoundThis]]", "[[BoundArguments]]"];
                 const obj = ECMAScript.MakeBasicObject(internalSlotsList);
                 obj["[[Prototype]]"] = targetFunc["[[GetPrototypeOf]]"]();
-                obj["[[Call]]"] = BoundFunction["[[Call]]"];
+                obj["[[Call]]"] = ExoticBoundFunction["[[Call]]"];
                 if(targetFunc instanceof JavascriptObjectWrapper && "[[Construct]]" in targetFunc) {
-                    obj["[[Construct]]"] = BoundFunction["[[Construct]]"];
+                    obj["[[Construct]]"] = ExoticBoundFunction["[[Construct]]"];
                 }
                 obj["[[BoundTargetFunction]]"] = targetFunc;
                 obj["[[BoundThis]]"] = ECMAScript.ToObject(boundThis); //the specification doesn't actually say to use ToObject here but for some reason in regular javascript this seems to happen
@@ -1860,6 +1866,22 @@
                 */
                 obj["[[BoundArguments]]"] = boundArgs;
                 return obj;
+            }
+
+            static ArrayCreate(length, proto) {
+                if(length > 2**32 - 1) {
+                    //new Array(2**32);
+                    throw RangeError("Invalid array length");
+                }
+                if(proto == undefined) {
+                    proto = ECMAScript["%Array.prototype%"];
+                }
+                const array = ECMAScript.MakeBasicObject(["[[Prototype]]", "[[Extensible]]"]);
+                array["[[Prototype]]"] = proto;
+                array["[[DefineOwnProperty]]"] = ExoticArrayObject["[[DefineOwnProperty]]"];
+                //OrdinaryDefineOwnProperty(array, "length", new JavascriptDataProperty());
+                JavascriptObjectWrapper.prototype["[[DefineOwnProperty]]"].call(array, "length", new JavascriptDataProperty(true, false, false, length));
+                return array;
             }
 
             static BuiltinCallOrConstruct(func, thisArg, argList, newTarget) {
@@ -2537,9 +2559,26 @@
 
             //helper methods lol
             SetDataProperty(key, writable, enumerable, configurable, value) {
+                holyshitlikegotobreakoutofifstatementhowdidinotknowyoucouldlabelanystatementbeforeqwq:
+                if(typeof value == "object" && "initialName" in value) {
+                    if(value.initialName != key.toString()) {
+                        if(typeof key == "symbol" && value.initialName == `[${key.description}]`) break holyshitlikegotobreakoutofifstatementhowdidinotknowyoucouldlabelanystatementbeforeqwq;
+                        //debugger;
+                        //the function prototype one is fine because just like in real javascript, Function.prototype.name == '';
+                        console.warn(`Data property '${key.toString()}' was set to function object with different name '${value.initialName}', was this intended?`);
+                    }
+                }
                 this.properties.set(key, new JavascriptDataProperty(writable, enumerable, configurable, value));
             }
             SetAccessorProperty(key, enumerable, configurable, getter, setter) {
+                if(getter && getter.initialName != `get ${key.toString()}`) {
+                    debugger;
+                    throw Error("getter was set to function with different name, was this intended?");
+                }
+                if(setter && setter.initialName != `set ${key.toString()}`) {
+                    debugger;
+                    throw Error("setter was set to function with different name, was this intended?");
+                }
                 this.properties.set(key, new JavascriptAccessorProperty(enumerable, configurable, getter, setter));
             }
         }
@@ -2685,7 +2724,8 @@
             }
         }
 
-        class BoundFunction {
+        //exotic
+        class ExoticBoundFunction {
             static ["[[Call]]"](thisArg, argList) {
                 const args = [...this["[[BoundArguments]]"], ...argList];
                 return this["[[BoundTargetFunction]]"]["[[Call]]"](this["[[BoundThis]]"], args);
@@ -2698,6 +2738,138 @@
                     newTarget = this["[[BoundTargetFunction]]"];
                 }
                 return this["[[BoundTargetFunction]]"]["[[Construct]]"](args, newTarget);   
+            }
+        }
+
+        //exotic
+        //length is not configurable
+        class ExoticArrayObject {
+            static ["[[DefineOwnProperty]]"](propertyKey, propertyDesc) {
+                if(propertyKey == "length") {
+                    //ArraySetLength is only used here lol
+                    //return ArraySetLength(this, propertyDesc);
+                    if(!("value" in propertyDesc)) {
+                        //return OrdinaryDefineOwnProperty(this, "length", propertyDesc);
+                        return JavascriptObjectWrapper.prototype["[[DefineOwnProperty]]"].call(this, "length", propertyDesc); //oh right length is not configurable so this will fail (if i remembered to make it not configurable)
+                    }
+                    //at this point we know it's a JavascriptDataProperty
+                    //not using structuredClone because it doesn't retain the type!
+                    const newLengthDesc = new JavascriptDataProperty;
+                    for(const prop in propertyDesc) {
+                        newLengthDesc[prop] = propertyDesc[prop];
+                    }
+                    //ToUint32
+                    const newLength = ECMAScript.ToNumber(propertyDesc.value) >>> 0;
+                    const numberLength = ECMAScript.ToNumber(propertyDesc.value);
+                    //let arr = [];
+                    //arr.length = 2**32; //Failed to set the 'length' property on 'Array': Invalid array length
+                    
+                    //SameValueZero
+                    //let x = 2**32;
+                    //let newLength = x>>>0;
+                    //let numberLength = x;
+                    //console.log(newLength, numberLength);
+                    //newLength != numberLength && !(Math.abs(newLength) == 0 && Math.abs(numberLength) == 0)
+                    if(newLength != numberLength && !(Math.abs(newLength) == 0 && Math.abs(numberLength) == 0)) {
+                        throw RangeError("Failed to set the 'length' property on 'Array': Invalid array length");
+                    }
+                    newLengthDesc.value = newLength;
+                    const oldLengthDesc = this["[[GetOwnProperty]]"]("length");
+                    //Assert: oldLengthDesc != undefined
+                    //Assert: "value" in oldLengthDesc
+                    //Assert: oldLengthDesc.configurable == false
+                    const oldLength = oldLengthDesc.value;
+                    if(newLength >= oldLength) {
+                        //return OrdinaryDefineOwnProperty(this, "length", newLengthDesc);
+                        return JavascriptObjectWrapper.prototype["[[DefineOwnProperty]]"].call(this, "length", newLengthDesc);
+                    }
+                    if(oldLengthDesc.writable == false) return false;
+                    let newWritable;
+                    if(!("writable" in newLengthDesc) || newLengthDesc.writable == true) {
+                        newWritable = true;
+                    }else {
+                        //a. NOTE: Setting the [[Writable]] attribute to false is deferred in case any elements cannot be deleted.
+                        newWritable = false;
+                        newLengthDesc.writable = true;
+                    }
+                    //const succeeded = OrdinaryDefineOwnProperty(this, "length", newLengthDesc);
+                    const succeeded = JavascriptObjectWrapper.prototype["[[DefineOwnProperty]]"].call(this, "length", newLengthDesc);
+                    if(succeeded == false) return false;
+                    //not exactly in the specification but probably the easiest way lol
+                    const keys = [...this.properties.keys().filter(k=>typeof k == "number")].sort((a,b)=>b-a); //oh.
+                    //now that they're only numbers and sorted from highest to lowest, we can break if we see a number lower than newLength
+                    for(const propertyKey of keys) {
+                        if((propertyKey >>> 0) >= newLength) {
+                            const deleteSucceeded = this["[[Delete]]"](propertyKey);
+                            if(deleteSucceeded == false){
+                                newLengthDesc.value = (propertyKey >>> 0) + 1;
+                                if(newWritable == false) {
+                                    newLengthDesc.writable = false;
+                                }
+                                JavascriptObjectWrapper.prototype["[[DefineOwnProperty]]"].call(this, "length", newLengthDesc);
+                                return false;
+                            }
+                        }
+                        break;
+                    }
+                    if(newWritable == false) {
+                        //const succeeded = OrdinaryDefineOwnProperty(this, "length", {writable: false});
+                        JavascriptObjectWrapper.prototype["[[DefineOwnProperty]]"].call(this, "length", {writable: false});
+                        //Assert: succeeded == true;
+                    }
+                    return true;
+
+                    //the specification mentions that valueOf is called twice if you set length to an actual Number instance and this is actually observable
+                    //class MyNumber extends Number {
+                    //    usage = 0;
+                    //    constructor(value) {
+                    //        super(value);
+                    //    }
+                    //    valueOf() {
+                    //        this.usage++;
+                    //        return Number.prototype.valueOf.call(this);
+                    //    }
+                    //}
+                    //const instance = new MyNumber(0);
+                    //let arr = [];
+                    //arr.length = instance;
+                    //console.log(instance); // MyNumber {0, usage: 2}
+                }
+                //is an array index
+                //i was worried for a second that a weird case like using (new Object(0)) as an index wouldn't work but ToPropertyKey (and eventually OrdinaryToPrimitive) covers this
+                if(propertyKey >= 0 && propertyKey <= 2**32 - 2) {
+                    const lengthDesc = this["[[GetOwnProperty]]"](propertyKey);
+                    //Assert: lengthDesc != undefined
+                    //Assert: "writable" in lengthDesc || "value" in lengthDesc
+                    //Assert: lengthDesc.configurable == false
+                    const length = lengthDesc.value;
+                    //Assert: length is non-negative integral Number
+                    //ToUint32(length);
+                    //let index = Math.trunc(length);
+                    //if(index == Infinity || index == -Infinity) {
+                    //    index = 0;
+                    //}else {
+                    //    index = index % 2**32; //exponent has higher precedence
+                    //}
+
+                    //ah the google says we can just use the ole unsigned right shift that calls ToUint32 internally!
+                    const index = length >>> 0;
+
+                    if(index >= length && lengthDesc.writable == false) return false;
+                    //const succeeded = OrdinaryDefineOwnProperty(this, propertyKey, propertyDesc);
+                    const succeeded = JavascriptObjectWrapper.prototype["[[DefineOwnProperty]]"].call(this, propertyKey, propertyDesc);
+                    if(succeeded == false) return false;
+                    if(index >= length) {
+                        lengthDesc.value = index+1;
+                        //succeeded = OrdinaryDefineOwnProperty(this, "length", lengthDesc);
+                        //succeeded = JavascriptObjectWrapper.prototype["[[DefineOwnProperty]]"].call(this, "length", lengthDesc);
+                        JavascriptObjectWrapper.prototype["[[DefineOwnProperty]]"].call(this, "length", lengthDesc);
+                        //Assert: succeeded == true;
+                    }
+                    return true;
+                }
+                //return OrdinaryDefineOwnProperty(this, propertyKey, propertyDesc);
+                return JavascriptObjectWrapper.prototype["[[DefineOwnProperty]]"].call(this, propertyKey, propertyDesc);
             }
         }
 
@@ -3977,7 +4149,14 @@
                             strict = true;
                         }
 
-                        $var.statement = new FunctionStatement(gender || undefined, strict, !!async, !!generator, name, parameters, functionBody);
+                        $var.statement = new FunctionStatement(gender || undefined, strict, !!async, !!generator, name, parameters, functionBody, undefined);
+
+                        let sourceText = "";
+                        {
+                            const p = new Printer;
+                            sourceText += $var.statement.accept(p);
+                        }
+                        $var.statement.sourceText = sourceText;
                         
                         return $var.statement;
                     }
@@ -4177,7 +4356,23 @@
             constructor() {
                 super();
                 //this.scope = {};
-                // debugger;
+                debugger;
+
+                ECMAScript["%Symbol.asyncDispose%"] = Symbol.asyncDispose;
+                ECMAScript["%Symbol.asyncIterator%"] = Symbol.asyncIterator;
+                ECMAScript["%Symbol.dispose%"] = Symbol.dispose;
+                ECMAScript["%Symbol.hasInstance%"] = Symbol.hasInstance;
+                ECMAScript["%Symbol.isConcatSpreadable%"] = Symbol.isConcatSpreadable;
+                ECMAScript["%Symbol.iterator%"] = Symbol.iterator;
+                ECMAScript["%Symbol.match%"] = Symbol.match;
+                ECMAScript["%Symbol.matchAll%"] = Symbol.matchAll;
+                ECMAScript["%Symbol.replace%"] = Symbol.replace;
+                ECMAScript["%Symbol.search%"] = Symbol.search;
+                ECMAScript["%Symbol.species%"] = Symbol.species;
+                ECMAScript["%Symbol.split%"] = Symbol.split;
+                ECMAScript["%Symbol.toPrimitive%"] = Symbol.toPrimitive;
+                ECMAScript["%Symbol.toStringTag%"] = Symbol.toStringTag;
+                ECMAScript["%Symbol.unscopables%"] = Symbol.unscopables;
 
                 {
                     //https://tc39.es/ecma262/#sec-properties-of-the-object-prototype-object
@@ -4328,7 +4523,8 @@
                                 }
                                 //func is a built-in function object
                                 if(func["[[Call]]"] == BuiltInFunction["[[Call]]"]) {
-                                    return `${func.initialName}() { [native code] }`;
+                                    //without calling toString, devtools omits the function prefix (which had me confused)
+                                    return `function ${func.initialName}() { [native code] }`;
                                 }
                                 if(func instanceof JavascriptObjectWrapper && ECMAScript.IsCallable(func)) {
                                     return `${func["[[Get]]"]("name", func)}() { [...] }`;
@@ -4361,7 +4557,7 @@
                     ECMAScript["%Function.prototype%"] = funcProto;
 
                     const symbolProto = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]);
-                    symbolProto.SetDataProperty("constructor", true, false, true, "Symbol() {}");
+                    symbolProto.SetDataProperty("constructor", true, false, true, "Symbol() {}"); //we set this later when we create $Symbol!
                     symbolProto.SetAccessorProperty("description", false, true, ECMAScript.CreateBuiltinFunction(
                         function(thisArg, argList, newTarget) {
                             const symbol = ECMAScript.ThisSymbolValue(thisArg);
@@ -4389,24 +4585,9 @@
                     ));
                     
                     ECMAScript["%Symbol.prototype%"] = symbolProto;
-                    ECMAScript["%Symbol.asyncDispose%"] = Symbol.asyncDispose;
-                    ECMAScript["%Symbol.asyncIterator%"] = Symbol.asyncIterator;
-                    ECMAScript["%Symbol.dispose%"] = Symbol.dispose;
-                    ECMAScript["%Symbol.hasInstance%"] = Symbol.hasInstance;
-                    ECMAScript["%Symbol.isConcatSpreadable%"] = Symbol.isConcatSpreadable;
-                    ECMAScript["%Symbol.iterator%"] = Symbol.iterator;
-                    ECMAScript["%Symbol.match%"] = Symbol.match;
-                    ECMAScript["%Symbol.matchAll%"] = Symbol.matchAll;
-                    ECMAScript["%Symbol.replace%"] = Symbol.replace;
-                    ECMAScript["%Symbol.search%"] = Symbol.search;
-                    ECMAScript["%Symbol.species%"] = Symbol.species;
-                    ECMAScript["%Symbol.split%"] = Symbol.split;
-                    ECMAScript["%Symbol.toPrimitive%"] = Symbol.toPrimitive;
-                    ECMAScript["%Symbol.toStringTag%"] = Symbol.toStringTag;
-                    ECMAScript["%Symbol.unscopables%"] = Symbol.unscopables;
 
                     const boolProto = ECMAScript.OrdinaryObjectCreate(objProto, "[[BooleanData]]");
-                    boolProto.SetDataProperty("constructor", true, false, true, "Boolean() {}");
+                    boolProto.SetDataProperty("constructor", true, false, true, "Boolean() {}"); //we set this later when we create $Boolean!
                     boolProto["[[BooleanData]]"] = false;
                     boolProto.SetDataProperty("toString", true, false, true, ECMAScript.CreateBuiltinFunction(
                         function(thisArg, argList, newTarget) {
@@ -4468,10 +4649,253 @@
 
                 this.state.variables[0].set("Object", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Object"}, $Object));
 
+                const $Function = ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        //ain't no damn way boy
+                        const ctor = $Function; //active function object ?...
+                        let bodyArg;
+                        if(argList == 0) {
+                            bodyArg = "";
+                        }else {
+                            bodyArg = argList[argList.length-1];
+                        }
+                        //class DynamicFunctionKind {
+                        //  static NORMAL = 1;
+                        //  static GENERATOR = 2;
+                        //  static ASYNC = 3;
+                        //  static ASYNC_GENERATOR = 4;
+                        //}
+                        //return ECMAScript.CreateDynamicFunction(ctor, newTarget, DynamicFunctionKind.NORMAL, argList.slice(0, argList.length-1), bodyArg);
+                        throw Error("Function builtin not implemented yet!");
+                    },
+                    1, "Function", [], this, ECMAScript["%Function.prototype%"]
+                );
+                ECMAScript.MakeConstructor($Function, false);
+                $Function.SetDataProperty("prototype", false, false, false, ECMAScript["%Function.prototype%"]); //20.2.2.1
+                ECMAScript["%Function.prototype%"].properties.get("constructor").value = $Function;
+                this.state.variables[0].set("Function", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Function"}, $Function));
+
                 const $Math = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]); //fairs, https://tc39.es/ecma262/#sec-math-object
                 // $Math.properties.set("E", new JavascriptDataProperty(false, false, false, Math.E));
-                $Math.SetDataProperty("E", false, false, false, Math.E);
-                $Math.SetDataProperty("self", false, false, false, $Math);
+                // $Math.SetDataProperty("self", false, false, false, $Math);
+
+                //21.3.1
+                $Math.SetDataProperty("E", false, false, false, Math.E); //2.7182818284590452354
+                $Math.SetDataProperty("LN10", false, false, false, Math.LN10); //2.302585092994046
+                $Math.SetDataProperty("LN2", false, false, false, Math.LN2); //0.6931471805599453
+                $Math.SetDataProperty("LOG10E", false, false, false, Math.LOG10E); //0.4342944819032518
+                $Math.SetDataProperty("LOG2E", false, false, false, Math.LOG2E); //1.4426950408889634
+                $Math.SetDataProperty("PI", false, false, false, Math.PI); //3.1415926535897932
+                $Math.SetDataProperty("SQRT1_2", false, false, false, Math.SQRT1_2); //0.7071067811865476
+                $Math.SetDataProperty("SQRT2", false, false, false, Math.SQRT2); //1.4142135623730951
+                $Math.SetDataProperty(ECMAScript["%Symbol.toStringTag%"], false, false, true, "Math"); //Math
+                //if i REALLY cared, i'd do more to make sure these are actual numbers including accessing the [[NumberData]] internal slot if the supplied "number" was an object (but holy shit this would take so much longer lol)
+                $Math.SetDataProperty("abs", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.abs(argList[0]);
+                    },
+                    1, "abs", [], this
+                ));
+                $Math.SetDataProperty("acos", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.acos(argList[0]);
+                    },
+                    1, "acos", [], this
+                ));
+                $Math.SetDataProperty("acosh", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.acosh(argList[0]);
+                    },
+                    1, "acosh", [], this
+                ));
+                $Math.SetDataProperty("asin", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.asin(argList[0]);
+                    },
+                    1, "asin", [], this
+                ));
+                $Math.SetDataProperty("asinh", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.asinh(argList[0]);
+                    },
+                    1, "asinh", [], this
+                ));
+                $Math.SetDataProperty("atan", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.atan(argList[0]);
+                    },
+                    1, "atan", [], this
+                ));
+                $Math.SetDataProperty("atanh", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.atanh(argList[0]);
+                    },
+                    1, "atanh", [], this
+                ));
+                $Math.SetDataProperty("atan2", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.atan2(argList[0], argList[1]);
+                    },
+                    2, "atan2", [], this
+                ));
+                $Math.SetDataProperty("cbrt", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.cbrt(argList[0]);
+                    },
+                    1, "cbrt", [], this
+                ));
+                $Math.SetDataProperty("ceil", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.ceil(argList[0]);
+                    },
+                    1, "ceil", [], this
+                ));
+                $Math.SetDataProperty("clz32", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.clz32(argList[0]);
+                    },
+                    1, "clz32", [], this
+                ));
+                $Math.SetDataProperty("cos", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.cos(argList[0]);
+                    },
+                    1, "cos", [], this
+                ));
+                $Math.SetDataProperty("cosh", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.cosh(argList[0]);
+                    },
+                    1, "cosh", [], this
+                ));
+                $Math.SetDataProperty("exp", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.exp(argList[0]);
+                    },
+                    1, "exp", [], this
+                ));
+                $Math.SetDataProperty("expm1", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.expm1(argList[0]);
+                    },
+                    1, "expm1", [], this
+                ));
+                $Math.SetDataProperty("floor", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.floor(argList[0]);
+                    },
+                    1, "floor", [], this
+                ));
+                $Math.SetDataProperty("fround", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.fround(argList[0]);
+                    },
+                    1, "fround", [], this
+                ));
+                $Math.SetDataProperty("f16round", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.f16round(argList[0]);
+                    },
+                    1, "f16round", [], this
+                ));
+                $Math.SetDataProperty("hypot", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.hypot(...argList);
+                    },
+                    2, "hypot", [], this
+                ));
+                $Math.SetDataProperty("imul", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.imul(argList[0], argList[1]);
+                    },
+                    2, "imul", [], this
+                ));
+                $Math.SetDataProperty("log", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.log(argList[0]);
+                    },
+                    1, "log", [], this
+                ));
+                $Math.SetDataProperty("log1p", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.log1p(argList[0]);
+                    },
+                    1, "log1p", [], this
+                ));
+                $Math.SetDataProperty("log10", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.log10(argList[0]);
+                    },
+                    1, "log10", [], this
+                ));
+                $Math.SetDataProperty("log2", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.log2(argList[0]);
+                    },
+                    1, "log2", [], this
+                ));
+                $Math.SetDataProperty("max", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.max(...argList);
+                    },
+                    2, "max", [], this
+                ));
+                $Math.SetDataProperty("min", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.min(...argList);
+                    },
+                    2, "min", [], this
+                ));
+                $Math.SetDataProperty("pow", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.pow(argList[0], argList[1]);
+                    },
+                    2, "pow", [], this
+                ));
+                $Math.SetDataProperty("random", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.random();
+                    },
+                    0, "random", [], this
+                ));
+                $Math.SetDataProperty("round", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.round(argList[0]);
+                    },
+                    1, "round", [], this
+                ));
+                $Math.SetDataProperty("sign", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.sign(argList[0]);
+                    },
+                    1, "sign", [], this
+                ));
+                $Math.SetDataProperty("sin", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.sin(argList[0]);
+                    },
+                    1, "sin", [], this
+                ));
+                $Math.SetDataProperty("sinh", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.sinh(argList[0]);
+                    },
+                    1, "sinh", [], this
+                ));
+                $Math.SetDataProperty("sqrt", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Math.sqrt(argList[0]);
+                    },
+                    1, "sqrt", [], this
+                ));
+                //uh oh sumPrecise is special
+                // $Math.SetDataProperty("sumPrecise", true, false, true, ECMAScript.CreateBuiltinFunction(
+                //     function(thisArg, argList, newTarget) {
+                //         return Math.sumPrecise(argList[0]);
+                //     },
+                //     1, "sumPrecise", [], this
+                // ));
+
                 this.state.variables[0].set("Math", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Math"}, $Math));
                 // const $Object = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Function.prototype%"]);
 
@@ -5385,10 +5809,11 @@
                     //}
                     closure.push(map); //we're creating a copy of the array so that push and pop don't affect our closure
                 }
+
                 // const wrapper = new FunctionWrapper(functionStatement, closure, undefined);
                 //https://tc39.es/ecma262/#sec-runtime-semantics-instantiateordinaryfunctionobject
                 const privateEnv = null;
-                const wrapper = ECMAScript.OrdinaryFunctionCreate(this, ECMAScript["%Function.prototype%"], "insert source text here...", functionStatement.parameters, functionStatement.body, ThisMode.NON_LEXICAL_THIS, closure, privateEnv);
+                const wrapper = ECMAScript.OrdinaryFunctionCreate(this, ECMAScript["%Function.prototype%"], functionStatement.sourceText, functionStatement.parameters, functionStatement.body, ThisMode.NON_LEXICAL_THIS, closure, privateEnv);
                 //for some reason SetFunctionName is actually special
                 //https://tc39.es/ecma262/#sec-setfunctionname
                 //const success = wrapper["[[DefineOwnProperty]]"]("name", new JavascriptDataProperty(false, false, true, functionStatement.nameToken.value)); //simplified!
