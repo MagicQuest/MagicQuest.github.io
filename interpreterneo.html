@@ -47,7 +47,8 @@
             <option value="rodwave">when the bs start</option>
             <option value="bs2">identifier gender LMAO</option>
             <option value="consistent">consistent</option>
-            <option value="discrepancies">discrepancies</option>
+            <option value="consistent2">consistent2</option>
+            <option value="consistent3">consistent3</option>
             <option value="COMPREHENSION">ARRAY COMPREHENSION?!</option>
             <option value="closures">closures</option>
             <option value="operators">operators</option>
@@ -76,7 +77,8 @@
             "varscope": "var a = \"global a\";\nvar b = \"global b\";\nvar c = \"global c\";\n{\n  var a = \"outer a\";\n  var b = \"outer b\";\n  {\n    var a = \"inner a\";\n    var a;\n    console.log(a);\n    console.log(b);\n    console.log(c);\n  }\n  console.log(a);\n  console.log(b);\n  console.log(c);\n}\nconsole.log(a);\nconsole.log(b);\nconsole.log(c);\n",
             "varscope2": "var hoist = \"okay\";\n{\n    var block = true;\n}\nvar after = \"yes\";\n\nconsole.log(hoist, block, after);",
             "consistent": "let x = 2;\n{\n    console.log(x); //should be ReferenceError because of let shadow!\n    let x;\n}",
-            "discrepancies": "Math.abs(new Boolean(5)); // should be 1!", // it should coerce (new Boolean(5)) into the primitive '1' (but i haven't done that)
+            "consistent2": "Math.abs(new Boolean(5)); // 1", // it should coerce (new Boolean(5)) into the primitive '1' (but i haven't done that) (now i have ;)
+            "consistent3": "//no object literals yet...\nlet obj = Object();\n\nfunction temp() {\n    return 21;\n}\n\n//no function expressions yet...\nobj.valueOf = temp;\n\n//unary plus to coerce\nconsole.log(+obj); // 21!",
             "COMPREHENSION": "let split = [for (const x of \"string\") x];",
             "closures": "function makeCounter() {\n  let i = 0;\n  function count() {\n    i = i + 1;\n    console.log(i);\n  }\n\n  return count;\n}\n\nlet counter = makeCounter();\ncounter(); // \"1\".\ncounter(); // \"2\".",
         }
@@ -1328,6 +1330,31 @@
                 return visitor.visitTernaryExpression(this);
             }
         }
+        
+        class AssignmentExpression extends Expression {
+            /** @type {Expression} */
+            left;
+            /** @type {Token} */
+            operatorToken;
+            /** @type {Expression} */
+            right;
+
+            /**
+             * @param {Expression} left
+             * @param {Token} operatorToken
+             * @param {Expression} right
+             */
+            constructor(left, operatorToken, right) {
+                super();
+                this.left = left;
+                this.operatorToken = operatorToken;
+                this.right = right;
+            }
+
+            accept(visitor) /*override*/ {
+                return visitor.visitAssignmentExpression(this);
+            }
+        }
 
         class FunctionCallExpression extends Expression {
             /** @type {Expression} */
@@ -1611,6 +1638,12 @@
             static NUMBER = 2;
         }
 
+        //helper
+        function GetConstructorName(/** @type {JavascriptObjectWrapper} */ obj) {
+            const ctor = obj["[[Get]]"]("constructor", obj);
+            return ctor["[[Get]]"]("name", ctor);
+        }
+
         //important abstract operations
         class ECMAScript {
             //https://tc39.es/ecma262/#sec-iscallable
@@ -1729,6 +1762,17 @@
                 return func;
             }
 
+            static GetPrototypeFromConstructor(ctor, intrinsicDefaultProto) {
+                /*Assert:*/ if(!ECMAScript.hasOwnProperty(intrinsicDefaultProto)) { //every time i see this i'm confused lol (checking if intrinsicDefaultProto is actually in ECMAScript (e.g. "%Object.prototype%"))
+                    throw Error("ey man");
+                }
+                let proto = ctor["[[Get]]"]("prototype", ctor);
+                if(!(proto instanceof JavascriptObjectWrapper)) {
+                    proto = ECMAScript[intrinsicDefaultProto];
+                }
+                return proto;
+            }
+
             //https://tc39.es/ecma262/#sec-ordinarycreatefromconstructor
             /**
              * @param {JavascriptObjectWrapper} ctor
@@ -1736,18 +1780,7 @@
              * @param {Array<String>} internalSlotsList
              */
             static OrdinaryCreateFromConstructor(ctor, intrinsicDefaultProto, internalSlotsList = []) {
-                /*Assert:*/ if(!ECMAScript.hasOwnProperty(intrinsicDefaultProto)) {
-                    throw Error("ey man");
-                }
-                //GetPrototypeFromConstructor(ctor, intrinsicDefaultProto);
-                /*Assert: if(!ECMAScript.hasOwnProperty(intrinsicDefaultProto)) {
-                    throw Error("ey man");
-                }*/
-                let proto = ctor["[[Get]]"]("prototype", ctor);
-                if(!(proto instanceof JavascriptObjectWrapper)) {
-                    proto = ECMAScript[intrinsicDefaultProto];
-                }
-
+                const proto = ECMAScript.GetPrototypeFromConstructor(ctor, intrinsicDefaultProto);
                 return ECMAScript.OrdinaryObjectCreate(proto, ...internalSlotsList);
             }
 
@@ -1925,6 +1958,30 @@
                 return !!arg; //yeah
             }
 
+            static ToNumber(arg) {
+                if(typeof arg == "number") {
+                    return arg;
+                }
+                if(typeof arg == "symbol" || typeof arg == "bigint") {
+                    //Math.abs(Symbol.iterator);
+                    //Math.abs(5n);
+                    throw TypeError(`Cannot convert a ${arg.constructor.name} value to a number`);
+                }
+                if(arg == undefined) return NaN;
+                if(arg == null || arg == false) return 0;
+                if(arg == true) return 1;
+                if(typeof arg == "string") return Number(arg); //ye
+                //Assert: arg instanceof JavascriptObjectWrapper
+                const primitiveValue = ECMAScript.ToPrimitive(arg, PreferredType.NUMBER);
+                //Assert: !(primitiveValue instanceof JavascriptObjectWrapper)
+                return ECMAScript.ToNumber(primitiveValue);
+            }
+
+            static ToUint32(arg) {
+                //const int = ECMAScript.ToIntegerOrInfinity(arg);
+                return Math.trunc(ECMAScript.ToNumber(arg)) >>> 0;
+            }
+
             //https://tc39.es/ecma262/#sec-thisbooleanvalue
             static ThisBooleanValue(arg) {
                 if(typeof arg == "boolean") {
@@ -1938,7 +1995,10 @@
             }
 
             static ThisSymbolValue(arg) {
-                if("[[Description]]" in arg) {
+                //if("[[Description]]" in arg) {
+                //    return arg;
+                //}
+                if(typeof arg == "symbol") {
                     return arg;
                 }
                 if(arg instanceof JavascriptObjectWrapper && "[[SymbolData]]" in arg) {
@@ -2000,6 +2060,10 @@
                 return func;
             }
 
+            static LengthOfArrayLike(obj) {
+                return Math.min(Math.max(Math.trunc(ECMAScript.ToNumber(obj["[[Get]]"]("length", obj))), 0), 2**53-1);
+            }
+
             //https://tc39.es/ecma262/#sec-toprimitive
             static ToPrimitive(input, preferredType) {
                 if(input instanceof JavascriptObjectWrapper) {
@@ -2033,6 +2097,14 @@
                 return input;
             }
 
+            static ToNumeric(arg) {
+                const primitiveValue = ECMAScript.ToPrimitive(arg, PreferredType.NUMBER);
+                if(typeof primitiveValue == "bigint") {
+                    return primitiveValue;
+                }
+                return ECMAScript.ToNumber(primitiveValue);
+            }
+
             //https://tc39.es/ecma262/#sec-topropertykey
             static ToPropertyKey(arg) {
                 const key = ECMAScript.ToPrimitive(arg, PreferredType.STRING);
@@ -2047,6 +2119,39 @@
                 return ECMAScript.ToString(key);
             }
 
+            static ToPropertyDescriptor(obj) {
+                if(!(obj instanceof JavascriptObjectWrapper)) throw TypeError(`Property description must be an object: ${ECMAScript["%Object.prototype%"].properties.get("toString")["[[Call]]"](obj, [])}}`); //Object.create(Object.prototype, {x: 2});
+                const propertyDesc = {};
+                if(obj["[[HasProperty]]"]("enumerable")) {
+                    propertyDesc.enumerable = ECMAScript.ToBoolean(obj["[[Get]]"]("enumerable", obj));
+                }
+                if(obj["[[HasProperty]]"]("configurable")) {
+                    propertyDesc.configurable = ECMAScript.ToBoolean(obj["[[Get]]"]("configurable", obj));
+                }
+                if(obj["[[HasProperty]]"]("value")) {
+                    propertyDesc.value = ECMAScript.ToBoolean(obj["[[Get]]"]("value", obj));
+                }
+                if(obj["[[HasProperty]]"]("writable")) {
+                    propertyDesc.writable = ECMAScript.ToBoolean(obj["[[Get]]"]("writable", obj));
+                }
+                if(obj["[[HasProperty]]"]("get")) {
+                    const getter = obj["[[Get]]"]("get", obj);
+                    //Object.prototype.toString.call([]); // [object Array]
+                    if(!ECMAScript.IsCallable(getter) && getter != undefined) throw TypeError(`Getter must be a function: ${ECMAScript["%Object.prototype%"].properties.get("toString")["[[Call]]"](getter, [])}`); //Object.create(Object.prototype, {x: {enumerable: true, configurable: true, get: 2, set: undefined}});
+                    propertyDesc.getter = getter;
+                }
+                if(obj["[[HasProperty]]"]("set")) {
+                    const setter = obj["[[Get]]"]("get", obj);
+                    if(!ECMAScript.IsCallable(setter) && setter != undefined) throw TypeError(`Setter must be a function: ${ECMAScript["%Object.prototype%"].properties.get("toString")["[[Call]]"](setter, [])}`); //Object.create(Object.prototype, {x: {enumerable: true, configurable: true, get: undefined, set: 2}});
+                    propertyDesc.setter = setter;
+                }
+                if(("getter" in propertyDesc || "setter" in propertyDesc) && ("value" in propertyDesc || "writable" in propertyDesc)) {
+                    //Object.create(Object.prototype, {x: {enumerable: true, configurable: true, writable: true, get: undefined}});
+                    throw TypeError(`Invalid property descriptor. Cannot both specify accessors and a value or writable attribute, #<${GetConstructorName(obj)}>`);
+                }
+                return propertyDesc;
+            }
+
             static ToString(arg) {
                 if(typeof arg == "string") {
                     return arg;
@@ -2056,7 +2161,7 @@
                     //parseFloat(Symbol.asyncDispose);
                     throw TypeError("Cannot convert a Symbol value to a string");
                 }
-                if(!(arg instanceof Object)) {
+                if(!(arg instanceof JavascriptObjectWrapper)) {
                     return arg.toString(); //lol bro
                 }
                 //Assert: arg instanceof JavascriptObjectWrapper
@@ -2130,13 +2235,25 @@
                                     //Assert: kind is EnumerateKind.KEY_VALUE
                                     //https://tc39.es/ecma262/#sec-enumerableownproperties
                                     //3.a.ii.2.c
-                                    throw Error("EnumerateKind.KEY_VALUE not implemented because we'd have to do arrays somehow!");
+                                    // throw Error("EnumerateKind.KEY_VALUE not implemented because we'd have to do arrays somehow!");
+                                    results.push(ECMAScript.CreateArrayFromList([key, value]));
                                 }
                             }
                         }
                     }
                 }
                 return results;
+            }
+
+            static CreateArrayFromList(elements) {
+                const array = ECMAScript.ArrayCreate(0); //why don't we set the length right here?
+                for(let n = 0; n < elements.length; n++) {
+                    const element = elements[n];
+                    if(!array["[[DefineOwnProperty]]"](n.toString(), new JavascriptDataProperty(true, true, true, element))) {
+                        throw TypeError("Yet again how the fuck could this error actually be reached..."); //i wonder what v8's error message is
+                    }
+                }
+                return array;
             }
 
             //first time i've ever used this!
@@ -2431,7 +2548,7 @@
                         if("setter" in propertyDesc) {
                             newDesc.setter = propertyDesc.setter;
                         }
-                        this.properies.set(propertyKey, newDesc);
+                        this.properties.set(propertyKey, newDesc);
                     }else if(("getter" in current || "setter" in current) && ("value" in propertyDesc || "writable" in propertyDesc)) {
                         const configurable = "configurable" in propertyDesc ? propertyDesc.configurable : current.configurable;
                         const enumerable = "enumerable" in propertyDesc ? propertyDesc.enumerable : current.enumerable;
@@ -2442,7 +2559,7 @@
                         if("value" in propertyDesc) {
                             newDesc.value = propertyDesc.value1;
                         }
-                        this.properies.set(propertyKey, newDesc);
+                        this.properties.set(propertyKey, newDesc);
                     }else { //10.1.6.3 step 6.c
                         const property = this.properties.get(propertyKey);
                         for(const field in propertyDesc) {
@@ -2743,6 +2860,8 @@
 
         //exotic
         //length is not configurable
+        //https://tc39.es/ecma262/#sec-array-exotic-objects
+        //lowkey is this right?
         class ExoticArrayObject {
             static ["[[DefineOwnProperty]]"](propertyKey, propertyDesc) {
                 if(propertyKey == "length") {
@@ -2759,7 +2878,8 @@
                         newLengthDesc[prop] = propertyDesc[prop];
                     }
                     //ToUint32
-                    const newLength = ECMAScript.ToNumber(propertyDesc.value) >>> 0;
+                    // const newLength = ECMAScript.ToNumber(propertyDesc.value) >>> 0;
+                    const newLength = ECMAScript.ToUint32(propertyDesc.value);
                     const numberLength = ECMAScript.ToNumber(propertyDesc.value);
                     //let arr = [];
                     //arr.length = 2**32; //Failed to set the 'length' property on 'Array': Invalid array length
@@ -2838,7 +2958,7 @@
                 //is an array index
                 //i was worried for a second that a weird case like using (new Object(0)) as an index wouldn't work but ToPropertyKey (and eventually OrdinaryToPrimitive) covers this
                 if(propertyKey >= 0 && propertyKey <= 2**32 - 2) {
-                    const lengthDesc = this["[[GetOwnProperty]]"](propertyKey);
+                    const lengthDesc = this["[[GetOwnProperty]]"]("length");
                     //Assert: lengthDesc != undefined
                     //Assert: "writable" in lengthDesc || "value" in lengthDesc
                     //Assert: lengthDesc.configurable == false
@@ -2853,7 +2973,8 @@
                     //}
 
                     //ah the google says we can just use the ole unsigned right shift that calls ToUint32 internally!
-                    const index = length >>> 0;
+                    //const index = length >>> 0;
+                    const index = ECMAScript.ToUint32(propertyKey);
 
                     if(index >= length && lengthDesc.writable == false) return false;
                     //const succeeded = OrdinaryDefineOwnProperty(this, propertyKey, propertyDesc);
@@ -3306,7 +3427,7 @@
                     }
                     //damn if i wrote mine like he wrote his assignment grammar this would be easier!
                     //now i have to do the ECMAScript reference record technique
-                    return new BinaryExpression(expr, this.tokens[this.i++], this.assignment());
+                    return new AssignmentExpression(expr, this.tokens[this.i++], this.assignment());
                 }
 
                 //yeah probably idk
@@ -4506,8 +4627,8 @@
                                 const func = thisArg;
                                 if(!ECMAScript.IsCallable(func)) {
                                     //Function.prototype.call.apply({})
-                                    const name = func["[[Get]]"]("constructor", func)["[[Get]]"]("name", func);
-                                    throw TypeError(`Function.prototype.call was called on #<${name}>, which is an object and not a function`);
+                                    //const name = func["[[Get]]"]("constructor", func)["[[Get]]"]("name", func);
+                                    throw TypeError(`Function.prototype.call was called on #<${GetConstructorName(func)}>, which is an object and not a function`);
                                 }
                                 //PrepareForTailCall
                                 return func["[[Call]]"](argList[0], argList.slice(1));//ECMAScript.Call but that would be redundant
@@ -4603,6 +4724,70 @@
                         0, "valueOf", [], this
                     ));
                     ECMAScript["%Boolean.prototype%"] = boolProto;
+
+                    const arrayProto = ECMAScript.ArrayCreate(0, ECMAScript["%Object.prototype%"]);
+                    {
+                        const $at = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                const obj = ECMAScript.ToObject(thisArg);
+                                const length = ECMAScript.LengthOfArrayLike(obj);
+                                const relativeIndex = Math.trunc(ECMAScript.ToNumber(argList[0])); //ToIntegerOrInfinity
+                                let k;
+                                if(relativeIndex >= 0) {
+                                    k = relativeIndex;
+                                }else {
+                                    k = length + relativeIndex;
+                                }
+                                if(k < 0 || k >= length) return undefined;
+                                return obj["[[Get]]"](k.toString(), obj); //ECMAScript.ToString
+                            },
+                            1, "at", [], this
+                        );
+
+                        //holy FUCK there's too many array methods
+                        arrayProto.SetDataProperty("at", true, false, true, $at);
+                        //arrayProto.SetDataProperty("concat", true, false, true, $concat);
+                        arrayProto.SetDataProperty("constructor", true, false, true, "Array() {}");
+                        //arrayProto.SetDataProperty("copyWithin", true, false, true, $copyWithin);
+                        //arrayProto.SetDataProperty("entries", true, false, true, $entries);
+                        //arrayProto.SetDataProperty("every", true, false, true, $every);
+                        //arrayProto.SetDataProperty("fill", true, false, true, $fill);
+                        //arrayProto.SetDataProperty("filter", true, false, true, $filter);
+                        //arrayProto.SetDataProperty("find", true, false, true, $find);
+                        //arrayProto.SetDataProperty("findIndex", true, false, true, $findIndex);
+                        //arrayProto.SetDataProperty("findLast", true, false, true, $findLast);
+                        //arrayProto.SetDataProperty("findLastIndex", true, false, true, $findLastIndex);
+                        //arrayProto.SetDataProperty("flat", true, false, true, $flat);
+                        //arrayProto.SetDataProperty("flatMap", true, false, true, $flatMap);
+                        //arrayProto.SetDataProperty("forEach", true, false, true, $forEach);
+                        //arrayProto.SetDataProperty("includes", true, false, true, $includes);
+                        //arrayProto.SetDataProperty("indexOf", true, false, true, $indexOf);
+                        //arrayProto.SetDataProperty("join", true, false, true, $join);
+                        //arrayProto.SetDataProperty("keys", true, false, true, $keys);
+                        //arrayProto.SetDataProperty("lastIndexOf", true, false, true, $lastIndexOf);
+                        //arrayProto.SetDataProperty("map", true, false, true, $map);
+                        //arrayProto.SetDataProperty("pop", true, false, true, $pop);
+                        //arrayProto.SetDataProperty("push", true, false, true, $push);
+                        //arrayProto.SetDataProperty("reduce", true, false, true, $reduce);
+                        //arrayProto.SetDataProperty("reduceRight", true, false, true, $reduceRight);
+                        //arrayProto.SetDataProperty("reverse", true, false, true, $reverse);
+                        //arrayProto.SetDataProperty("shift", true, false, true, $shift);
+                        //arrayProto.SetDataProperty("slice", true, false, true, $slice);
+                        //arrayProto.SetDataProperty("some", true, false, true, $some);
+                        //arrayProto.SetDataProperty("sort", true, false, true, $sort);
+                        //arrayProto.SetDataProperty("splice", true, false, true, $splice);
+                        //arrayProto.SetDataProperty("toLocaleString", true, false, true, $toLocaleString);
+                        //arrayProto.SetDataProperty("toReversed", true, false, true, $toReversed);
+                        //arrayProto.SetDataProperty("toSorted", true, false, true, $toSorted);
+                        //arrayProto.SetDataProperty("toSpliced", true, false, true, $toSpliced);
+                        //arrayProto.SetDataProperty("toString", true, false, true, $toString);
+                        //arrayProto.SetDataProperty("unshift", true, false, true, $unshift);
+                        //arrayProto.SetDataProperty("values", true, false, true, $values);
+                        //arrayProto.SetDataProperty("with", true, false, true, $with);
+                        //arrayProto.SetDataProperty(ECMAScript["%Symbol.iterator%"], true, false, true, $$iterator);
+                        //arrayProto.SetDataProperty(ECMAScript["%Symbol.unscopables%"], false, false, true, $$unscopables);
+                    }
+                    ECMAScript["%Array.prototype%"] = arrayProto;
                 }
 
                 //https://tc39.es/ecma262/#sec-object-constructor
@@ -4638,11 +4823,106 @@
                 //    }
                 //    return ECMAScript.ToObject(value);
                 //}
+                $Object.SetDataProperty("assign", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        const targetObj = ECMAScript.ToObject(argList[0]);
+                        //if(argList.length == 1) return targetObj; //we don't even need this check lol (i'm sure there are quite a few optimizations that can be made from my direct translation of the specification lol)
+                        for(let i = 1; i < argList.length; i++) {
+                            const nextSource = argList[i];
+                            if(nextSource != null && nextSource != undefined) {
+                                const from = ECMAScript.ToObject(nextSource);
+                                const keys = from["[[OwnPropertyKeys]]"]();
+                                for(const nextKey of keys) {
+                                    const propertyDesc = from["[[GetOwnProperty]]"](nextKey);
+                                    if(propertyDesc?.enumerable == true) {
+                                        //Set
+                                        if(!targetObj["[[Set]]"](nextKey, from["[[Get]]"](nextKey, from), targetObj)) {
+                                            //let target = {};
+                                            //let source = {};
+                                            //Object.defineProperty(source, "malicious", {enumerable: true, configurable: false, get: function() {Object.defineProperty(target, "malicious", {enumerable: true, configurable: false, writable: false, value: "gotcha!"})}, set: undefined});
+                                            //Object.assign(target, source); // Cannot assign to read only property 'malicious' of object '<#Object>'
+
+                                            //how the hell does v8 do that error checking shit lol my messages aren't that good
+
+                                            throw TypeError(`Failed to set property '${nextKey}' on object!`);                                            
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        return targetObj;
+                    },
+                    2, "assign", [], this
+                ));
+                $Object.SetDataProperty("create", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        const proto = argList[0];
+                        if(!(proto instanceof JavascriptObjectWrapper) && proto != null) throw TypeError(`Object prototype may only be an Object or null: ${proto}`);
+                        const obj = ECMAScript.OrdinaryObjectCreate(proto);
+                        if(properties != undefined) {
+                            //i'm not writing ObjectDefineProperties into its own function so i'm directly calling Object.defineProperties lol!!
+                            return $Object.properties.get("defineProperties")["[[Call]]"](thisArg, [obj, argList[1]]);
+                        }
+                        return obj;
+                    },
+                    2, "create", [], this
+                ));
+                $Object.SetDataProperty("defineProperties", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        if(!(argList[0] instanceof JavascriptObjectWrapper)) throw TypeError("Object.defineProperties called on non-object");
+                        //return ObjectDefineProperties(argList[0], argList[1]);
+                        const properties = ECMAScript.ToObject(argList[1]);
+                        const keys = properties["[[OwnPropertyKeys]]"]();
+                        const propertyDescs = [];
+                        for(const nextKey of keys) {
+                            const currentPropertyDesc = properties["[[GetOwnProperty]]"](nextKey);
+                            if(currentPropertyDesc?.enumerable == true) {
+                                const propertyDescObj = properties["[[Get]]"](nextKey, properties);
+                                const propertyDesc = ECMAScript.ToPropertyDescriptor(propertyDescObj);
+                                propertyDescs.push({["[[Key]]"]: nextKey, ["[[Descriptor]]"]: propertyDesc});
+                            }
+                        }
+                        for(const property of propertyDescs) {
+                            if(!argList[0]["[[DefineOwnProperty]]"](property["[[Key]]"], property["[[Descriptor]]"])) {
+                                throw TypeError(`Failed to set property '${property["[[Key]]"]}' on object`);
+                            }
+                        }
+                        return argList[0];
+                    },
+                    2, "defineProperties", [], this
+                ));
+                $Object.SetDataProperty("defineProperty", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        if(!(argList[0] instanceof JavascriptObjectWrapper)) throw TypeError("Object.defineProperty called on non-object");
+                        const propertyKey = ECMAScript.ToPropertyKey(argList[1]);
+                        const propertyDesc = ECMAScript.ToPropertyDescriptor(argList[2]);
+                        if(!argList[0]["[[DefineOwnProperty]]"](propertyKey, propertyDesc)) {
+                            throw TypeError(`Failed to set property '${propertyKey}' on object`);
+                        }
+                        return argList[0];
+                    },
+                    3, "defineProperty", [], this
+                ));
+                $Object.SetDataProperty("entries", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        const coerced = ECMAScript.ToObject(argList[0]);
+                        const entryList = ECMAScript.EnumerableOwnProperties(coerced, EnumerateKind.KEY_VALUE);
+                        return ECMAScript.CreateArrayFromList(entryList);
+                    },
+                    1, "entries", [], this
+                ));
+                //$Object.SetDataProperty("freeze", true, false, true, ECMAScript.CreateBuiltinFunction(
+                //    function(thisArg, argList, newTarget) {
+                //        if(!(argList[0] instanceof JavascriptObjectWrapper)) return argList[0];
+                //        
+                //    },
+                //    1, "freeze", [], this
+                //));
                 $Object.SetDataProperty("keys", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
                         const coerced = ECMAScript.ToObject(argList[0]);
-                        //return CreateArrayFromList(keyList);
-                        return ECMAScript.EnumerableOwnProperties(coerced, EnumerateKind.KEY);
+                        const keyList = ECMAScript.EnumerableOwnProperties(coerced, EnumerateKind.KEY);
+                        return ECMAScript.CreateArrayFromList(keyList);
                     },
                     1, "keys", [], this
                 ));
@@ -4692,163 +4972,190 @@
                 //if i REALLY cared, i'd do more to make sure these are actual numbers including accessing the [[NumberData]] internal slot if the supplied "number" was an object (but holy shit this would take so much longer lol)
                 $Math.SetDataProperty("abs", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.abs(argList[0]);
+                        const x = ECMAScript.ToNumber(argList[0]);
+                        return Math.abs(x);
                     },
                     1, "abs", [], this
                 ));
                 $Math.SetDataProperty("acos", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.acos(argList[0]);
+                        const x = ECMAScript.ToNumber(argList[0]);
+                        return Math.acos(x);
                     },
                     1, "acos", [], this
                 ));
                 $Math.SetDataProperty("acosh", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.acosh(argList[0]);
+                        const x = ECMAScript.ToNumber(argList[0]);
+                        return Math.acosh(x);
                     },
                     1, "acosh", [], this
                 ));
                 $Math.SetDataProperty("asin", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.asin(argList[0]);
+                        const x = ECMAScript.ToNumber(argList[0]);
+                        return Math.asin(x);
                     },
                     1, "asin", [], this
                 ));
                 $Math.SetDataProperty("asinh", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.asinh(argList[0]);
+                        const x = ECMAScript.ToNumber(argList[0]);
+                        return Math.asinh(x);
                     },
                     1, "asinh", [], this
                 ));
                 $Math.SetDataProperty("atan", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.atan(argList[0]);
+                        const x = ECMAScript.ToNumber(argList[0]);
+                        return Math.atan(x);
                     },
                     1, "atan", [], this
                 ));
                 $Math.SetDataProperty("atanh", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.atanh(argList[0]);
+                        const x = ECMAScript.ToNumber(argList[0]);
+                        return Math.atanh(x);
                     },
                     1, "atanh", [], this
                 ));
                 $Math.SetDataProperty("atan2", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.atan2(argList[0], argList[1]);
+                        const y = ECMAScript.ToNumber(argList[0]);
+                        const x = ECMAScript.ToNumber(argList[1]);
+                        return Math.atan2(y, x);
                     },
                     2, "atan2", [], this
                 ));
                 $Math.SetDataProperty("cbrt", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.cbrt(argList[0]);
+                        const x = ECMAScript.ToNumber(argList[0]);
+                        return Math.cbrt(x);
                     },
                     1, "cbrt", [], this
                 ));
                 $Math.SetDataProperty("ceil", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.ceil(argList[0]);
+                        const x = ECMAScript.ToNumber(argList[0]);
+                        return Math.ceil(x);
                     },
                     1, "ceil", [], this
                 ));
                 $Math.SetDataProperty("clz32", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.clz32(argList[0]);
+                        const x = ECMAScript.ToNumber(argList[0]) >>> 0; //sure
+                        return Math.clz32(x);
                     },
                     1, "clz32", [], this
                 ));
                 $Math.SetDataProperty("cos", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.cos(argList[0]);
+                        const x = ECMAScript.ToNumber(argList[0]);
+                        return Math.cos(x);
                     },
                     1, "cos", [], this
                 ));
                 $Math.SetDataProperty("cosh", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.cosh(argList[0]);
+                        const x = ECMAScript.ToNumber(argList[0]);
+                        return Math.cosh(x);
                     },
                     1, "cosh", [], this
                 ));
                 $Math.SetDataProperty("exp", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.exp(argList[0]);
+                        const x = ECMAScript.ToNumber(argList[0]);
+                        return Math.exp(x);
                     },
                     1, "exp", [], this
                 ));
                 $Math.SetDataProperty("expm1", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.expm1(argList[0]);
+                        const x = ECMAScript.ToNumber(argList[0]);
+                        return Math.expm1(x);
                     },
                     1, "expm1", [], this
                 ));
                 $Math.SetDataProperty("floor", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.floor(argList[0]);
+                        const x = ECMAScript.ToNumber(argList[0]);
+                        return Math.floor(x);
                     },
                     1, "floor", [], this
                 ));
                 $Math.SetDataProperty("fround", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.fround(argList[0]);
+                        const x = ECMAScript.ToNumber(argList[0]);
+                        return Math.fround(x);
                     },
                     1, "fround", [], this
                 ));
                 $Math.SetDataProperty("f16round", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.f16round(argList[0]);
+                        const x = ECMAScript.ToNumber(argList[0]);
+                        return Math.f16round(x);
                     },
                     1, "f16round", [], this
                 ));
                 $Math.SetDataProperty("hypot", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.hypot(...argList);
+                        return Math.hypot(...argList.map(v=>ECMAScript.ToNumber(v)));
                     },
                     2, "hypot", [], this
                 ));
                 $Math.SetDataProperty("imul", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.imul(argList[0], argList[1]);
+                        const x = ECMAScript.ToNumber(argList[0]) >>> 0;
+                        const y = ECMAScript.ToNumber(argList[1]) >>> 0;
+                        return Math.imul(x, y);
                     },
                     2, "imul", [], this
                 ));
                 $Math.SetDataProperty("log", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.log(argList[0]);
+                        const x = ECMAScript.ToNumber(argList[0]);
+                        return Math.log(x);
                     },
                     1, "log", [], this
                 ));
                 $Math.SetDataProperty("log1p", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.log1p(argList[0]);
+                        const x = ECMAScript.ToNumber(argList[0]);
+                        return Math.log1p(x);
                     },
                     1, "log1p", [], this
                 ));
                 $Math.SetDataProperty("log10", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.log10(argList[0]);
+                        const x = ECMAScript.ToNumber(argList[0]);
+                        return Math.log10(x);
                     },
                     1, "log10", [], this
                 ));
                 $Math.SetDataProperty("log2", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.log2(argList[0]);
+                        const x = ECMAScript.ToNumber(argList[0]);
+                        return Math.log2(x);
                     },
                     1, "log2", [], this
                 ));
                 $Math.SetDataProperty("max", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.max(...argList);
+                        return Math.max(...argList.map(v=>ECMAScript.ToNumber(v)));
                     },
                     2, "max", [], this
                 ));
                 $Math.SetDataProperty("min", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.min(...argList);
+                        return Math.min(...argList.map(v=>ECMAScript.ToNumber(v)));
                     },
                     2, "min", [], this
                 ));
                 $Math.SetDataProperty("pow", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.pow(argList[0], argList[1]);
+                        const base = ECMAScript.ToNumber(argList[0]);
+                        const exponent = ECMAScript.ToNumber(argList[1]);
+                        return Math.pow(base, exponent);
                     },
                     2, "pow", [], this
                 ));
@@ -4860,41 +5167,67 @@
                 ));
                 $Math.SetDataProperty("round", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.round(argList[0]);
+                        const x = ECMAScript.ToNumber(argList[0]);
+                        return Math.round(x);
                     },
                     1, "round", [], this
                 ));
                 $Math.SetDataProperty("sign", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.sign(argList[0]);
+                        const x = ECMAScript.ToNumber(argList[0]);
+                        return Math.sign(x);
                     },
                     1, "sign", [], this
                 ));
                 $Math.SetDataProperty("sin", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.sin(argList[0]);
+                        const x = ECMAScript.ToNumber(argList[0]);
+                        return Math.sin(x);
                     },
                     1, "sin", [], this
                 ));
                 $Math.SetDataProperty("sinh", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.sinh(argList[0]);
+                        const x = ECMAScript.ToNumber(argList[0]);
+                        return Math.sinh(x);
                     },
                     1, "sinh", [], this
                 ));
                 $Math.SetDataProperty("sqrt", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.sqrt(argList[0]);
+                        const x = ECMAScript.ToNumber(argList[0]);
+                        return Math.sqrt(x);
                     },
                     1, "sqrt", [], this
                 ));
                 //uh oh sumPrecise is special
-                // $Math.SetDataProperty("sumPrecise", true, false, true, ECMAScript.CreateBuiltinFunction(
-                //     function(thisArg, argList, newTarget) {
-                //         return Math.sumPrecise(argList[0]);
-                //     },
-                //     1, "sumPrecise", [], this
-                // ));
+                //$Math.SetDataProperty("sumPrecise", true, false, true, ECMAScript.CreateBuiltinFunction(
+                //    function(thisArg, argList, newTarget) {
+                //        return Math.sumPrecise(argList[0]);
+                //    },
+                //    1, "sumPrecise", [], this
+                //));
+                $Math.SetDataProperty("tan", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        const x = ECMAScript.ToNumber(argList[0]);
+                        return Math.tan(x);
+                    },
+                    1, "tan", [], this
+                ));
+                $Math.SetDataProperty("tanh", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        const x = ECMAScript.ToNumber(argList[0]);
+                        return Math.tanh(x);
+                    },
+                    1, "tanh", [], this
+                ));
+                $Math.SetDataProperty("trunc", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        const x = ECMAScript.ToNumber(argList[0]);
+                        return Math.trunc(x);
+                    },
+                    1, "trunc", [], this
+                ));
 
                 this.state.variables[0].set("Math", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Math"}, $Math));
                 // const $Object = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Function.prototype%"]);
@@ -4971,6 +5304,84 @@
                 ECMAScript["%Symbol.prototype%"].properties.get("constructor").value = $Symbol;
 
                 this.state.variables[0].set("Symbol", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Symbol"}, $Symbol));
+                    
+                const $Array = ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        if(newTarget == undefined) {
+                            newTarget = $Array; //active function object (wait maybe it's actually the this keyword)
+                        }
+                        const proto = ECMAScript.GetPrototypeFromConstructor(newTarget, "%Array.prototype%");
+                        if(argList.length == 0) {
+                            return ECMAScript.ArrayCreate(0, proto);
+                        }else if(argList.length == 1) {
+                            const length = argList[0];
+                            const array = ECMAScript.ArrayCreate(0, proto);
+                            let intLength;
+                            if(typeof length != "number") {
+                                //CreateDataPropertyOrThrow
+                                //CreateDataProperty
+                                if(!array["[[DefineOwnProperty]]"]("0", new JavascriptDataProperty(true, true, true, length))) {
+                                    //damn i'm trying hard to exploit this shit like lyra but the specification is too smart
+                                    //because GetPrototypeFromConstructor calls [[Get]] on newTarget's "prototype" property, we could use an accessor property to define a zeroth property already such that this fails and we see this error!
+                                    //let x = {};
+                                    //Object.defineProperty(x, "prototype", {enumerable: true, configurable: false, get: function(){console.log("got!"); return Array.prototype;}}) //instead of logging, we set this[0] = any; (in theory)
+                                    //Reflect.construct(Array, [], x);
+
+                                    //wait a goddamn second, we create a new Array object AFTER GetPrototypeFromConstructor :/
+                                    //the only way DefineOwnProperty could fail now is if i SOMEHOW used preventExtensions before defining 0 (which isn't really possible here...)
+
+                                    throw TypeError("is this even reachable? failed to set index '0'!"); //i wonder what v8's error message is
+                                }
+                                intLength = 1;
+                            }else {
+                                intLength = ECMAScript.ToUint32(length);
+                                if(intLength != length && !(Math.abs(intLength) == 0 && Math.abs(length) == 0)) {
+                                    //new Array(2**32);
+                                    throw RangeError("Invalid array length");
+                                }
+                                if(!array["[[Set]]"]("length", intLength, array)) {
+                                    //is this also reachable? (actually... ToUint32 internally calls ToNumber which can be exploited 👀)
+                                    //by exploting Symbol.toPrimitive or valueOf, we can make the length property unwritable
+                                    //and... nevermind
+                                    //before reaching this branch, we check if length is not a number and do something else...
+                                    //we can't exploit shit if we're not allowed to pass actual Number objects :///////
+
+                                    throw TypeError("Failed to set 'length' array property!"); //i wonder what v8's error message is
+                                }
+                                return array;
+                            }
+                        }
+                        //Assert: argList.length >= 2
+                        const array = ECMAScript.ArrayCreate(argList.length, proto);
+                        for(let k = 0; k < argList.length; k++) {
+                            //const propertyKey = ECMAScript.ToString(k);
+                            //const propertyKey = k.toString();
+                            if(!array["[[DefineOwnProperty]]"](k.toString(), new JavascriptDataProperty(true, true, true, argList[k]))) {
+                                throw TypeError(`Failed to set '${k}' array property!`); //i wonder what v8's error message is
+                            }
+                        }
+                        //Assert: array["[[Get]]"](length, array) == argList.length
+                        return array;
+                    },
+                    1, "Array", [], this, ECMAScript["%Function.prototype%"]
+                );
+                ECMAScript.MakeConstructor($Array, false);
+                $Array.SetDataProperty("prototype", false, false, false, ECMAScript["%Array.prototype%"]);
+                ECMAScript["%Array.prototype%"].properties.get("constructor").value = $Array;
+                this.state.variables[0].set("Array", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Array"}, $Array));
+                
+                this.state.variables[0].set("isFinite", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "isFinite"}, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return isFinite(ECMAScript.ToNumber(argList[0]));
+                    },
+                    1, "isFinite", [], this
+                )));
+                this.state.variables[0].set("isNaN", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "isNaN"}, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return isNaN(ECMAScript.ToNumber(argList[0]));
+                    },
+                    1, "isNaN", [], this
+                )));
             }
 
             parse(str) {
@@ -5006,26 +5417,38 @@
                 if(unaryExpression.postfix) {
                     //unary_postfix
                     const ref = this.evaluate(unaryExpression.operand, false);
-                    const value = this.GetValue(ref);
+                    const value = ECMAScript.ToNumeric(this.GetValue(ref));
+                    let number = 1;
+                    if(typeof value == "bigint") {
+                        number = 1n;
+                    }
                     switch(unaryExpression.operatorToken.kind) {
                         case TokenKind.INCREMENT:
-                            this.PutValue(ref, value+1);
+                            this.PutValue(ref, value+number);
                             return value;
                             break;
                         case TokenKind.DECREMENT:
-                            this.PutValue(ref, value-1);
+                            this.PutValue(ref, value-number);
                             return value;
                             break;
                     }
                 }else if(unaryExpression.operatorToken.kind == TokenKind.INCREMENT) {
                     const ref = this.evaluate(unaryExpression.operand, false);
                     //return ++ref.value;
-                    const value = this.GetValue(ref);
-                    return this.PutValue(ref, value+1);
+                    const value = ECMAScript.ToNumeric(this.GetValue(ref));
+                    let number = 1;
+                    if(typeof value == "bigint") {
+                        number = 1n;
+                    }
+                    return this.PutValue(ref, value+number);
                 }else if(unaryExpression.operatorToken.kind == TokenKind.DECREMENT) {
                     const ref = this.evaluate(unaryExpression.operand, false);
-                    const value = this.GetValue(ref);
-                    return this.PutValue(ref, value-1);
+                    const value = ECMAScript.ToNumeric(this.GetValue(ref));
+                    let number = 1;
+                    if(typeof value == "bigint") {
+                        number = 1n;
+                    }
+                    return this.PutValue(ref, value-number);
                 }else if(unaryExpression.operatorToken.kind == TokenKind.RESERVED && unaryExpression.operatorToken.value == "delete") {
                     //https://tc39.es/ecma262/#sec-delete-operator-runtime-semantics-evaluation
                     const ref = this.evaluate(unaryExpression.operand, false);
@@ -5134,16 +5557,16 @@
                         
                         //unary_prefix cont.
                         case TokenKind.MINUS:
-                            return -value;
+                            return -ECMAScript.ToNumeric(value);
                             break;
                         case TokenKind.PLUS:
-                            return +value;
+                            return ECMAScript.ToNumber(value);
                             break;
                         case TokenKind.BITWISE_NOT:
-                            return ~value;
+                            return ~ECMAScript.ToNumeric(value);
                             break;
                         case TokenKind.EXCLAMATION:
-                            return !value;
+                            return !ECMAScript.ToBoolean(value);
                             break;
                     }
                 }
@@ -5335,7 +5758,7 @@
                     }
                     const result = baseObj["[[Set]]"](record.referencedName, rightValue, record.GetThisValue());
                     if(!result && this.state.strict) {
-                        throw new TypeError(`Cannot assign to read only property '${record.referencedName} of object '#<${baseObj["[[Get]]"]("constructor", baseObj)["[[Get]]"]("name", baseObj)}>'`);
+                        throw new TypeError(`Cannot assign to read only property '${record.referencedName} of object '#<${GetConstructorName(baseObj)}>'`);
                     }
                     return rightValue;
                 }else {
@@ -5344,89 +5767,242 @@
                     return record.base[record.referencedName] = rightValue;
                 }
             }
+
+            /** @param {AssignmentExpression} assignmentExpression */
+            visitAssignmentExpression(assignmentExpression) {
+                const record = this.evaluate(assignmentExpression.left, false);
+                //switch(kind) {
+                //    //assignment
+                //    //we need the location of the identifier instead of the value!
+                //    case TokenKind.NULLISH_COALESCING_EQUALS:
+                //    case TokenKind.LOGICAL_OR_EQUALS:
+                //    case TokenKind.LOGICAL_AND_EQUALS:
+                //    case TokenKind.BITWISE_OR_EQUALS:
+                //    case TokenKind.BITWISE_XOR_EQUALS:
+                //    case TokenKind.BITWISE_AND_EQUALS:
+                //    case TokenKind.BITWISE_UNSIGNED_SHIFT_RIGHT_EQUALS:
+                //    case TokenKind.BITWISE_SHIFT_RIGHT_EQUALS:
+                //    case TokenKind.BITWISE_SHIFT_LEFT_EQUALS:
+                //    case TokenKind.REMAINDER_EQUALS:
+                //    case TokenKind.DIV_EQUALS:
+                //    case TokenKind.MUL_EQUALS:
+                //    case TokenKind.EXPONENTIATION_EQUALS:
+                //    case TokenKind.MINUS_EQUALS:
+                //    case TokenKind.PLUS_EQUALS:
+                //    case TokenKind.EQUALS: {
+                //        //const name = binaryExpression.left.nameToken.value;
+                //        //if(this.state.variables.has(name)) {
+                //        //    const $var = this.state.variables.get(name);
+                //        //    if($var.properties.qualifier?.value == "") { //tuff optional chain
+                //        //
+                //        //    }
+                //        //}
+                //
+                //        //blehhhhhh
+                //        //i wonder how the guy solved this problem... (i'm not there yet lol! i'm only at the bottom of chapter 8!)
+                //        // (oh yeah the problem in question is getting the *location* of an expression like (console.log); ! )
+                //        //yeah alright i've already solved this one before lol let's go see what his solution is just in case mine sucks!
+                //
+                //        //identifiers that haven't been defined before are added to globalThis (strict mode disallows this, though!)
+                //        
+                //        //if(binaryExpression.left instanceof IdentifierExpression) {
+                //        //    //we need to get the information about this variable so we can throw if const
+                //        //    const $var = this.getVariableLocation(binaryExpression.left);
+                //        //}
+                //
+                //        //huh, it seems in his solution, he had a custom object with a get method...
+                //        //i think i should've ONLY been using wrapper values for everything...
+                //
+                //        // const $var = this.getVariable(binaryExpression.left);
+                //        const record = this.evaluate(binaryExpression.left, false);
+                //        //if($var instanceof Variable) {
+                //        //    if($var instanceof TemporalDeadZoneVariable) {
+                //        //        $var.get(); //force throw
+                //        //    }
+                //        //    //qualifier could be undefined right?
+                //        //    if($var.properties.qualifier?.value == "const") {
+                //        //        //this could probably be statically analyzed but i didn't do that, okay?
+                //        //        throw new TypeError(`Assignment to constant variable.`);
+                //        //    }
+                //        //    return $var.value = this.evaluate(binaryExpression.right);
+                //        //}else {
+                //        //    const [parent, v] = $var;
+                //        //    if(parent instanceof JavascriptObjectWrapper) {
+                //        //        //https://tc39.es/ecma262/#sec-putvalue
+                //        //        const rhs = this.evaluate(binaryExpression.right);
+                //        //        const result = parent["[[Set]]"](v, rhs, parent); //VERY simplified again!!
+                //        //        if(!result) {
+                //        //            //if we were in strict mode, this would be a TypeError
+                //        //            //"use strict";
+                //        //            //undefined = 5;
+                //        //        }
+                //        //        return rhs;
+                //        //    }else {
+                //        //        return parent[v] = this.evaluate(binaryExpression.right);
+                //        //    }
+                //        //}
+                //        // this.SetValue(record, ()=>this.evaluate(binaryExpression.right));
+                //        //oh my god i forgot the return here and random shit was about to stop working because of it
+                //        return this.PutValue(record, this.evaluate(binaryExpression.right));
+                //        break;
+                //    }
+                //    
+                //    default:
+                //        break;
+                //}
+
+                let resultingValue = this.evaluate(assignmentExpression.right);
+                switch(assignmentExpression.operatorToken.kind) {
+                    case TokenKind.NULLISH_COALESCING_EQUALS: {
+                        resultingValue = this.GetValue(record) ?? resultingValue;
+                        //const value = this.GetValue(record);
+                        //if(value != null && value != undefined) { //resultingValue is already set to the right hand side so we need to set it back to the original value if that original value is not null or undefined
+                        //    resultingValue = value;
+                        //}
+                        break;
+                    }
+                    case TokenKind.LOGICAL_OR_EQUALS: {
+                        resultingValue = this.GetValue(record) || resultingValue;
+                        //const value = this.GetValue(record);
+                        //if(value) {
+                        //    resultingValue = value;
+                        //}
+                        break;
+                    }
+                    case TokenKind.LOGICAL_AND_EQUALS: {
+                        resultingValue = this.GetValue(record) && resultingValue;
+                        //const value = this.GetValue(record);
+                        //if(!value) {
+                        //    resultingValue = value;
+                        //}
+                        break;
+                    }
+                    case TokenKind.BITWISE_OR_EQUALS: {
+                        const leftNumber = ECMAScript.ToNumeric(this.GetValue(record));
+                        const rightNumber = ECMAScript.ToNumeric(resultingValue);
+                        if(leftNumber.constructor != rightNumber.constructor) {
+                            throw TypeError("Cannot mix BigInt and other types, use explicit conversions");
+                        }
+                        resultingValue = leftNumber | rightNumber;
+                        break;
+                    }
+                    case TokenKind.BITWISE_XOR_EQUALS: {
+                        const leftNumber = ECMAScript.ToNumeric(this.GetValue(record));
+                        const rightNumber = ECMAScript.ToNumeric(resultingValue);
+                        if(leftNumber.constructor != rightNumber.constructor) {
+                            throw TypeError("Cannot mix BigInt and other types, use explicit conversions");
+                        }
+                        resultingValue = leftNumber ^ rightNumber;
+                        break;
+                    }
+                    case TokenKind.BITWISE_AND_EQUALS: {
+                        const leftNumber = ECMAScript.ToNumeric(this.GetValue(record));
+                        const rightNumber = ECMAScript.ToNumeric(resultingValue);
+                        if(leftNumber.constructor != rightNumber.constructor) {
+                            throw TypeError("Cannot mix BigInt and other types, use explicit conversions");
+                        }
+                        resultingValue = leftNumber & rightNumber;
+                        break;
+                    }
+                    case TokenKind.BITWISE_UNSIGNED_SHIFT_RIGHT_EQUALS: {
+                        const leftNumber = ECMAScript.ToNumeric(this.GetValue(record));
+                        const rightNumber = ECMAScript.ToNumeric(resultingValue);
+                        if(leftNumber.constructor != rightNumber.constructor) {
+                            throw TypeError("Cannot mix BigInt and other types, use explicit conversions");
+                        }
+                        resultingValue = leftNumber >>> rightNumber;
+                        break;
+                    }
+                    case TokenKind.BITWISE_SHIFT_RIGHT_EQUALS: {
+                        const leftNumber = ECMAScript.ToNumeric(this.GetValue(record));
+                        const rightNumber = ECMAScript.ToNumeric(resultingValue);
+                        if(leftNumber.constructor != rightNumber.constructor) {
+                            throw TypeError("Cannot mix BigInt and other types, use explicit conversions");
+                        }
+                        resultingValue = leftNumber >> rightNumber;
+                        break;
+                    }
+                    case TokenKind.BITWISE_SHIFT_LEFT_EQUALS: {
+                        const leftNumber = ECMAScript.ToNumeric(this.GetValue(record));
+                        const rightNumber = ECMAScript.ToNumeric(resultingValue);
+                        if(leftNumber.constructor != rightNumber.constructor) {
+                            throw TypeError("Cannot mix BigInt and other types, use explicit conversions");
+                        }
+                        resultingValue = leftNumber << rightNumber;
+                        break;
+                    }
+                    case TokenKind.REMAINDER_EQUALS: {
+                        const leftNumber = ECMAScript.ToNumeric(this.GetValue(record));
+                        const rightNumber = ECMAScript.ToNumeric(resultingValue);
+                        if(leftNumber.constructor != rightNumber.constructor) {
+                            throw TypeError("Cannot mix BigInt and other types, use explicit conversions");
+                        }
+                        resultingValue = leftNumber % rightNumber;
+                        break;
+                    }
+                    case TokenKind.DIV_EQUALS: {
+                        const leftNumber = ECMAScript.ToNumeric(this.GetValue(record));
+                        const rightNumber = ECMAScript.ToNumeric(resultingValue);
+                        if(leftNumber.constructor != rightNumber.constructor) {
+                            throw TypeError("Cannot mix BigInt and other types, use explicit conversions");
+                        }
+                        resultingValue = leftNumber / rightNumber;
+                        break;
+                    }
+                    case TokenKind.MUL_EQUALS: {
+                        const leftNumber = ECMAScript.ToNumeric(this.GetValue(record));
+                        const rightNumber = ECMAScript.ToNumeric(resultingValue);
+                        if(leftNumber.constructor != rightNumber.constructor) {
+                            throw TypeError("Cannot mix BigInt and other types, use explicit conversions");
+                        }
+                        resultingValue = leftNumber * rightNumber;
+                        break;
+                    }
+                    case TokenKind.EXPONENTIATION_EQUALS: {
+                        const leftNumber = ECMAScript.ToNumeric(this.GetValue(record));
+                        const rightNumber = ECMAScript.ToNumeric(resultingValue);
+                        if(leftNumber.constructor != rightNumber.constructor) {
+                            throw TypeError("Cannot mix BigInt and other types, use explicit conversions");
+                        }
+                        resultingValue =  leftNumber ** rightNumber;
+                        break;
+                    }
+                    case TokenKind.MINUS_EQUALS: {
+                        const leftNumber = ECMAScript.ToNumeric(this.GetValue(record));
+                        const rightNumber = ECMAScript.ToNumeric(resultingValue);
+                        if(leftNumber.constructor != rightNumber.constructor) {
+                            throw TypeError("Cannot mix BigInt and other types, use explicit conversions");
+                        }
+                        resultingValue = leftNumber - rightNumber;
+                        break;
+                    }
+                    case TokenKind.PLUS_EQUALS: {
+                        //oh m ygod
+                        const leftPrimitive = ECMAScript.ToPrimitive(this.GetValue(record));
+                        const rightPrimitive = ECMAScript.ToPrimitive(resultingValue);
+                        if(typeof leftPrimitive == "string" || typeof rightPrimitive == "string") {
+                            //i was confused when they used ToString but then remembered we said if left OR right was a string so we coerce the other to a string too
+                            return ECMAScript.ToString(leftPrimitive) + ECMAScript.ToString(rightPrimitive); //here's where we'd use the '..' operator in lua ;)
+                        }
+                        //it must be a numeric operation after this point
+                        const leftNumber = ECMAScript.ToNumeric(leftPrimitive);
+                        const rightNumber = ECMAScript.ToNumeric(rightPrimitive);
+                        if(leftNumber.constructor != rightNumber.constructor) {
+                            throw TypeError("Cannot mix BigInt and other types, use explicit conversions");
+                        }
+                        resultingValue = leftNumber + rightNumber;
+                        break;
+                    }
+                    case TokenKind.EQUALS:
+                        break;
+                }
+                return this.PutValue(record, resultingValue); //almost forgot AGAIN!
+            }
             
             /** @param {BinaryExpression} binaryExpression */
             visitBinaryExpression(binaryExpression) {
                 const kind = binaryExpression.operatorToken.kind;
-                switch(kind) {
-                    //assignment
-                    //we need the location of the identifier instead of the value!
-                    case TokenKind.NULLISH_COALESCING_EQUALS:
-                    case TokenKind.LOGICAL_OR_EQUALS:
-                    case TokenKind.LOGICAL_AND_EQUALS:
-                    case TokenKind.BITWISE_OR_EQUALS:
-                    case TokenKind.BITWISE_XOR_EQUALS:
-                    case TokenKind.BITWISE_AND_EQUALS:
-                    case TokenKind.BITWISE_UNSIGNED_SHIFT_RIGHT_EQUALS:
-                    case TokenKind.BITWISE_SHIFT_RIGHT_EQUALS:
-                    case TokenKind.BITWISE_SHIFT_LEFT_EQUALS:
-                    case TokenKind.REMAINDER_EQUALS:
-                    case TokenKind.DIV_EQUALS:
-                    case TokenKind.MUL_EQUALS:
-                    case TokenKind.EXPONENTIATION_EQUALS:
-                    case TokenKind.MINUS_EQUALS:
-                    case TokenKind.PLUS_EQUALS:
-                    case TokenKind.EQUALS: {
-                        //const name = binaryExpression.left.nameToken.value;
-                        //if(this.state.variables.has(name)) {
-                        //    const $var = this.state.variables.get(name);
-                        //    if($var.properties.qualifier?.value == "") { //tuff optional chain
-                        //
-                        //    }
-                        //}
-
-                        //blehhhhhh
-                        //i wonder how the guy solved this problem... (i'm not there yet lol! i'm only at the bottom of chapter 8!)
-                        // (oh yeah the problem in question is getting the *location* of an expression like (console.log); ! )
-                        //yeah alright i've already solved this one before lol let's go see what his solution is just in case mine sucks!
-
-                        //identifiers that haven't been defined before are added to globalThis (strict mode disallows this, though!)
-                        
-                        //if(binaryExpression.left instanceof IdentifierExpression) {
-                        //    //we need to get the information about this variable so we can throw if const
-                        //    const $var = this.getVariableLocation(binaryExpression.left);
-                        //}
-
-                        //huh, it seems in his solution, he had a custom object with a get method...
-                        //i think i should've ONLY been using wrapper values for everything...
-
-                        // const $var = this.getVariable(binaryExpression.left);
-                        const record = this.evaluate(binaryExpression.left, false);
-                        //if($var instanceof Variable) {
-                        //    if($var instanceof TemporalDeadZoneVariable) {
-                        //        $var.get(); //force throw
-                        //    }
-                        //    //qualifier could be undefined right?
-                        //    if($var.properties.qualifier?.value == "const") {
-                        //        //this could probably be statically analyzed but i didn't do that, okay?
-                        //        throw new TypeError(`Assignment to constant variable.`);
-                        //    }
-                        //    return $var.value = this.evaluate(binaryExpression.right);
-                        //}else {
-                        //    const [parent, v] = $var;
-                        //    if(parent instanceof JavascriptObjectWrapper) {
-                        //        //https://tc39.es/ecma262/#sec-putvalue
-                        //        const rhs = this.evaluate(binaryExpression.right);
-                        //        const result = parent["[[Set]]"](v, rhs, parent); //VERY simplified again!!
-                        //        if(!result) {
-                        //            //if we were in strict mode, this would be a TypeError
-                        //            //"use strict";
-                        //            //undefined = 5;
-                        //        }
-                        //        return rhs;
-                        //    }else {
-                        //        return parent[v] = this.evaluate(binaryExpression.right);
-                        //    }
-                        //}
-                        // this.SetValue(record, ()=>this.evaluate(binaryExpression.right));
-                        //oh my god i forgot the return here and random shit was about to stop working because of it
-                        return this.PutValue(record, this.evaluate(binaryExpression.right));
-                        break;
-                    }
-                    
-                    default:
-                        break;
-                }
+                
 
                 //let left = binaryExpression.left.accept(this);
                 //if(left instanceof Variable) {
@@ -5510,19 +6086,37 @@
                     }
                     
                     //bitwise_or
-                    case TokenKind.BITWISE_OR:
-                        return left | right;
+                    case TokenKind.BITWISE_OR: {
+                        const leftNumber = ECMAScript.ToNumeric(left);
+                        const rightNumber = ECMAScript.ToNumeric(right);
+                        if(leftNumber.constructor != rightNumber.constructor) {
+                            throw TypeError("Cannot mix BigInt and other types, use explicit conversions");
+                        }
+                        return leftNumber | rightNumber;
                         break;
+                    }
                     
                     //bitwise_x0r
-                    case TokenKind.BITWISE_XOR:
-                        return left ^ right;
+                    case TokenKind.BITWISE_XOR: {
+                        const leftNumber = ECMAScript.ToNumeric(left);
+                        const rightNumber = ECMAScript.ToNumeric(right);
+                        if(leftNumber.constructor != rightNumber.constructor) {
+                            throw TypeError("Cannot mix BigInt and other types, use explicit conversions");
+                        }
+                        return leftNumber ^ rightNumber;
                         break;
+                    }
                     
                     //bitwise_and
-                    case TokenKind.BITWISE_AND:
-                        return left & right;
+                    case TokenKind.BITWISE_AND: {
+                        const leftNumber = ECMAScript.ToNumeric(left);
+                        const rightNumber = ECMAScript.ToNumeric(right);
+                        if(leftNumber.constructor != rightNumber.constructor) {
+                            throw TypeError("Cannot mix BigInt and other types, use explicit conversions");
+                        }
+                        return leftNumber & rightNumber;
                         break;
+                    }
                     
                     //equality
                     case TokenKind.STRICT_NOT_EQUAL:
@@ -5567,39 +6161,102 @@
                         break;
 
                     //bitwise_shift
-                    case TokenKind.BITWISE_SHIFT_LEFT:
-                        return left << right;
+                    case TokenKind.BITWISE_SHIFT_LEFT: {
+                        const leftNumber = ECMAScript.ToNumeric(left);
+                        const rightNumber = ECMAScript.ToNumeric(right);
+                        if(leftNumber.constructor != rightNumber.constructor) {
+                            throw TypeError("Cannot mix BigInt and other types, use explicit conversions");
+                        }
+                        return leftNumber << rightNumber;
                         break;
-                    case TokenKind.BITWISE_SHIFT_RIGHT:
-                        return left >> right;
+                    }
+                    case TokenKind.BITWISE_SHIFT_RIGHT: {
+                        const leftNumber = ECMAScript.ToNumeric(left);
+                        const rightNumber = ECMAScript.ToNumeric(right);
+                        if(leftNumber.constructor != rightNumber.constructor) {
+                            throw TypeError("Cannot mix BigInt and other types, use explicit conversions");
+                        }
+                        return leftNumber >> rightNumber;
                         break;
-                    case TokenKind.BITWISE_UNSIGNED_SHIFT_RIGHT:
-                        return left >>> right;
+                    }
+                    case TokenKind.BITWISE_UNSIGNED_SHIFT_RIGHT: {
+                        const leftNumber = ECMAScript.ToNumeric(left);
+                        const rightNumber = ECMAScript.ToNumeric(right);
+                        if(leftNumber.constructor != rightNumber.constructor) {
+                            throw TypeError("Cannot mix BigInt and other types, use explicit conversions");
+                        }
+                        return leftNumber >>> rightNumber;
                         break;
+                    }
                     
                     //term
-                    case TokenKind.PLUS:
-                        return left + right; //string concatenation uses a different operator in lua so i'd have to check the types!
+                    case TokenKind.PLUS: {
+                        // return left + right; //string concatenation uses a different operator in lua so i'd have to check the types!
+                        const leftPrimitive = ECMAScript.ToPrimitive(left);
+                        const rightPrimitive = ECMAScript.ToPrimitive(right);
+                        if(typeof leftPrimitive == "string" || typeof rightPrimitive == "string") {
+                            //i was confused when they used ToString but then remembered we said if left OR right was a string so we coerce the other to a string too
+                            return ECMAScript.ToString(leftPrimitive) + ECMAScript.ToString(rightPrimitive); //here's where we'd use the '..' operator in lua ;)
+                        }
+                        //it must be a numeric operation after this point
+                        const leftNumber = ECMAScript.ToNumeric(leftPrimitive);
+                        const rightNumber = ECMAScript.ToNumeric(rightPrimitive);
+                        if(leftNumber.constructor != rightNumber.constructor) {
+                            throw TypeError("Cannot mix BigInt and other types, use explicit conversions");
+                        }
+                        return leftNumber + rightNumber;
                         break;
-                    case TokenKind.MINUS:
-                        return left - right; //i don't think there's a single math operator that will throw in javascript (which seems crazy but even something like 2 ** [] still works!) so i'd have to do some extra stuff in lua here too.
+                    }
+                    case TokenKind.MINUS: {
+                        // return left - right; //i don't think there's a single math operator that will throw in javascript (which seems crazy but even something like 2 ** [] still works!) so i'd have to do some extra stuff in lua here too.
+                        const leftNumber = ECMAScript.ToNumeric(left);
+                        const rightNumber = ECMAScript.ToNumeric(right);
+                        if(leftNumber.constructor != rightNumber.constructor) {
+                            throw TypeError("Cannot mix BigInt and other types, use explicit conversions");
+                        }
+                        return leftNumber - rightNumber;
                         break;
+                    }
 
                     //factor
-                    case TokenKind.REMAINDER:
-                        return left % right;
+                    case TokenKind.REMAINDER: {
+                        const leftNumber = ECMAScript.ToNumeric(left);
+                        const rightNumber = ECMAScript.ToNumeric(right);
+                        if(leftNumber.constructor != rightNumber.constructor) {
+                            throw TypeError("Cannot mix BigInt and other types, use explicit conversions");
+                        }
+                        return leftNumber % rightNumber;
                         break;
-                    case TokenKind.SLASH:
-                        return left / right;
+                    }
+                    case TokenKind.SLASH: {
+                        const leftNumber = ECMAScript.ToNumeric(left);
+                        const rightNumber = ECMAScript.ToNumeric(right);
+                        if(leftNumber.constructor != rightNumber.constructor) {
+                            throw TypeError("Cannot mix BigInt and other types, use explicit conversions");
+                        }
+                        return leftNumber / rightNumber;
                         break;
-                    case TokenKind.ASTERISK:
-                        return left * right;
+                    }
+                    case TokenKind.ASTERISK: {
+                        const leftNumber = ECMAScript.ToNumeric(left);
+                        const rightNumber = ECMAScript.ToNumeric(right);
+                        if(leftNumber.constructor != rightNumber.constructor) {
+                            throw TypeError("Cannot mix BigInt and other types, use explicit conversions");
+                        }
+                        return leftNumber * rightNumber;
                         break;
+                    }
                     
                     //exponentiation
-                    case TokenKind.EXPONENTIATION:
-                        return left ** right;
+                    case TokenKind.EXPONENTIATION: {
+                        const leftNumber = ECMAScript.ToNumeric(left);
+                        const rightNumber = ECMAScript.ToNumeric(right);
+                        if(leftNumber.constructor != rightNumber.constructor) {
+                            throw TypeError("Cannot mix BigInt and other types, use explicit conversions");
+                        }
+                        return leftNumber ** rightNumber;
                         break;
+                    }
 
                     //access_call
                     //case TokenKind.OPEN_BRACKET:
@@ -5662,6 +6319,10 @@
                 if(func instanceof JavascriptObjectWrapper) {
                     return ECMAScript.Call(func, thisValue, argList);
                 }else {
+                    if(func == undefined) {
+                        const p = new Printer;
+                        throw TypeError(`${funcCallExpression.functionExpr.accept(p)} is not a function`);
+                    }
                     return func.apply(thisValue, argList); //we'll still need something like this in lua so we can call methods of outside objects
                 }
 
@@ -5853,7 +6514,8 @@
 
             /** @param {ArrayLiteralExpression} arrayLiteralExpression */
             visitArrayLiteralExpression(arrayLiteralExpression) {
-                return arrayLiteralExpression.value.map(v=>this.evaluate(v));
+                //return arrayLiteralExpression.value.map(v=>this.evaluate(v));
+                return ECMAScript.CreateArrayFromList(arrayLiteralExpression.value.map(v=>this.evaluate(v)));
             }
         }
 
@@ -6056,7 +6718,12 @@
 
             /** @param {ArrayLiteralExpression} arrayLiteralExpression */
             visitArrayLiteralExpression(arrayLiteralExpression) {
-                return arrayLiteralExpression.value.map(v=>v.accept(this));
+                return `[${arrayLiteralExpression.value.map(v=>v.accept(this))}]`;
+            }
+
+            /** @param {AssignmentExpression} assignmentExpression */
+            visitAssignmentExpression(assignmentExpression) {
+                return this.visitBinaryExpression(assignmentExpression);
             }
         }
 
