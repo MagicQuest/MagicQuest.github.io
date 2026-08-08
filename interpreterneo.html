@@ -1640,6 +1640,11 @@
             static NUMBER = 2;
         }
 
+        class IteratorKind {
+            static ASYNC = 1;
+            static SYNC = 2;
+        }
+
         //helper
         function GetConstructorName(/** @type {JavascriptObjectWrapper} */ obj) {
             const ctor = obj["[[Get]]"]("constructor", obj);
@@ -1945,6 +1950,45 @@
                     throw TypeError(`Cannot redefine property: length`);
                 }
                 return string;
+            }
+
+            static CreateAsyncFromSyncIterator(syncIteratorRecord) {
+                const asyncIterator = ECMAScript.OrdinaryObjectCreate(ECMAScript["%AsyncFromSyncIteratorPrototype%"], "[[SyncIteratorRecord]]");
+                asyncIterator["[[SyncIteratorRecord]]"] = syncIteratorRecord;
+                const nextMethod = asyncIterator["[[Get]]"]("next", asyncIterator);
+                return {"[[Iterator]]": asyncIterator, "[[NextMethod]]": nextMethod, "[[Done]]": false};
+            }
+
+            static GetIteratorFromMethod(obj, method) {
+                const iterator = ECMAScript.Call(method, obj);
+                if(!(iterator instanceof JavascriptObjectWrapper)) {
+                    //%%throw TypeError%%
+                }
+                //return GetIteratorDirect(iterator);
+                const nextMethod = obj["[[Get]]"]("next", obj);
+                return {"[[Iterator]]": obj, "[[NextMethod]]": nextMethod, "[[Done]]": false};
+            }
+
+            //IteratorKind
+            static GetIterator(obj, kind) {
+                let method;
+                if(kind == IteratorKind.ASYNC) {
+                    method = ECMAScript.GetMethod(obj, ECMAScript["%Symbol.asyncIterator%"]);
+                    if(method == undefined) {
+                        const syncMethod = ECMAScript.GetMethod(obj, ECMAScript["%Symbol.iterator%"]);
+                        if(syncMethod == undefined) {
+                            //%%throw TypeError%%
+                        }
+
+                        return ECMAScript.CreateAsyncFromSyncIterator(ECMAScript.GetIteratorFromMethod(obj, syncMethod));
+                    }
+                }else {
+                    method = ECMAScript.GetMethod(obj, ECMAScript["%Symbol.iterator%"]);
+                }
+                if(method == undefined) {
+                    //%%throw TypeError%%
+                }
+                return ECMAScript.GetIteratorFromMethod(obj, method);
             }
 
             static ValidateAndApplyPropertyDescriptor(obj, propertyKey, extensible, propertyDesc, current) {
@@ -5078,7 +5122,8 @@
                     symbolProto.SetAccessorProperty("description", false, true, ECMAScript.CreateBuiltinFunction(
                         function(thisArg, argList, newTarget) {
                             const symbol = ECMAScript.ThisSymbolValue(thisArg);
-                            return symbol["[[Description]]"];
+                            //return symbol["[[Description]]"];
+                            return symbol.description;
                         },
                         0, "description", [], this, undefined, "get"
                     ), undefined);
@@ -5086,11 +5131,12 @@
                         function(thisArg, argList, newTarget) {
                             const symbol = ECMAScript.ThisSymbolValue(thisArg);
                             //return SymbolDescriptiveString(symbol);
-                            let description = symbol["[[Description]]"];
-                            if(description == undefined) {
-                                description = "";
-                            }
-                            return `Symbol(${description})`;
+                            //let description = symbol["[[Description]]"];
+                            //if(description == undefined) {
+                            //    description = "";
+                            //}
+                            //return `Symbol(${description})`;
+                            return symbol.toString();
                         },
                         0, "toString", [], this
                     ));
@@ -5109,7 +5155,7 @@
                     numberProto.SetDataProperty("constructor", true, false, true, "Number() {}"); //we set this later when we create $Number!
                     numberProto.SetDataProperty("toExponential", true, false, true, ECMAScript.CreateBuiltinFunction(
                         function(thisArg, argList, newTarget) { //toExponential(fractionDigits)
-                            let number = ECMAScript.ThisNumberValue(thisArg);
+                            const number = ECMAScript.ThisNumberValue(thisArg);
                             const fractionCount = ECMAScript.ToIntegerOrInfinity(argList[0]);
                             //Assert: fractionDigits == undefined && fractionCount == 0
                             if(!isFinite(number)) return "Infinity"; //literally
@@ -5120,7 +5166,7 @@
                     ));
                     numberProto.SetDataProperty("toFixed", true, false, true, ECMAScript.CreateBuiltinFunction(
                         function(thisArg, argList, newTarget) { //toFixed(fractionDigits)
-                            let number = ECMAScript.ThisNumberValue(thisArg);
+                            const number = ECMAScript.ThisNumberValue(thisArg);
                             const fractionCount = ECMAScript.ToIntegerOrInfinity(argList[0]);
                             //Assert: fractionDigits == undefined && fractionCount == 0
                             if(!isFinite(fractionCount) || fractionCount < 0 || fractionCount > 100) throw RangeError("toFixed() digits must be between 0 and 100");
@@ -5140,8 +5186,8 @@
                     ));
                     numberProto.SetDataProperty("toPrecision", true, false, true, ECMAScript.CreateBuiltinFunction(
                         function(thisArg, argList, newTarget) { //toPrecision(precision)
-                            let number = ECMAScript.ThisNumberValue(thisArg);
-                            if(precision == undefined) return number.toString(); //ECMAScript.ToString but twould be redundant
+                            const number = ECMAScript.ThisNumberValue(thisArg);
+                            if(argList[0] == undefined) return number.toString(); //ECMAScript.ToString but twould be redundant
                             const precisionCount = ECMAScript.ToIntegerOrInfinity(argList[0]);
                             if(!isFinite(number)) return "Infinity"; //literally
                             if(precisionCount < 1 || precisionCount > 100) throw RangeError("toPrecision() argument must be between 1 and 100");
@@ -5151,7 +5197,7 @@
                     ));
                     numberProto.SetDataProperty("toString", true, false, true, ECMAScript.CreateBuiltinFunction(
                         function(thisArg, argList, newTarget) { //toString()
-                            let number = ECMAScript.ThisNumberValue(thisArg);
+                            const number = ECMAScript.ThisNumberValue(thisArg);
                             if(argList[0] == undefined) {
                                 argList[0] = 10;
                             }
@@ -5297,7 +5343,7 @@
                             return string.substring(start, end) == searchString;
                         },
                         1, "endsWith", [], this
-                    ))
+                    ));
                     ECMAScript["%String.prototype%"] = stringProto;
 
                     const arrayProto = ECMAScript.ArrayCreate(0, ECMAScript["%Object.prototype%"]);
@@ -5364,6 +5410,70 @@
                         //arrayProto.SetDataProperty(ECMAScript["%Symbol.unscopables%"], false, false, true, $$unscopables);
                     }
                     ECMAScript["%Array.prototype%"] = arrayProto;
+
+                    const $Iterator = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            if(newTarget == undefined) {
+                                throw TypeError("Constructor Iterator requires 'new'");
+                            }else if(newTarget == $Iterator) { //i guess i was right about active function object?
+                                throw TypeError("Abstract class Iterator not directly constructable");
+                            }
+                            return ECMAScript.OrdinaryCreateFromConstructor(newTarget, "%Iterator.prototype%");
+                        },
+                        0, "Iterator", [], this
+                    );
+
+                    function SetterThatIgnoresPrototypeProperties(thisValue, home, propertyKey, value) {
+                        if(!(thisValue instanceof JavascriptObjectWrapper)) {
+                            //[][Symbol.iterator]().__proto__.__proto__.__lookupSetter__("constructor").call(5);
+                            throw TypeError("set Iterator.prototype.constructor called on non-object");
+                        }
+                        if(thisValue == home) {
+                            //[][Symbol.iterator]().__proto__.__proto__.constructor = [][Symbol.iterator]().__proto__.__proto__;
+                            throw TypeError(`Cannot assign to read only property 'constructor' of object '${ECMAScript.Call(ECMAScript["%Object.prototype%"]["[[Get]]"]("toString", ECMAScript["%Object.prototype%"]), thisValue, [])}'`);
+                        }
+                        const propertyDesc = thisValue["[[GetOwnProperty]]"](propertyKey);
+                        if(propertyDesc == undefined) {
+                            //CreateDataPropertyOrThrow
+                            if(!thisValue["[[DefineOwnProperty]]"](propertyKey, new JavascriptDataProperty(true, true, true, value))) {
+                                throw TypeError(`Cannot redefine property: ${propertyKey}`);
+                            }
+                        }else {
+                            if(!thisValue["[[Set]]"](propertyKey, value, thisValue)) {
+                                throw TypeError(`Cannot redefine property: ${propertyKey}`); //idk bruh i can't be bothered to try to make this error happen
+                            }
+                        }
+                        //UNUSED;
+                        return undefined;
+                    }
+
+                    const iteratorProto = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]);
+                    iteratorProto.SetAccessorProperty("constructor", false, true, ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            //how the hell do i return the iterator object if this is its prototype!
+                            return $Iterator;
+                        },
+                        0, "constructor", [], this, undefined, "get"
+                    ), ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            SetterThatIgnoresPrototypeProperties(thisArg, iteratorProto, "constructor", argList[0]);
+                            return undefined;
+                        },
+                        0, "constructor", [], this, undefined, "set"
+                    ));
+                    iteratorProto.SetDataProperty("drop", true, false, true, ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) { //Iterator.prototype.drop(limit)
+                            //const obj = thisArg;
+                            if(!(thisArg instanceof JavascriptObjectWrapper)) {
+                                throw TypeError("Iterator.prototype.drop called on non-object");
+                            }
+                            let iterated = {"[[Iterator]]": thisArg, "[[NextMethod]]": undefined, "[[Done]]": false};
+                            const numberLimit = ECMAScript.ToNumber(argList[0]);
+                            //uh oh... this might be the first time that that completion record shit is actually explicitly used...
+                            //maybe that's how it propagates errors but i just haven't been bothered to throw them in a way that actually works so i might have to refactor this entire fucking codebase which would be cringe as fuck so there's a chance you just won't be able to catch or throw errors in my implementation
+                        },
+                        1, "drop", [], this
+                    ));
                 }
 
                 //https://tc39.es/ecma262/#sec-object-constructor
@@ -6256,7 +6366,7 @@
                                                 if(typeof key == "symbol") {
                                                     key = `[${key.toString()}]`;
                                                 }
-                                                result += key+": "+value.toString();
+                                                result += key+": "+value?.toString();
                                             }
                                             if(i+1 != entries.length-1) {
                                                 result += ", ";
@@ -6288,7 +6398,7 @@
                                             }//else if(typeof key == "string") { //wait no
                                             //     key = `"${key}"`;
                                             // }
-                                            result += key+": "+value.toString();
+                                            result += key+": "+value?.toString();
                                             if(i+1 != length) {
                                                 result += ", ";
                                             }
@@ -7392,6 +7502,18 @@
                 const iterable = this.evaluate(forOfStatement.iterableExpr);
                 if(iterable instanceof JavascriptObjectWrapper) {
                     //special
+                    //wait maybe await should just be a property of ForOfStatement instead of being its own class
+                    const kind = forOfStatement.await ? IteratorKind.ASYNC : IteratorKind.SYNC;
+                    const iteratorRecord = ECMAScript.GetIterator(iterable, kind);
+                    let nextResult = ECMAScript.Call(iteratorRecord["[[NextMethod]]"], iteratorRecord["[[Iterator]]"], []);
+                    if(kind == IteratorKind.ASYNC) {
+                        // nextResult = ECMAScript.Await(nextResult); //yeah right lol!
+                        throw Error("Await not implemented!!");
+                    }
+                    if(!(nextResult instanceof JavascriptObjectWrapper)) {
+                        //%%throw TypeError%%
+                    }
+                    
                 }else {
                     //me being lazy primitive
                     for(const result of iterable) {
@@ -7562,7 +7684,12 @@
                             console.warn(e);
                             //[[fallthrough]]
                         }
+                    case "symbol":
+                        return literalExpression.value.toString();
+                        break;
                     default:
+                        //ouhh the coercion here doesn't work for symbols...
+                        //we still need it for null and undefined though
                         return literalExpression.value+"";
                         break;
                 }
