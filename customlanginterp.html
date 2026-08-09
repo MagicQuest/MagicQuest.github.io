@@ -2786,6 +2786,18 @@
                 return new Expected(this.valueFromPath(path)); //new Expected(value);
             }
 
+            //if i were writing a recursive descent version of jsm, here's what the grammar would look like...
+            //lowkey the way i wrote the unary_prefix grammar you are allowed to stack prefix increments and decrements but the grammar to fix it would be ugly and ykykykyk (if i used reference records like the ecmascript specification was talking about, we'd probably be able to catch that at runtime anyways)
+            // JSM ::= instruction*
+            // instruction ::= RESERVED (expression ',')*
+            // expression ::= term
+            // term ::= factor (('-' | '+') factor)*
+            // factor ::= unary_prefix (('*' | '/') unary_prefix)*
+            // unary_prefix ::= (('+' | '-' | '!' | '--' | '++') unary_prefix) | access_call
+            // postfix ::= access_call ('--' | '++')?
+            // access_call ::= primary (('.' | ('[' expression ']') | ('(' expression ')')) primary)*
+            // primary ::= IDENTIFIER | STRING | NUMBER
+
             /** @returns {Expected<Array<Operation>, ParseError>} */
             parse(str) /*override*/ {
                 let result = this.lex(str);
