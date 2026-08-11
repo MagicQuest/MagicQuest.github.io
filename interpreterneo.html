@@ -1959,10 +1959,17 @@
                 return {"[[Iterator]]": asyncIterator, "[[NextMethod]]": nextMethod, "[[Done]]": false};
             }
 
-            static GetIteratorFromMethod(obj, method) {
+            //using custom parameter async so we can get the error right lol
+            static GetIteratorFromMethod(obj, method, async) {
                 const iterator = ECMAScript.Call(method, obj);
                 if(!(iterator instanceof JavascriptObjectWrapper)) {
-                    //%%throw TypeError%%
+                    //for await (const obj of {[Symbol.iterator]: ()=>{}}) {
+                    //
+                    //}
+                    //for await (const obj of {[Symbol.asyncIterator]: function(){}}) {
+                    //
+                    //}
+                    throw TypeError(`Result of the Symbol.${async ? "asyncIterator" : "iterator"} method is not an object`);
                 }
                 //return GetIteratorDirect(iterator);
                 const nextMethod = obj["[[Get]]"]("next", obj);
@@ -1972,23 +1979,32 @@
             //IteratorKind
             static GetIterator(obj, kind) {
                 let method;
+                let async = false;
                 if(kind == IteratorKind.ASYNC) {
                     method = ECMAScript.GetMethod(obj, ECMAScript["%Symbol.asyncIterator%"]);
                     if(method == undefined) {
                         const syncMethod = ECMAScript.GetMethod(obj, ECMAScript["%Symbol.iterator%"]);
                         if(syncMethod == undefined) {
-                            //%%throw TypeError%%
+                            //for await (const obj of {}) {
+                            //
+                            //}
+                            throw TypeError(`${obj} is not async iterable`);
                         }
 
-                        return ECMAScript.CreateAsyncFromSyncIterator(ECMAScript.GetIteratorFromMethod(obj, syncMethod));
+                        return ECMAScript.CreateAsyncFromSyncIterator(ECMAScript.GetIteratorFromMethod(obj, syncMethod, false));
+                    }else {
+                        async = true;
                     }
                 }else {
                     method = ECMAScript.GetMethod(obj, ECMAScript["%Symbol.iterator%"]);
                 }
                 if(method == undefined) {
-                    //%%throw TypeError%%
+                    //for (const obj of {}) {
+                    //
+                    //}
+                    throw TypeError(`${obj} is not iterable`);
                 }
-                return ECMAScript.GetIteratorFromMethod(obj, method);
+                return ECMAScript.GetIteratorFromMethod(obj, method, async);
             }
 
             static ValidateAndApplyPropertyDescriptor(obj, propertyKey, extensible, propertyDesc, current) {
@@ -7511,9 +7527,9 @@
                         throw Error("Await not implemented!!");
                     }
                     if(!(nextResult instanceof JavascriptObjectWrapper)) {
-                        //%%throw TypeError%%
+                        throw TypeError(`Iterator result ${nextResult} is not an object`);
                     }
-                    
+
                 }else {
                     //me being lazy primitive
                     for(const result of iterable) {
