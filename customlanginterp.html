@@ -81,6 +81,7 @@
             <option value="modernconways">conways (modern jsm)</option> <!--but of course!-->
             <option value="math">arithmetic!</option>
             <option value="luaathome">we have lua at home</option>
+            <option value="iteration">iteration</option>
             <!--option value="prefixpostfix">unintended prefix postfix</option--> <!--aw man when i fixed out of order increments it throws an error when you try to run this (i guess i know why but i wasn't really trying to let you do that anyways lol)-->
 			<!--option value="bug1">lex bug 1</option--> <!--actually, this one wasn't a bug lol the lexer was just confused-->
 			<option value="bug2">lex bug 2</option>
@@ -118,6 +119,7 @@
             //"prefixpostfix": "mov x, 0\nprint x\nprint ++x++ # oh god\nprint x",
             "math": "mov x, 10.5\nprint x+x",
             "luaathome": "print(\"NO WAY\", \"OH MY GOD\")\nprint(\"SOMEHOW THIS IS VALID\")\nprint(\"THIS IS LUA MY BOY\")\n\n# LMAO THIS WORKS BECAUSE SPACES ARE IGNORED",
+            "iteration": "mov children, global.Array(0).fill(0)\nmov children[0], \"first\"\nmov children[1], \"second\"\nmov children[2], \"third\"\nmov children[3], \"fourth\"\nmov children[4], \"fifth\"\nprint children, children.length\nmov result, \"\"\nmov i, 0\nloop:\n# using +1 to avoid implementing jge!!\ncmp i+1, children.length\njg done\nprint children[i]\ninc i\njmp loop\ndone:\nret 421",
             //"uhoh": `jmp main\n\nstuff:\nmov x, 0\nprint x\ncmp $args[0], false\nje bad\ngood:\n# actually i should print\n# 0\n# 0 2\n# 2\n# but obviously putting them on the same line causes them to not increment in order (because i didn't do it like that!)\nprint x++\nprint ++x\nprint x\nret\nbad:\nprint x++, ++x\nprint x\nret\n\nmain:\nprint "Bad"\ncall stuff, false\nprint "Should print"\ncall stuff, true\nret`
         };
 
@@ -2796,7 +2798,7 @@
             // unary_prefix ::= (('+' | '-' | '!' | '--' | '++') unary_prefix) | access_call
             // postfix ::= access_call ('--' | '++')?
             // access_call ::= primary (('.' | ('[' expression ']') | ('(' expression ')')) primary)*
-            // primary ::= IDENTIFIER | STRING | NUMBER
+            // primary ::= IDENTIFIER | STRING | NUMBER | ('(' expression ')')
 
             /** @returns {Expected<Array<Operation>, ParseError>} */
             parse(str) /*override*/ {

@@ -1107,12 +1107,13 @@
         //literal ::= boolean | null | undefined | array | object | string | number | bigint
         //gender ::= 'male' | 'female' | 'nonbinary'
         //classExpression ::= 'class' identifier? ('extends' unary_misc)? '{' classStatement* '}'
-        //functionExpression ::= 'async'? (('function' '*'? identifier? parameters) | ((identifier | parameters) '=>')) functionBlock
+        //functionExpression ::= 'async'? (('function' '*'? identifier? parameters functionBlock) | ((identifier | parameters) '=>' functionBlock | expression))
         //identifierExpression ::= identifierAccess
         //identifierAccess ::= identifier (('.' identifier) | ('[' expression ']') | (arguments))*
-        //arrayComprehensionExpression ::= '[' listFor (listFor | listIf)* expression ']'
-        //  listFor ::= 'for' '(' optionalIdentifierQualifiers identifier 'of' unary_misc ')'
-        //  listIf ::= 'if' '(' expression ')'
+        //arrayComprehensionExpression ::= '[' listFor ']'
+        //  arrayComprehensionNext ::= listFor | listIf | expression
+        //  listFor ::= 'for' '(' optionalIdentifierQualifiers identifier 'of' unary_misc ')' arrayComprehensionNext
+        //  listIf ::= 'if' '(' expression ')' arrayComprehensionNext
         //expression ::= comma
         //  comma ::= unary_misc (',' unary_misc)*
         //  unary_misc ::= (('...' | 'yield*' | 'yield') assignment) | assignment
@@ -1203,7 +1204,7 @@
                         return false;
                         break;
                 }
-            }else if(expression instanceof FunctionCallExpression && depth != 0) { // a function expression is not assignable! if we just entered this function, don't allow this!
+            }else if(expression instanceof FunctionCallExpression && depth != 0) { // a function expression is not assignable! if we just entered this function (depth == 0), don't allow this!
                 return isValidLeftHandAssignment(expression.functionExpr, depth+1);
             }else if(expression instanceof IdentifierExpression) {
                 return depth != 0 || expression.nameToken.value != "this"; //this is not assignable!
@@ -1568,6 +1569,8 @@
             body;
             /** @type {String} */
             sourceText;
+            /** @type {Boolean} */
+            isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetail;
 
             /**
              * @param {Token | undefined} genderToken
@@ -1578,8 +1581,9 @@
              * @param {Array<{identifier: IdentifierExpression, default: Expression | undefined}>} parameters
              * @param {Statement} body
              * @param {String} sourceText
+             * @param {Boolean} isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetail
              */
-            constructor(genderToken, isStrict, isAsync, isGenerator, nameToken, parameters, body, sourceText) {
+            constructor(genderToken, isStrict, isAsync, isGenerator, nameToken, parameters, body, sourceText, isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetail) {
                 super();
                 this.genderToken = genderToken;
                 this.isStrict = isStrict;
@@ -1589,6 +1593,7 @@
                 this.parameters = parameters;
                 this.body = body;
                 this.sourceText = sourceText;
+                this.isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetail = isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetail;
             }
 
             accept(visitor) {
@@ -1653,7 +1658,7 @@
 
         function Number_isFinite(value) {
             if(typeof value != "number") return false;
-            return isFinite(value); //however this happens in lua lol
+            return isFinite(value); //however this happens in lua lol (math.isfinite)
         }
 
         function Number_isInteger(value) {
@@ -1972,8 +1977,8 @@
                     throw TypeError(`Result of the Symbol.${async ? "asyncIterator" : "iterator"} method is not an object`);
                 }
                 //return GetIteratorDirect(iterator);
-                const nextMethod = obj["[[Get]]"]("next", obj);
-                return {"[[Iterator]]": obj, "[[NextMethod]]": nextMethod, "[[Done]]": false};
+                const nextMethod = iterator["[[Get]]"]("next", iterator);
+                return {"[[Iterator]]": iterator, "[[NextMethod]]": nextMethod, "[[Done]]": false};
             }
 
             //IteratorKind
@@ -2084,6 +2089,36 @@
                     }
                 }
                 return true;
+            }
+
+            static CreateDataPropertyOrThrow(obj, propertyKey, value) {
+                if(!obj["[[DefineOwnProperty]]"](propertyKey, new JavascriptDataProperty(true, true, true, value))) {
+                    throw TypeError(`Cannot redefine property: ${propertyKey}`);
+                }
+                //UNUSED
+                return undefined;
+            }
+
+            static CreateArrayIterator(array, kind) {
+                const iterator = ECMAScript.OrdinaryObjectCreate(ECMAScript["%ArrayIteratorPrototype%"], "[[IteratedArrayLike]]", "[[ArrayLikeNextIndex]]", "[[ArrayLikeIterationKind]]");
+                iterator["[[IteratedArrayLike]]"] = array;
+                iterator["[[ArrayLikeNextIndex]]"] = 0;
+                iterator["[[ArrayLikeIterationKind]]"] = kind;
+                return iterator;
+            }
+
+            static CreateIteratorResultObject(value, done) {
+                const obj = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]);
+
+                //my failed attempt at throwing here (i'm pretty sure it can't be done right?)
+                //Object.defineProperty(Object.prototype, "value", {configurable: false, enumerable: true, writable: false, value: ">:P"});
+                //[2].values().next().value; // 2
+                
+                //Perform ! ECMAScript.CreateDataPropertyOrThrow(obj, "value", value);
+                //Perform ! ECMAScript.CreateDataPropertyOrThrow(obj, "done", done);
+                obj["[[DefineOwnProperty]]"]("value", new JavascriptDataProperty(true, true, true, value));
+                obj["[[DefineOwnProperty]]"]("done", new JavascriptDataProperty(true, true, true, done));
+                return obj;
             }
 
             static BuiltinCallOrConstruct(func, thisArg, argList, newTarget) {
@@ -2920,6 +2955,9 @@
             classFieldInitializerName;
             isClassConstructor;
 
+            //definitely not in the specification!
+            isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetailCommaThisIsActuallyTheNameOfThisFunctionForTheScopeLol;
+
             //https://tc39.es/ecma262/#sec-ecmascript-function-objects-call-thisargument-argumentslist
             ["[[Call]]"](thisArg, argList = []) {
                 //bound functions are their own *exotic* objects so they will call this method with the appropriate thisArg and argList as seen here https://tc39.es/ecma262/#sec-bound-function-exotic-objects-call-thisargument-argumentslist
@@ -2947,17 +2985,25 @@
                     scope.set("this", new Variable({qualifier: {line: 1, char: 1, value: "const", kind: TokenKind.RESERVED}, gender: undefined, name: "this"}, thisValue));
                 }
 
+                if(this.isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetailCommaThisIsActuallyTheNameOfThisFunctionForTheScopeLol) {
+                    scope.set(this.isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetailCommaThisIsActuallyTheNameOfThisFunctionForTheScopeLol, new Variable({qualifier: {line: 1, char: 1, value: "var", kind: TokenKind.RESERVED}, name: this.isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetailCommaThisIsActuallyTheNameOfThisFunctionForTheScopeLol, gender: undefined}, this));
+                }
+
                 for(let i = 0; i < this.formalParameters.length; i++) {
                     const {identifier, default: $default} = this.formalParameters[i];
                     let value;
                     if(i < argList.length) {
                         value = argList[i];
                     }else {
-                        value = $default?.accept(this.interpreter);
+                        //oh my god i wasn't calling evaluate here!
+                        // value = $default?.accept(this.interpreter);
+
+                        //hmm this is getting weird calling evaluate though...
+                        value = this.interpreter.evaluate($default);
                     }
 
                     //we are cheating by saying the parameter variable has been declared with var so that var is allowed to shadow it or whatever var does (because this allowed)
-                    scope.set(identifier.nameToken.value, new Variable({qualifier: {line: 1, char: 1, value: "var", kind: TokenKind.RESERVED, name: identifier.nameToken.value}, gender: undefined}, value));
+                    scope.set(identifier.nameToken.value, new Variable({qualifier: {line: 1, char: 1, value: "var", kind: TokenKind.RESERVED}, name: identifier.nameToken.value, gender: undefined}, value));
                 }
                 
                 //evaluate...
@@ -3342,13 +3388,13 @@
             gender;
             /** @type {Token} */
             qualifier;
-            /** @type {Token} */
+            /** @type {String} */
             name;
 
             /** 
              * @param {Token | undefined} gender
              * @param {Token} qualifier
-             * @param {Token} name
+             * @param {String} name
              */
             constructor(gender, qualifier, name) {
                 this.gender = gender;
@@ -3492,46 +3538,64 @@
 
             arrayComprehension() {
                 this.consume(TokenKind.OPEN_BRACKET, "Expected open bracket for array comprehension expression!");
-                let topMostStatement = this.listFor();
-                let curStatement = topMostStatement; //hmm this doesn't seem very recursive descent...
-                //yeah ok there's definitely an actually recursive solution to this lol why haven't i come up with it yet...
-                //
-                while(this.i < this.tokens.length && (this.peekReserved("for") || this.peekReserved("if"))) {
-                    if(this.peekReserved("for")) {
-                        const temp = this.listFor();
-                        if(curStatement instanceof IfStatement) {
-                            curStatement.ifClause = temp;
-                        }else {
-                            curStatement.body = temp;
-                        }
-                        curStatement = temp;
-                    }else {
-                        const temp = this.listIf();
-                        if(curStatement instanceof IfStatement) {
-                            curStatement.ifClause = temp;
-                        }else {
-                            curStatement.body = temp;
-                        }
-                        curStatement = temp;
-                    }
-                }
-                const expr = this.expression(); // i guess i'll allow commas lol
-                if(curStatement instanceof IfStatement) {
-                    curStatement.ifClause = expr;
-                }else {
-                    curStatement.body = expr;
-                }
+                //let topMostStatement = this.listFor();
+                //let curStatement = topMostStatement; //hmm this doesn't seem very recursive descent...
+                ////yeah ok there's definitely an actually recursive solution to this lol why haven't i come up with it yet...
+                ////maybe i've done it? now listFor does the recursive part
+                //while(this.i < this.tokens.length && (this.peekReserved("for") || this.peekReserved("if"))) {
+                //    if(this.peekReserved("for")) {
+                //        const temp = this.listFor();
+                //        if(curStatement instanceof IfStatement) {
+                //            curStatement.ifClause = temp;
+                //        }else {
+                //            curStatement.body = temp;
+                //        }
+                //        curStatement = temp;
+                //    }else {
+                //        const temp = this.listIf();
+                //        if(curStatement instanceof IfStatement) {
+                //            curStatement.ifClause = temp;
+                //        }else {
+                //            curStatement.body = temp;
+                //        }
+                //        curStatement = temp;
+                //    }
+                //}
+                //const expr = this.expression(); // i guess i'll allow commas lol
+                //if(curStatement instanceof IfStatement) {
+                //    curStatement.ifClause = expr;
+                //}else {
+                //    curStatement.body = expr;
+                //}
+                //this.consume(TokenKind.CLOSING_BRACKET, "Expected open bracket for array comprehension expression!");
+                ////this.consume(TokenKind.SEMICOLON, "Semicolon expected after array comprehension expression"); //oh wait no that's not right
+                //return new ArrayComprehensionExpression(topMostStatement);
+
+                const expr = this.listFor();
                 this.consume(TokenKind.CLOSING_BRACKET, "Expected open bracket for array comprehension expression!");
-                //this.consume(TokenKind.SEMICOLON, "Semicolon expected after array comprehension expression"); //oh wait no that's not right
-                return new ArrayComprehensionExpression(topMostStatement);
+                return new ArrayComprehensionExpression(expr);
             }
 
+            arrayComprehensionNext() {
+                if(this.peekReserved("for")) {
+                    return this.listFor();
+                }else if(this.peekReserved("if")) {
+                    return this.listIf();
+                }
+                return this.expression();
+            }
+            
+            //nevermind
             /** 
              * Returns an incomplete ForOfStatement, arrayComprehension resolves this manually!
              * @returns {ForOfStatement} */
+
+            /**
+             * @returns {ForOfStatement}
+             */
             listFor() {
                 if(!this.matchReserved("for")) {
-                    throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Expected 'for' in array comprehension expression!");
+                    throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "'for' expected in array comprehension expression!");
                 }
                 this.consume(TokenKind.OPEN_PARENTHESIS, "Expected open parenthesis in 'for' array comprehension expression!");
                 const gender = this.match(TokenKind.GENDER);
@@ -3557,13 +3621,19 @@
                 this.i++; //consume lol
                 const iterableExpr = this.unary_misc();
                 this.consume(TokenKind.CLOSING_PARENTHESIS, "Expected closing parenthesis in 'for' array comprehension expression!");
-                return new ForOfStatement(tdzStatements, forVar, iterableExpr, undefined);
-                // return new ForOfStatement(, iterableExpr, );
+
+                return new ForOfStatement(tdzStatements, forVar, iterableExpr, this.arrayComprehensionNext()); //by using array comprehension next, these statements are right associative (because they then call listFor/listIf) and stop when an expression is reached :)
             }
 
+            //nevermind
             /** 
              * Returns an incomplete IfStatement, arrayComprehension resolves this manually!
-             * @returns {ForOfStatement} */
+             * @returns {IfStatement} */
+
+
+            /**
+             * @returns {IfStatement}
+             */
             listIf() {
                 if(!this.matchReserved("if")) {
                     throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Expected 'if' in array comprehension expression!");
@@ -3571,8 +3641,8 @@
                 this.consume(TokenKind.OPEN_PARENTHESIS, "Expected open parenthesis in 'if' array comprehension expression!");
                 const condition = this.expression();
                 this.consume(TokenKind.CLOSING_PARENTHESIS, "Expected closing parenthesis in 'if' array comprehension expression!");
-                //return whatever...
-                return new IfStatement(condition, undefined, undefined);
+                //return whatever... hmph!
+                return new IfStatement(condition, this.arrayComprehensionNext(), undefined); //by using array comprehension next, these statements are right associative (because they then call listFor/listIf) and stop when an expression is reached :)
             }
 
             expression() {
@@ -3990,17 +4060,27 @@
                         //this if statement matches the following lines:
                         //async? function ...
                         //async? x=> ...
-                        if(this.matchReserved("function")) {
+                        if(this.peekReserved("function")) { //bruh peekReserved again :/
+                            const funcToken = this.match(TokenKind.RESERVED);
                             //function
                             const generator = this.match(TokenKind.ASTERISK);
-                            const name = this.match(TokenKind.IDENTIFIER);
-                            const parameters = this.parameters();
-                            const body = this.block();
+                            const name = this.match(TokenKind.IDENTIFIER); //hmm because function expressions can have a name maybe i SHOULD allow them a gender...
+                            // const parameters = this.parameters();
+                            // const body = this.block();
+                            //functionBlock
+                            return this.doCommonFunctionStuff(undefined, async, funcToken, generator, name, true);
                         }else {
                             //arrow
                             const parameter = this.match(TokenKind.IDENTIFIER);
                             this.consume(TokenKind.ARROW, "Expected arrow after arrow function?? this shouldn't happen right?");
-                            const body = this.block();
+                            // const body = this.block();
+                            if(this.peek(TokenKind.OPEN_CURLY_BRACKET)) {
+                                //x=>{...};
+                                //functionBlock
+                            }else {
+                                //x=>x;
+                                //expression
+                            }
                         }
                     }
                     else if(this.match(TokenKind.OPEN_PARENTHESIS)) {
@@ -4011,7 +4091,14 @@
                             //arrow!
                             //uh oh, we'll have to translate expr so that it's actually usable as parameters!
                             //the only allowed operators are the equal sign and the comma!
-                            const body = this.block();
+                            //const body = this.block();
+                            if(this.peek(TokenKind.OPEN_CURLY_BRACKET)) {
+                                //(x)=>{...};
+                                //functionBlock
+                            }else {
+                                //(x)=>x;
+                                //expression
+                            }
                         }else if(async) {
                             throw new ParseError(async.line, async.char, "Async not expected here!");
                         }
@@ -4087,6 +4174,76 @@
                 }else {
                     return new VariableDeclarationStatement(gender || undefined, qualifier, name.value, value);
                 }
+            }
+
+            doCommonFunctionStuff(gender, async, funcToken, generator, name, expression) {
+                const scope = this.scope[this.scope.length-1];
+                let $var;
+                if(!expression) { // the name of a function expression is not hoisted and is only accessable by the parameters and body of the function!
+                    if(scope.variables.has(name.value)) {
+                        const old = scope.variables.get(name.value);
+                        if(qualifier.value != old.qualifier.value) {
+                            throw new ParseError(name.line, name.char, `Identifier '${name.value}' has already been declared!`);
+                        }
+                        $var = scope.get(name.value);
+                    }else {
+                        $var = new StaticAnalysisFunctionVariable(gender || undefined, funcToken, name);
+                        scope.variables.set(name.value, $var);
+                        scope.hoisted.push($var);
+                    }
+                }else {
+                    $var = {}; // lazy
+                }
+                
+                const parameters = this.parameters();
+                //this.inFunction = true;
+                //this.inFunction.push(true);
+                const scopeRef = new StaticAnalysisScope("function", undefined);
+                this.scope.push(scopeRef);
+
+                if(expression && name) {
+                    //hmm i'm sure the specification is calling me an idiot right now but my implementation allows the following to work, even though it shouldn't...
+                    //(function sum(x = sum, sum) { // V8: Cannot access 'sum' before initialization
+                    //  console.log(x, sum);
+                    //})();
+                    scopeRef.variables.set(name.value, new StaticAnalysisVariable(undefined, {line: 1, char: 1, value: "var", kind: TokenKind.RESERVED}, name.value));
+                }
+
+                for(const {identifier, default: $default} of parameters) {
+                    scopeRef.variables.set(identifier.nameToken.value, new StaticAnalysisVariable(undefined, {line: 1, char: 1, value: "var", kind: TokenKind.RESERVED}, identifier.nameToken.value));
+                }
+
+                const functionBody = this.block(true); //purrhaps i could just pass inFunction to block lol
+                
+                scopeRef.blockStatementArray = functionBody.statements;
+                this.pushHoistedDeclarations();
+                this.scope.pop();
+                
+                functionBody.precedingStatementIsSpecialSoDontBotherMakingScopeBecauseJavascriptBS = true; //when the function is visited it will create a scope for its parameters so the block needn't create another.
+                // this.inFuncton = false; //bruh
+                // this.inFunction = false;
+                //this.inFunction.pop();
+                let strict = this.useStrict;
+                if((functionBody.statements[0] instanceof ExpressionStatement) && functionBody.statements[0].expression?.value == "use strict") {
+                    //we need to make sure the parameter list is "simple" otherwise throw
+                    for(const parameter of parameters) {
+                        if(parameter.default) {
+                            throw new ParseError(name.line, name.char, "Illegal 'use strict' directive in function with non-simple parameter list");
+                        }
+                    }
+                    strict = true;
+                }
+
+                $var.statement = new FunctionStatement(gender || undefined, strict, !!async, !!generator, name, parameters, functionBody, undefined, expression);
+
+                let sourceText = "";
+                {
+                    const p = new Printer;
+                    sourceText += $var.statement.accept(p);
+                }
+                $var.statement.sourceText = sourceText;
+                
+                return $var.statement;
             }
 
             //for let and const :/
@@ -4471,62 +4628,7 @@
                             const temp = +(this.i >= this.tokens.length);
                             throw new ParseError(this.tokens[this.i-temp].line, this.tokens[this.i-temp].char, `Function statements require a function name`);
                         }
-                        const scope = this.scope[this.scope.length-1];
-                        let $var;
-                        if(scope.variables.has(name.value)) {
-                            const old = scope.variables.get(name.value);
-                            if(qualifier.value != old.qualifier.value) {
-                                throw new ParseError(name.line, name.char, `Identifier '${name.value}' has already been declared!`);
-                            }
-                            $var = scope.get(name.value);
-                        }else {
-                            $var = new StaticAnalysisFunctionVariable(gender || undefined, funcToken, name);
-                            scope.variables.set(name.value, $var);
-                            scope.hoisted.push($var);
-                        }
-
-                        
-                        const parameters = this.parameters();
-                        //this.inFunction = true;
-                        //this.inFunction.push(true);
-                        const scopeRef = new StaticAnalysisScope("function", undefined);
-                        this.scope.push(scopeRef);
-
-                        for(const {identifier, default: $default} of parameters) {
-                            scopeRef.variables.set(identifier.nameToken.value, new StaticAnalysisVariable(undefined, {line: 1, char: 1, value: "var", kind: TokenKind.RESERVED}, identifier.nameToken.value));
-                        }
-
-                        const functionBody = this.block(true); //purrhaps i could just pass inFunction to block lol
-                        
-                        scopeRef.blockStatementArray = functionBody.statements;
-                        this.pushHoistedDeclarations();
-                        this.scope.pop();
-                        
-                        functionBody.precedingStatementIsSpecialSoDontBotherMakingScopeBecauseJavascriptBS = true; //when the function is visited it will create a scope for its parameters so the block needn't create another.
-                        // this.inFuncton = false; //bruh
-                        // this.inFunction = false;
-                        //this.inFunction.pop();
-                        let strict = this.useStrict;
-                        if((functionBody.statements[0] instanceof ExpressionStatement) && functionBody.statements[0].expression?.value == "use strict") {
-                            //we need to make sure the parameter list is "simple" otherwise throw
-                            for(const parameter of parameters) {
-                                if(parameter.default) {
-                                    throw new ParseError(name.line, name.char, "Illegal 'use strict' directive in function with non-simple parameter list");
-                                }
-                            }
-                            strict = true;
-                        }
-
-                        $var.statement = new FunctionStatement(gender || undefined, strict, !!async, !!generator, name, parameters, functionBody, undefined);
-
-                        let sourceText = "";
-                        {
-                            const p = new Printer;
-                            sourceText += $var.statement.accept(p);
-                        }
-                        $var.statement.sourceText = sourceText;
-                        
-                        return $var.statement;
+                        return this.doCommonFunctionStuff(gender, async, funcToken, generator, name, false);
                     }
                     //we're still allowing const and let here as a sort of cover grammar like thing so we can catch it
                     else if(this.peekReserved("var") || this.peekReserved("const") || (this.peekReserved("let") || (this.peek(TokenKind.IDENTIFIER) && this.tokens[this.i].value == "let" && this.peekNext(TokenKind.IDENTIFIER)))) { // bruh let is only reserved in strict mode! otherwise it will be tokenized as an identifier!
@@ -4834,7 +4936,8 @@
                         },
                         0, "toLocaleString", [], this
                     ));
-                    objProto.SetDataProperty("toString", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    //this is used by Array.prototype.toString
+                    const objProto$toString = ECMAScript.CreateBuiltinFunction(
                         function(thisArg, argList, newTarget) { //Object.prototype.toString()
                             if(thisArg == undefined) return "[object Undefined]";
                             if(thisArg == null) return "[object Null]";
@@ -4869,7 +4972,8 @@
                             return `[object ${tag}]`;
                         },
                         0, "toString", [], this
-                    ));
+                    );
+                    objProto.SetDataProperty("toString", true, false, true, objProto$toString);
                     objProto.SetDataProperty("valueOf", true, false, true, ECMAScript.CreateBuiltinFunction(
                         function(thisArg, argList, newTarget) { //Object.prototype.valueOf()
                             return ECMAScript.ToObject(thisArg);
@@ -5382,6 +5486,103 @@
                             1, "at", [], this
                         );
 
+                        const $join = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Array.prototype.join(separator);
+                                const obj = ECMAScript.ToObject(thisArg);
+                                const length = ECMAScript.LengthOfArrayLike(obj);
+                                const sep = argList[0] == undefined ? "," : ECMAScript.ToString(argList[0]);
+                                let result = "";
+                                for(let k = 0; k < length; k++) {
+                                    if(k > 0) {
+                                        result = result + sep;
+                                    }
+                                    const element = obj["[[Get]]"](k.toString(), obj); //! ToString(𝔽(k))
+                                    if(element != undefined && element != null) {
+                                        result = result + ECMAScript.ToString(element);
+                                    }
+                                }
+                                return result;
+                            },
+                            1, "join", [], this
+                        );
+
+                        const $keys = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                const obj = ECMAScript.ToObject(thisArg);
+                                return ECMAScript.CreateArrayIterator(obj, EnumerateKind.KEY);
+                            },
+                            0, "keys", [], this
+                        );
+
+                        const $toString = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                const array = ECMAScript.ToObject(thisArg);
+                                let func = array["[[Get]]"]("join", array);
+                                if(!ECMAScript.IsCallable(func)) {
+                                    //let x = [];
+                                    //x.join = undefined;
+                                    //x.toString(); // [object Array]
+                                    //Object.prototype.toString = function() {return "hi"};
+                                    //x.toString(); // [object Array] :/
+                                    // func = ECMAScript["%Object.prototype%"]["[[Get]]"]("toString", ECMAScript["%Object.prototype%"]);
+                                    func = objProto$toString;
+                                }
+                                return ECMAScript.Call(func, array);
+                            },
+                            0, "toString", [], this
+                        )
+
+                        const $values = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                const obj = ECMAScript.ToObject(thisArg);
+                                return ECMAScript.CreateArrayIterator(obj, EnumerateKind.VALUE);
+                            },
+                            0, "values", [], this
+                        );
+
+                        const $$iterator = $values; //Array.prototype[Symbol.iterator].name == "values" !!
+                        const $$unscopables = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                const unscopableList = ECMAScript.OrdinaryObjectCreate(null);
+                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "at", true);
+                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "copyWithin", true);
+                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "entries", true);
+                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "fill", true);
+                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "find", true);
+                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "findIndex", true);
+                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "findLast", true);
+                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "findLastIndex", true);
+                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "flat", true);
+                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "flatMap", true);
+                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "includes", true);
+                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "keys", true);
+                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "toReversed", true);
+                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "toSorted", true);
+                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "toSpliced", true);
+                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "values", true);
+
+                                //lowkey what are we doing man, i don't think these can even fail
+                                unscopableList["[[DefineOwnProperty]]"]("at", new JavascriptDataProperty(true, true, true, true));
+                                unscopableList["[[DefineOwnProperty]]"]("copyWithin", new JavascriptDataProperty(true, true, true, true));
+                                unscopableList["[[DefineOwnProperty]]"]("entries", new JavascriptDataProperty(true, true, true, true));
+                                unscopableList["[[DefineOwnProperty]]"]("fill", new JavascriptDataProperty(true, true, true, true));
+                                unscopableList["[[DefineOwnProperty]]"]("find", new JavascriptDataProperty(true, true, true, true));
+                                unscopableList["[[DefineOwnProperty]]"]("findIndex", new JavascriptDataProperty(true, true, true, true));
+                                unscopableList["[[DefineOwnProperty]]"]("findLast", new JavascriptDataProperty(true, true, true, true));
+                                unscopableList["[[DefineOwnProperty]]"]("findLastIndex", new JavascriptDataProperty(true, true, true, true));
+                                unscopableList["[[DefineOwnProperty]]"]("flat", new JavascriptDataProperty(true, true, true, true));
+                                unscopableList["[[DefineOwnProperty]]"]("flatMap", new JavascriptDataProperty(true, true, true, true));
+                                unscopableList["[[DefineOwnProperty]]"]("includes", new JavascriptDataProperty(true, true, true, true));
+                                unscopableList["[[DefineOwnProperty]]"]("keys", new JavascriptDataProperty(true, true, true, true));
+                                unscopableList["[[DefineOwnProperty]]"]("toReversed", new JavascriptDataProperty(true, true, true, true));
+                                unscopableList["[[DefineOwnProperty]]"]("toSorted", new JavascriptDataProperty(true, true, true, true));
+                                unscopableList["[[DefineOwnProperty]]"]("toSpliced", new JavascriptDataProperty(true, true, true, true));
+                                unscopableList["[[DefineOwnProperty]]"]("values", new JavascriptDataProperty(true, true, true, true));
+                                return unscopableList;
+                            },
+                            0, "[Symbol.unscopables]", [], this
+                        );
+
                         //holy FUCK there's too many array methods
                         arrayProto.SetDataProperty("at", true, false, true, $at);
                         //arrayProto.SetDataProperty("concat", true, false, true, $concat);
@@ -5400,8 +5601,8 @@
                         //arrayProto.SetDataProperty("forEach", true, false, true, $forEach);
                         //arrayProto.SetDataProperty("includes", true, false, true, $includes);
                         //arrayProto.SetDataProperty("indexOf", true, false, true, $indexOf);
-                        //arrayProto.SetDataProperty("join", true, false, true, $join);
-                        //arrayProto.SetDataProperty("keys", true, false, true, $keys);
+                        arrayProto.SetDataProperty("join", true, false, true, $join);
+                        arrayProto.SetDataProperty("keys", true, false, true, $keys);
                         //arrayProto.SetDataProperty("lastIndexOf", true, false, true, $lastIndexOf);
                         //arrayProto.SetDataProperty("map", true, false, true, $map);
                         //arrayProto.SetDataProperty("pop", true, false, true, $pop);
@@ -5418,12 +5619,12 @@
                         //arrayProto.SetDataProperty("toReversed", true, false, true, $toReversed);
                         //arrayProto.SetDataProperty("toSorted", true, false, true, $toSorted);
                         //arrayProto.SetDataProperty("toSpliced", true, false, true, $toSpliced);
-                        //arrayProto.SetDataProperty("toString", true, false, true, $toString);
+                        arrayProto.SetDataProperty("toString", true, false, true, $toString);
                         //arrayProto.SetDataProperty("unshift", true, false, true, $unshift);
-                        //arrayProto.SetDataProperty("values", true, false, true, $values);
+                        arrayProto.SetDataProperty("values", true, false, true, $values);
                         //arrayProto.SetDataProperty("with", true, false, true, $with);
-                        //arrayProto.SetDataProperty(ECMAScript["%Symbol.iterator%"], true, false, true, $$iterator);
-                        //arrayProto.SetDataProperty(ECMAScript["%Symbol.unscopables%"], false, false, true, $$unscopables);
+                        arrayProto.SetDataProperty(ECMAScript["%Symbol.iterator%"], true, false, true, $$iterator);
+                        arrayProto.SetDataProperty(ECMAScript["%Symbol.unscopables%"], false, false, true, $$unscopables);
                     }
                     ECMAScript["%Array.prototype%"] = arrayProto;
 
@@ -5450,10 +5651,10 @@
                         }
                         const propertyDesc = thisValue["[[GetOwnProperty]]"](propertyKey);
                         if(propertyDesc == undefined) {
-                            //CreateDataPropertyOrThrow
-                            if(!thisValue["[[DefineOwnProperty]]"](propertyKey, new JavascriptDataProperty(true, true, true, value))) {
-                                throw TypeError(`Cannot redefine property: ${propertyKey}`);
-                            }
+                            /*Perform ?*/ ECMAScript.CreateDataPropertyOrThrow(thisValue, propertyKey, value);
+                            //if(!thisValue["[[DefineOwnProperty]]"](propertyKey, new JavascriptDataProperty(true, true, true, value))) {
+                            //    throw TypeError(`Cannot redefine property: ${propertyKey}`);
+                            //}
                         }else {
                             if(!thisValue["[[Set]]"](propertyKey, value, thisValue)) {
                                 throw TypeError(`Cannot redefine property: ${propertyKey}`); //idk bruh i can't be bothered to try to make this error happen
@@ -5490,6 +5691,71 @@
                         },
                         1, "drop", [], this
                     ));
+
+                    ECMAScript["%Iterator.prototype%"] = iteratorProto;
+
+                    const arrayIteratorProto = ECMAScript.OrdinaryObjectCreate(iteratorProto);
+                    {
+                        const $next = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                //const iteratorObj = thisArg;
+                                if(!(thisArg instanceof JavascriptObjectWrapper)) {
+                                    throw TypeError(`Method Array Iterator.prototype.next called on incompatible receiver ${thisArg.toString()}`);
+                                }
+                                if(!("[[IteratedArrayLike]]" in thisArg) || !("[[ArrayLikeNextIndex]]" in thisArg) || !("[[ArrayLikeIterationKind]]" in thisArg)) {
+                                    //[].values().__proto__.next.call({}});
+                                    //Method Array Iterator.prototype.next called on incompatible receiver #<Object>
+                                    //[].values().__proto__.next.call(window);
+                                    //Method Array Iterator.prototype.next called on incompatible receiver #<Window>
+                                    //[].values().__proto__.next.call(Window);
+                                    //Method Array Iterator.prototype.next called on incompatible receiver function Window() { [native code] }
+                                    //[].values().__proto__.next.call(new Object(5));
+                                    //Method Array Iterator.prototype.next called on incompatible receiver [object Number]
+                                    throw TypeError(`Method Array Iterator.prototype.next called on incompatible receiver #<Object>`); //for some reason i've only observed the window object to produce #<Window> even though console and Math too have the Symbol.toStringTag property (and yeah for window it's on the prototype but i tested that too and i only got #<Object>!)
+                                }
+                                const array = thisArg["[[IteratedArrayLike]]"];
+                                if(array == undefined) {
+                                    return ECMAScript.CreateIteratorResultObject(undefined, true);
+                                }
+                                const index = thisArg["[[ArrayLikeNextIndex]]"];
+                                const kind = thisArg["[[ArrayLikeIterationKind]]"];
+                                let length;
+                                if("[[TypedArrayName]]" in array) {
+                                    const taRecord = ECMAScript.ValidateTypedArrayBounds(array, TypedArrayOrder.SEQ_CST);
+                                    length = ECMAScript.TypedArrayLength(taRecord);
+                                }else {
+                                    length = ECMAScript.LengthOfArrayLike(array);
+                                }
+                                if(index >= length) {
+                                    thisArg["[[IteratedArrayLike]]"] = undefined;
+                                    return ECMAScript.CreateIteratorResultObject(undefined, true);
+                                }
+                                thisArg["[[ArrayLikeNextIndex]]"] = index+1;
+                                const indexNumber = +index; //𝔽(index)
+                                let result;
+                                if(kind == EnumerateKind.KEY) {
+                                    result = indexNumber;
+                                }else {
+                                    const elementKey = /*!*/ ECMAScript.ToString(indexNumber);
+                                    const elementValue = /*?*/ array["[[Get]]"](elementKey, array);
+                                    if(kind == EnumerateKind.VALUE) {
+                                        result = elementValue;
+                                    }else {
+                                        //Assert: kind == EnumerateKind.KEY_VALUE
+                                        result = ECMAScript.CreateArrayFromList([indexNumber, elementValue]);
+                                    }
+                                }
+                                return ECMAScript.CreateIteratorResultObject(result, false);
+                            },
+                            0, "next", [], this
+                        );
+
+                        const $$toStringTag = "Array Iterator";
+
+                        arrayIteratorProto.SetDataProperty("next", true, false, true, $next);
+                        arrayIteratorProto.SetDataProperty(ECMAScript["%Symbol.toStringTag%"], false, false, true, $$toStringTag);
+                    }
+                    ECMAScript["%ArrayIteratorPrototype%"] = arrayIteratorProto;
                 }
 
                 //https://tc39.es/ecma262/#sec-object-constructor
@@ -6375,6 +6641,10 @@
                                                 value = "ƒ";
                                             }else if(typeof value == "string") {
                                                 value = `"${value}"`;
+                                            }else if(value instanceof JavascriptObjectWrapper) {
+                                                value = value["[[Get]]"]("toString", value)["[[Call]]"](value, []);
+                                            }else {
+                                                value = value?.toString();
                                             }
                                             if(key >= 0 && isFinite(key)) {
                                                 result += value;
@@ -6382,7 +6652,7 @@
                                                 if(typeof key == "symbol") {
                                                     key = `[${key.toString()}]`;
                                                 }
-                                                result += key+": "+value?.toString();
+                                                result += key+": "+value;
                                             }
                                             if(i+1 != entries.length-1) {
                                                 result += ", ";
@@ -6447,7 +6717,7 @@
                 console.larp = ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) { //console.log
                         //console.log implementation
-                        //incredibly there's actually a specification for this, too.
+                        //incredibly there's a specification for this, too.
                         //Logger("log", argList);
                         if(!argList.length) return;
                         const first = argList[0];
@@ -6486,7 +6756,9 @@
                 for(let i = 0; i < result.value.length-1; i++) {
                     result.value[i].accept(this);
                 }
-                console.log(Printer.prototype.visitLiteralExpression({value: result.value.at(-1).accept(this)}));
+                // console.log(Printer.prototype.visitLiteralExpression({value: this.evaluate(result.value.at(-1))}));
+                //calling console.larp lol!
+                console.larp["[[Call]]"](undefined, [this.evaluate(result.value.at(-1))]);
 
                 //because arrays and objects shouldn't be too hard, we'll probably use a recursive descent solution (at least for these types)
             }
@@ -7514,22 +7786,52 @@
                     //well shit with that reference shit this is so much easier
                     bindingRef = this.evaluate(forOfStatement.identifierDeclaration, false);
                 }
-                let last;
+                let last = undefined; //i suppose i'm also using this like iterationResult
                 const iterable = this.evaluate(forOfStatement.iterableExpr);
+                //https://tc39.es/ecma262/#sec-runtime-semantics-forinofheadevaluation
                 if(iterable instanceof JavascriptObjectWrapper) {
                     //special
                     //wait maybe await should just be a property of ForOfStatement instead of being its own class
                     const kind = forOfStatement.await ? IteratorKind.ASYNC : IteratorKind.SYNC;
                     const iteratorRecord = ECMAScript.GetIterator(iterable, kind);
-                    let nextResult = ECMAScript.Call(iteratorRecord["[[NextMethod]]"], iteratorRecord["[[Iterator]]"], []);
-                    if(kind == IteratorKind.ASYNC) {
-                        // nextResult = ECMAScript.Await(nextResult); //yeah right lol!
-                        throw Error("Await not implemented!!");
+                    for(;;) {
+                        const nextResult = ECMAScript.Call(iteratorRecord["[[NextMethod]]"], iteratorRecord["[[Iterator]]"], []);
+                        if(kind == IteratorKind.ASYNC) {
+                            // nextResult = ECMAScript.Await(nextResult); //yeah right lol!
+                            throw Error("Await not implemented!!");
+                        }
+                        if(!(nextResult instanceof JavascriptObjectWrapper)) { //14.7.5.7 step 8.c
+                            // let iterable = {};
+                            // iterable[Symbol.iterator] = function() {
+                            //     let results = [
+                            //         {value: 6, done: false},
+                            //         {value: 7, done: false},
+                            //         {value: undefined, done: true},
+                            //     ];
+                            //     return {i: 0, next: function() {
+                            //         // return results[this.i++];
+                            //         return "what"; // Iterator result what is not an object
+                            //     }};
+                            // };
+                            // for(const obj of iterable) obj;
+                            throw TypeError(`Iterator result ${nextResult} is not an object`);
+                        }
+                        //IteratorComplete
+                        const done = ECMAScript.ToBoolean(nextResult["[[Get]]"]("done", nextResult));
+                        if(done) {
+                            break;
+                        }else {
+                            //IteratorValue
+                            const nextValue = nextResult["[[Get]]"]("value", nextResult);
+                            if(!bindingRef) {
+                                //i mean sure bro
+                                scope.get(forOfStatement.identifierDeclaration.name).value = nextValue;
+                            }else {
+                                this.PutValue(bindingRef, nextValue);
+                            }
+                            last = forOfStatement.body.accept(this);
+                        }
                     }
-                    if(!(nextResult instanceof JavascriptObjectWrapper)) {
-                        throw TypeError(`Iterator result ${nextResult} is not an object`);
-                    }
-
                 }else {
                     //me being lazy primitive
                     for(const result of iterable) {
@@ -7541,17 +7843,26 @@
                         }else {
                             this.PutValue(bindingRef, result);
                         }
-                        forOfStatement.body.accept(this);
+                        last = forOfStatement.body.accept(this);
                     }
                 }
                 this.state.variables.pop();
                 return last;
             }
 
-            ///** @param {ArrayComprehensionExpression} arrayComprehensionExpression */
-            //visitArrayComprehensionExpression(arrayComprehensionExpression) {
-            //    
-            //}
+            //let arr = [];
+            //for(const x of "string") if(x.charCodeAt() % 2 == 0) arr.push(x);
+            //=================================================================
+            //let arr = [for(const x of "string") if(x.charCodeAt() % 2 == 0) x]
+
+            //i could make it so that if the result for any iteration is undefined, it's not pushed to the array, or i could do what the first example says, where i replace the expression at the end with a push (in such a way that somehow doesn't become error prone)
+
+            /** @param {ArrayComprehensionExpression} arrayComprehensionExpression */
+            visitArrayComprehensionExpression(arrayComprehensionExpression) {
+                const result = ECMAScript.ArrayCreate(0);
+                arrayComprehensionExpression.topMostStatementTree.accept(this);
+                return result;
+            }
 
             /** @param {FunctionStatement} functionStatement */
             visitFunctionStatement(functionStatement) {
@@ -7579,26 +7890,32 @@
                 //bruh i forgot the very next line
                 ECMAScript.MakeConstructor(wrapper);
                 
-                if(scope.has(functionStatement.nameToken.value)) {
-                    const old = scope.get(functionStatement.nameToken.value);
-                    if(old instanceof TemporalDeadZoneVariable) {
-                        //promote to regular var lol
-                        const temp = new Variable(old.properties, wrapper);
-                        scope.set(functionStatement.nameToken.value, temp);
-                    }else { //for some reason you can redeclare functions with the same name
+                if(!functionStatement.isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetail) {
+                    if(scope.has(functionStatement.nameToken.value)) {
+                        const old = scope.get(functionStatement.nameToken.value);
+                        if(old instanceof TemporalDeadZoneVariable) {
+                            //promote to regular var lol
+                            const temp = new Variable(old.properties, wrapper);
+                            scope.set(functionStatement.nameToken.value, temp);
+                        }else { //for some reason you can redeclare functions with the same name
 
-                        //my static analysis should handle all this?
-                        //const oldGender = old.properties.gender?.value;
-                        ////some kind of function object idk
-                        //if(!(old.value instanceof FunctionWrapper)) {
-                        //    throw new SyntaxError(`Identifier '${functionStatement.nameToken.value}' has already been declared${oldGender != functionStatement.genderToken?.value ? ` (with gender '${oldGender}')` : ""}`);
-                        //}
-                        old.value = wrapper;
+                            //my static analysis should handle all this?
+                            //const oldGender = old.properties.gender?.value;
+                            ////some kind of function object idk
+                            //if(!(old.value instanceof FunctionWrapper)) {
+                            //    throw new SyntaxError(`Identifier '${functionStatement.nameToken.value}' has already been declared${oldGender != functionStatement.genderToken?.value ? ` (with gender '${oldGender}')` : ""}`);
+                            //}
+                            old.value = wrapper;
+                        }
+                    }else {
+                        scope.set(functionStatement.nameToken.value, new Variable({qualifier: undefined, gender: functionStatement.genderToken, name: functionStatement.nameToken.value}, wrapper));
+                        //closure.at(-1).set(functionStatement.nameToken.value, scope.get(functionStatement.nameToken.value)); //reference
                     }
                 }else {
-                    scope.set(functionStatement.nameToken.value, new Variable({qualifier: undefined, gender: functionStatement.genderToken, name: functionStatement.nameToken.value}, wrapper));
-                    //closure.at(-1).set(functionStatement.nameToken.value, scope.get(functionStatement.nameToken.value)); //reference
+                    //wrapper.isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetail = true;
+                    wrapper.isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetailCommaThisIsActuallyTheNameOfThisFunctionForTheScopeLol = functionStatement.nameToken.value;
                 }
+                return wrapper; // this is required for function expressions unless i bother to make them their own class (which i mean come on they're basically the same so fawk that)
             }
 
             /** @param {ReturnStatement} returnStatement */
