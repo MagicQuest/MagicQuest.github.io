@@ -50,6 +50,8 @@
             <option value="consistent2">consistent2</option>
             <option value="consistent3">consistent3</option>
             <option value="consistent4">consistent4</option>
+            <option value="consistent5">consistent5</option>
+            <option value="objectliterals">every object literal property</option>
             <option value="COMPREHENSION">ARRAY COMPREHENSION?!</option>
             <option value="closures">closures</option>
             <option value="operators">operators</option>
@@ -79,8 +81,10 @@
             "varscope2": "var hoist = \"okay\";\n{\n    var block = true;\n}\nvar after = \"yes\";\n\nconsole.log(hoist, block, after);",
             "consistent": "let x = 2;\n{\n    console.log(x); //should be ReferenceError because of let shadow!\n    let x;\n}",
             "consistent2": "Math.abs(new Boolean(5)); // 1", // it should coerce (new Boolean(5)) into the primitive '1' (but i haven't done that) (now i have ;)
-            "consistent3": "//no object literals yet...\nlet obj = Object();\n\nfunction temp() {\n    return 21;\n}\n\n//no function expressions yet...\nobj.valueOf = temp;\n\n//unary plus to coerce\nconsole.log(+obj); // 21!",
-            "consistent4": "let x = Object(); \n\nfunction temp() {\n    console.log(\"got!\", this);\n    return \"hello world\";\n}\n\nx.toString = temp;\n\n// Cannot convert hello world to a BigInt\nBigInt(x);",
+            "consistent3": "//object literal!\nlet obj = {\n    //method!\n    valueOf() {\n        return 21;\n    },\n};\n\n//unary plus to coerce\nconsole.log(+obj); // 21!",
+            "consistent4": "let x = {\n    toString() {\n        console.log(\"got!\", this);\n        return \"hello world\";\n    }\n};\n\n// Cannot convert hello world to a BigInt\nBigInt(x);",
+            "consistent5": "const x = Object();\nx.valueOf = function() {return NaN;};\nconsole.log(Number.isNaN(x)); // false\nconsole.log(isNaN(x)); // true",
+            "objectliterals": "let variable = \"variable\";\nlet another_obj = {\"another_obj_key\": \"another_obj_value\"};\nlet x = {\n    variable,\n    y: \"identifier name property\",\n    \"string\": \"string property\",\n    0: \"numeric property\",\n    [\"computed property\"]: \"what the key said.\",\n    property() {\n    },\n    get [\"x\"]() {\n        return 421;\n    },\n    *generator() {\n    },\n    async 5() {\n    },\n    async* \"hello_generator\"() {\n    },\n    set x(newValue) {\n        console.log(newValue);\n    },\n    ...another_obj\n};\nconsole.larp(x);",
             "COMPREHENSION": "let split = [for (const x of \"string\") x];",
             "closures": "function makeCounter() {\n  let i = 0;\n  function count() {\n    i = i + 1;\n    console.log(i);\n  }\n\n  return count;\n}\n\nlet counter = makeCounter();\ncounter(); // \"1\".\ncounter(); // \"2\".",
         }
@@ -1140,14 +1144,14 @@
         //  primary ::= arrayComprehensionExpression | literal | functionExpression | identifier | classExpression | ('(' expression ')')
         //classStatement ::= constructor | method | fieldDecl | staticInitialization
         //  constructor ::= 'constructor' parameters block
-        //  method ::= 'static'? (('get' | 'set') | (async? '*'))? (identifier | ('[' expression ']')) parameters block
-        //  fieldDecl ::= 'static'? (identifier | ('[' expression ']')) ('=' expression)?
+        //  method ::= 'static'? (('get' | 'set') | (async? '*'))? (identifier | ('[' unary_misc ']')) parameters block
+        //  fieldDecl ::= 'static'? (identifier | ('[' unary_misc ']')) ('=' unary_misc)?
         //  staticInitialization ::= 'static' block
         //switchStatementBody ::= (case | default | statement)*
         //  case ::= 'case' expression ':' statement
         //  default ::= 'default' ':' statement
         //declaration ::= scopedIdentifierDeclaration | statement
-        //  scopedIdentifierDeclaration ::= gender? ('const' | 'let') identifier ('=' expression)? (',' identifier ('=' expression)?)* //well that explains why the comma isn't allowed!
+        //  scopedIdentifierDeclaration ::= gender? ('const' | 'let') identifier ('=' unary_misc)? (',' identifier ('=' unary_misc)?)* //well that explains why the comma isn't allowed!
         //controlFlowStatement ::= if | while | do | for | switch | with | throw | classDeclStatement | functionStatement | varStatement | controlFlowBlock | empty | (expression ';')
         //  controlFlowBlock ::= '{' (break | continue | declaration)* '}'
         //  break ::= 'break' identifier?
@@ -1174,11 +1178,14 @@
         //  empty ::= ';'
         //optionalIdentifierQualifiers = gender? ('var' | 'const' | 'let')?
         //parameters ::= '(' (identifier ('=' unary_misc)? ',')* ')' // we're using unary_misc here because allowing the comma here would be weird!
-        //arguments ::= '(' (unary_misc ',')* ')' // we're using unary_misc because allowing the comma operator would be terrible! (also you are allowed one trailing comma but it would be messy to include that in the grammar lol)
+        //arguments ::= '(' (unary_misc ',')* ')' // we're using unary_misc because allowing the comma operator would be terrible! (also you are allowed one trailing comma but it would be messy to include that in the grammar lol (for some reason though, clearly i could be bothered when i wrote the object rule lol))
         //array ::= '[' (unary_misc? ',')* ']'
-        //object ::= ('{' (objectkeyvalue (',' objectkeyvalue)* ','?)? '}')
-        //objectkeyvalue ::= ((objectkey ':' unary_misc) | identifier)
-        //objectkey ::= identifier | ('[' unary_misc ']')
+        //object ::= '{' (objectkeyvalue (',' objectkeyvalue)* ','?)? '}'
+        //objectkeyvalue ::= (objectkey ':' unary_misc) | identifier | ('...' unary_misc) | MethodDefinition
+        //objectkey ::= identifier | number | string | ('[' unary_misc ']')
+        //MethodDefinition ::= (('get' | 'set') | ('async'? '*'))? objectkey parameters functionBlock
+
+        //method definition is like the only one actually based on the specification lol
 
         //i was hating but that visitor techinque might make some sense...
 
@@ -1242,13 +1249,38 @@
             }
         }
 
+        class ObjectLiteralExpression extends Expression {
+            /** @type {Map<Expression | Token, Expression>} */
+            properties;
+            constructor(properties) {
+                super();
+                this.properties = properties;
+            }
+            accept(visitor) /*override*/ {
+                return visitor.visitObjectLiteralExpression(this);
+            }
+        }
+
+        //the spread operator works differently in arrays and object literals so we'll evaluate them manually when we see them in visitObjectLiteralExpression and visitArrayLiteralExpression
+        class SpreadExpressionToBeEvaluatedManuallyBecauseContextIsImportant extends Expression {
+            /** @type {Expression} */
+            rhs;
+            constructor(rhs) {
+                super();
+                this.rhs = rhs;
+            }
+            accept(visitor) /*override*/ {
+                throw Error("Spread not meant to be evaluated here!");
+            }
+        }
+
         //probably?
         class IdentifierExpression extends Expression {
-            /** @type {String} */
+            /** @type {Token} */
             nameToken;
 
             /**
-             * @param {String} nameToken
+             * @param {Token} nameToken
              */
             constructor(nameToken) {
                 super();
@@ -1569,8 +1601,8 @@
             body;
             /** @type {String} */
             sourceText;
-            /** @type {Boolean} */
-            isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetail;
+            /** @type {Number} */
+            kindSoThatICanDoThisStuffCorrectly;
 
             /**
              * @param {Token | undefined} genderToken
@@ -1581,9 +1613,9 @@
              * @param {Array<{identifier: IdentifierExpression, default: Expression | undefined}>} parameters
              * @param {Statement} body
              * @param {String} sourceText
-             * @param {Boolean} isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetail
+             * @param {Number} kindSoThatICanDoThisStuffCorrectly
              */
-            constructor(genderToken, isStrict, isAsync, isGenerator, nameToken, parameters, body, sourceText, isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetail) {
+            constructor(genderToken, isStrict, isAsync, isGenerator, nameToken, parameters, body, sourceText, kindSoThatICanDoThisStuffCorrectly) {
                 super();
                 this.genderToken = genderToken;
                 this.isStrict = isStrict;
@@ -1593,7 +1625,7 @@
                 this.parameters = parameters;
                 this.body = body;
                 this.sourceText = sourceText;
-                this.isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetail = isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetail;
+                this.kindSoThatICanDoThisStuffCorrectly = kindSoThatICanDoThisStuffCorrectly;
             }
 
             accept(visitor) {
@@ -1668,6 +1700,11 @@
             //    return false;
             //}
             return Number_isFinite(value) && Math.trunc(value) == value;
+        }
+
+        function Number_isNaN(value) {
+            if(typeof value != "number") return false;
+            return value != value; //or isNaN(value);
         }
 
         //important abstract operations
@@ -2119,6 +2156,31 @@
                 obj["[[DefineOwnProperty]]"]("value", new JavascriptDataProperty(true, true, true, value));
                 obj["[[DefineOwnProperty]]"]("done", new JavascriptDataProperty(true, true, true, done));
                 return obj;
+            }
+
+            /**
+             * @param {JavascriptObjectWrapper} target
+             * @param {any} source
+             * @param {Array<String | Symbol>} excludedItems
+             */
+            static CopyDataProperties(target, source, excludedItems) {
+                if(source == undefined || source == null) return undefined;
+                const from = ECMAScript.ToObject(source);
+                const keys = from["[[OwnPropertyKeys]]"]();
+                for(const nextKey of keys) {
+                    //let excluded = false;
+                    for(const element of excludedItems) {
+                        if(element == nextKey) {
+                            //excluded = true;
+                            continue;
+                        }
+                    }
+                    const propertyDesc = from["[[GetOwnProperty]]"](nextKey);
+                    if(propertyDesc != undefined && propertyDesc.enumerable) {
+                        const propertyValue = from["[[Get]]"](nextKey, from);
+                        ECMAScript.CreateDataPropertyOrThrow(target, nextKey, propertyValue);
+                    }
+                }
             }
 
             static BuiltinCallOrConstruct(func, thisArg, argList, newTarget) {
@@ -2894,7 +2956,7 @@
                         strings.push(key);
                     }
                 }
-                return [...arrayindices, ...strings, ...symbols]; //brug
+                return [...arrayindices.toSorted(), ...strings, ...symbols]; //brug
             }
 
             //helper methods lol
@@ -2956,7 +3018,8 @@
             isClassConstructor;
 
             //definitely not in the specification!
-            isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetailCommaThisIsActuallyTheNameOfThisFunctionForTheScopeLol;
+            //isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetailCommaThisIsActuallyTheNameOfThisFunctionForTheScopeLol;
+            functionNameForScopeOfFunctionExpressions;
 
             //https://tc39.es/ecma262/#sec-ecmascript-function-objects-call-thisargument-argumentslist
             ["[[Call]]"](thisArg, argList = []) {
@@ -2985,16 +3048,16 @@
                     scope.set("this", new Variable({qualifier: {line: 1, char: 1, value: "const", kind: TokenKind.RESERVED}, gender: undefined, name: "this"}, thisValue));
                 }
 
-                if(this.isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetailCommaThisIsActuallyTheNameOfThisFunctionForTheScopeLol) {
-                    scope.set(this.isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetailCommaThisIsActuallyTheNameOfThisFunctionForTheScopeLol, new Variable({qualifier: {line: 1, char: 1, value: "var", kind: TokenKind.RESERVED}, name: this.isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetailCommaThisIsActuallyTheNameOfThisFunctionForTheScopeLol, gender: undefined}, this));
+                if(this.functionNameForScopeOfFunctionExpressions) {
+                    scope.set(this.functionNameForScopeOfFunctionExpressions, new Variable({qualifier: {line: 1, char: 1, value: "var", kind: TokenKind.RESERVED}, name: this.functionNameForScopeOfFunctionExpressions, gender: undefined}, this));
                 }
 
                 for(let i = 0; i < this.formalParameters.length; i++) {
                     const {identifier, default: $default} = this.formalParameters[i];
-                    let value;
+                    let value = undefined;
                     if(i < argList.length) {
                         value = argList[i];
-                    }else {
+                    }else if($default) {
                         //oh my god i wasn't calling evaluate here!
                         // value = $default?.accept(this.interpreter);
 
@@ -3430,6 +3493,15 @@
                 this.kind = kind;
                 this.blockStatementArray = blockStatementArray;
             }
+        }
+
+        //for JavascriptParser's doCommonFunctionStuff lol
+        class FunctionKind {
+            static FUNCTION = 0;
+            static EXPRESSION = 1;
+            static METHOD = 2;
+            static GETTER = 3;
+            static SETTER = 4;
         }
 
         class JavascriptParser extends Parser {
@@ -4003,6 +4075,19 @@
                     }
                     case TokenKind.OPEN_CURLY_BRACKET:
                         //object
+                        this.i++; // consume!
+                        //objectkeyvalue
+                        const properties = new Map();
+                        if(this.peek(TokenKind.SPREAD) || this.peek(TokenKind.IDENTIFIER) || this.peek(TokenKind.OPEN_BRACKET) || this.peek(TokenKind.STRING) || this.peek(TokenKind.NUMBER) || this.peek(TokenKind.ASTERISK)) {
+                            const [key, value] = this.objectkeyvalue();
+                            properties.set(key, value);
+                            while(this.match(TokenKind.COMMA) && !this.peek(TokenKind.CLOSING_CURLY_BRACKET)) {
+                                const [key, value] = this.objectkeyvalue();
+                                properties.set(key, value);
+                            }
+                        }
+                        this.consume(TokenKind.CLOSING_CURLY_BRACKET, "Expected closing curly bracket in object literal!");
+                        return new ObjectLiteralExpression(properties);
                         break;
                     default:
                         break;
@@ -4068,7 +4153,7 @@
                             // const parameters = this.parameters();
                             // const body = this.block();
                             //functionBlock
-                            return this.doCommonFunctionStuff(undefined, async, funcToken, generator, name, true);
+                            return this.doCommonFunctionStuff(undefined, async, funcToken, generator, name, FunctionKind.EXPRESSION);
                         }else {
                             //arrow
                             const parameter = this.match(TokenKind.IDENTIFIER);
@@ -4093,11 +4178,10 @@
                             //the only allowed operators are the equal sign and the comma!
                             //const body = this.block();
                             if(this.peek(TokenKind.OPEN_CURLY_BRACKET)) {
-                                //(x)=>{...};
+                                //(...)=>{...};
                                 //functionBlock
                             }else {
-                                //(x)=>x;
-                                //expression
+                                //(...)=>expression;
                             }
                         }else if(async) {
                             throw new ParseError(async.line, async.char, "Async not expected here!");
@@ -4107,6 +4191,148 @@
                 }
                 // const cur = this.tokens[this.i];
                 // throw new ParseError(cur.line, cur.char, "");
+            }
+
+            objectkeyvalue() {
+                //oh my god i just remembered string literals can also be property keys
+                //(and apparently numbers too...)
+                //OH MY GOD THE FOLLOWING IS VALID
+                //let x = {ohmygod() {}}
+                //NO FUCKING WAY I'VE ACTUALLY LEARNED SOMETHING FROM THIS INTERPRETING JAVASCRIPT SHIT
+                //here's every way you may add a property to an object literal
+                //https://tc39.es/ecma262/multipage/ecmascript-language-expressions.html#prod-PropertyDefinition
+                /*
+                let variable = "variable";
+                let another_obj = {};
+                let x = {
+                    variable,
+                    y: "identifier name property",
+                    "string": "string property",
+                    0: "numeric property",
+                    ["computed property"]: "what the key said.",
+                    property() {
+
+                    },
+                    get ["x"]() {
+                        return 421;
+                    },
+                    *generator() {
+
+                    },
+                    async 5() {
+
+                    },
+                    async* "hello_generator"() {
+
+                    },
+                    set x(newValue) {
+                        console.log(newValue);
+                    },
+                    ...another_obj
+                };
+                */
+                if(this.peek(TokenKind.SPREAD)) {
+                    //FAWK. (FACK)
+                    this.i++; //consume
+                    const key = this.unary_misc();
+                    return [new SpreadExpressionToBeEvaluatedManuallyBecauseContextIsImportant(key), undefined];
+                //}else if(this.peek(TokenKind.IDENTIFIER)) {
+                }else if((this.peek(TokenKind.IDENTIFIER) && (this.tokens[this.i].value == "get" || this.tokens[this.i].value == "set" || this.tokens[this.i].value == "async") || this.peekNext(TokenKind.OPEN_PARENTHESIS)) || this.peek(TokenKind.ASTERISK)) {
+                    //let generator = false;
+                    //let async = false;
+                    //if(this.tokens[this.i].value == "async") {
+                    //    async = this.tokens[this.i++];
+                    //    generator = this.match(TokenKind.ASTERISK);
+                    //}else if(this.tokens[this.i].kind == TokenKind.ASTERISK) {
+                    //    generator = this.tokens[this.i++];
+                    //}else if(this.tokens[this.i].value == "get" || this.tokens[this.i].value == "set") {
+                    //    const getter = this.tokens[this.i].value == "get"; // holy shit i've checked this 3 times
+                    //}
+//
+                    ////get, set, async and the asterisk are the only things that can come before a method in an object literal
+                    ////...so that means this is a method
+                    //const key = this.objectkey();
+                    //return [key, this.doCommonFunctionStuff(undefined, async, undefined, generator, key, FunctionKind.METHOD)];
+                    return this.MethodDefinition();
+                }else {
+                    const temp = this.tokens[this.i];
+                    let key;
+                    if(this.peek(TokenKind.IDENTIFIER) && !this.peekNext(TokenKind.COLON)) {
+                        //{variable}
+                        key = this.tokens[this.i++]; //we set the key to the actual token so that printer can tell
+                    }else {
+                        key = this.objectkey(); //this.tokens[this.i++];
+                    }
+                    let value;
+                    if(this.match(TokenKind.COLON)) {
+                        //{key: value}
+                        value = this.unary_misc();
+                    }else {
+                        //{variable}
+                        //value = new IdentifierExpression(key); //we could do this but the printer would have no way of knowing if it was written like {x: x} or just {x}
+                        if(!(key instanceof Token)) {
+                            throw new ParseError(temp.line, temp.char, "Only identifiers can appear with no colon in object literals!");
+                        }
+                        // value = key;
+                        value = new IdentifierExpression(key); //nevermind this is fine now :)
+                    }
+                    return [key, value];
+                }/*else if(this.peek(TokenKind.OPEN_BRACKET) || this.peek(TokenKind.STRING) || this.peek(TokenKind.NUMBER)) {
+                    const dobotherconsumingclosingbracket = this.match(TokenKind.OPEN_BRACKET);
+                    const key = this.unary_misc();
+                    dobotherconsumingclosingbracket && this.consume(TokenKind.CLOSING_BRACKET, "Expected closing bracket in expression key of object literal");
+                    this.consume(TokenKind.COLON, "Expected colon after expression/literal key in object literal");
+                    const value = this.unary_misc();
+                    return [key, value];
+                }*/
+                throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Expected identifier or open bracket in object literal expression");
+            }
+
+            objectkey() {
+                if(this.peek(TokenKind.IDENTIFIER)) {
+                    return new IdentifierExpression(this.tokens[this.i++]);
+                }else if(this.peek(TokenKind.NUMBER) || this.peek(TokenKind.STRING)) {
+                    return new LiteralExpression(this.tokens[this.i++].value);
+                }else if(this.peek(TokenKind.OPEN_BRACKET)) {
+                    this.i++;
+                    const temp = this.unary_misc();
+                    temp.computed = true; // somehow, this is important!
+                    this.consume(TokenKind.CLOSING_BRACKET, "Expected closing bracket in expression key of object literal");
+                    return temp;
+                }else {
+                    throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Expected identifier, number, string or [...] as key in object literal");
+                }
+            }
+
+            MethodDefinition() {
+                let kind = FunctionKind.METHOD;
+                let generator = false;
+                let async = false;
+                if(this.tokens[this.i].value == "async") {
+                    async = this.tokens[this.i++];
+                    generator = this.match(TokenKind.ASTERISK);
+                }else if(this.tokens[this.i].kind == TokenKind.ASTERISK) {
+                    generator = this.tokens[this.i++];
+                }/*else if(this.tokens[this.i].value == "get" || this.tokens[this.i].value == "set") {
+                    const accessor = this.tokens[this.i++];
+                    if(accessor.value == "get") {
+                        kind = FunctionKind.GETTER;
+                    }else {
+                        kind = FunctionKind.SETTER;
+                    }
+                }*/else if(this.tokens[this.i].value == "get") {
+                    this.i++; //consume
+                    kind = FunctionKind.GETTER;
+                }else if(this.tokens[this.i].value == "set") {
+                    this.i++; //consume
+                    kind = FunctionKind.SETTER;
+                }
+
+                //get, set, async and the asterisk are the only things that can come before a method in an object literal
+                //...so that means this is a method
+                const key = this.objectkey();
+                key.method = true;
+                return [key, this.doCommonFunctionStuff(undefined, async, undefined, generator, false, kind)]; //we set the function name later since we might have to evaluate it!
             }
 
             /**
@@ -4176,10 +4402,10 @@
                 }
             }
 
-            doCommonFunctionStuff(gender, async, funcToken, generator, name, expression) {
+            doCommonFunctionStuff(gender, async, funcToken, generator, name, kind) {
                 const scope = this.scope[this.scope.length-1];
                 let $var;
-                if(!expression) { // the name of a function expression is not hoisted and is only accessable by the parameters and body of the function!
+                if(kind == FunctionKind.FUNCTION) { // the name of a function expression is not hoisted and is only accessable by the parameters and body of the function!
                     if(scope.variables.has(name.value)) {
                         const old = scope.variables.get(name.value);
                         if(qualifier.value != old.qualifier.value) {
@@ -4195,13 +4421,21 @@
                     $var = {}; // lazy
                 }
                 
+                const parameterTempTokensForError = this.tokens[this.i];
                 const parameters = this.parameters();
+                if(kind == FunctionKind.GETTER && parameters.length != 0) {
+                    //SyntaxError
+                    throw new ParseError(parameterTempTokensForError.line, parameterTempTokensForError.char, "Getter must not have any formal parameters.");
+                }else if(kind == FunctionKind.SETTER && parameters.length != 1) {
+                    //SyntaxError
+                    throw new ParseError(parameterTempTokensForError.line, parameterTempTokensForError.char, "Setter must have exactly one formal parameter.");
+                }
                 //this.inFunction = true;
                 //this.inFunction.push(true);
                 const scopeRef = new StaticAnalysisScope("function", undefined);
                 this.scope.push(scopeRef);
 
-                if(expression && name) {
+                if(kind == FunctionKind.EXPRESSION && name) {
                     //hmm i'm sure the specification is calling me an idiot right now but my implementation allows the following to work, even though it shouldn't...
                     //(function sum(x = sum, sum) { // V8: Cannot access 'sum' before initialization
                     //  console.log(x, sum);
@@ -4234,7 +4468,7 @@
                     strict = true;
                 }
 
-                $var.statement = new FunctionStatement(gender || undefined, strict, !!async, !!generator, name, parameters, functionBody, undefined, expression);
+                $var.statement = new FunctionStatement(gender || undefined, strict, !!async, !!generator, name, parameters, functionBody, undefined, kind);
 
                 let sourceText = "";
                 {
@@ -4628,7 +4862,7 @@
                             const temp = +(this.i >= this.tokens.length);
                             throw new ParseError(this.tokens[this.i-temp].line, this.tokens[this.i-temp].char, `Function statements require a function name`);
                         }
-                        return this.doCommonFunctionStuff(gender, async, funcToken, generator, name, false);
+                        return this.doCommonFunctionStuff(gender, async, funcToken, generator, name, FunctionKind.FUNCTION);
                     }
                     //we're still allowing const and let here as a sort of cover grammar like thing so we can catch it
                     else if(this.peekReserved("var") || this.peekReserved("const") || (this.peekReserved("let") || (this.peek(TokenKind.IDENTIFIER) && this.tokens[this.i].value == "let" && this.peekNext(TokenKind.IDENTIFIER)))) { // bruh let is only reserved in strict mode! otherwise it will be tokenized as an identifier!
@@ -4853,7 +5087,15 @@
                 )));
                 this.state.variables[0].set("isNaN", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "isNaN"}, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return isNaN(ECMAScript.ToNumber(argList[0]));
+                        //return isNaN(ECMAScript.ToNumber(argList[0]));
+
+                        //global isNaN converts the first argument to a number, Number.isNaN doesn't!
+                        //we can see this with the following
+                        //const x = {};
+                        //x.valueOf = ()=>NaN;
+                        //Number.isNaN(x); // false
+                        //isNaN(x); // true
+                        return Number_isNaN(ECMAScript.ToNumber(argList[0]));
                     },
                     1, "isNaN", [], this
                 )));
@@ -5688,6 +5930,11 @@
                             const numberLimit = ECMAScript.ToNumber(argList[0]);
                             //uh oh... this might be the first time that that completion record shit is actually explicitly used...
                             //maybe that's how it propagates errors but i just haven't been bothered to throw them in a way that actually works so i might have to refactor this entire fucking codebase which would be cringe as fuck so there's a chance you just won't be able to catch or throw errors in my implementation
+                            //ok maybe i was tweaking when i wrote that
+                            ECMAScript.IfAbruptCloseIterator(numberLimit, iterated);
+                            if(isNaN(numberLimit)) {
+
+                            }
                         },
                         1, "drop", [], this
                     ));
@@ -6039,8 +6286,9 @@
                 ));
                 $Number.SetDataProperty("isNaN", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) { //Number.isNaN(number)
-                        if(typeof argList[0] != "number") return false;
-                        return argList[0] != argList[0]; //using that javascript trickery, idk what the hell this will look like in lua lol
+                        //if(typeof argList[0] != "number") return false;
+                        //return argList[0] != argList[0]; //using that javascript trickery, idk what the hell this will look like in lua lol
+                        return Number_isNaN(argList[0]);
                     },
                     1, "isNaN", [], this
                 ));
@@ -6474,6 +6722,7 @@
                                     //wait a goddamn second, we create a new Array object AFTER GetPrototypeFromConstructor :/
                                     //the only way DefineOwnProperty could fail now is if i SOMEHOW used preventExtensions before defining 0 (which isn't really possible here...)
 
+                                    //the error message would probably actually be "cannot redefine property: 0"
                                     throw TypeError("is this even reachable? failed to set index '0'!"); //i wonder what v8's error message is
                                 }
                                 intLength = 1;
@@ -6601,7 +6850,7 @@
                                 if("[[Call]]" in arg) {
                                     const temp = Console.FunctionToString["[[Call]]"](arg, []);
                                     if(temp.startsWith("function")) {
-                                        console.log(`%cƒ %c${temp.substring(9)}`, "color: steelblue; font-style: italic;", "font-style: italic;");
+                                        console.log(`%cƒ %c${temp.substring(8)}`, "color: steelblue; font-style: italic;", "font-style: italic;");
                                     }else {
                                         console.log("%c"+temp, "font-style: italic;");
                                     }
@@ -6665,7 +6914,22 @@
                                             console.log("%c"+result, "font-style: italic;");
                                         }
                                     }else {
-                                        const tag = arg["[[Get]]"](ECMAScript["%Symbol.toStringTag%"], arg);
+                                        let tag = arg["[[Get]]"](ECMAScript["%Symbol.toStringTag%"], arg);
+                                        if(!tag) {
+                                            //actually i think it checks the prototype
+                                            //if("[[NumberData]]" in arg) {
+                                            //    tag = "Number";
+                                            //}
+                                            if(ECMAScript.InstanceofOperator(arg, $Number)) {
+                                                tag = "Number";
+                                            }else if(ECMAScript.InstanceofOperator(arg, $Boolean)) {
+                                                tag = "Boolean";
+                                            }else if(ECMAScript.InstanceofOperator(arg, $String)) {
+                                                tag = "String";
+                                            }else if(ECMAScript.InstanceofOperator(arg, $Symbol)) {
+                                                tag = "Symbol";
+                                            }
+                                        }
                                         let result = `{`;
                                         // const length = entries["[[Get]]"]("length", entries);
                                         const length = entries.length;
@@ -7886,11 +8150,17 @@
                 //if(!success) {
                 //    throw TypeError("Cannot redefine property: name");
                 //}
-                ECMAScript.SetFunctionName(wrapper, functionStatement.nameToken.value);
+                let prefix = undefined;
+                if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.GETTER) {
+                    prefix = "get";
+                }else if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.SETTER) {
+                    prefix = "set";
+                }
+                ECMAScript.SetFunctionName(wrapper, functionStatement.nameToken.value ?? "", prefix); //function expressions with no name have the empty string
                 //bruh i forgot the very next line
                 ECMAScript.MakeConstructor(wrapper);
                 
-                if(!functionStatement.isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetail) {
+                if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.FUNCTION) {
                     if(scope.has(functionStatement.nameToken.value)) {
                         const old = scope.get(functionStatement.nameToken.value);
                         if(old instanceof TemporalDeadZoneVariable) {
@@ -7911,9 +8181,10 @@
                         scope.set(functionStatement.nameToken.value, new Variable({qualifier: undefined, gender: functionStatement.genderToken, name: functionStatement.nameToken.value}, wrapper));
                         //closure.at(-1).set(functionStatement.nameToken.value, scope.get(functionStatement.nameToken.value)); //reference
                     }
-                }else {
+                }else if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.EXPRESSION) {
                     //wrapper.isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetail = true;
-                    wrapper.isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetailCommaThisIsActuallyTheNameOfThisFunctionForTheScopeLol = functionStatement.nameToken.value;
+                    //wrapper.isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetailCommaThisIsActuallyTheNameOfThisFunctionForTheScopeLol = functionStatement.nameToken.value;
+                    wrapper.functionNameForScopeOfFunctionExpressions = functionStatement.nameToken.value;
                 }
                 return wrapper; // this is required for function expressions unless i bother to make them their own class (which i mean come on they're basically the same so fawk that)
             }
@@ -7927,6 +8198,74 @@
             visitArrayLiteralExpression(arrayLiteralExpression) {
                 //return arrayLiteralExpression.value.map(v=>this.evaluate(v));
                 return ECMAScript.CreateArrayFromList(arrayLiteralExpression.value.map(v=>this.evaluate(v)));
+            }
+
+            /** @param {ObjectLiteralExpression} objectLiteralExpression */
+            visitObjectLiteralExpression(objectLiteralExpression) {
+                const obj = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]);
+                const entries = objectLiteralExpression.properties.entries();
+                for(const [key, value] of entries) {
+                    if(key instanceof Token) { //IdentifierReference
+                        //{variable}
+                        //CreateDataPropertyOrThrow
+                        obj["[[DefineOwnProperty]]"](key.value, new JavascriptDataProperty(true, true, true, this.evaluate(value)));
+                    }else if(key instanceof SpreadExpressionToBeEvaluatedManuallyBecauseContextIsImportant) { //...AssignmentExpression
+                        //gulpies...
+                        //all enumerable properties are added to this new object
+                        //https://tc39.es/ecma262/multipage/ecmascript-language-expressions.html#sec-runtime-semantics-propertydefinitionevaluation
+                        const fromValue = this.evaluate(key.rhs);
+                        const excludedNames = [];
+                        /*Perform ?*/ ECMAScript.CopyDataProperties(obj, fromValue, excludedNames);
+                    }else if(key.method) {
+                        //technically i'm not supposed to do it like this but
+                        // const propertyKey = this.evaluate(key);
+                        let propertyKey;
+                        if(!key.computed && key instanceof IdentifierExpression) {
+                            propertyKey = key.nameToken.value;
+                        }else if(key.computed) {
+                            propertyKey = ECMAScript.ToPropertyKey(this.evaluate(key));
+                        }else {
+                            propertyKey = this.evaluate(key).toString(); //yeah
+                        }
+                        value.nameToken = {value: propertyKey}; //trickery
+                        //bruh we need to regenerate the source text because we've updated the name! (yeah yeah this wouldn't be a problem if i finally actually made the lexer keep track of this part but i haven't done that yet >:P) (tighten up young man i thought a)
+                        {
+                            const p = new Printer;
+                            value.sourceText = value.accept(p);
+                        }
+                        const func = this.evaluate(value); //evaluating does all of the stuff like creating the function and naming it even though that's not what happens in the specification
+                        if(value.kindSoThatICanDoThisStuffCorrectly == FunctionKind.GETTER) {
+                            obj["[[DefineOwnProperty]]"](propertyKey, {configurable: true, enumerable: true, getter: func}); //PropertyDefinition : MethodDefinition passes true for enumerable
+                        }else if(value.kindSoThatICanDoThisStuffCorrectly == FunctionKind.SETTER) {
+                            obj["[[DefineOwnProperty]]"](propertyKey, {configurable: true, enumerable: true, setter: func}); //PropertyDefinition : MethodDefinition passes true for enumerable
+                        }else {
+                            obj["[[DefineOwnProperty]]"](propertyKey, new JavascriptDataProperty(true, true, true, func));
+                        }
+                    }else {
+                        let propertyKey;
+                        if(!key.computed && key instanceof IdentifierExpression) {
+                            propertyKey = key.nameToken.value;
+                        }else if(key.computed) {
+                            propertyKey = ECMAScript.ToPropertyKey(this.evaluate(key));
+                        }else {
+                            propertyKey = this.evaluate(key).toString(); //yeah
+                        }
+                        let isProtoSetter = false;
+                        //ParseJSON...
+                        if(propertyKey == "__proto__" && !key.computed) {
+                            isProtoSetter = true;
+                        }
+                        //oh apparently i was supposed to set the function names here...
+                        const propertyValue = this.evaluate(value);
+                        if(isProtoSetter && (propertyValue instanceof JavascriptObjectWrapper || propertyValue == null)) {
+                            obj["[[SetPrototypeOf]]"](propertyValue);
+                        }else {
+                            //CreateDataPropertyOrThrow
+                            obj["[[DefineOwnProperty]]"](propertyKey, new JavascriptDataProperty(true, true, true, propertyValue));
+                        }
+                    }
+                }
+                return obj;
             }
         }
 
@@ -8119,7 +8458,13 @@
 
             /** @param {FunctionStatement} functionStatement */
             visitFunctionStatement(functionStatement) {
-                return `${functionStatement.genderToken ? functionStatement.genderToken.value+" " : ""}${functionStatement.isAsync ? "async " : ""}function${functionStatement.isGenerator ? "*" : ""} ${functionStatement.nameToken.value} ${this.parameters(functionStatement.parameters)} ${functionStatement.body.accept(this)}`;
+                let prefix = "function";
+                if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.GETTER) {
+                    prefix = "get";
+                }else if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.SETTER) {
+                    prefix = "set";
+                }
+                return `${functionStatement.genderToken ? functionStatement.genderToken.value+" " : ""}${functionStatement.isAsync ? "async " : ""}${prefix}${functionStatement.isGenerator ? "*" : ""}${functionStatement.nameToken.value ? " "+functionStatement.nameToken.value : ""}${this.parameters(functionStatement.parameters)} ${functionStatement.body.accept(this)}`;
             }
 
             /** @param {ReturnStatement} returnStatement */
@@ -8135,6 +8480,29 @@
             /** @param {ArrayLiteralExpression} arrayLiteralExpression */
             visitArrayLiteralExpression(arrayLiteralExpression) {
                 return `[${arrayLiteralExpression.value.map(v=>v.accept(this))}]`;
+            }
+
+            /** @param {ObjectLiteralExpression} objectLiteralExpression */
+            visitObjectLiteralExpression(objectLiteralExpression) {
+                let result = "{";
+                const entries = objectLiteralExpression.properties.entries();
+                let i = 0;
+                for(const [key, value] of entries) {
+                    if(i > 0) {
+                        result += ", ";
+                    }
+                    if(key instanceof Token) {
+                        result += key.value;
+                    }else if(key instanceof SpreadExpressionToBeEvaluatedManuallyBecauseContextIsImportant) {
+                        result += `...${key.rhs.accept(this)}`;
+                    }else if((key instanceof IdentifierExpression || (key instanceof LiteralExpression && (typeof key.value == "number" || typeof key.value == "string"))) && !key.computed) {
+                        result += `${key.accept(this)}: ${value.accept(this)}`; //omit the brackets (even though it's still valid javascript)
+                    }else {
+                        result += `[${key.accept(this)}]: ${value.accept(this)}`;
+                    }
+                    i++;
+                }
+                return result + "}";
             }
 
             /** @param {AssignmentExpression} assignmentExpression */
