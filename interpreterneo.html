@@ -52,6 +52,7 @@
             <option value="consistent4">consistent4</option>
             <option value="consistent5">consistent5</option>
             <option value="objectliterals">every object literal property</option>
+            <option value="objectliteralproto">object literal prototype</option>
             <option value="COMPREHENSION">ARRAY COMPREHENSION?!</option>
             <option value="closures">closures</option>
             <option value="operators">operators</option>
@@ -85,6 +86,7 @@
             "consistent4": "let x = {\n    toString() {\n        console.log(\"got!\", this);\n        return \"hello world\";\n    }\n};\n\n// Cannot convert hello world to a BigInt\nBigInt(x);",
             "consistent5": "const x = Object();\nx.valueOf = function() {return NaN;};\nconsole.log(Number.isNaN(x)); // false\nconsole.log(isNaN(x)); // true",
             "objectliterals": "let variable = \"variable\";\nlet another_obj = {\"another_obj_key\": \"another_obj_value\"};\nlet x = {\n    variable,\n    y: \"identifier name property\",\n    \"string\": \"string property\",\n    0: \"numeric property\",\n    [\"computed property\"]: \"what the key said.\",\n    property() {\n    },\n    get [\"x\"]() {\n        return 421;\n    },\n    *generator() {\n    },\n    async 5() {\n    },\n    async* \"hello_generator\"() {\n    },\n    set x(newValue) {\n        console.log(newValue);\n    },\n    ...another_obj\n};\nconsole.larp(x);",
+            "objectliteralproto": "const fakenum = {__proto__: Number.prototype, value: 21};\nconsole.larp(fakenum);",
             "COMPREHENSION": "let split = [for (const x of \"string\") x];",
             "closures": "function makeCounter() {\n  let i = 0;\n  function count() {\n    i = i + 1;\n    console.log(i);\n  }\n\n  return count;\n}\n\nlet counter = makeCounter();\ncounter(); // \"1\".\ncounter(); // \"2\".",
         }
@@ -161,6 +163,14 @@
                 this.kind = kind;
                 this.value = value;
             }
+        }
+
+        function indexFromToken(token, sourceText) {
+            let i = 0;
+            for(let line = 1; line < token.line; line++) {
+                i = sourceText.indexOf("\n", i)+1;
+            }
+            return i+(token.char-1);
         }
 
         /*enum*/ class TokenKind {
@@ -296,11 +306,14 @@
             static hasBigNumbers() {
                 return true;
             }
+            static BigInt(x) {
+                return BigInt(x);
+            }
             static isJavascriptTruthy(value) {
-                return !!value;
+                return ECMAScript.ToBoolean(value);
             }
             static isJavascriptFalsy(value) {
-                return !value;
+                return !ECMAScript.ToBoolean(value);
             }
         }
 
@@ -410,12 +423,13 @@
                 let lineNumber = 1;
                 let lineIndex = 0;
 
-                let useStrict = false;
+                let useStrict = [false];
 
                 let depth = {
                     parenthesis: 0,
                     bracket: 0,
-                    curly: +readingTemplate
+                    curly: +readingTemplate,
+                    inStrictFunctionOrClassBracketEndingDepth: [{kind: undefined, curly: -1, strict: undefined}], // when we reach a closing bracket we'll check this number to disable strict mode if needed
                 };
 
                 if(str.length > 1) {
@@ -430,6 +444,9 @@
 
                 const hexRegex = /[0-9a-f_]/i;
                 const octalRegex = /[0-7_]/;
+
+                // let startOfFunctionBlockTokenLength = [{length: -1, ref: undefined}];
+                let startOfFunctionBlockTokenLength = [-1]; // this variable will be set to the length of tokens after the open curly bracket, if a "use strict" string is found, and (tokens.length - startOfFunctionBlock) == 0, this was the first thing in the function (blocks cannot be strict apparently)
 
                 templateStopLexing:
                 while(this.i < str.length) {
@@ -586,8 +603,14 @@
                             if(!ended) {
                                 return Unexpected(new ParseError(lineNumber, this.i - lineIndex, "End of file reached before ending string quote!"));
                             }
-                            if(tokens.length == 0 && stringToken.value == "use strict") { //lol
-                                useStrict = true;
+                            if(stringToken.value == "use strict") { //lol
+                                if(tokens.length == 0) {
+                                    useStrict[0] = true;
+                                }else if(tokens.length - startOfFunctionBlockTokenLength.at(-1) == 0) {
+                                    //startOfFunctionBlockTokenLength.at(-1).ref.strict = true;
+                                    depth.inStrictFunctionOrClassBracketEndingDepth.at(-1).strict = true; // i think we can assume this
+                                    useStrict.push(true);
+                                }
                             }
                             tokens.push(stringToken);
                             break;
@@ -821,6 +844,19 @@
                             break;
 
                         case '{':
+                            if(tokens.at(-1).kind == TokenKind.ARROW || tokens.at(-1).kind == TokenKind.CLOSING_PARENTHESIS) {
+                                //a function or a method!
+                                depth.inStrictFunctionOrClassBracketEndingDepth.push({kind: "function", curly: depth.curly, strict: false});
+                            }
+                            const last = depth.inStrictFunctionOrClassBracketEndingDepth[depth.inStrictFunctionOrClassBracketEndingDepth.length-1];
+                            if(last.curly == depth.curly) {
+                                if(last.kind == "class") {
+                                    useStrict.push(true);
+                                }else if(last.kind == "function") {
+                                    // startOfFunctionBlockTokenLength.push({length: tokens.length+1, ref: last}); //length+1 because we push just 3 lines later!
+                                    startOfFunctionBlockTokenLength.push(tokens.length+1); //length+1 because we push just 3 lines later!
+                                }
+                            }
                             depth.curly++;
                             tokens.push(new Token(lineNumber, charNumber, TokenKind.OPEN_CURLY_BRACKET, "{"));
                             break;
@@ -831,6 +867,17 @@
                                 return Unexpected(new ParseError(lineNumber, charNumber, "Extra closing curly bracket!"));
                             }else if(readingTemplate && depth.curly == 0) {
                                 break templateStopLexing;
+                            }else {
+                                const last = depth.inStrictFunctionOrClassBracketEndingDepth[depth.inStrictFunctionOrClassBracketEndingDepth.length-1];
+                                if(last.curly == depth.curly) {
+                                    if(last.strict) {
+                                        useStrict.pop();
+                                    }
+                                    if(last.kind == "function") {
+                                        startOfFunctionBlockTokenLength.pop();
+                                    }
+                                    depth.inStrictFunctionOrClassBracketEndingDepth.pop();
+                                }
                             }
                             tokens.push(new Token(lineNumber, charNumber, TokenKind.CLOSING_CURLY_BRACKET, "}"));
                             break;
@@ -1028,7 +1075,7 @@
                                     tempToken.value += str[this.i++]; //consume
                                 }
 
-                                if(JavascriptLexer.reserved.has(tempToken.value) || (useStrict && JavascriptLexer.strict_reserved.has(tempToken.value))) {
+                                if(JavascriptLexer.reserved.has(tempToken.value) || (useStrict.at(-1) && JavascriptLexer.strict_reserved.has(tempToken.value))) {
                                     if(tempToken.value == "true" || tempToken.value == "false") {
                                         tempToken.kind = TokenKind.BOOLEAN;
                                     }else if(tempToken.value == "null") {
@@ -1036,6 +1083,11 @@
                                     }/*else if(tempToken.value == "undefined") { //uh nevermind undefined is not reserved!
                                         tempToken.kind = TokenKind.UNDEFINED;
                                     }*/else {
+                                        if(!useStrict.at(-1) && /*(tempToken.value == "function" || */ tempToken.value == "class"/*)*/) {
+                                            //willBeEnteringClassOrFunctionBodyAtNextCurlyBracket.push();
+                                            //functions are now detected if the token before a bracket was a closing parenthesis or arrow :/
+                                            depth.inStrictFunctionOrClassBracketEndingDepth.push({kind: tempToken.value, curly: depth.curly, strict: tempToken.value == "class"});
+                                        }
                                         tempToken.kind = TokenKind.RESERVED;
                                     }
                                 }else {
@@ -1144,21 +1196,22 @@
         //  primary ::= arrayComprehensionExpression | literal | functionExpression | identifier | classExpression | ('(' expression ')')
         //classStatement ::= constructor | method | fieldDecl | staticInitialization
         //  constructor ::= 'constructor' parameters block
-        //  method ::= 'static'? (('get' | 'set') | (async? '*'))? (identifier | ('[' unary_misc ']')) parameters block
-        //  fieldDecl ::= 'static'? (identifier | ('[' unary_misc ']')) ('=' unary_misc)?
+        //  method ::= 'static'? MethodDefinition
+        //  fieldDecl ::= 'static'? objectkey ('=' unary_misc)? ';'
         //  staticInitialization ::= 'static' block
         //switchStatementBody ::= (case | default | statement)*
         //  case ::= 'case' expression ':' statement
         //  default ::= 'default' ':' statement
-        //declaration ::= scopedIdentifierDeclaration | statement
+        //declaration ::= scopedIdentifierDeclaration | classDeclStatement | statement
         //  scopedIdentifierDeclaration ::= gender? ('const' | 'let') identifier ('=' unary_misc)? (',' identifier ('=' unary_misc)?)* //well that explains why the comma isn't allowed!
-        //controlFlowStatement ::= if | while | do | for | switch | with | throw | classDeclStatement | functionStatement | varStatement | controlFlowBlock | empty | (expression ';')
+        //  classDeclStatement ::= 'class' identifier ('extends' unary_misc)? '{' classStatement* '}'
+        //controlFlowStatement ::= if | while | do | for | switch | with | label | throw | debugger | functionStatement | varStatement | controlFlowBlock | empty | (expression ';')
         //  controlFlowBlock ::= '{' (break | continue | declaration)* '}'
         //  break ::= 'break' identifier?
         //  continue ::= 'continue' identifier?
         //functionBlock ::= '{' (return | declaration)* '}'
         //  return ::= 'return' expression? ';'
-        //statement ::= if | while | do | for | switch | with | throw | debugger | classDeclStatement | functionStatement | varStatement | block | empty | (expression ';')
+        //statement ::= if | while | do | for | switch | with | label | throw | debugger | functionStatement | varStatement | block | empty | (expression ';')
         //  block ::= '{' declaration* '}'
         //  if ::= 'if' '(' expression ')' statement else?
         //  else ::= 'else' statement
@@ -1168,11 +1221,11 @@
         //  await ::= 'await' '(' optionalIdentifierQualifiers identifier 'of' unary_misc ')'
         //  loop ::= (scopedIdentifierDeclaration | varStatement | expression)? ';' expression? ';' expression?
         //  iterator ::= (scopedIdentifierDeclaration | varStatement | expression) ('of' | 'in') unary_misc
-        //  classDeclStatement ::= 'class' identifier ('extends' unary_misc)? '{' classStatement* '}'
         //  functionStatement ::= gender? 'async'? 'function' '*'? identifier parameters functionBlock
         //  varStatement ::= gender? 'var' identifier ('=' unary_misc)? (',' identifier ('=' unary_misc)?)* //well that explains why the comma isn't allowed!
         //  switch ::= 'switch' '(' expression ')' switchStatementBody
         //  with ::= 'with' '(' expression ')' statement
+        //  label ::= identifier ':' statement
         //  throw ::= 'throw' expression ';'
         //  debugger ::= 'debugger' ';'
         //  empty ::= ';'
@@ -1552,19 +1605,23 @@
             iterableExpr;
             /** @type {Statement} */
             body;
+            /** @type {Boolean} */
+            doAwait; //await strict mode keyword
 
             /**
              * @param {Array<Statement>} tdzStatements
              * @param {Expression} identifierDeclaration
              * @param {Expression} iterableExpr
              * @param {Statement} body
+             * @param {Boolean} doAwait
              */
-            constructor(tdzStatements, identifierDeclaration, iterableExpr, body) {
+            constructor(tdzStatements, identifierDeclaration, iterableExpr, body, doAwait) {
                 super();
                 this.tdzStatements = tdzStatements;
                 this.identifierDeclaration = identifierDeclaration;
                 this.iterableExpr = iterableExpr;
                 this.body = body;
+                this.doAwait = doAwait;
             }
 
             accept(visitor) /*override*/ {
@@ -2183,6 +2240,20 @@
                 }
             }
 
+            //hell nah i'm not doing this myself bruh we're following that specification
+            static CreateForInIterator(obj) {
+                const iterator = ECMAScript.OrdinaryObjectCreate(ECMAScript["%ForInIteratorPrototype%"], "[[Object]]", "[[ObjectWasVisited]]", "[[VisitedKeys]]", "[[RemainingKeys]]");
+                iterator["[[Object]]"] = obj;
+                iterator["[[ObjectWasVisited]]"] = false;
+                iterator["[[VisitedKeys]]"] = [];
+                iterator["[[RemainingKeys]]"] = [];
+                return iterator;
+            }
+
+            static EnumerateObjectProperties(obj) {
+                return ECMAScript.CreateForInIterator(obj);
+            }
+
             static BuiltinCallOrConstruct(func, thisArg, argList, newTarget) {
                 if(func.async) {
                     //do bs that we're probably not gonna implement
@@ -2247,8 +2318,8 @@
                     //Math.abs(5n);
                     throw TypeError(`Cannot convert a ${arg.constructor.name} value to a number`);
                 }
-                if(arg == undefined) return NaN;
-                if(arg == null || arg === false) return 0;
+                if(arg === undefined) return NaN;
+                if(arg === null || arg === false) return 0;
                 if(arg === true) return 1; // oh my god it coerced "1" into true... probably the second or third time i've had to use strict equals....
                 if(typeof arg == "string") return Number(arg); //ye
                 //Assert: arg instanceof JavascriptObjectWrapper
@@ -2309,6 +2380,138 @@
                     return arg["[[BigIntData]]"];
                 }
                 throw TypeError("BigInt.prototype method requires that 'this' be a BigInt"); // how the hell does v8 know what the calling object's name is lol
+            }
+
+            static SameType(x, y) {
+                //definitely strict equals here because in IsLooselyEqual there's a case for undefined and null
+                //https://tc39.es/ecma262/multipage/abstract-operations.html#sec-islooselyequal
+                if(x === undefined && y === undefined) {
+                    return true;
+                }else if(x === null && y === null) { //(typeof null == "object") so this gets its own special case
+                    return true;
+                }else {
+                    //hmm typeof null is object so this might be wrong sometimes...
+                    if(x === null || y === null) return false;
+                    return typeof x == typeof y;
+                }
+            }
+
+            static SameValueNonNumber(x, y) {
+                //Assert: ECMAScript.SameType(x, y)
+                if(x === undefined || x === null) return true;
+                return x===y; //basically
+            }
+
+            static IsStrictlyEqual(x, y) {
+                if(!ECMAScript.SameType(x, y)) return false;
+                if(typeof x == "number") {
+                    return x === y;
+                }
+                return ECMAScript.SameValueNonNumber(x, y);
+            }
+
+            static IsLooselyEqual(x, y) {
+                if(ECMAScript.SameType(x, y)) {
+                    return ECMAScript.IsStrictlyEqual(x, y);
+                }
+                if(x === null && y === undefined) {
+                    return true;
+                }else if(x === undefined && y === null) {
+                    return true;
+                }else if(x instanceof JavascriptObjectWrapper && "[[IsHTMLDDA]]" in x && (y === undefined || y === null)) {
+                    return true;
+                }else if((x === undefined || x === null) && y instanceof JavascriptObjectWrapper && "[[IsHTMLDDA]]" in y) {
+                    return true;
+                }else {
+                    const typeX = typeof x;
+                    const typeY = typeof y;
+                    if(typeX == "number" && typeY == "string") {
+                        return ECMAScript.IsLooselyEqual(x, ECMAScript.ToNumber(y));
+                    }else if(typeX == "string" && typeY == "number") {
+                        return ECMAScript.IsLooselyEqual(ECMAScript.ToNumber(x), y);
+                    }else if(typeX == "bigint" && typeY == "string") {
+                        if(Number_isFinite(Number(y))) { //using number since he won't throw if it's bad
+                            return ECMAScript.IsLooselyEqual(x, HostLanguage.BigInt(y));
+                        }else {
+                            return false;
+                        }
+                    }else if(typeX == "string" && typeY == "bigint") {
+                        return ECMAScript.IsLooselyEqual(y, x);
+                    }else if(typeX == "boolean") {
+                        return ECMAScript.IsLooselyEqual(ECMAScript.ToNumber(x), y);
+                    }else if(typeY == "boolean") {
+                        return ECMAScript.IsLooselyEqual(x, ECMAScript.ToNumber(y));
+                    }else if((typeX == "string" || typeX == "number" || typeX == "bigint" || typeX == "symbol") && typeY == "object") {
+                        return ECMAScript.IsLooselyEqual(x, ECMAScript.ToPrimitive(y));
+                    }else if(typeX == "object" && (typeY == "string" || typeY == "number" || typeY == "bigint" || typeY == "symbol")) {
+                        return ECMAScript.IsLooselyEqual(ECMAScript.ToPrimitive(x), y);
+                    }else if((typeX == "bigint" && typeY == "number")) {
+                        if(!Number_isFinite(y)) {
+                            return false;
+                        }
+                        return HostLanguage.BigInt(y) == x;
+                    }else if((typeX == "number" && typeY == "bigint")) {
+                        if(!Number_isFinite(x)) {
+                            return false;
+                        }
+                        return HostLanguage.BigInt(x) == y;
+                    }
+                }
+            }
+
+            static IsLessThan(x, y, leftFirst) {
+                let px;
+                let py;
+                if(leftFirst) {
+                    px = ECMAScript.ToPrimitive(x, PreferredType.NUMBER);
+                    py = ECMAScript.ToPrimitive(y, PreferredType.NUMBER);
+                }else {
+                    py = ECMAScript.ToPrimitive(y, PreferredType.NUMBER);
+                    px = ECMAScript.ToPrimitive(x, PreferredType.NUMBER);
+                }
+                if(typeof px == "string" && typeof py == "string") {
+                    const lx = px.length;
+                    const ly = py.length;
+                    const min = Math.min(lx, ly);
+                    for(let i = 0; i < min; i++) {
+                        const cx = px.charCodeAt(i);
+                        const cy = py.charCodeAt(i);
+                        if(cx < cy) {
+                            return true;
+                        }else if(cx > cy) {
+                            return false;
+                        }
+                    }
+                    if(lx < ly) return true;
+                    return false;
+                }else if(typeof px == "bigint" && typeof py == "string") {
+                    if(Number_isFinite(Number(py))) {
+                        return px < HostLanguage.BigInt(py);
+                    }else {
+                        return false;
+                    }
+                }else if(typeof px == "string" && typeof py == "bigint") {
+                    if(Number_isFinite(Number(px))) {
+                        return HostLanguage.BigInt(px) < py;
+                    }else {
+                        return false;
+                    }
+                }
+                const nx = ECMAScript.ToNumeric(px);
+                const ny = ECMAScript.ToNumeric(py);
+                if(ECMAScript.SameType(nx, ny)) {
+                    return nx < ny; //yeah
+                }
+                //Assert: (typeof nx == "number" && typeof ny == "bigint") || (typeof nx == "bigint" && typeof ny == "number")
+                if(Number_isNaN(nx) || Number_isNaN(ny)) {
+                    return undefined;
+                }else if(nx === -Infinity || ny === Infinity) {
+                    return true;
+                }else if(nx === Infinity || ny === -Infinity) {
+                    return false;
+                }else {
+                    return HostLanguage.BigInt(nx) < HostLanguage.BigInt(ny);
+                }
             }
 
             static ToIntegerOrInfinity(arg) {
@@ -3520,7 +3723,11 @@
             //inFunction;
             /** @type {Array<Statement>} */
             statements;
-            constructor(parentInterpreter, tokens) {
+
+            //for functions and classes
+            sourceText;
+
+            constructor(parentInterpreter, tokens, sourceText) {
                 super(parentInterpreter, tokens);
                 this.i = 0;
                 this.useStrict = false;
@@ -3533,6 +3740,8 @@
 
                 
                 this.statements = []; // the only reason this is now a property of JavascriptParser is because we must hoist global vars any time function is declared!
+
+                this.sourceText = sourceText;
 
                 //he did this analysis in another pass after parsing!
                 this.scope = [new StaticAnalysisScope("global", this.statements)];
@@ -4153,7 +4362,7 @@
                             // const parameters = this.parameters();
                             // const body = this.block();
                             //functionBlock
-                            return this.doCommonFunctionStuff(undefined, async, funcToken, generator, name, FunctionKind.EXPRESSION);
+                            return this.doCommonFunctionStuff(undefined, async, funcToken, generator, name, FunctionKind.EXPRESSION, funcToken);
                         }else {
                             //arrow
                             const parameter = this.match(TokenKind.IDENTIFIER);
@@ -4304,10 +4513,11 @@
                 }
             }
 
-            MethodDefinition() {
+            MethodDefinition($static = false) { //static strict mode reserved word
                 let kind = FunctionKind.METHOD;
-                let generator = false;
                 let async = false;
+                let generator = false;
+                let beginningToken;
                 if(this.tokens[this.i].value == "async") {
                     async = this.tokens[this.i++];
                     generator = this.match(TokenKind.ASTERISK);
@@ -4321,18 +4531,26 @@
                         kind = FunctionKind.SETTER;
                     }
                 }*/else if(this.tokens[this.i].value == "get") {
+                    beginningToken = this.tokens[this.i];
                     this.i++; //consume
                     kind = FunctionKind.GETTER;
                 }else if(this.tokens[this.i].value == "set") {
+                    beginningToken = this.tokens[this.i];
                     this.i++; //consume
                     kind = FunctionKind.SETTER;
                 }
 
                 //get, set, async and the asterisk are the only things that can come before a method in an object literal
                 //...so that means this is a method
+                const tempForBeginningTokenIfNotAsyncOrGenerator = this.tokens[this.i];
                 const key = this.objectkey();
                 key.method = true;
-                return [key, this.doCommonFunctionStuff(undefined, async, undefined, generator, false, kind)]; //we set the function name later since we might have to evaluate it!
+
+                if(!beginningToken) {
+                    beginningToken = async || generator || tempForBeginningTokenIfNotAsyncOrGenerator;
+                }
+
+                return [key, this.doCommonFunctionStuff(undefined, async, undefined, generator, false, kind, beginningToken)]; //we set the function name later since we might have to evaluate it!
             }
 
             /**
@@ -4402,7 +4620,7 @@
                 }
             }
 
-            doCommonFunctionStuff(gender, async, funcToken, generator, name, kind) {
+            doCommonFunctionStuff(gender, async, funcToken, generator, name, kind, beginningToken) {
                 const scope = this.scope[this.scope.length-1];
                 let $var;
                 if(kind == FunctionKind.FUNCTION) { // the name of a function expression is not hoisted and is only accessable by the parameters and body of the function!
@@ -4448,6 +4666,7 @@
                 }
 
                 const functionBody = this.block(true); //purrhaps i could just pass inFunction to block lol
+                const endingToken = this.tokens[this.i-1]; //Assert: endingToken.kind == TokenKind.CLOSING_CURLY_BRACKET
                 
                 scopeRef.blockStatementArray = functionBody.statements;
                 this.pushHoistedDeclarations();
@@ -4470,17 +4689,19 @@
 
                 $var.statement = new FunctionStatement(gender || undefined, strict, !!async, !!generator, name, parameters, functionBody, undefined, kind);
 
-                let sourceText = "";
-                {
-                    const p = new Printer;
-                    sourceText += $var.statement.accept(p);
-                }
-                $var.statement.sourceText = sourceText;
+                //let sourceText = "";
+                //{
+                //    const p = new Printer;
+                //    sourceText += $var.statement.accept(p);
+                //}
+                //$var.statement.sourceText = sourceText;
+                $var.statement.sourceText = this.sourceText.substring(indexFromToken(beginningToken, this.sourceText), indexFromToken(endingToken, this.sourceText)+1);
                 
                 return $var.statement;
             }
 
             //for let and const :/
+            //and also class statements apparently
             declaration() {
                 const genderbutouhhiwillhavetobacktrackifthisnexttokenisnotconstorlet = this.match(TokenKind.GENDER);
                 if(this.peekReserved("const") || (this.peekReserved("let") || (this.peek(TokenKind.IDENTIFIER) && this.tokens[this.i].value == "let" && this.peekNext(TokenKind.IDENTIFIER)))) {
@@ -4498,6 +4719,33 @@
                         throw new ParseError(this.tokens[this.i-1].line, this.tokens[this.i-1].char, "let is disallowed as a lexically bound name (even though the statement var let = ...; is allowed in non strict mode)");
                     }
                     return this.doCommonIdentifierDeclStuff(genderbutouhhiwillhavetobacktrackifthisnexttokenisnotconstorlet, qualifier, name);
+                }
+                //do note where i've placed this if, class statements can have a gender!
+                if(this.peekReserved("class")) {
+                    const classToken = this.tokens[this.i++];
+                    const name = this.match(TokenKind.IDENTIFIER);
+                    if(!name) {
+                        throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Expected identifier for class name!!");
+                    }
+                    let superclass = undefined;
+                    if(this.matchReserved("extends")) {
+                        superclass = this.unary_misc();
+                    }
+                    this.consume(TokenKind.OPEN_CURLY_BRACKET, "Expected open curly bracket here!!");
+                    //the only problem is... the body of classes are in strict mode!...
+                    const old = this.useStrict;
+                    this.useStrict = true;
+                    while(this.i < this.tokens.length && !this.peek(TokenKind.CLOSING_CURLY_BRACKET)) {
+                        //this.classStatement()
+                        //in a static block, 'this' is the class object
+                        if(this.peek(TokenKind.IDENTIFIER) && this.tokens[this.i].value == "constructor") {
+                            const constructor = this.MethodDefinition();
+                        }else {
+                            const $static = this.match(TokenKind.RESERVED);
+                        }
+                    }
+                    this.useStrict = old;
+                    this.consume(TokenKind.CLOSING_CURLY_BRACKET, "Expected closing curly bracket here!!");
                 }
                 if(genderbutouhhiwillhavetobacktrackifthisnexttokenisnotconstorlet) {
                     //the gender might be needed elsewhere!
@@ -4541,6 +4789,7 @@
                 if(!dontMakeScopeBecauseFunctionAlreadyDidIt) {
                     this.scope.push(new StaticAnalysisScope("block", expr.statements));
                 }
+                const old = this.useStrict;
                 while(this.i < this.tokens.length && !this.peek(TokenKind.CLOSING_CURLY_BRACKET)) {
                     const statement = this.declaration();
                     if(statement instanceof FunctionStatement) {
@@ -4549,9 +4798,13 @@
 
                         //nevermind, this happens with hoisted vars too
                     }else {
+                        if(dontMakeScopeBecauseFunctionAlreadyDidIt && expr.statements.length == 0 && !this.useStrict && statement instanceof ExpressionStatement && statement.expression?.value == "use strict") {
+                            this.useStrict = true;
+                        }
                         expr.statements.push(statement);
                     }
                 }
+                this.useStrict = old;
                 this.consume(TokenKind.CLOSING_CURLY_BRACKET, "Expected closing bracket!!");
                 //if(this.inFunction.at(-1)) {
                 //    //the only time var isn't globally scoped is in a function!
@@ -4722,18 +4975,13 @@
                             this.consume(TokenKind.CLOSING_PARENTHESIS, "Closing parenthesis expected after for, what is this!");
 
                             const body = this.statement();
-                            let clazz;
                             if(operator.value == "in") {
                                 //in
-                                clazz = ForInStatement;
-                            }else if($await) {
-                                //await of
-                                clazz = ForAwaitOfStatement;
-                            }else { 
-                                //of
-                                clazz = ForOfStatement;
+                                return new ForInStatement(tdzStatements, initialization_or_decl, iterableExpr, body);
+                            }else {
+                                //await? of
+                                return new ForOfStatement(tdzStatements, initialization_or_decl, iterableExpr, body, $await);
                             }
-                            return new clazz(tdzStatements, initialization_or_decl, iterableExpr, body);
                         }else if($await) {
                             throw new ParseError($await.line, $await.char, "Await not expected here!");
                         }else {
@@ -4816,8 +5064,11 @@
                 }else if(this.matchReserved("debugger")) {
                     this.consume(TokenKind.SEMICOLON, "Expected semicolon after debugger statement!");
                     return new DebuggerStatement();
-                }else if(this.matchReserved("class")) {
+                }else if(this.peekReserved("class")) {
+                    //oh... you're not allowed to do {if(true) class x{}} just like how {if(true) let x;} is an error
 
+                    //i'll use ts as a cover grammar
+                    throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Unexpected token 'class'");
                 }else if(this.peek(TokenKind.OPEN_CURLY_BRACKET)) {
                     //block
                     // if(async) {
@@ -4862,7 +5113,8 @@
                             const temp = +(this.i >= this.tokens.length);
                             throw new ParseError(this.tokens[this.i-temp].line, this.tokens[this.i-temp].char, `Function statements require a function name`);
                         }
-                        return this.doCommonFunctionStuff(gender, async, funcToken, generator, name, FunctionKind.FUNCTION);
+                        const beginningToken = gender || async || funcToken;
+                        return this.doCommonFunctionStuff(gender, async, funcToken, generator, name, FunctionKind.FUNCTION, beginningToken);
                     }
                     //we're still allowing const and let here as a sort of cover grammar like thing so we can catch it
                     else if(this.peekReserved("var") || this.peekReserved("const") || (this.peekReserved("let") || (this.peek(TokenKind.IDENTIFIER) && this.tokens[this.i].value == "let" && this.peekNext(TokenKind.IDENTIFIER)))) { // bruh let is only reserved in strict mode! otherwise it will be tokenized as an identifier!
@@ -5941,6 +6193,47 @@
 
                     ECMAScript["%Iterator.prototype%"] = iteratorProto;
 
+                    const internalForInIteratorProto = ECMAScript.OrdinaryObjectCreate(iteratorProto);
+                    internalForInIteratorProto.SetDataProperty("next", true, false, true, ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            //Assert: thisArg instanceof JavascriptObjectWrapper
+                            //Assert: "[[Object]]" in thisArg && "[[ObjectWasVisited]]" in thisArg && "[[VisitedKeys]]" in thisArg && "[[RemainingKeys]]" in thisArg
+                            let obj = thisArg["[[Object]]"];
+                            for(;;) {
+                                if(thisArg["[[ObjectWasVisited]]"] == false) {
+                                    const keys = obj["[[OwnPropertyKeys]]"]();
+                                    for(const key of keys) {
+                                        if(typeof key == "string") {
+                                            thisArg["[[RemainingKeys]]"].push(key);
+                                        }
+                                    }
+                                    thisArg["[[ObjectWasVisited]]"] = true;
+                                }
+                                while(thisArg["[[RemainingKeys]]"].length) {
+                                    const key = thisArg["[[RemainingKeys]]"].splice(0, 1)[0];
+                                    if(thisArg["[[VisitedKeys]]"].indexOf(key) == -1) {
+                                        const propertyDesc = obj["[[GetOwnProperty]]"](key);
+                                        if(propertyDesc != undefined) {
+                                            thisArg["[[VisitedKeys]]"].push(key);
+                                            if(propertyDesc.enumerable) {
+                                                return ECMAScript.CreateIteratorResultObject(key, false);
+                                            }
+                                        }
+                                    }
+                                }
+                                obj = obj["[[GetPrototypeOf]]"]();
+                                thisArg["[[Object]]"] = obj;
+                                thisArg["[[ObjectWasVisited]]"] = false;
+                                if(obj == null) {
+                                    return ECMAScript.CreateIteratorResultObject(undefined, true);
+                                }
+                            }
+                        },
+                        0, "next", [], this
+                    ));
+
+                    ECMAScript["%ForInIteratorPrototype%"] = internalForInIteratorProto;
+
                     const arrayIteratorProto = ECMAScript.OrdinaryObjectCreate(iteratorProto);
                     {
                         const $next = ECMAScript.CreateBuiltinFunction(
@@ -7004,7 +7297,7 @@
                     return result;
                 }
                 console.log(result.value);
-                const parser = new JavascriptParser(this, result.value);
+                const parser = new JavascriptParser(this, result.value, str);
                 result = parser.parse(); //javascript parser also needs to keep track of vars for hoisting!
                 if(!result.has_value()) {
                     return result;
@@ -7738,30 +8031,33 @@
                     
                     //equality
                     case TokenKind.STRICT_NOT_EQUAL:
-                        return left !== right;
+                        return !ECMAScript.IsStrictlyEqual(right, left);
                         break;
                     case TokenKind.STRICT_EQUAL:
-                        return left === right;
+                        return ECMAScript.IsStrictlyEqual(right, left);
                         break;
                     case TokenKind.NOT_EQUAL:
-                        return left != right;
+                        return !ECMAScript.IsLooselyEqual(right, left);
                         break;
                     case TokenKind.EQUAL_EQUAL:
-                        return left == right;
+                        return ECMAScript.IsLooselyEqual(right, left);
                         break;
                     
                     //comparison
                     case TokenKind.LESS_THAN:
-                        return left < right;
+                        return ECMAScript.IsLessThan(left, right, true) ?? false;
                         break;
-                    case TokenKind.LESS_EQUAL:
-                        return left <= right;
+                    case TokenKind.LESS_EQUAL: {
+                        const result = ECMAScript.IsLessThan(right, left, false);
+                        return !(result == true || result == undefined);
                         break;
+                    }
                     case TokenKind.GREATER_THAN:
-                        return left > right;
+                        return ECMAScript.IsLessThan(right, left, false) ?? false;
                         break;
                     case TokenKind.GREATER_EQUAL:
-                        return left >= right;
+                        const result = ECMAScript.IsLessThan(left, right, true);
+                        return !(result == true || result == undefined);
                         break;
                     case TokenKind.RESERVED:
                         if(binaryExpression.operatorToken.value == "in") {
@@ -8015,7 +8311,7 @@
                 }
                 forLoopStatement.initialization.accept(this); //because we don't gaf about the return value we won't use evaluate
                 let last;
-                while(HostLanguage.isJavascriptTruthy(forLoopStatement.condition.accept(this))) {
+                while(HostLanguage.isJavascriptTruthy(this.evaluate(forLoopStatement.condition))) {
                     last = this.evaluate(forLoopStatement.body);
                     forLoopStatement.afterthought.accept(this); //because we don't gaf about the return value we won't use evaluate
                 }
@@ -8056,8 +8352,26 @@
                 if(iterable instanceof JavascriptObjectWrapper) {
                     //special
                     //wait maybe await should just be a property of ForOfStatement instead of being its own class
-                    const kind = forOfStatement.await ? IteratorKind.ASYNC : IteratorKind.SYNC;
-                    const iteratorRecord = ECMAScript.GetIterator(iterable, kind);
+                    let kind, iteratorRecord;
+                    if(forOfStatement instanceof ForInStatement) {
+                        //forInStatement
+                        if(iterable == undefined || iterable == null) {
+                            //{"[[Type]]": BREAK, "[[Value]]": undefined, "[[Target]]": undefined};
+                        }else {
+                            const obj = ECMAScript.ToObject(iterable);
+                            const iterator = ECMAScript.EnumerateObjectProperties(obj); //FAWK
+                            //GetV
+                            const temp = ECMAScript.ToObject(iterator);
+                            const nextMethod = temp["[[Get]]"]("next", temp);
+                            iteratorRecord = {"[[Iterator]]": iterator, "[[NextMethod]]": nextMethod, "[[Done]]": false};
+                        }
+                    }else {
+                        if(forOfStatement.doAwait) {
+                            throw Error("await not implemented!!");
+                        }
+                        kind = forOfStatement.doAwait ? IteratorKind.ASYNC : IteratorKind.SYNC;
+                        iteratorRecord = ECMAScript.GetIterator(iterable, kind);
+                    }
                     for(;;) {
                         const nextResult = ECMAScript.Call(iteratorRecord["[[NextMethod]]"], iteratorRecord["[[Iterator]]"], []);
                         if(kind == IteratorKind.ASYNC) {
@@ -8096,6 +8410,21 @@
                             last = forOfStatement.body.accept(this);
                         }
                     }
+                }else if(forOfStatement.doAwait) {
+                    throw Error("idk if i'll do await yet lol");
+                }else if(forOfStatement instanceof ForInStatement) {
+                    //me being lazy primitive
+                    for(const result in iterable) {
+                        //we're doing bs
+                        //SetValue(result); //some hypothetical function that handles allat bs
+                        if(!bindingRef) {
+                            //i mean sure bro
+                            scope.get(forOfStatement.identifierDeclaration.name).value = result;
+                        }else {
+                            this.PutValue(bindingRef, result);
+                        }
+                        last = forOfStatement.body.accept(this);
+                    }
                 }else {
                     //me being lazy primitive
                     for(const result of iterable) {
@@ -8112,6 +8441,11 @@
                 }
                 this.state.variables.pop();
                 return last;
+            }
+
+            /** @param {ForInStatement} forInStatement */
+            visitForInStatement(forInStatement) {
+                return this.visitForOfStatement(forInStatement);
             }
 
             //let arr = [];
@@ -8229,10 +8563,11 @@
                         }
                         value.nameToken = {value: propertyKey}; //trickery
                         //bruh we need to regenerate the source text because we've updated the name! (yeah yeah this wouldn't be a problem if i finally actually made the lexer keep track of this part but i haven't done that yet >:P) (tighten up young man i thought a)
-                        {
-                            const p = new Printer;
-                            value.sourceText = value.accept(p);
-                        }
+                        //ok nevermind again lol how would the lexer know when methods/arrow functions began so we're doing in the parser (and lowkey it wasn't hard at all..)
+                        //{
+                        //    const p = new Printer;
+                        //    value.sourceText = value.accept(p);
+                        //}
                         const func = this.evaluate(value); //evaluating does all of the stuff like creating the function and naming it even though that's not what happens in the specification
                         if(value.kindSoThatICanDoThisStuffCorrectly == FunctionKind.GETTER) {
                             obj["[[DefineOwnProperty]]"](propertyKey, {configurable: true, enumerable: true, getter: func}); //PropertyDefinition : MethodDefinition passes true for enumerable
