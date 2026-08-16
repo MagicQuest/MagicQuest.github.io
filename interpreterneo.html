@@ -446,7 +446,7 @@
                 const octalRegex = /[0-7_]/;
 
                 // let startOfFunctionBlockTokenLength = [{length: -1, ref: undefined}];
-                let startOfFunctionBlockTokenLength = [-1]; // this variable will be set to the length of tokens after the open curly bracket, if a "use strict" string is found, and (tokens.length - startOfFunctionBlock) == 0, this was the first thing in the function (blocks cannot be strict apparently)
+                let startOfFunctionBlockTokenLength = [0]; // this variable will be set to the length of tokens after the open curly bracket, if a "use strict" string is found, and (tokens.length - startOfFunctionBlock) == 0, this was the first thing in the function (blocks cannot be strict apparently)
 
                 templateStopLexing:
                 while(this.i < str.length) {
@@ -603,13 +603,24 @@
                             if(!ended) {
                                 return Unexpected(new ParseError(lineNumber, this.i - lineIndex, "End of file reached before ending string quote!"));
                             }
-                            if(stringToken.value == "use strict") { //lol
-                                if(tokens.length == 0) {
-                                    useStrict[0] = true;
-                                }else if(tokens.length - startOfFunctionBlockTokenLength.at(-1) == 0) {
+                            //if(stringToken.value == "use strict") { //lol
+                            //    if(tokens.length == 0) {
+                            //        useStrict[0] = true;
+                            //    }
+                            //}
+                            if(tokens.length - startOfFunctionBlockTokenLength.at(-1) == 0) {
+                                //process statement in directive prologue...
+
+                                //there can be multiple string expression statements that make up the directive prologue so we need to keep looking...
+                                startOfFunctionBlockTokenLength[startOfFunctionBlockTokenLength.length-1]+=2; // += 2 for string + semicolon
+                                if(stringToken.value == "use strict") {
                                     //startOfFunctionBlockTokenLength.at(-1).ref.strict = true;
-                                    depth.inStrictFunctionOrClassBracketEndingDepth.at(-1).strict = true; // i think we can assume this
-                                    useStrict.push(true);
+                                    if(startOfFunctionBlockTokenLength.length == 1) { //global
+                                        useStrict[0] = true;
+                                    }else {
+                                        depth.inStrictFunctionOrClassBracketEndingDepth.at(-1).strict = true; // i think we can assume this
+                                        useStrict.push(true);
+                                    }
                                 }
                             }
                             tokens.push(stringToken);
@@ -634,10 +645,20 @@
                             break;
 
                         case ':':
+                            if(tokens.at(-1).value == "class") {
+                                // ok wait cancel strict mode here because this is an object literal property (my lexer enables strict mode the moment 'class' is encountered)
+                                useStrict.pop();
+                                depth.inStrictFunctionOrClassBracketEndingDepth.pop();
+                            }
                             tokens.push(new Token(lineNumber, charNumber, TokenKind.COLON, ":"));
                             break;
 
                         case ';':
+                            if(tokens.at(-1).value == "class") {
+                                // ok wait cancel strict mode here because this is a class field (my lexer enables strict mode the moment 'class' is encountered)
+                                useStrict.pop();
+                                depth.inStrictFunctionOrClassBracketEndingDepth.pop();
+                            }
                             tokens.push(new Token(lineNumber, charNumber, TokenKind.SEMICOLON, ";"));
                             break;
 
@@ -805,6 +826,11 @@
                                 this.i++; //consume >
                                 tokens.push(new Token(lineNumber, charNumber, TokenKind.ARROW, "=>"));
                             }else {
+                                if(tokens.at(-1).value == "class") {
+                                    // ok wait cancel strict mode here because this is a class field (my lexer enables strict mode the moment 'class' is encountered)
+                                    useStrict.pop();
+                                    depth.inStrictFunctionOrClassBracketEndingDepth.pop();
+                                }
                                 tokens.push(new Token(lineNumber, charNumber, TokenKind.EQUALS, "="));
                             }
                             break;
@@ -818,6 +844,11 @@
                             break;
 
                         case '(':
+                            if(tokens.at(-1).value == "class") {
+                                // ok wait cancel strict mode here because this is a method (or call!!) (my lexer enables strict mode the moment 'class' is encountered)
+                                useStrict.pop();
+                                depth.inStrictFunctionOrClassBracketEndingDepth.pop();
+                            }
                             depth.parenthesis++;
                             tokens.push(new Token(lineNumber, charNumber, TokenKind.OPEN_PARENTHESIS, "("));
                             break;
@@ -850,9 +881,9 @@
                             }
                             const last = depth.inStrictFunctionOrClassBracketEndingDepth[depth.inStrictFunctionOrClassBracketEndingDepth.length-1];
                             if(last.curly == depth.curly) {
-                                if(last.kind == "class") {
+                                /*if(last.kind == "class") { //classes are in strict mode the moment "class" is found!
                                     useStrict.push(true);
-                                }else if(last.kind == "function") {
+                                }else*/ if(last.kind == "function") {
                                     // startOfFunctionBlockTokenLength.push({length: tokens.length+1, ref: last}); //length+1 because we push just 3 lines later!
                                     startOfFunctionBlockTokenLength.push(tokens.length+1); //length+1 because we push just 3 lines later!
                                 }
@@ -1083,9 +1114,11 @@
                                     }/*else if(tempToken.value == "undefined") { //uh nevermind undefined is not reserved!
                                         tempToken.kind = TokenKind.UNDEFINED;
                                     }*/else {
-                                        if(!useStrict.at(-1) && /*(tempToken.value == "function" || */ tempToken.value == "class"/*)*/) {
+                                        //hmm this could be the name of a method or property so we can't assume yet... FAWK!
+                                        if(/*(tempToken.value == "function" || */ tempToken.value == "class"/*)*/) {
                                             //willBeEnteringClassOrFunctionBodyAtNextCurlyBracket.push();
                                             //functions are now detected if the token before a bracket was a closing parenthesis or arrow :/
+                                            useStrict.push(true);
                                             depth.inStrictFunctionOrClassBracketEndingDepth.push({kind: tempToken.value, curly: depth.curly, strict: tempToken.value == "class"});
                                         }
                                         tempToken.kind = TokenKind.RESERVED;
@@ -1192,7 +1225,7 @@
         //  unary_postfix ::= new ('--' | '++')?
         //  new ::= ('new' new) | access_call_no_associativity
         //  access_call_no_associativity ::= ('import' '(' expression ')')? access_call
-        //  access_call ::= primary ((('?.' | '.') primary) | ('[' expression ']') | (arguments))* // well that solves it, i was confused when i wrote this line and i wondered how this could be left associative if a line exponentiation wasn't and now i know it's the recursion! the reason i didn't want to put primary was because i thought (how else will it keep matching the dot and optional chaining operators, but that's what the asterisk is for!)
+        //  access_call ::= primary ((('?.' | '.') (reserved | primary)) | ('[' expression ']') | (arguments))* // well that solves it, i was confused when i wrote this line and i wondered how this could be left associative if a line exponentiation wasn't and now i know it's the recursion! the reason i didn't want to put primary was because i thought (how else will it keep matching the dot and optional chaining operators, but that's what the asterisk is for!)
         //  primary ::= arrayComprehensionExpression | literal | functionExpression | identifier | classExpression | ('(' expression ')')
         //classStatement ::= constructor | method | fieldDecl | staticInitialization
         //  constructor ::= 'constructor' parameters block
@@ -1235,7 +1268,7 @@
         //array ::= '[' (unary_misc? ',')* ']'
         //object ::= '{' (objectkeyvalue (',' objectkeyvalue)* ','?)? '}'
         //objectkeyvalue ::= (objectkey ':' unary_misc) | identifier | ('...' unary_misc) | MethodDefinition
-        //objectkey ::= identifier | number | string | ('[' unary_misc ']')
+        //objectkey ::= identifier | reserved | number | string | ('[' unary_misc ']')
         //MethodDefinition ::= (('get' | 'set') | ('async'? '*'))? objectkey parameters functionBlock
 
         //method definition is like the only one actually based on the specification lol
@@ -1270,6 +1303,46 @@
                 return depth != 0 || expression.nameToken.value != "this"; //this is not assignable!
             }
             return depth != 0; //return false if depth == 0
+        }
+
+        //this too could be a visitor...
+        //fortunately we only have to check expressions
+        /** @param {Expression} expression */
+        function containsArguments(expression) {
+            if(expression instanceof BinaryExpression || expression instanceof AssignmentExpression) {
+                return this.containsArguments(expression.left) ||  this.containsArguments(expression.right);
+            }else if(expression instanceof UnaryExpression) {
+                return this.containsArguments(expression.operand);
+            }else if(expression instanceof ArrayLiteralExpression) {
+                for(const value of expression.value) {
+                    if(this.containsArguments(value)) {
+                        return true;
+                    }
+                }
+            }else if(expression instanceof ObjectLiteralExpression) {
+                for(const [key, value] of expression.properties.entries()) {
+                    //key could be SpreadExpression...
+                    if((key instanceof Token && key.value == "arguments") || this.containsArguments(key) || this.containsArguments(value)) {
+                        return true;
+                    }
+                }
+            }else if(expression instanceof SpreadExpressionToBeEvaluatedManuallyBecauseContextIsImportant) {
+                return this.containsArguments(expression.rhs);
+            }else if(expression instanceof TernaryExpression) {
+                return this.containsArguments(expression.condition) || this.containsArguments(expression.trueExpr) || this.containsArguments(expression.falseExpr);
+            }else if(expression instanceof FunctionCallExpression) {
+                if(this.containsArguments(expression.functionExpr)) {
+                    return true;
+                }
+                for(const arg of expression.argumentsExprArr) {
+                    if(this.containsArguments(arg)) {
+                        return true;
+                    }
+                }
+            }else if(expression instanceof IdentifierExpression) {
+                return expression.nameToken.value == "arguments";
+            }
+            //we don't have to check class expressions because they will call this function too
         }
 
         class Statement {
@@ -1635,11 +1708,11 @@
             }
         }
 
-        class ForAwaitOfStatement extends ForOfStatement {
-            accept(visitor) /*override*/ {
-                return visitor.visitForAwaitOfStatement(this);
-            }
-        }
+        //class ForAwaitOfStatement extends ForOfStatement {
+        //    accept(visitor) /*override*/ {
+        //        return visitor.visitForAwaitOfStatement(this);
+        //    }
+        //}
 
         class FunctionStatement extends Statement {
             /** @type {Token | undefined} */
@@ -3170,6 +3243,7 @@
                         if(typeof key == "symbol" && value.initialName == `[${key.description}]`) break holyshitlikegotobreakoutofifstatementhowdidinotknowyoucouldlabelanystatementbeforeqwq;
                         //debugger;
                         //the function prototype one is fine because just like in real javascript, Function.prototype.name == '';
+                        //Array.prototype[Symbol.iterator].name == "values" !!
                         console.warn(`Data property '${key.toString()}' was set to function object with different name '${value.initialName}', was this intended?`);
                     }
                 }
@@ -3254,6 +3328,9 @@
                 if(this.functionNameForScopeOfFunctionExpressions) {
                     scope.set(this.functionNameForScopeOfFunctionExpressions, new Variable({qualifier: {line: 1, char: 1, value: "var", kind: TokenKind.RESERVED}, name: this.functionNameForScopeOfFunctionExpressions, gender: undefined}, this));
                 }
+
+                //oops, the arguments object is supposed to be set here!
+                //scope.set("arguments", new Variable({qualifier: {line: 1, char: 1, value: "let", kind: TokenKind.RESERVED}, gender: undefined, name: "arguments"}, ));
 
                 for(let i = 0; i < this.formalParameters.length; i++) {
                     const {identifier, default: $default} = this.formalParameters[i];
@@ -3794,7 +3871,11 @@
             identifier() {
                 const id = this.match(TokenKind.IDENTIFIER);
                 if(!id) {
-                    throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Expected identifier!!!");
+                    if(this.peek(TokenKind.RESERVED) && JavascriptLexer.strict_reserved.has(this.tokens[this.i].value)) {
+                        throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Expected identifier!!! (Unexpected strict mode reserved word)");
+                    }else {
+                        throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Expected identifier!!!");
+                    }
                 }
                 return new IdentifierExpression(id);
             }
@@ -4206,7 +4287,7 @@
                         //...
                     }else {
                         const operator = this.tokens[this.i++];
-                        const right = this.primary();
+                        const right = this.primary(true);
                         //definitely throw some syntax error here if it's something weird like an object or array lol
                         expr = new BinaryExpression(expr, operator, right);
                     }
@@ -4218,7 +4299,7 @@
                 return expr;
             }
 
-            primary() {
+            primary(coerceReservedIntoIdentifierBecauseThePreviousTokenWasADot) {
                 //literal
                 switch(this.tokens[this.i].kind) {
                     case TokenKind.BOOLEAN:
@@ -4287,7 +4368,8 @@
                         this.i++; // consume!
                         //objectkeyvalue
                         const properties = new Map();
-                        if(this.peek(TokenKind.SPREAD) || this.peek(TokenKind.IDENTIFIER) || this.peek(TokenKind.OPEN_BRACKET) || this.peek(TokenKind.STRING) || this.peek(TokenKind.NUMBER) || this.peek(TokenKind.ASTERISK)) {
+                        //if(this.peek(TokenKind.SPREAD) || this.peek(TokenKind.IDENTIFIER) || this.peek(TokenKind.RESERVED) || this.peek(TokenKind.OPEN_BRACKET) || this.peek(TokenKind.STRING) || this.peek(TokenKind.NUMBER) || this.peek(TokenKind.ASTERISK)) {
+                        if(!this.peek(TokenKind.CLOSING_CURLY_BRACKET)) {
                             const [key, value] = this.objectkeyvalue();
                             properties.set(key, value);
                             while(this.match(TokenKind.COMMA) && !this.peek(TokenKind.CLOSING_CURLY_BRACKET)) {
@@ -4297,6 +4379,11 @@
                         }
                         this.consume(TokenKind.CLOSING_CURLY_BRACKET, "Expected closing curly bracket in object literal!");
                         return new ObjectLiteralExpression(properties);
+                        break;
+                    case TokenKind.RESERVED:
+                        if(coerceReservedIntoIdentifierBecauseThePreviousTokenWasADot) {
+                            return new IdentifierExpression(this.tokens[this.i++]);
+                        }
                         break;
                     default:
                         break;
@@ -4402,7 +4489,7 @@
                 // throw new ParseError(cur.line, cur.char, "");
             }
 
-            objectkeyvalue() {
+            objectkeyvalue(inClass = false) {
                 //oh my god i just remembered string literals can also be property keys
                 //(and apparently numbers too...)
                 //OH MY GOD THE FOLLOWING IS VALID
@@ -4440,7 +4527,7 @@
                     ...another_obj
                 };
                 */
-                if(this.peek(TokenKind.SPREAD)) {
+                if(this.peek(TokenKind.SPREAD) && !inClass) {
                     //FAWK. (FACK)
                     this.i++; //consume
                     const key = this.unary_misc();
@@ -4464,18 +4551,21 @@
                     //return [key, this.doCommonFunctionStuff(undefined, async, undefined, generator, key, FunctionKind.METHOD)];
                     return this.MethodDefinition();
                 }else {
+                    const assignmentToken = inClass ? TokenKind.EQUALS : TokenKind.COLON;
                     const temp = this.tokens[this.i];
                     let key;
-                    if(this.peek(TokenKind.IDENTIFIER) && !this.peekNext(TokenKind.COLON)) {
+                    if(this.peek(TokenKind.IDENTIFIER) && !this.peekNext(assignmentToken)) {
                         //{variable}
                         key = this.tokens[this.i++]; //we set the key to the actual token so that printer can tell
                     }else {
                         key = this.objectkey(); //this.tokens[this.i++];
                     }
                     let value;
-                    if(this.match(TokenKind.COLON)) {
+                    if(this.match(assignmentToken)) {
                         //{key: value}
                         value = this.unary_misc();
+                    }else if(inClass) {
+                        value = new LiteralExpression(undefined);
                     }else {
                         //{variable}
                         //value = new IdentifierExpression(key); //we could do this but the printer would have no way of knowing if it was written like {x: x} or just {x}
@@ -4485,6 +4575,7 @@
                         // value = key;
                         value = new IdentifierExpression(key); //nevermind this is fine now :)
                     }
+                    
                     return [key, value];
                 }/*else if(this.peek(TokenKind.OPEN_BRACKET) || this.peek(TokenKind.STRING) || this.peek(TokenKind.NUMBER)) {
                     const dobotherconsumingclosingbracket = this.match(TokenKind.OPEN_BRACKET);
@@ -4498,7 +4589,7 @@
             }
 
             objectkey() {
-                if(this.peek(TokenKind.IDENTIFIER)) {
+                if(this.peek(TokenKind.IDENTIFIER) || this.peek(TokenKind.RESERVED)) { //reserved words are also fine here surprisingly, even something crazy like {class x {class="valid property"; static="also valid property";}}
                     return new IdentifierExpression(this.tokens[this.i++]);
                 }else if(this.peek(TokenKind.NUMBER) || this.peek(TokenKind.STRING)) {
                     return new LiteralExpression(this.tokens[this.i++].value);
@@ -4621,15 +4712,17 @@
             }
 
             doCommonFunctionStuff(gender, async, funcToken, generator, name, kind, beginningToken) {
+                //oh no.. the function name and parameters are affected by strict mode
+                //i don't think the lexer can handle that so we'll check stuff here...
                 const scope = this.scope[this.scope.length-1];
                 let $var;
                 if(kind == FunctionKind.FUNCTION) { // the name of a function expression is not hoisted and is only accessable by the parameters and body of the function!
                     if(scope.variables.has(name.value)) {
                         const old = scope.variables.get(name.value);
-                        if(qualifier.value != old.qualifier.value) {
+                        if(old.qualifier.value != "function") {
                             throw new ParseError(name.line, name.char, `Identifier '${name.value}' has already been declared!`);
                         }
-                        $var = scope.get(name.value);
+                        $var = scope.variables.get(name.value);
                     }else {
                         $var = new StaticAnalysisFunctionVariable(gender || undefined, funcToken, name);
                         scope.variables.set(name.value, $var);
@@ -4665,6 +4758,7 @@
                     scopeRef.variables.set(identifier.nameToken.value, new StaticAnalysisVariable(undefined, {line: 1, char: 1, value: "var", kind: TokenKind.RESERVED}, identifier.nameToken.value));
                 }
 
+                const directivePrologueIndex = this.i+1; //we need to check this again to see if this function is strict so we can reparse the name (if it's an expression or function declaration) and parameters (+1 to skip the open curly bracket)
                 const functionBody = this.block(true); //purrhaps i could just pass inFunction to block lol
                 const endingToken = this.tokens[this.i-1]; //Assert: endingToken.kind == TokenKind.CLOSING_CURLY_BRACKET
                 
@@ -4676,18 +4770,49 @@
                 // this.inFuncton = false; //bruh
                 // this.inFunction = false;
                 //this.inFunction.pop();
-                let strict = this.useStrict;
-                if((functionBody.statements[0] instanceof ExpressionStatement) && functionBody.statements[0].expression?.value == "use strict") {
+
+                //i swear these are all needed and important and make sense
+                const old = this.useStrict; // we save useStrict because we're just using it to figure out if the function body had the "use strict" directive
+                const currentIndex = this.i; // temp
+
+                this.i = directivePrologueIndex;
+                this.useStrict = false;
+                this.directivePrologue(); //if useStrict is now true, the function body had the "use strict" directive!
+                this.i = currentIndex;
+
+                //aw damn this shit is wrong bruh
+                //if((functionBody.statements[0] instanceof ExpressionStatement) && functionBody.statements[0].expression?.value == "use strict") {
+                if(this.useStrict) {
                     //we need to make sure the parameter list is "simple" otherwise throw
                     for(const parameter of parameters) {
                         if(parameter.default) {
-                            throw new ParseError(name.line, name.char, "Illegal 'use strict' directive in function with non-simple parameter list");
+                            //maybe that's why this is an error lol, we'd have to reparse parameters now that we're in strict mode!
+                            throw new ParseError(parameter.identifier.nameToken.line, parameter.identifier.nameToken.char, "Illegal 'use strict' directive in function with non-simple parameter list");
                         }
                     }
-                    strict = true;
+
+                    //for some reason, v8 checks the parameter defaults first, then reserved words
+                    //function abc(let, x = 2) {
+                    //  "use strict";
+                    //}
+                    
+                    for(const parameter of parameters) {
+                        if(JavascriptLexer.strict_reserved.has(parameter.identifier.nameToken.value)) {
+                            throw new ParseError(parameter.identifier.nameToken.line, parameter.identifier.nameToken.char, "Unexpected strict mode reserved word");
+                        }
+                    }
+
+                    if(name && (kind == FunctionKind.FUNCTION || kind == FunctionKind.EXPRESSION)) {
+                        if(JavascriptLexer.strict_reserved.has(name.value)) {
+                            throw new ParseError(name.line, name.char, "Unexpected strict mode reserved word");
+                        }
+                    }
                 }
 
-                $var.statement = new FunctionStatement(gender || undefined, strict, !!async, !!generator, name, parameters, functionBody, undefined, kind);
+                this.useStrict = old; // restore
+
+                $var.statement = new FunctionStatement(gender || undefined, old, !!async, !!generator, name, parameters, functionBody, undefined, kind);
+
 
                 //let sourceText = "";
                 //{
@@ -4708,7 +4833,8 @@
                     const qualifier = this.matchReserved("const") || this.matchReserved("let") || this.match(TokenKind.IDENTIFIER);
                     const name = this.match(TokenKind.IDENTIFIER);
                     if(!name) {
-                        if(this.peekReserved("let")) {
+                        // if(this.peekReserved("let")) {
+                        if(JavascriptLexer.strict_reserved.has(this.tokens[this.i].value)) {
                             throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, `Expected identifier!! (Unexpected strict mode reserved word)`);
                         }else {
                             throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, `Expected identifier!! (Unexpected token '${this.tokens[this.i].value}')`);
@@ -4722,30 +4848,114 @@
                 }
                 //do note where i've placed this if, class statements can have a gender!
                 if(this.peekReserved("class")) {
+                    //apparently strict mode begins the moment class is encountered!
+                    // class x extends (function() {with(globalThis); return class $super {}})() {
+                    // 
+                    // };
+                    //allow me to read the specification...
+                    
+                    const old = this.useStrict;
+                    this.useStrict = true;
+
                     const classToken = this.tokens[this.i++];
                     const name = this.match(TokenKind.IDENTIFIER);
                     if(!name) {
-                        throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Expected identifier for class name!!");
+                        let msg;
+                        if(JavascriptLexer.strict_reserved.has(this.tokens[this.i].value)) {
+                            msg = "Expected identifier for class name (Unexpected strict mode reserved word)"
+                        }else {
+                            msg = "Expected identifier for class name!!";
+                        }
+                        throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, msg);
                     }
+
+                    const scope = this.scope[this.scope.length-1];
+
+                    if(scope.variables.has(name.value)) {
+                        throw new ParseError(name.line, name.char, `Identifier '${name.value}' has already been declared!`);
+                    }else {
+                        //class declarations are like const/let declarations in that they have the temporal dead zone kind of hoisting
+                        const $var = new StaticAnalysisVariable(genderbutouhhiwillhavetobacktrackifthisnexttokenisnotconstorlet || undefined, classToken, name);
+                        scope.variables.set(name.value, $var);
+                        scope.hoisted.push($var);
+                    }
+
+                    //super is actually just Object.getPrototypeOf(this); (or this.__proto__)
+
                     let superclass = undefined;
                     if(this.matchReserved("extends")) {
                         superclass = this.unary_misc();
                     }
                     this.consume(TokenKind.OPEN_CURLY_BRACKET, "Expected open curly bracket here!!");
-                    //the only problem is... the body of classes are in strict mode!...
-                    const old = this.useStrict;
-                    this.useStrict = true;
+
+                    const properties = new Map();
+
+                    let hasConstructor = false;
+                    let constructor = undefined;
+
                     while(this.i < this.tokens.length && !this.peek(TokenKind.CLOSING_CURLY_BRACKET)) {
                         //this.classStatement()
                         //in a static block, 'this' is the class object
-                        if(this.peek(TokenKind.IDENTIFIER) && this.tokens[this.i].value == "constructor") {
-                            const constructor = this.MethodDefinition();
+                        //oh boy, apparently the arrow function expression can inherit super just like this... eek!
+                        //computed properties that evaluate to "constructor" don't count
+                        if((this.peek(TokenKind.IDENTIFIER) || this.peek(TokenKind.STRING)) && this.tokens[this.i].value == "constructor") {
+                            const constructorToken = this.tokens[this.i];
+                            if(hasConstructor) { //15.7.1 (#2)
+                                throw new ParseError(constructorToken.line, constructorToken.char, "A class may only have one constructor"); //SyntaxError
+                            }
+                            hasConstructor = true;
+                            const [key, value] = this.objectkeyvalue(true);
+                            if(!key.method) { //15.7.1 (#5)
+                                throw new ParseError(constructorToken.line, constructorToken.char, "Classes may not have a field named 'constructor'"); //SyntaxError
+                            }
+                            constructor = value;
+                            properties.set(key, value);
                         }else {
-                            const $static = this.match(TokenKind.RESERVED);
+                            const $static = this.matchReserved("static"); // why the hell did i only write this.match(TokenKind.RESERVED)
+                            const keyToken = this.tokens[this.i];
+                            const [key, value] = this.objectkeyvalue(true);
+                            //key instanceof LiteralExpression, property => "constructor";
+                            //key instanceof Token, property => constructor;
+                            //key instanceof IdentifierExpression, property => constructor = ...; // or constructor() {...}
+                            if(!key.computed && (((key instanceof LiteralExpression || key instanceof Token) && key.value == "constructor") || (key instanceof IdentifierExpression && key.nameToken.value == "constructor"))) {
+                                if(key.method) {
+                                    if(!$static) { //for some reason if it's static, this is allowed
+                                        //15.7.1 (#3)
+                                        if(value.isGenerator) {
+                                            throw new ParseError(keyToken.line, keyToken.char, "Class constructor may not be a generator"); //SyntaxError
+                                        }else if(value.isAsync) {
+                                            throw new ParseError(keyToken.line, keyToken.char, "Class constructor may not be an async method"); //SyntaxError
+                                        }else {
+                                            throw new ParseError(keyToken.line, keyToken.char, "Class constructor may not be an accessor"); //SyntaxError
+                                        }
+                                    }
+                                }else {
+                                    //15.7.1 (#5)
+                                    throw new ParseError(keyToken.line, keyToken.char, "Classes may not have a field named 'constructor'"); //SyntaxError
+                                }
+                            }
+                            if($static) {
+                                //we must also check again at runtime to make sure a static computed property isn't prototype! (the runtime check isn't done for constructor though, i wonder why...)
+                                if(!key.computed && (((key instanceof LiteralExpression || key instanceof Token) && key.value == "prototype") || (key instanceof IdentifierExpression && key.nameToken.value == "prototype"))) {
+                                    //15.7.1 (#4, #6)
+                                    throw new ParseError($static.line, $static.char, "Classes may not have a static property named 'prototype'"); //SyntaxError
+                                }
+                            }
+                            //bruh we need to make sure the arguments object isn't referenced :///
+                            if(containsArguments(value)) {
+                                //15.7.1 (#7)
+                                throw new ParseError(keyToken.line, keyToken.char, "'arguments' is not allowed in class field initializer or static initialization block");
+                            }
+                            properties.set(key, value);
                         }
+                        this.consume(TokenKind.SEMICOLON, "Semicolon expected after property in class statement/expression");
                     }
-                    this.useStrict = old;
+
                     this.consume(TokenKind.CLOSING_CURLY_BRACKET, "Expected closing curly bracket here!!");
+                    
+                    this.useStrict = old;
+
+                    return new ClassStatement(properties, constructor);
                 }
                 if(genderbutouhhiwillhavetobacktrackifthisnexttokenisnotconstorlet) {
                     //the gender might be needed elsewhere!
@@ -4786,10 +4996,13 @@
                 this.consume(TokenKind.OPEN_CURLY_BRACKET, "Block statement expected but didn't find open curly bracket?");
                 const expr = new BlockStatement();
                 //this.scope.push(new StaticAnalysisScope(insideFunction ? "function" : "block", expr.statements));
+                const old = this.useStrict;
                 if(!dontMakeScopeBecauseFunctionAlreadyDidIt) {
                     this.scope.push(new StaticAnalysisScope("block", expr.statements));
+                }else {
+                    //if this is a function block we must process le directive prologue for use strict!
+                    this.directivePrologue();
                 }
-                const old = this.useStrict;
                 while(this.i < this.tokens.length && !this.peek(TokenKind.CLOSING_CURLY_BRACKET)) {
                     const statement = this.declaration();
                     if(statement instanceof FunctionStatement) {
@@ -4798,9 +5011,9 @@
 
                         //nevermind, this happens with hoisted vars too
                     }else {
-                        if(dontMakeScopeBecauseFunctionAlreadyDidIt && expr.statements.length == 0 && !this.useStrict && statement instanceof ExpressionStatement && statement.expression?.value == "use strict") {
-                            this.useStrict = true;
-                        }
+                        //if(dontMakeScopeBecauseFunctionAlreadyDidIt && expr.statements.length == 0 && !this.useStrict && statement instanceof ExpressionStatement && statement.expression?.value == "use strict") {
+                        //    this.useStrict = true;
+                        //}
                         expr.statements.push(statement);
                     }
                 }
@@ -5057,8 +5270,11 @@
                     // }
                 }else if(this.matchReserved("switch")) {
 
-                }else if(this.matchReserved("with")) {
-
+                }else if(this.peekReserved("with")) {
+                    if(this.useStrict) {
+                        throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Strict mode code may not include a with statement");
+                    }
+                    //...
                 }else if(this.matchReserved("throw")) {
 
                 }else if(this.matchReserved("debugger")) {
@@ -5111,7 +5327,11 @@
                         const name = this.match(TokenKind.IDENTIFIER);
                         if(!name) {
                             const temp = +(this.i >= this.tokens.length);
-                            throw new ParseError(this.tokens[this.i-temp].line, this.tokens[this.i-temp].char, `Function statements require a function name`);
+                            if(JavascriptLexer.strict_reserved.has(this.tokens[this.i].value)) {
+                                throw new ParseError(this.tokens[this.i-temp].line, this.tokens[this.i-temp].char, `Function statements require a function name (Unexpected strict mode reserved word)`);
+                            }else {
+                                throw new ParseError(this.tokens[this.i-temp].line, this.tokens[this.i-temp].char, `Function statements require a function name`);
+                            }
                         }
                         const beginningToken = gender || async || funcToken;
                         return this.doCommonFunctionStuff(gender, async, funcToken, generator, name, FunctionKind.FUNCTION, beginningToken);
@@ -5125,7 +5345,7 @@
                         }
                         const name = this.match(TokenKind.IDENTIFIER);
                         if(!name) {
-                            if(this.peekReserved("let")) {
+                            if(JavascriptLexer.strict_reserved.has(this.tokens[this.i].value)) {
                                 throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, `Expected identifier!! (Unexpected strict mode reserved word)`);
                             }else {
                                 throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, `Expected identifier!! (Unexpected token '${this.tokens[this.i].value}')`);
@@ -5225,13 +5445,30 @@
                 // this.hoistedVars = [];
             }
 
+            directivePrologue() {
+                const old = this.i;
+                while(this.tokens.length && this.peek(TokenKind.STRING)) {
+                    const string = this.tokens[this.i++];
+                    if(!this.match(TokenKind.SEMICOLON)) {
+                        break;
+                    }
+                    if(string.value == "use strict") {
+                        this.useStrict = true;
+                    }
+                    // this.consume(TokenKind.SEMICOLON, "Expected semicolon to separate string expression statements in directive prologue");
+                }
+                this.i = old; //reset lol
+            }
+
             /**
              * @param {Array<Token>} tokens
              * @returns {Expected<Array<Statement>, ParseError>} */
             parse() /*override*/ {
-                if(this.tokens.length && this.tokens[0].kind == TokenKind.STRING && this.tokens[0].value == "use strict") {
-                    this.useStrict = true;
-                }
+                //if(this.tokens.length && this.tokens[0].kind == TokenKind.STRING && this.tokens[0].value == "use strict") {
+                //    this.useStrict = true;
+                //}
+
+                this.directivePrologue();
 
                 ///** @type {Array<Statement>} */
                 //const statements = [];
