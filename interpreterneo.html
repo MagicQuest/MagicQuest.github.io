@@ -52,6 +52,7 @@
             <option value="consistent4">consistent4</option>
             <option value="consistent5">consistent5</option>
             <option value="objectliterals">every object literal property</option>
+            <option value="classes">every class property</option>
             <option value="objectliteralproto">object literal prototype</option>
             <option value="COMPREHENSION">ARRAY COMPREHENSION?!</option>
             <option value="closures">closures</option>
@@ -67,10 +68,10 @@
             "nonstrict": "var let = 5;",
             "forloop": "for(let x = 0; x < 10; x++) {\n    console.log(x);\n    x;\n}",
             "operators": "?.\n++\n--\n+\n-\n~\n!\n**\n*\n/\n%\n<\n>\n<=\n>=\n==\n!=\n===\n!==\n<<\n>>\n>>>\n&\n|\n^\n&&\n||\n??\n=\n*=\n/=\n%=\n+=\n-=\n<<=\n>>=\n>>>=\n&=\n^=\n|=\n**=\n&&=\n||=\n??=\n,\n...",
-            "alltokens": "var\nlet\n\"hi\"\n5\n5n\ntrue\nundefined\nnull\nfemale\n[\n]\n.\n(\n)\n+\n-\n*\n/\n!\n--\n++\n?.\n~\n**\n%\n<\n>\n<=\n>=\n==\n!=\n===\n!==\n<<\n>>\n>>>\n&\n|\n^\n&&\n||\n??\n? :\n=\n*=\n/=\n%=\n+=\n-=\n<<=\n>>=\n>>>=\n&=\n^=\n|=\n**=\n&&=\n||=\n??=\n,\n...\n;\n{\n}\n=>",
+            "alltokens": "var\nlet\n#private\n\"hi\"\n5\n5n\ntrue\nundefined\nnull\n// template expression...\nfemale\n[\n]\n.\n(\n)\n+\n-\n*\n/\n!\n--\n++\n?.\n~\n**\n%\n<\n>\n<=\n>=\n==\n!=\n===\n!==\n<<\n>>\n>>>\n&\n|\n^\n&&\n||\n??\n? :\n=\n*=\n/=\n%=\n+=\n-=\n<<=\n>>=\n>>>=\n&=\n^=\n|=\n**=\n&&=\n||=\n??=\n,\n...\n;\n{\n}\n=>",
             "customobjectkeys": "let x = new Object;\nx.hello = 2;\nx[0] = false;\nx[-1] = \"undefined\";\nx[1] = true;\nconsole.larp(Object.keys(x));\n// should be ['0', '1', 'hello', '-1']\n// numbers greater than 0 are first, then string keys (and numbers), then symbols",
             "boundfuncs!": `function abc(x, y) {\n    console.log(this, x, y);\n    return 5;\n}\n\nlet temp = abc.bind(true, "x");\n\nconsole.log(temp.length, temp.name, temp("temp y"));`,
-            "symbolstuff": "function abc(x, y) {\n    console.log(x, y);\n    return 4;\n}\nlet x = Object();\nx[Symbol.toPrimitive] = abc;\nlet y = Object();\ny[x] = 2;\nconsole.larp(Object.keys(y));",
+            "symbolstuff": "const x = {\n    [Symbol.toPrimitive](x, y) {\n        console.log(x, y);\n        return 4;\n    }\n};\nconst y = {};\ny[x] = 2; // x is coerced!\nconsole.larp(Object.keys(y)); // [\"4\"]",
             //"functionclasses": "function abc(x) {\n    console.log(this);\n    this.x = 2;\n}\n\nconsole.log(Object.keys(new abc));",
             "functionclasses": "function ScreenObject(x, y) {\n    this.x = x;\n    this.y = y;\n    this.vx = 1;\n    this.vy = 1;\n    function update() {\n        this.x = this.x + this.vx;\n        this.y = this.y + this.vy;\n    }\n    this.update = update;\n}\n\nconst instance = new ScreenObject(100, 100);\nconsole.log(instance.x, instance.y);\ninstance.update();\nconsole.log(instance.x, instance.y);",
             "rodwave": "[(5+5, window.location.href.length),5,5]",
@@ -85,7 +86,8 @@
             "consistent3": "//object literal!\nlet obj = {\n    //method!\n    valueOf() {\n        return 21;\n    },\n};\n\n//unary plus to coerce\nconsole.log(+obj); // 21!",
             "consistent4": "let x = {\n    toString() {\n        console.log(\"got!\", this);\n        return \"hello world\";\n    }\n};\n\n// Cannot convert hello world to a BigInt\nBigInt(x);",
             "consistent5": "const x = Object();\nx.valueOf = function() {return NaN;};\nconsole.log(Number.isNaN(x)); // false\nconsole.log(isNaN(x)); // true",
-            "objectliterals": "let variable = \"variable\";\nlet another_obj = {\"another_obj_key\": \"another_obj_value\"};\nlet x = {\n    variable,\n    y: \"identifier name property\",\n    \"string\": \"string property\",\n    0: \"numeric property\",\n    [\"computed property\"]: \"what the key said.\",\n    property() {\n    },\n    get [\"x\"]() {\n        return 421;\n    },\n    *generator() {\n    },\n    async 5() {\n    },\n    async* \"hello_generator\"() {\n    },\n    set x(newValue) {\n        console.log(newValue);\n    },\n    ...another_obj\n};\nconsole.larp(x);",
+            "objectliterals": "let variable = \"variable\";\nlet another_obj = {\"another_obj_key\": \"another_obj_value\"};\nlet x = {\n    variable,\n    y: \"identifier name property\",\n    \"string\": \"string property\",\n    0: \"numeric property\",\n    [\"computed property\"]: \"what the key said.\",\n    method() {\n    },\n    get [\"x\"]() {\n        return 421;\n    },\n    *generator() {\n    },\n    async 5() {\n    },\n    async* \"hello_generator\"() {\n    },\n    set x(newValue) {\n        console.log(newValue);\n    },\n    ...another_obj\n};\nconsole.larp(x, x.x, x=21);",
+            "classes": "class all_class_properties {\n#private_field = \"private_field\";\n// #private_field; // Identifier #private_field has already been declared\n#private_method() {\n    return this.#private_field;\n};\n\nstatic #private_static_field = \"???\";\n// static #private_field; // Identifier #private_field has already been declared\nstatic #private_static_method() {\n    return \"is this even callable?\";\n};\n\nfield = \"access instance field\";\nmethod() {\n    return this.field;\n};\n\nstatic field = \"access constructor (static) field\";\nstatic method() {\n    return this.field;\n};\n\nstatic {\n    this.another_static_field = \"Hello World from this static initialization block!\";\n};\n\nconstructor() {\n    console.log(this.constructor.name, \"instantiated\");\n};\n}",
             "objectliteralproto": "const fakenum = {__proto__: Number.prototype, value: 21};\nconsole.larp(fakenum);",
             "COMPREHENSION": "let split = [for (const x of \"string\") x];",
             "closures": "function makeCounter() {\n  let i = 0;\n  function count() {\n    i = i + 1;\n    console.log(i);\n  }\n\n  return count;\n}\n\nlet counter = makeCounter();\ncounter(); // \"1\".\ncounter(); // \"2\".",
@@ -176,73 +178,74 @@
         /*enum*/ class TokenKind {
             static RESERVED = 1;
             static IDENTIFIER = 2;
-            static STRING = 3;
-            static NUMBER = 4;
-            static BIGINT = 5;
-            static BOOLEAN = 6;
-            static UNDEFINED = 7;
-            static NULL = 8;
-            static TEMPLATE_EXPRESSION = 9; //weird...
-            static GENDER = 10;
-            static OPEN_BRACKET = 11;
-            static CLOSING_BRACKET = 12;
-            static DOT = 13;
+            static PRIVATE_IDENTIFIER = 3;
+            static STRING = 4;
+            static NUMBER = 5;
+            static BIGINT = 6;
+            static BOOLEAN = 7;
+            static UNDEFINED = 8;
+            static NULL = 9;
+            static TEMPLATE_EXPRESSION = 10; //weird...
+            static GENDER = 11;
+            static OPEN_BRACKET = 12;
+            static CLOSING_BRACKET = 13;
+            static DOT = 14;
             //what else should become tokens... https://stackoverflow.com/questions/73226710/can-someone-explain-how-tokenizing-works-in-lexers
-            static OPEN_PARENTHESIS = 14;
-            static CLOSING_PARENTHESIS = 15;
+            static OPEN_PARENTHESIS = 15;
+            static CLOSING_PARENTHESIS = 16;
             //operators
-            static PLUS = 16;
-            static MINUS = 17;
-            static ASTERISK = 18;
-            static SLASH = 19;
-            static EXCLAMATION = 20;
-            static DECREMENT = 21;
-            static INCREMENT = 22;
-            static OPTIONAL_CHAINING = 23;
-            static BITWISE_NOT = 24;
-            static EXPONENTIATION = 25;
-            static REMAINDER = 26;
-            static LESS_THAN = 27;
-            static GREATER_THAN = 28;
-            static LESS_EQUAL = 29;
-            static GREATER_EQUAL = 30;
-            static EQUAL_EQUAL = 31;
-            static NOT_EQUAL = 32;
-            static STRICT_EQUAL = 33;
-            static STRICT_NOT_EQUAL = 34;
-            static BITWISE_SHIFT_LEFT = 35;
-            static BITWISE_SHIFT_RIGHT = 36;
-            static BITWISE_UNSIGNED_SHIFT_RIGHT = 37;
-            static BITWISE_AND = 38;
-            static BITWISE_OR = 39;
-            static BITWISE_XOR = 40;
-            static LOGICAL_AND = 41;
-            static LOGICAL_OR = 42;
-            static NULLISH_COALESCING = 43;
-            static QUESTION = 44; //for ternary
-            static COLON = 45;
-            static EQUALS = 46;
-            static MUL_EQUALS = 47;
-            static DIV_EQUALS = 48;
-            static REMAINDER_EQUALS = 49;
-            static PLUS_EQUALS = 50;
-            static MINUS_EQUALS = 51;
-            static BITWISE_SHIFT_LEFT_EQUALS = 52;
-            static BITWISE_SHIFT_RIGHT_EQUALS = 53;
-            static BITWISE_UNSIGNED_SHIFT_RIGHT_EQUALS = 54;
-            static BITWISE_AND_EQUALS = 55;
-            static BITWISE_XOR_EQUALS = 56;
-            static BITWISE_OR_EQUALS = 57;
-            static EXPONENTIATION_EQUALS = 58;
-            static LOGICAL_AND_EQUALS = 59;
-            static LOGICAL_OR_EQUALS = 60;
-            static NULLISH_COALESCING_EQUALS = 61;
-            static COMMA = 62;
-            static SPREAD = 63;
-            static SEMICOLON = 64;
-            static OPEN_CURLY_BRACKET = 65;
-            static CLOSING_CURLY_BRACKET = 66;
-            static ARROW = 67; //
+            static PLUS = 17;
+            static MINUS = 18;
+            static ASTERISK = 19;
+            static SLASH = 20;
+            static EXCLAMATION = 21;
+            static DECREMENT = 22;
+            static INCREMENT = 23;
+            static OPTIONAL_CHAINING = 24;
+            static BITWISE_NOT = 25;
+            static EXPONENTIATION = 26;
+            static REMAINDER = 27;
+            static LESS_THAN = 28;
+            static GREATER_THAN = 29;
+            static LESS_EQUAL = 30;
+            static GREATER_EQUAL = 31;
+            static EQUAL_EQUAL = 32;
+            static NOT_EQUAL = 33;
+            static STRICT_EQUAL = 34;
+            static STRICT_NOT_EQUAL = 35;
+            static BITWISE_SHIFT_LEFT = 36;
+            static BITWISE_SHIFT_RIGHT = 37;
+            static BITWISE_UNSIGNED_SHIFT_RIGHT = 38;
+            static BITWISE_AND = 39;
+            static BITWISE_OR = 40;
+            static BITWISE_XOR = 41;
+            static LOGICAL_AND = 42;
+            static LOGICAL_OR = 43;
+            static NULLISH_COALESCING = 44;
+            static QUESTION = 45; //for ternary
+            static COLON = 46;
+            static EQUALS = 47;
+            static MUL_EQUALS = 48;
+            static DIV_EQUALS = 49;
+            static REMAINDER_EQUALS = 50;
+            static PLUS_EQUALS = 51;
+            static MINUS_EQUALS = 52;
+            static BITWISE_SHIFT_LEFT_EQUALS = 53;
+            static BITWISE_SHIFT_RIGHT_EQUALS = 54;
+            static BITWISE_UNSIGNED_SHIFT_RIGHT_EQUALS = 55;
+            static BITWISE_AND_EQUALS = 56;
+            static BITWISE_XOR_EQUALS = 57;
+            static BITWISE_OR_EQUALS = 58;
+            static EXPONENTIATION_EQUALS = 59;
+            static LOGICAL_AND_EQUALS = 60;
+            static LOGICAL_OR_EQUALS = 61;
+            static NULLISH_COALESCING_EQUALS = 62;
+            static COMMA = 63;
+            static SPREAD = 64;
+            static SEMICOLON = 65;
+            static OPEN_CURLY_BRACKET = 66;
+            static CLOSING_CURLY_BRACKET = 67; //
+            static ARROW = 68;
         }
 
         class Interpreter {
@@ -322,6 +325,7 @@
         //we're not doing that identifier unicode escape sequence shit lol (actually maybe it wouldn't be TOO hard)
         //my number production rule implies that 100e+2e+2 and 0755n are valid but we'll fix that in post
         //identifier ::= /[$_\p{ID_Start}][$\p{ID_Continue}]*/u
+        //privateIdentifier ::= '#' identifier
         //number ::= sign? ((hex | octal | binary) | ([0-9]* ('.' [0-9]*)?)) ('n' | ([eE] number))?
         //hex ::= '0' [xX] [0-9a-fA-F]+
         //octal ::= '0' [oO] [0-7]+
@@ -645,7 +649,7 @@
                             break;
 
                         case ':':
-                            if(tokens.at(-1).value == "class") {
+                            if(tokens.length && tokens.at(-1).value == "class") {
                                 // ok wait cancel strict mode here because this is an object literal property (my lexer enables strict mode the moment 'class' is encountered)
                                 useStrict.pop();
                                 depth.inStrictFunctionOrClassBracketEndingDepth.pop();
@@ -654,7 +658,7 @@
                             break;
 
                         case ';':
-                            if(tokens.at(-1).value == "class") {
+                            if(tokens.length && tokens.at(-1).value == "class") {
                                 // ok wait cancel strict mode here because this is a class field (my lexer enables strict mode the moment 'class' is encountered)
                                 useStrict.pop();
                                 depth.inStrictFunctionOrClassBracketEndingDepth.pop();
@@ -826,7 +830,7 @@
                                 this.i++; //consume >
                                 tokens.push(new Token(lineNumber, charNumber, TokenKind.ARROW, "=>"));
                             }else {
-                                if(tokens.at(-1).value == "class") {
+                                if(tokens.length && tokens.at(-1).value == "class") {
                                     // ok wait cancel strict mode here because this is a class field (my lexer enables strict mode the moment 'class' is encountered)
                                     useStrict.pop();
                                     depth.inStrictFunctionOrClassBracketEndingDepth.pop();
@@ -844,7 +848,7 @@
                             break;
 
                         case '(':
-                            if(tokens.at(-1).value == "class") {
+                            if(tokens.length && tokens.at(-1).value == "class") {
                                 // ok wait cancel strict mode here because this is a method (or call!!) (my lexer enables strict mode the moment 'class' is encountered)
                                 useStrict.pop();
                                 depth.inStrictFunctionOrClassBracketEndingDepth.pop();
@@ -875,7 +879,7 @@
                             break;
 
                         case '{':
-                            if(tokens.at(-1).kind == TokenKind.ARROW || tokens.at(-1).kind == TokenKind.CLOSING_PARENTHESIS) {
+                            if(tokens.length && (tokens.at(-1).kind == TokenKind.ARROW || tokens.at(-1).kind == TokenKind.CLOSING_PARENTHESIS)) {
                                 //a function or a method!
                                 depth.inStrictFunctionOrClassBracketEndingDepth.push({kind: "function", curly: depth.curly, strict: false});
                             }
@@ -1098,7 +1102,8 @@
                                     }
                                 }
                                 tokens.push(numberToken);
-                            }else if(identifierStartRegex.test(char)){
+                            }else if(char == '#' || identifierStartRegex.test(char)){
+                                const $private = char == '#'; //private is a strict mode reserved word apparently
                                 //we don't know if it's really an identifier or not lol, it could be a literal like null or undefined!
                                 const tempToken = new Token(lineNumber, charNumber, undefined, char);
                                 //don't worry str[i] is the character AFTER char since we (at the beginning of this for loop) access char with str[i++]
@@ -1106,7 +1111,12 @@
                                     tempToken.value += str[this.i++]; //consume
                                 }
 
-                                if(JavascriptLexer.reserved.has(tempToken.value) || (useStrict.at(-1) && JavascriptLexer.strict_reserved.has(tempToken.value))) {
+                                if($private) {
+                                    if(tempToken.value.length == 1) {
+                                        return Unexpected(new ParseError(lineNumber, charNumber, "Hashtag/pound/octothorpe unexpected here!"));
+                                    }
+                                    tempToken.kind = TokenKind.PRIVATE_IDENTIFIER;
+                                }else if(JavascriptLexer.reserved.has(tempToken.value) || (useStrict.at(-1) && JavascriptLexer.strict_reserved.has(tempToken.value))) {
                                     if(tempToken.value == "true" || tempToken.value == "false") {
                                         tempToken.kind = TokenKind.BOOLEAN;
                                     }else if(tempToken.value == "null") {
@@ -1225,7 +1235,7 @@
         //  unary_postfix ::= new ('--' | '++')?
         //  new ::= ('new' new) | access_call_no_associativity
         //  access_call_no_associativity ::= ('import' '(' expression ')')? access_call
-        //  access_call ::= primary ((('?.' | '.') (reserved | primary)) | ('[' expression ']') | (arguments))* // well that solves it, i was confused when i wrote this line and i wondered how this could be left associative if a line exponentiation wasn't and now i know it's the recursion! the reason i didn't want to put primary was because i thought (how else will it keep matching the dot and optional chaining operators, but that's what the asterisk is for!)
+        //  access_call ::= primary ((('?.' | '.') (reserved | identifier | privateIdentifier)) | ('[' expression ']') | (arguments))* // well that solves it, i was confused when i wrote this line and i wondered how this could be left associative if a line exponentiation wasn't and now i know it's the recursion! the reason i didn't want to put primary was because i thought (how else will it keep matching the dot and optional chaining operators, but that's what the asterisk is for!)
         //  primary ::= arrayComprehensionExpression | literal | functionExpression | identifier | classExpression | ('(' expression ')')
         //classStatement ::= constructor | method | fieldDecl | staticInitialization
         //  constructor ::= 'constructor' parameters block
@@ -1310,6 +1320,9 @@
         /** @param {Expression} expression */
         function containsArguments(expression) {
             if(expression instanceof BinaryExpression || expression instanceof AssignmentExpression) {
+                if(expression.operatorToken.kind == TokenKind.DOT) {
+                    return this.containsArguments(expression.left);
+                }
                 return this.containsArguments(expression.left) ||  this.containsArguments(expression.right);
             }else if(expression instanceof UnaryExpression) {
                 return this.containsArguments(expression.operand);
@@ -1344,6 +1357,99 @@
             }
             //we don't have to check class expressions because they will call this function too
         }
+
+        //class PredicateVisitor {
+        //    /** @type {(expression : Expression)=>Boolean}*/
+        //    predicate;
+        //
+        //    /** @param {(expression : Expression)=>Boolean} predicate */
+        //    constructor(predicate) {
+        //        this.predicate = predicate;
+        //    }
+        //
+        //    visitLiteralExpression(expression) {
+        //        return this.predicate(expression);
+        //    }
+        //
+        //    visitArrayLiteralExpression(expression) {
+        //        for(const value of expression.value) {
+        //            if((value instanceof SpreadExpressionToBeEvaluatedManuallyBecauseContextIsImportant && this.accept(value.rhs)) || this.accept(value)) {
+        //                return true;
+        //            }
+        //        }
+        //        return false;
+        //    }
+        //
+        //    visitObjectLiteralExpression(expression) {
+        //        for(const [key, value] of expression.properties.entries()) {
+        //            //key could be SpreadExpression...
+        //            if(key instanceof SpreadExpressionToBeEvaluatedManuallyBecauseContextIsImportant && this.accept(key.rhs)) {
+        //                return true;
+        //            }
+        //            if(key.accept(this) || value.accept(this)) {
+        //                return true;
+        //            }
+        //        }
+        //        return false;
+        //    }
+        //
+        //    visitIdentifierExpression(expression) {
+        //        return this.predicate(expression);
+        //    }
+        //
+        //    visitPrivateIdentifierExpression(expression) {
+        //        return this.predicate(expression);
+        //    }
+        //
+        //    visitUnaryExpression(expression) {
+        //        return expression.operand.accept(this);
+        //    }
+        //
+        //    visitBinaryExpression(expression) {
+        //        return expression.left.accept(this) || expression.right.accept(this);
+        //    }
+        //
+        //    visitTernaryExpression(expression) {
+        //        return expression.condition.accept(this) || expression.trueExpr.accept(this) || expression.falseExpr.accept(this);
+        //    }
+        //
+        //    visitAssignmentExpression(expression) {
+        //        return this.visitBinaryExpression(expression);
+        //    }
+        //
+        //    visitFunctionCallExpression(expression) {
+        //        if(expression.functionExpr.accept(this)) {
+        //            return true;
+        //        }
+        //        for(const arg of expression.argumentsExprArr) {
+        //            if((arg instanceof SpreadExpressionToBeEvaluatedManuallyBecauseContextIsImportant && arg.rhs.accept(this)) || arg.accept(this)) {
+        //                return true;
+        //            }
+        //        }
+        //    }
+        //
+        //    visitSuperPropertyExpression(expression) {
+        //        return this.predicate(expression);
+        //    }
+        //
+        //    visitSuperCallExpression(expression) {
+        //        return this.predicate(expression);
+        //    }
+        //
+        //    visitVariableDeclarationStatement(statement) {
+        //        return statement.value.accept(this);
+        //    }
+        //}
+
+        //const PredicateVisitor = function(predicate) {
+        //    return new Proxy({}, {
+        //        get(target, prop, receiver) {
+        //            if(prop.startsWith("visit")) {
+        //                return predicate;
+        //            }
+        //        }
+        //    });
+        //};
 
         class Statement {
             accept(visitor) {} // = 0;
@@ -1414,6 +1520,22 @@
             }
             accept(visitor) /*override*/ {
                 return visitor.visitIdentifierExpression(this);
+            }
+        }
+
+        class PrivateIdentifierExpression extends Expression {
+            /** @type {Token} */
+            nameToken;
+
+            /**
+             * @param {Token} nameToken
+             */
+            constructor(nameToken) {
+                super();
+                this.nameToken = nameToken;
+            }
+            accept(visitor) /*override*/ {
+                return visitor.visitPrivateIdentifierExpression(this);
             }
         }
 
@@ -1525,7 +1647,7 @@
 
             /**
              * @param {Expression} functionExpr
-             * @param {Expression} argumentsExprArr
+             * @param {Array<Expression>} argumentsExprArr
              */
             constructor(functionExpr, argumentsExprArr) {
                 super();
@@ -1535,6 +1657,48 @@
 
             accept(visitor) /*override*/ {
                 return visitor.visitFunctionCallExpression(this);
+            }
+        }
+
+        class SuperPropertyExpression extends Expression {
+            strict;
+            /** @type {Token} */
+            operator;
+            /** @type {Expression} */
+            propertyExpr;
+
+            /**
+             * @param {Token} operator
+             * @param {Expression} propertyExpr
+             */
+            constructor(strict, operator, propertyExpr) {
+                super();
+                this.strict = strict;
+                this.operator = operator;
+                this.propertyExpr = propertyExpr;
+            }
+
+            accept(visitor) /*override*/ {
+                return visitor.visitSuperPropertyExpression(this);
+            }
+        }
+
+        class SuperCallExpression extends Expression {
+            strict;
+            /** @type {Array<Expression>} */
+            argumentsExprArr;
+
+            /**
+             * @param {Array<Expression>} argumentsExprArr
+             */
+            constructor(strict, argumentsExprArr) {
+                super();
+                this.strict = strict;
+                this.argumentsExprArr = argumentsExprArr;
+            }
+
+            accept(visitor) /*override*/ {
+                return visitor.visitSuperCallExpression(this);
             }
         }
 
@@ -3880,6 +4044,15 @@
                 return new IdentifierExpression(id);
             }
 
+            //allows reserved words
+            identifierName() {
+                const id = this.match(TokenKind.IDENTIFIER) || this.match(TokenKind.RESERVED);
+                if(!id) {
+                    throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Expected identifier name!!");
+                }
+                return new IdentifierExpression(id);
+            }
+
             $arguments() {
                 let args = [];
                 this.consume(TokenKind.OPEN_PARENTHESIS, "Arguments start with open parenthesis (this error should not happen but i'm using consume just in case!)");
@@ -4287,8 +4460,20 @@
                         //...
                     }else {
                         const operator = this.tokens[this.i++];
-                        const right = this.primary(true);
+                        //const right = this.primary(true);
                         //definitely throw some syntax error here if it's something weird like an object or array lol
+                        
+                        //using this.primary(true), we were allowed to index using anything!!
+                        //let obj = 5;
+                        //obj.(toString); //f toString() { [native code] }
+                        //obj.[]; // runtime error
+                        
+                        let right;
+                        if(this.peek(TokenKind.PRIVATE_IDENTIFIER)) {
+                            right = new PrivateIdentifierExpression(this.tokens[this.i++]);
+                        }else {
+                            right = this.identifierName(); //ok by using identifier name we've cleared up that bullshit i accidently allowed
+                        }
                         expr = new BinaryExpression(expr, operator, right);
                     }
                 }
@@ -4299,7 +4484,8 @@
                 return expr;
             }
 
-            primary(coerceReservedIntoIdentifierBecauseThePreviousTokenWasADot) {
+            // primary(coerceReservedIntoIdentifierBecauseThePreviousTokenWasADot) {
+            primary() {
                 //literal
                 switch(this.tokens[this.i].kind) {
                     case TokenKind.BOOLEAN:
@@ -4365,7 +4551,7 @@
                     }
                     case TokenKind.OPEN_CURLY_BRACKET:
                         //object
-                        this.i++; // consume!
+                        const curly = this.tokens[this.i++]; //consume!
                         //objectkeyvalue
                         const properties = new Map();
                         //if(this.peek(TokenKind.SPREAD) || this.peek(TokenKind.IDENTIFIER) || this.peek(TokenKind.RESERVED) || this.peek(TokenKind.OPEN_BRACKET) || this.peek(TokenKind.STRING) || this.peek(TokenKind.NUMBER) || this.peek(TokenKind.ASTERISK)) {
@@ -4377,13 +4563,46 @@
                                 properties.set(key, value);
                             }
                         }
+                        let proto = false;
+                        for(const [key, value] of properties.entries()) {
+                            if(!key.computed && ((key instanceof IdentifierExpression && key.nameToken.value == "__proto__") || (key instanceof LiteralExpression && key.value == "__proto__"))) {
+                                if(proto) {
+                                    //13.2.5.1
+                                    throw new ParseError(curly.line, curly.char, "Duplicate __proto__ fields are not allowed in object literals"); //SyntaxError
+                                }
+                                proto = true;
+                            }
+                        }
                         this.consume(TokenKind.CLOSING_CURLY_BRACKET, "Expected closing curly bracket in object literal!");
                         return new ObjectLiteralExpression(properties);
                         break;
                     case TokenKind.RESERVED:
-                        if(coerceReservedIntoIdentifierBecauseThePreviousTokenWasADot) {
-                            return new IdentifierExpression(this.tokens[this.i++]);
+                        //if(coerceReservedIntoIdentifierBecauseThePreviousTokenWasADot) {
+                        //    return new IdentifierExpression(this.tokens[this.i++]);
+                        //}else
+                        if(this.tokens[this.i].value == "super") {
+                            const $super = this.tokens[this.i++];
+                            const operator = this.tokens[this.i];
+                            if(operator.kind == TokenKind.DOT || operator.kind == TokenKind.OPEN_BRACKET) {
+                                this.i++; //consume lol
+                                let expr;
+                                if(operator.kind == TokenKind.OPEN_BRACKET) {
+                                    expr = this.expression();
+                                    this.consume(TokenKind.CLOSING_BRACKET, "Expected closing bracket in super computed property");
+                                }else {
+                                    // expr = this.primary(true); //lol
+                                    expr = this.identifierName();
+                                }
+                                return new SuperPropertyExpression(this.useStrict, operator, expr);
+                            }else if(operator.kind == TokenKind.OPEN_PARENTHESIS) {
+                                return new SuperCallExpression(this.useStrict, this.$arguments());
+                            }
+                            throw new ParseError($super.line, $super.char, "'super' keyword unexpected here");
+                            //return new IdentifierExpression($super);
                         }
+                        break;
+                    case TokenKind.PRIVATE_IDENTIFIER:
+                        throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, `Unexpected private identifier '${this.tokens[this.i].value}'`);
                         break;
                     default:
                         break;
@@ -4456,28 +4675,33 @@
                             this.consume(TokenKind.ARROW, "Expected arrow after arrow function?? this shouldn't happen right?");
                             // const body = this.block();
                             if(this.peek(TokenKind.OPEN_CURLY_BRACKET)) {
-                                //x=>{...};
+                                //async? x=>{...};
                                 //functionBlock
                             }else {
-                                //x=>x;
+                                //async? x=>x;
                                 //expression
                             }
                         }
                     }
-                    else if(this.match(TokenKind.OPEN_PARENTHESIS)) {
+                    else if(this.peek(TokenKind.OPEN_PARENTHESIS)) {
+                        const parenthesisIndex = this.i++; // for parameters reparse
                         const expr = this.expression();
                         this.consume(TokenKind.CLOSING_PARENTHESIS, "grouping expression doesn't end with parenthesis? the lexer should probably not allow this?");
                         //this could still be an arrow function!
                         if(this.match(TokenKind.ARROW)) {
+                            
                             //arrow!
+                            //const body = this.block();
                             //uh oh, we'll have to translate expr so that it's actually usable as parameters!
                             //the only allowed operators are the equal sign and the comma!
-                            //const body = this.block();
+                            //OR i could lazily reparse it... (we could also skip parsing by looking ahead to see if the arrow comes after the closing parenthesis (but then we'd have to keep track of the parenthesis))
+                            this.i = parenthesisIndex;
+                            const parameters = this.parameters();
                             if(this.peek(TokenKind.OPEN_CURLY_BRACKET)) {
-                                //(...)=>{...};
+                                //async? (...)=>{...};
                                 //functionBlock
                             }else {
-                                //(...)=>expression;
+                                //async? (...)=>expression;
                             }
                         }else if(async) {
                             throw new ParseError(async.line, async.char, "Async not expected here!");
@@ -4549,7 +4773,7 @@
                     ////...so that means this is a method
                     //const key = this.objectkey();
                     //return [key, this.doCommonFunctionStuff(undefined, async, undefined, generator, key, FunctionKind.METHOD)];
-                    return this.MethodDefinition();
+                    return this.MethodDefinition(inClass);
                 }else {
                     const assignmentToken = inClass ? TokenKind.EQUALS : TokenKind.COLON;
                     const temp = this.tokens[this.i];
@@ -4558,7 +4782,11 @@
                         //{variable}
                         key = this.tokens[this.i++]; //we set the key to the actual token so that printer can tell
                     }else {
-                        key = this.objectkey(); //this.tokens[this.i++];
+                        key = this.objectkey(inClass); //this.tokens[this.i++];
+                        if(this.peek(TokenKind.OPEN_PARENTHESIS)) { // this is for computed properties!
+                            //we don't actually need to pass anything for allow private here since we already read the key!
+                            return this.MethodDefinition(inClass, temp, key);
+                        }
                     }
                     let value;
                     if(this.match(assignmentToken)) {
@@ -4588,7 +4816,7 @@
                 throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Expected identifier or open bracket in object literal expression");
             }
 
-            objectkey() {
+            objectkey(allowPrivate = false) {
                 if(this.peek(TokenKind.IDENTIFIER) || this.peek(TokenKind.RESERVED)) { //reserved words are also fine here surprisingly, even something crazy like {class x {class="valid property"; static="also valid property";}}
                     return new IdentifierExpression(this.tokens[this.i++]);
                 }else if(this.peek(TokenKind.NUMBER) || this.peek(TokenKind.STRING)) {
@@ -4599,42 +4827,51 @@
                     temp.computed = true; // somehow, this is important!
                     this.consume(TokenKind.CLOSING_BRACKET, "Expected closing bracket in expression key of object literal");
                     return temp;
+                }else if(this.peek(TokenKind.PRIVATE_IDENTIFIER)) {
+                    if(!allowPrivate) {
+                        throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Unexpected private identifier!");
+                    }
+                    // return new IdentifierExpression(this.tokens[this.i++], true);
+                    return new PrivateIdentifierExpression(this.tokens[this.i++]);
                 }else {
                     throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Expected identifier, number, string or [...] as key in object literal");
                 }
             }
 
-            MethodDefinition($static = false) { //static strict mode reserved word
+            //MethodDefinition($static = false) { //static strict mode reserved word
+            MethodDefinition(allowPrivate, tempForBeginningTokenIfNotAsyncOrGenerator = undefined, key = undefined) {
                 let kind = FunctionKind.METHOD;
                 let async = false;
                 let generator = false;
                 let beginningToken;
-                if(this.tokens[this.i].value == "async") {
-                    async = this.tokens[this.i++];
-                    generator = this.match(TokenKind.ASTERISK);
-                }else if(this.tokens[this.i].kind == TokenKind.ASTERISK) {
-                    generator = this.tokens[this.i++];
-                }/*else if(this.tokens[this.i].value == "get" || this.tokens[this.i].value == "set") {
-                    const accessor = this.tokens[this.i++];
-                    if(accessor.value == "get") {
+                if(!key) {
+                    if(this.tokens[this.i].value == "async") {
+                        async = this.tokens[this.i++];
+                        generator = this.match(TokenKind.ASTERISK);
+                    }else if(this.tokens[this.i].kind == TokenKind.ASTERISK) {
+                        generator = this.tokens[this.i++];
+                    }/*else if(this.tokens[this.i].value == "get" || this.tokens[this.i].value == "set") {
+                        const accessor = this.tokens[this.i++];
+                        if(accessor.value == "get") {
+                            kind = FunctionKind.GETTER;
+                        }else {
+                            kind = FunctionKind.SETTER;
+                        }
+                    }*/else if(this.tokens[this.i].value == "get") {
+                        beginningToken = this.tokens[this.i];
+                        this.i++; //consume
                         kind = FunctionKind.GETTER;
-                    }else {
+                    }else if(this.tokens[this.i].value == "set") {
+                        beginningToken = this.tokens[this.i];
+                        this.i++; //consume
                         kind = FunctionKind.SETTER;
                     }
-                }*/else if(this.tokens[this.i].value == "get") {
-                    beginningToken = this.tokens[this.i];
-                    this.i++; //consume
-                    kind = FunctionKind.GETTER;
-                }else if(this.tokens[this.i].value == "set") {
-                    beginningToken = this.tokens[this.i];
-                    this.i++; //consume
-                    kind = FunctionKind.SETTER;
-                }
 
-                //get, set, async and the asterisk are the only things that can come before a method in an object literal
-                //...so that means this is a method
-                const tempForBeginningTokenIfNotAsyncOrGenerator = this.tokens[this.i];
-                const key = this.objectkey();
+                    //get, set, async and the asterisk are the only things that can come before a method in an object literal
+                    //...so that means this is a method
+                    tempForBeginningTokenIfNotAsyncOrGenerator = this.tokens[this.i];
+                    key = this.objectkey(allowPrivate);
+                }
                 key.method = true;
 
                 if(!beginningToken) {
@@ -4892,6 +5129,7 @@
 
                     let hasConstructor = false;
                     let constructor = undefined;
+                    let seenPrivateKeys = [];
 
                     while(this.i < this.tokens.length && !this.peek(TokenKind.CLOSING_CURLY_BRACKET)) {
                         //this.classStatement()
@@ -4912,41 +5150,66 @@
                             properties.set(key, value);
                         }else {
                             const $static = this.matchReserved("static"); // why the hell did i only write this.match(TokenKind.RESERVED)
-                            const keyToken = this.tokens[this.i];
-                            const [key, value] = this.objectkeyvalue(true);
-                            //key instanceof LiteralExpression, property => "constructor";
-                            //key instanceof Token, property => constructor;
-                            //key instanceof IdentifierExpression, property => constructor = ...; // or constructor() {...}
-                            if(!key.computed && (((key instanceof LiteralExpression || key instanceof Token) && key.value == "constructor") || (key instanceof IdentifierExpression && key.nameToken.value == "constructor"))) {
-                                if(key.method) {
-                                    if(!$static) { //for some reason if it's static, this is allowed
-                                        //15.7.1 (#3)
-                                        if(value.isGenerator) {
-                                            throw new ParseError(keyToken.line, keyToken.char, "Class constructor may not be a generator"); //SyntaxError
-                                        }else if(value.isAsync) {
-                                            throw new ParseError(keyToken.line, keyToken.char, "Class constructor may not be an async method"); //SyntaxError
-                                        }else {
-                                            throw new ParseError(keyToken.line, keyToken.char, "Class constructor may not be an accessor"); //SyntaxError
+                            if(this.peek(TokenKind.OPEN_CURLY_BRACKET)) {
+                                //static initialization block
+                                const staticBlock = this.block();
+                            }else {
+                                const keyToken = this.tokens[this.i];
+                                const [key, value] = this.objectkeyvalue(true);
+                                //key instanceof LiteralExpression, property => "constructor";
+                                //key instanceof Token, property => constructor;
+                                //key instanceof IdentifierExpression, property => constructor = ...; // or constructor() {...}
+                                if(key instanceof PrivateIdentifierExpression) {
+                                    let stringvalue = key.nameToken.value;
+                                    if(key.method) {
+                                        //prepending the type so getter and setter pair is allowed
+                                        if(value.kindSoThatICanDoThisStuffCorrectly == FunctionKind.GETTER) {
+                                            stringvalue = "get " + stringvalue;
+                                        }else if(value.kindSoThatICanDoThisStuffCorrectly == FunctionKind.SETTER) {
+                                            stringvalue = "set " + stringvalue;
                                         }
                                     }
-                                }else {
-                                    //15.7.1 (#5)
-                                    throw new ParseError(keyToken.line, keyToken.char, "Classes may not have a field named 'constructor'"); //SyntaxError
+                                    if(seenPrivateKeys.indexOf(stringvalue) != -1) {
+                                        //15.7.1 (#2)
+                                        throw new ParseError(key.nameToken.line, key.nameToken.char, `Identifier '${key.nameToken.value}' has already been declared`);
+                                    }
+                                    seenPrivateKeys.push(stringvalue);
                                 }
-                            }
-                            if($static) {
-                                //we must also check again at runtime to make sure a static computed property isn't prototype! (the runtime check isn't done for constructor though, i wonder why...)
-                                if(!key.computed && (((key instanceof LiteralExpression || key instanceof Token) && key.value == "prototype") || (key instanceof IdentifierExpression && key.nameToken.value == "prototype"))) {
-                                    //15.7.1 (#4, #6)
-                                    throw new ParseError($static.line, $static.char, "Classes may not have a static property named 'prototype'"); //SyntaxError
+                                if(!key.computed && (((key instanceof LiteralExpression || key instanceof Token) && key.value == "constructor") || (key instanceof IdentifierExpression && key.nameToken.value == "constructor") || (key instanceof PrivateIdentifierExpression && key.nameToken.value == "#constructor"))) {
+                                    if(key.method) {
+                                        if(key instanceof PrivateIdentifierExpression) {
+                                            //15.7.1 (#8)
+                                            throw new ParseError(keyToken.line, keyToken.char, "Class constructor may not be a private method");
+                                        }
+                                        if(!$static) { //for some reason if it's static, this is allowed
+                                            //15.7.1 (#3)
+                                            if(value.isGenerator) {
+                                                throw new ParseError(keyToken.line, keyToken.char, "Class constructor may not be a generator"); //SyntaxError
+                                            }else if(value.isAsync) {
+                                                throw new ParseError(keyToken.line, keyToken.char, "Class constructor may not be an async method"); //SyntaxError
+                                            }else {
+                                                throw new ParseError(keyToken.line, keyToken.char, "Class constructor may not be an accessor"); //SyntaxError
+                                            }
+                                        }
+                                    }else {
+                                        //15.7.1 (#5)
+                                        throw new ParseError(keyToken.line, keyToken.char, "Classes may not have a field named 'constructor'"); //SyntaxError
+                                    }
                                 }
+                                if($static) {
+                                    //we must also check again at runtime to make sure a static computed property isn't prototype! (the runtime check isn't done for constructor though, i wonder why...)
+                                    if(!key.computed && (((key instanceof LiteralExpression || key instanceof Token) && key.value == "prototype") || (key instanceof IdentifierExpression && key.nameToken.value == "prototype"))) {
+                                        //15.7.1 (#4, #6)
+                                        throw new ParseError($static.line, $static.char, "Classes may not have a static property named 'prototype'"); //SyntaxError
+                                    }
+                                }
+                                //bruh we need to make sure the arguments object isn't referenced :///
+                                if(containsArguments(value)) {
+                                    //15.7.1 (#7)
+                                    throw new ParseError(keyToken.line, keyToken.char, "'arguments' is not allowed in class field initializer or static initialization block");
+                                }
+                                properties.set(key, value);
                             }
-                            //bruh we need to make sure the arguments object isn't referenced :///
-                            if(containsArguments(value)) {
-                                //15.7.1 (#7)
-                                throw new ParseError(keyToken.line, keyToken.char, "'arguments' is not allowed in class field initializer or static initialization block");
-                            }
-                            properties.set(key, value);
                         }
                         this.consume(TokenKind.SEMICOLON, "Semicolon expected after property in class statement/expression");
                     }
@@ -8205,6 +8468,13 @@
                         //}
                         key = this.evaluate(binaryExpression.right);
                     }else {
+                        if(binaryExpression.right instanceof PrivateIdentifierExpression) {
+                            //https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-makeprivatereference
+                            //6.2.5.9
+                            //return new ReferenceRecord();
+                            debugger;
+                            throw undefined;
+                        }
                         key = binaryExpression.right.nameToken.value;
                     }
                     //let value;
@@ -8490,6 +8760,38 @@
                 ////}
 
                 //return ECMAScript.Call(func, thisValue, funcCallExpression.argumentsExprArr.map(v=>this.evaluate(v)));
+            }
+
+            GetThisEnvironment() {
+                let index = this.state.variables.length-1;
+                let envRecord = this.state.variables[index];
+                while(!envRecord.has("this")) {
+                    envRecord = this.state.variables[--index];
+                }
+                return envRecord;
+            }
+
+            /** @param {SuperPropertyExpression} superPropertyExpression */
+            visitSuperPropertyExpression(superPropertyExpression) {
+                const envRecord = this.GetThisEnvironment();
+                const actualThis = envRecord.get("this"); // uhh something like that
+                const strict = this.strict;
+                let key;
+                if(superPropertyExpression.propertyExpr instanceof IdentifierExpression) {
+                    key = superPropertyExpression.propertyExpr.nameToken.value;
+                }else {
+                    key = superPropertyExpression.propertyExpr.accept(this);
+                }
+                //MakeSuperPropertyReference
+                //Assert: envRecord.has("super") or something
+                //Assert: envRecord is a Function Environment Record
+                const baseValue = envRecord;
+                return new ReferenceRecord(baseValue, key, strict, actualThis);
+            }
+
+            /** @param {SuperCallExpression} superCallExpression */
+            visitSuperCallExpression(superCallExpression) {
+                
             }
 
             visitEmptyStatement() {};
@@ -8882,6 +9184,11 @@
                 return identifierExpression.nameToken.value;
             }
 
+            /** @param {PrivateIdentifierExpression} privateIdentifierExpression */
+            visitPrivateIdentifierExpression(privateIdentifierExpression) {
+                return privateIdentifierExpression.nameToken.value;
+            }
+
             /** @param {UnaryExpression} unaryExpression */
             visitUnaryExpression(unaryExpression) {
                 if(unaryExpression.postfix) {
@@ -9080,6 +9387,16 @@
             /** @param {AssignmentExpression} assignmentExpression */
             visitAssignmentExpression(assignmentExpression) {
                 return this.visitBinaryExpression(assignmentExpression);
+            }
+
+            /** @param {SuperPropertyExpression} superPropertyExpression */
+            visitSuperPropertyExpression(superPropertyExpression) {
+                return `(super${superPropertyExpression.operator.value}${superPropertyExpression.propertyExpr.accept(this)}${superPropertyExpression.operator.value == "[" ? "]" : ""})`;
+            }
+
+            /** @param {SuperCallExpression} superCallExpression */
+            visitSuperCallExpression(superCallExpression) {
+                return `(super(${superCallExpression.argumentsExprArr.map(v=>v.accept(this))}))`;
             }
         }
 
