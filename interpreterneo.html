@@ -318,6 +318,14 @@
             static isJavascriptFalsy(value) {
                 return !ECMAScript.ToBoolean(value);
             }
+            static Infinity = Infinity;
+            static NaN = NaN;
+            static parseFloat(string) {
+                return parseFloat(string);
+            }
+            static parseInt(string, radix) {
+                return parseInt(string, radix);
+            }
         }
 
         //lexical grammar for javascript
@@ -5733,6 +5741,9 @@
 
                 this.directivePrologue();
 
+                //i'm being lazy as FUCK here because i just remembered the lexer and parser have access to the interpreter
+                this.interpreter.state.strict = this.useStrict;
+
                 ///** @type {Array<Statement>} */
                 //const statements = [];
                 try {
@@ -5789,17 +5800,359 @@
         }
 
         //Environment
-        class RuntimeState {
-            //tis an array of maps for scoping
-            //uh oh, i'm beginning to see a problem with this array approach...
-            //for closures, i need to copy the entire array! i wouldn't have to do this if i did it his way...
-            //damn what else could i do to instead of using his solution lol
-            /** @type {Array<Map<String, Variable>>} */
-            variables = [new Map([
-                ["globalThis", new Variable({qualifier: undefined, gender: undefined, name: "globalThis"}, globalThis)],
-                ["this", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "const"}, gender: undefined, name: "this"}, globalThis)],
-            ])];
-            strict = false;
+        //class RuntimeState {
+        //    //tis an array of maps for scoping
+        //    //uh oh, i'm beginning to see a problem with this array approach...
+        //    //for closures, i need to copy the entire array! i wouldn't have to do this if i did it his way...
+        //    //damn what else could i do to instead of using his solution lol
+        //    /** @type {Array<Map<String, Variable>>} */
+        //    variables = [new Map([
+        //        ["globalThis", new Variable({qualifier: undefined, gender: undefined, name: "globalThis"}, globalThis)],
+        //        ["this", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "const"}, gender: undefined, name: "this"}, globalThis)],
+        //    ])];
+        //    strict = false;
+        //}
+
+        class Binding {
+            /** @type {Boolean} */
+            initialized;
+
+            /** @type {any} */
+            value;
+
+            constructor() {
+                this.initialized = false;
+                this.value = undefined;
+            }
+        }
+
+        class MutableBinding extends Binding {
+            /** @type {Boolean} */
+            deletable;
+
+            constructor(deletable) {
+                super();
+                this.deletable = deletable;
+            }
+        }
+
+        class ImmutableBinding extends Binding {
+            /** @type {Boolean} */
+            strict;
+
+            constructor(strict) {
+                super();
+                this.strict = strict;
+            }
+        }
+
+        class EnvironmentRecord {
+            ["[[OuterEnv]]"];
+            /** @type {Map<String, Binding>} */
+            bindings = new Map();
+            /** @type {Boolean} */
+            strict;
+
+            constructor(outerEnv) {
+                this["[[OuterEnv]]"] = outerEnv;
+                if(outerEnv) {
+                    this.strict = outerEnv.strict;
+                }
+            }
+
+            HasBinding(name) {}; // = 0;
+            CreateMutableBinding(name, deletable) {}; // = 0;
+            CreateImmutableBinding(name, strict) {}; // = 0;
+            InitializeBinding(name, value) {}; // = 0;
+            SetMutableBinding(name, value, strict) {}; // = 0;
+            GetBindingValue(name, strict) {}; // = 0;
+            DeleteBinding(name) {} // = 0;
+            HasThisBinding() {}; // = 0;
+            GetThisBinding() {}; // = 0;
+            HasSuperBinding() {}; // = 0;
+            WithBaseObject() {}; // = 0;
+        }
+
+        class DeclarativeEnvironmentRecord extends EnvironmentRecord {
+            /** @type {Array<DisposableResourceRecord>} */
+            ["[[DisposableResourceStack]]"] = [];
+
+            HasBinding(name) /*override*/ {
+                return this.bindings.has(name);
+            }
+
+            CreateMutableBinding(name, deletable) /*override*/ {
+                //Assert: !this.bindings.has(name)
+                this.bindings.set(name, new MutableBinding(deletable));
+                return undefined; //UNUSED
+            }
+
+            CreateImmutableBinding(name, strict) /*override*/ {
+                //Assert: !this.bindings.has(name)
+                this.bindings.set(name, new ImmutableBinding(strict));
+                return undefined; //UNUSED
+            }
+
+            InitializeBinding(name, value) /*override*/ {
+                //Assert: this.bindings.get(name) && this.bindings.get(name).initialized == false
+                const binding = this.bindings.get(name);
+                binding.initialized = true;
+                binding.value = value;
+                return undefined; //UNUSED
+            }
+
+            SetMutableBinding(name, value, strict) /*override*/ {
+                if(!this.HasBinding(name)) { // this isn't LITERALLY what it says but this means exactly the same thing
+                    if(strict) {
+                        //"use strict";
+                        //variable = 2;
+                        throw new ReferenceError(`${name} is not defined`); //is this the right error message?
+                    }
+                    this.CreateMutableBinding(name, true);
+                    this.InitializeBinding(name, value);
+                    return undefined; //UNUSED
+                }
+                const binding = this.bindings.get(name);
+                if(binding.strict) strict = true;
+                if(!binding.initialized) {
+                    //x = 5;
+                    //let x = 2;
+                    throw new ReferenceError(`Cannot access '${name}' before initialization`);
+                }else if(binding instanceof MutableBinding) {
+                    binding.value = value;
+                }else if(strict) {
+                    //Assert: binding instanceof ImmutableBinding
+                    //const x = 2;
+                    //x = 5;
+                    throw new TypeError("Assignment to constant variable.");
+                }
+                return undefined; //UNUSED
+            }
+
+            GetBindingValue(name, strict) /*override*/ {
+                //Assert: this.HasBinding(name)
+                const binding = this.bindings.get(name);
+                if(!binding.initialized) {
+                    //x;
+                    //let x = 2;
+                    throw new ReferenceError(`Cannot access '${name}' before initialization`);
+                }
+                return binding.value;
+            }
+
+            DeleteBinding(name) /*override*/ {
+                //Assert: this.HasBinding(name)
+                const binding = this.bindings.get(name);
+                if(binding instanceof ImmutableBinding || !binding.deletable) {
+                    return false;
+                }
+                this.bindings.delete(name);
+                return true;
+            }
+
+            HasThisBinding() /*override*/ {
+                return false;
+            }
+
+            GetThisBinding() /*override*/ {
+                throw new Error("According to the specification, this should never happen!!");
+            }
+
+            HasSuperBinding() /*override*/ {
+                return false;
+            }
+
+            WithBaseObject() /*override*/ {
+                return undefined;
+            }
+        }
+
+        //for the with statement
+        class ObjectEnvironmentRecord extends EnvironmentRecord {
+            ["[[BindingObject]]"];
+            ["[[IsWithEnvironment]]"];
+
+            //https://tc39.es/ecma262/multipage/executable-code-and-execution-contexts.html#sec-newobjectenvironment
+            constructor(obj, isWithEnv, outerEnv) {
+                super(outerEnv);
+                this["[[BindingObject]]"] = obj;
+                this["[[IsWithEnvironment]]"] = isWithEnv;
+            }
+
+            HasBinding(name) /*override*/ {
+                if(!this["[[BindingObject]]"]["[[HasProperty]]"](name)) return false;
+                if(!this["[[IsWithEnvironment]]"]) return true;
+                const unscopables = this["[[BindingObject]]"]["[[Get]]"](ECMAScript["%Symbol.unscopables%"], this["[[BindingObject]]"]);
+                if(unscopables instanceof JavascriptObjectWrapper) {
+                    if(ECMAScript.ToBoolean(unscopables["[[Get]]"](name, unscopables))) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            CreateMutableBinding(name, deletable) /*override*/ {
+                //DefinePropertyOrThrow
+                if(!this["[[BindingObject]]"]["[[DefineOwnProperty]]"](name, new JavascriptDataProperty(true, true, deletable, undefined))) {
+                    throw TypeError(`Cannot redefine property: ${name}`);
+                }
+                return undefined; //UNUSED
+            }
+
+            CreateImmutableBinding(name, strict) /*override*/ {
+                throw new Error("According to the specification, this should never happen!!");
+            }
+
+            InitializeBinding(name, value) /*override*/ {
+                this.SetMutableBinding(name, value, false);
+                return undefined; //UNUSED
+            }
+
+            SetMutableBinding(name, value, strict) /*override*/ {
+                if(!this["[[BindingObject]]"]["[[HasProperty]]"](name) && strict) {
+                    //i'm going to assume this is the same error as
+                    //"use strict";
+                    //x = (delete x, 0);
+                    //no no no this isn't the right error?
+                    throw new ReferenceError("Delete of an unqualified identifier in strict mode."); //how exactly would i trigger this error? with statements don't exist in strict mode (wait the global object uses an object environment)
+                }
+                //Set
+                if(!this["[[BindingObject]]"]["[[Set]]"](name, value, this["[[BindingObject]]"]) && strict) {
+                    //i assume it's this error like
+                    //"use strict";
+                    //undefined = 2;
+                    throw new TypeError(`Cannot assign to read only property '${name}' of '#<${GetConstructorName(this["[[BindingObject]]"])}>'`);
+                }
+                return undefined; //UNUSED
+            }
+
+            GetBindingValue(name, strict) /*override*/ {
+                if(!this["[[BindingObject]]"]["[[HasProperty]]"](name)) {
+                    if(!strict) return false;
+                    throw ReferenceError(`${name} is not defined`); // i guess?
+                }
+                return this["[[BindingObject]]"]["[[Get]]"](name, this["[[BindingObject]]"]);
+            }
+
+            DeleteBinding(name) /*override*/ {
+                return this["[[BindingObject]]"]["[[Delete]]"](name);
+            }
+
+            HasThisBinding() /*override*/ {
+                return false;
+            }
+
+            GetThisBinding() /*override*/ {
+                throw new Error("According to the specification, this should never happen!!");
+            }
+
+            HasSuperBinding() /*override*/ {
+                return false;
+            }
+
+            WithBaseObject() /*override*/ {
+                if(this["[[IsWithEnvironment]]"]) {
+                    return this["[[BindingObject]]"];
+                }
+                return undefined;
+            }
+        }
+
+        class FunctionEnvironmentRecord extends DeclarativeEnvironmentRecord {
+            
+        }
+
+        class GlobalEnvironmentRecord extends EnvironmentRecord {
+            /** @type {ObjectEnvironmentRecord} */
+            ["[[ObjectRecord]]"];
+            /** @type {JavascriptObjectWrapper} */
+            ["[[GlobalThisValue]]"];
+            /** @type {DeclarativeEnvironmentRecord} */
+            ["[[DeclarativeRecord]]"];
+
+            //https://tc39.es/ecma262/multipage/executable-code-and-execution-contexts.html#sec-newglobalenvironment
+            constructor(strict, obj, thisValue) {
+                super(null);
+                this.strict = strict; //nonstandard
+                this["[[ObjectRecord]]"] = new ObjectEnvironmentRecord(obj, false, null);
+                this["[[DeclarativeRecord]]"] = new DeclarativeEnvironmentRecord(null);
+                this["[[ObjectRecord]]"].strict = strict; //nonstandard
+                this["[[DeclarativeRecord]]"].strict = strict; //nonstandard
+                this["[[GlobalThisValue]]"] = thisValue;
+            }
+
+            HasBinding(name) /*override*/ {
+                if(this["[[DeclarativeRecord]]"].HasBinding(name)) return true;
+                return this["[[ObjectRecord]]"].HasBinding(name);
+            }
+
+            CreateMutableBinding(name, deletable) /*override*/ {
+                if(this["[[DeclarativeRecord]]"].HasBinding(name)) {
+                    //if these were both const or let, devtools actually allows you to redeclare it!
+                    //const x = 2;
+                    //let x = 2;
+                    throw new TypeError(`Identifier '${name}' has already been declared`);
+                }
+                return this["[[DeclarativeRecord]]"].CreateMutableBinding(name, deletable);
+            }
+
+            CreateImmutableBinding(name, strict) /*override*/ {
+                if(this["[[DeclarativeRecord]]"].HasBinding(name)) {
+                    //let x = 2;
+                    //const x = 2;
+                    throw new TypeError(`Identifier '${name}' has already been declared`);
+                }
+                return this["[[DeclarativeRecord]]"].CreateImmutableBinding(name, strict);
+            }
+
+            InitializeBinding(name, value) /*override*/ {
+                if(this["[[DeclarativeRecord]]"].HasBinding(name)) {
+                    return this["[[DeclarativeRecord]]"].InitializeBinding(name, value);
+                }
+                //Assert: this["[[ObjectRecord]]"].HasBinding(name)
+                return this["[[ObjectRecord]]"].InitializeBinding(name, value);
+            }
+
+            SetMutableBinding(name, value, strict) /*override*/ {
+                if(this["[[DeclarativeRecord]]"].HasBinding(name)) {
+                    return this["[[DeclarativeRecord]]"].SetMutableBinding(name, value, strict);
+                }
+                return this["[[ObjectRecord]]"].SetMutableBinding(name, value, strict);
+            }
+
+            GetBindingValue(name, strict) /*override*/ {
+                if(this["[[DeclarativeRecord]]"].HasBinding(name)) {
+                    return this["[[DeclarativeRecord]]"].GetBindingValue(name, strict);
+                }
+                return this["[[ObjectRecord]]"].GetBindingValue(name, strict);
+            }
+
+            DeleteBinding(name) /*override*/ {
+                if(this["[[DeclarativeRecord]]"].HasBinding(name)) {
+                    return this["[[DeclarativeRecord]]"].DeleteBinding(name);
+                }
+                const globalObj = this["[[ObjectRecord]]"]["[[BindingObject]]"];
+                if(globalObj["[[GetOwnProperty]]"](name) != undefined) {
+                    return this["[[ObjectRecord]]"].DeleteBinding(name);
+                }
+                return true;
+            }
+
+            HasThisBinding() /*override*/ {
+                return true;
+            }
+
+            GetThisBinding() /*override*/ {
+                return this["[[GlobalThisValue]]"];
+            }
+
+            HasSuperBinding() /*override*/ {
+                return false;
+            }
+
+            WithBaseObject() /*override*/ {
+                return undefined;
+            }
         }
 
         class JavascriptInterpreter extends Interpreter {
@@ -5807,7 +6160,9 @@
 
             //runtime
             //scope;
-            state = new RuntimeState;
+            //state = new RuntimeState;
+            state;
+            ["[[GlobalObject]]"]; //does that make JavascriptInterpreter currentRealm?
 
             constructor() {
                 super();
@@ -5829,34 +6184,13 @@
                 ECMAScript["%Symbol.toPrimitive%"] = Symbol.toPrimitive;
                 ECMAScript["%Symbol.toStringTag%"] = Symbol.toStringTag;
                 ECMAScript["%Symbol.unscopables%"] = Symbol.unscopables;
-
-                //https://tc39.es/ecma262/#sec-value-properties-of-the-global-object
-                this.state.variables[0].set("isFinite", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "isFinite"}, ECMAScript.CreateBuiltinFunction(
-                    function(thisArg, argList, newTarget) {
-                        return isFinite(ECMAScript.ToNumber(argList[0]));
-                    },
-                    1, "isFinite", [], this
-                )));
-                this.state.variables[0].set("isNaN", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "isNaN"}, ECMAScript.CreateBuiltinFunction(
-                    function(thisArg, argList, newTarget) {
-                        //return isNaN(ECMAScript.ToNumber(argList[0]));
-
-                        //global isNaN converts the first argument to a number, Number.isNaN doesn't!
-                        //we can see this with the following
-                        //const x = {};
-                        //x.valueOf = ()=>NaN;
-                        //Number.isNaN(x); // false
-                        //isNaN(x); // true
-                        return Number_isNaN(ECMAScript.ToNumber(argList[0]));
-                    },
-                    1, "isNaN", [], this
-                )));
                 
                 const $parseFloat = ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) { //parseFloat(string)
                         //tonumber probably in lua
                         const inputString = ECMAScript.ToString(argList[0]);
-                        return Number.parseFloat(inputString);
+                        const trimmedString = inputString.trimStart();
+                        return HostLanguage.parseFloat(trimmedString);
                     },
                     1, "parseFloat", [], this
                 );
@@ -5867,7 +6201,8 @@
                         const inputString = ECMAScript.ToString(argList[0]);
                         const radixMV = ECMAScript.ToUint32(argList[1]) >> 0; //ToInt32 lol
                         if(radixMV != 0 && (radixMV < 2 || radixMV > 36)) return NaN;
-                        return Number.parseInt(inputString, radixMV);
+                        const trimmedString = inputString.trimStart();
+                        return HostLanguage.parseInt(inputString, radixMV);
                     },
                     1, "parseInt", [], this
                 );
@@ -6798,6 +7133,76 @@
                     ECMAScript["%ArrayIteratorPrototype%"] = arrayIteratorProto;
                 }
 
+                //https://tc39.es/ecma262/multipage/global-object.html#sec-global-object
+                const globalObj = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]); //we\re not doing anything too fancy here
+                globalObj.SetDataProperty("globalThis", true, false, true, globalObj);
+                globalObj.SetDataProperty("Infinity", false, false, false, HostLanguage.Infinity);
+                globalObj.SetDataProperty("NaN", false, false, false, HostLanguage.NaN);
+                globalObj.SetDataProperty("undefined", false, false, false, undefined);
+                
+                //https://tc39.es/ecma262/#sec-value-properties-of-the-global-object
+                ECMAScript["%eval%"] = ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        throw new Error("Eval doesn't work yet lol!!");
+                    },
+                    1, "eval", [], this,
+                );
+
+                //do remember that by default, function properties are only writable and configurable
+                globalObj.SetDataProperty("eval", true, false, true, ECMAScript["%eval%"]);
+
+                globalObj.SetDataProperty("isFinite", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return Number_isFinite(ECMAScript.ToNumber(argList[0]));
+                    },
+                    1, "isFinite", [], this
+                ));
+                globalObj.SetDataProperty("isNaN", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        //return isNaN(ECMAScript.ToNumber(argList[0]));
+
+                        //global isNaN converts the first argument to a number, Number.isNaN doesn't!
+                        //we can see this with the following
+                        //const x = {};
+                        //x.valueOf = ()=>NaN;
+                        //Number.isNaN(x); // false
+                        //isNaN(x); // true
+                        return Number_isNaN(ECMAScript.ToNumber(argList[0]));
+                    },
+                    1, "isNaN", [], this
+                ));
+
+                globalObj.SetDataProperty("parseFloat", true, false, true, $parseFloat);
+                globalObj.SetDataProperty("parseInt", true, false, true, $parseInt);
+
+                globalObj.SetDataProperty("decodeURI", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        throw new Error("decodeURI, I'm good bro 😂😂🤦‍♂️");
+                    },
+                    1, "decodeURI", [], this
+                ));
+
+                globalObj.SetDataProperty("decodeURIComponent", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        throw new Error("decodeURIComponent, I'm good bro 😂😂🤦‍♂️");
+                    },
+                    1, "decodeURIComponent", [], this
+                ));
+
+                globalObj.SetDataProperty("encodeURI", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        throw new Error("encodeURI, I'm good bro 😂😂🤦‍♂️");
+                    },
+                    1, "encodeURI", [], this
+                ));
+
+                globalObj.SetDataProperty("encodeURIComponent", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        throw new Error("encodeURIComponent, I'm good bro 😂😂🤦‍♂️");
+                    },
+                    1, "encodeURIComponent", [], this
+                ));
+
                 //https://tc39.es/ecma262/#sec-object-constructor
                 //Object constructor...
                 //const $Object = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Function.prototype%"]);
@@ -6940,7 +7345,8 @@
                     1, "keys", [], this
                 ));
 
-                this.state.variables[0].set("Object", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Object"}, $Object));
+                // this.state.variables[0].set("Object", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Object"}, $Object));
+                globalObj.SetDataProperty("Object", true, false, true, $Object);
 
                 const $Function = ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
@@ -6966,7 +7372,8 @@
                 ECMAScript.MakeConstructor($Function, false);
                 $Function.SetDataProperty("prototype", false, false, false, ECMAScript["%Function.prototype%"]); //20.2.2.1
                 ECMAScript["%Function.prototype%"].properties.get("constructor").value = $Function;
-                this.state.variables[0].set("Function", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Function"}, $Function));
+                // this.state.variables[0].set("Function", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Function"}, $Function));
+                globalObj.SetDataProperty("Function", true, false, true, $Function);
                 // const $Object = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Function.prototype%"]);
 
                 //https://tc39.es/ecma262/#sec-boolean-objects
@@ -6986,7 +7393,8 @@
                 ECMAScript.MakeConstructor($Boolean, false);
                 $Boolean.SetDataProperty("prototype", false, false, false, ECMAScript["%Boolean.prototype%"]);
                 ECMAScript["%Boolean.prototype%"].properties.get("constructor").value = $Boolean;
-                this.state.variables[0].set("Boolean", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Boolean"}, $Boolean));
+                // this.state.variables[0].set("Boolean", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Boolean"}, $Boolean));
+                globalObj.SetDataProperty("Boolean", true, false, true, $Boolean);
 
                 //https://tc39.es/ecma262/#sec-symbol-objects
                 const $Symbol = ECMAScript.CreateBuiltinFunction(
@@ -7040,7 +7448,8 @@
                 //oh my god earlier i accidently set ECMAScript["%Symbol.prototype%"] to funcProto instead of symbolProto and i was changing the constructor of function!!
                 ECMAScript["%Symbol.prototype%"].properties.get("constructor").value = $Symbol;
 
-                this.state.variables[0].set("Symbol", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Symbol"}, $Symbol));
+                // this.state.variables[0].set("Symbol", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Symbol"}, $Symbol));
+                globalObj.SetDataProperty("Symbol", true, false, true, $Symbol);
                 
                 const $Number = ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
@@ -7114,7 +7523,8 @@
                 $Number.SetDataProperty("prototype", false, false, false, ECMAScript["%Number.prototype%"]);
 
                 ECMAScript["%Number.prototype%"].properties.get("constructor").value = $Number;
-                this.state.variables[0].set("Number", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Number"}, $Number));
+                // this.state.variables[0].set("Number", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Number"}, $Number));
+                globalObj.SetDataProperty("Number", true, false, true, $Number);
 
                 const $BigInt = ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) { //BigInt(value)
@@ -7151,7 +7561,8 @@
                 ));
                 $BigInt.SetDataProperty("prototype", false, false, false, ECMAScript["%BigInt.prototype%"]);
                 ECMAScript["%BigInt.prototype%"].properties.get("constructor").value = $BigInt;
-                this.state.variables[0].set("BigInt", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "BigInt"}, $BigInt));
+                // this.state.variables[0].set("BigInt", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "BigInt"}, $BigInt));
+                globalObj.SetDataProperty("BigInt", true, false, true, $BigInt);
 
                 const $Math = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]); //fairs, https://tc39.es/ecma262/#sec-math-object
                 // $Math.properties.set("E", new JavascriptDataProperty(false, false, false, Math.E));
@@ -7427,7 +7838,8 @@
                     1, "trunc", [], this
                 ));
 
-                this.state.variables[0].set("Math", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Math"}, $Math));
+                // this.state.variables[0].set("Math", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Math"}, $Math));
+                globalObj.SetDataProperty("Math", true, false, true, $Math);
 
                 const $Date = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]);
                 $Date.SetDataProperty("now", true, false, true, ECMAScript.CreateBuiltinFunction(
@@ -7436,7 +7848,8 @@
                     },
                     0, "now", [], this
                 ));
-                this.state.variables[0].set("Date", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Date"}, $Date));
+                // this.state.variables[0].set("Date", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Date"}, $Date));
+                globalObj.SetDataProperty("Date", true, false, true, $Date);
 
                 const $String = ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
@@ -7488,7 +7901,8 @@
                 //String.raw would go here but we don't have templated strings (yet?)
                 
                 ECMAScript["%String.prototype%"].properties.get("constructor").value = $String;
-                this.state.variables[0].set("String", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "String"}, $String));
+                // this.state.variables[0].set("String", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "String"}, $String));
+                globalObj.SetDataProperty("String", true, false, true, $String);
 
                 const $Array = ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
@@ -7587,7 +8001,8 @@
 
                 $Array.SetDataProperty("prototype", false, false, false, ECMAScript["%Array.prototype%"]);
                 ECMAScript["%Array.prototype%"].properties.get("constructor").value = $Array;
-                this.state.variables[0].set("Array", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Array"}, $Array));
+                // this.state.variables[0].set("Array", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Array"}, $Array));
+                globalObj.SetDataProperty("Array", true, false, true, $Array);
                     
                 //the console object is not included in the ECMAScript specification!! (also i was surprised to see that Temporal wasn't either!)
                 //https://console.spec.whatwg.org/
@@ -7788,6 +8203,9 @@
                     },
                     0, "larp", [], this
                 );
+
+                this.state = new GlobalEnvironmentRecord(globalObj, globalObj);
+                this["[[GlobalObject]]"] = globalObj;
             }
 
             parse(str) {
@@ -7866,9 +8284,8 @@
                         return true;
                     }
                     //IsPropertyReference(ref);
-                    if(!(ref.base instanceof Map)) {
+                    if(!(ref.base instanceof EnvironmentRecord /*Map*/)) {
                         //Assert: IsPrivateReference(ref) == false
-                        //IsSuperReference(ref);
                         //holy shit i'm actually discovering errors that i've never seen in my life
                         //new (class {
                         //    constructor() {
@@ -7876,21 +8293,32 @@
                         //        console.log(delete super.xyz); //ReferenceError!
                         //    }
                         //});
+                        //IsSuperReference(ref);
                         if(ref.thisValue != undefined) throw ReferenceError("Unsupported reference to 'super'");
-                        // const baseObj = ECMAScript.ToObject(ref.base);
                         if(typeof ref.referencedName != "string" && typeof ref.referencedName != "symbol") {
                             //ToPropertyKey
                             ref.referencedName = ECMAScript.ToPropertyKey(ref.referencedName);
                         }
                         if(ref.base == globalThis) {
                             return delete globalThis[ref.referencedName];
-                        }else {
-                            const deleteStatus = ref.base["[[Delete]]"](ref.referencedName);
-                            if(deleteStatus == false && this.state.strict) {
-                                throw TypeError("Delete of an unqualified identifier in strict mode.");
+                        }else if(ref.base instanceof JavascriptObjectWrapper) {
+                            const baseObj = ECMAScript.ToObject(ref.base);
+                            const deleteStatus = baseObj["[[Delete]]"](ref.referencedName);
+                            if(deleteStatus == false && ref.strict) {
+                                //throw TypeError("Delete of an unqualified identifier in strict mode."); // oh shit this is a syntax error my fault
+                                //wait a second, i'd have to write something like
+                                //"use strict";
+                                //const obj = {};
+                                //Object.defineProperty(obj, "property", {value: "don't delete me", configurable: false, writable: false, enumerable: false});
+                                //delete obj;           // Delete of an unqualified identifier in strict mode.
+                                //delete obj.property;  // Cannot delete property 'property' #<Object>
+
+                                throw TypeError(`Cannot delete property '${ref.referencedName}' #<${GetConstructorName(baseObj)}>`);
                             }
                             return deleteStatus;
                         }
+                    }else {
+                        return ref.base.DeleteBinding(ref.referencedName);
                     }
                     //Assert: ref.base instanceof Map
                     //const had = ref.base.has(ref.referencedName);
@@ -7982,13 +8410,19 @@
 
             /** @param {BlockStatement} blockStatement */
             visitBlockStatement(blockStatement) {
-                !blockStatement.precedingStatementIsSpecialSoDontBotherMakingScopeBecauseJavascriptBS && this.state.variables.push(new Map());
+                // !blockStatement.precedingStatementIsSpecialSoDontBotherMakingScopeBecauseJavascriptBS && this.state.variables.push(new Map());
+                if(!blockStatement.precedingStatementIsSpecialSoDontBotherMakingScopeBecauseJavascriptBS) {
+                    this.state = new DeclarativeEnvironmentRecord(this.state);
+                }
                 let last = undefined;
                 for(const statement of blockStatement.statements) {
                     last = this.evaluate(statement);
                     //how can i do return statements without checking if it's a return statement every time lol (apparently the answer is throwing an exception)
                 }
-                !blockStatement.precedingStatementIsSpecialSoDontBotherMakingScopeBecauseJavascriptBS && this.state.variables.pop();
+                // !blockStatement.precedingStatementIsSpecialSoDontBotherMakingScopeBecauseJavascriptBS && this.state.variables.pop();
+                if(!blockStatement.precedingStatementIsSpecialSoDontBotherMakingScopeBecauseJavascriptBS) {
+                    this.state = this.state["[[OuterEnv]]"];
+                }
                 return last;
             }
 
@@ -8021,6 +8455,12 @@
                 //no scope yet lol
                 //return globalThis[identifierExpression.nameToken.value];
 
+                //purrhaps this is where i got this part from?
+                //https://tc39.es/ecma262/multipage/executable-code-and-execution-contexts.html#sec-resolvebinding
+                //https://tc39.es/ecma262/multipage/executable-code-and-execution-contexts.html#sec-getidentifierreference
+
+                //i won't write it exactly the same though so that globalThis properties can still be accessed (for the lolz)
+
                 const name = identifierExpression.nameToken.value;
 
                 //if(this.state.variables.has(name)) {
@@ -8034,19 +8474,28 @@
 
                 //i wonder if i should check outer to inner or inner to outer
                 //of course, the answer was inner to outer!
-                for(let i = this.state.variables.length-1; i >= 0; i--) {
-                    const scope = this.state.variables[i];
-                    if(scope.has(name)) {
-                        return new ReferenceRecord(scope, name, this.state.strict, undefined); //what should thisValue be? (probably undefined lol)
-                        //return scope.get(name).get();
+                //for(let i = this.state.variables.length-1; i >= 0; i--) {
+                //    const scope = this.state.variables[i];
+                //    if(scope.has(name)) {
+                //        return new ReferenceRecord(scope, name, this.state.strict, undefined); //what should thisValue be? (probably undefined lol)
+                //        //return scope.get(name).get();
+                //    }
+                //}
+
+                let envRecord = this.state;
+
+                while(envRecord != null) {
+                    if(envRecord.HasBinding(name)) {
+                        return new ReferenceRecord(envRecord, name, this.state.strict, undefined); //EMPTY
                     }
+                    envRecord = envRecord["[[OuterEnv]]"];
                 }
 
                 //if(!(name in globalThis)) {
                 //    throw new ReferenceError(`${name} is not defined`);
                 //}
                 //return globalThis[name];
-                return new ReferenceRecord((name in globalThis) ? globalThis : undefined, name, this.state.strict, undefined); //what should thisValue be? (probably undefined lol
+                return new ReferenceRecord((name in globalThis) ? globalThis : undefined /*UNRESOLVABLE*/, name, this.state.strict, undefined); //EMPTY
                 //good god man.
                 //return new class extends Variable {
                 //    get() {
@@ -8118,8 +8567,9 @@
                 if(value.base == undefined) {
                     throw ReferenceError(`${value.referencedName} is not defined`); //will this actually happen here?
                 }
-                if(value.base instanceof Map) { //6.2.5.5 (4)
-                    return value.base.get(value.referencedName).get();
+                if(value.base instanceof EnvironmentRecord /*Map*/) { //6.2.5.5 (4)
+                    // return value.base.get(value.referencedName).get();
+                    return value.base.GetBindingValue(value.referencedName, value.strict);
                 }else {
                     if(!(value.base instanceof Object) || value.base instanceof JavascriptObjectWrapper) { //6.2.5.5 (3)
                         const baseObj = ECMAScript.ToObject(value.base);
@@ -8143,13 +8593,14 @@
                 if(!(record instanceof ReferenceRecord)) {
                     throw "Invalid left hand assignment but shouldn't this not happen?";
                 }
-                if(record.base == undefined || record.base == globalThis) { //6.2.5.6 (2)
+                if(record.base == undefined) { //6.2.5.6 (2)
                     if(record.base == undefined && this.state.strict) {
                         throw ReferenceError(record.referencedName + " is not defined");
                     }
-                    return globalThis[record.referencedName] = rightValue;
-                }else if(record.base instanceof Map) { //6.2.5.6 (4,5,6)
-                    const $var = record.base.get(record.referencedName);
+                    this["[[GlobalObject]]"]["[[Set]]"](record.referencedName, rightValue, this["[[GlobalObject]]"]);
+                    return rightValue;
+                }else if(record.base instanceof EnvironmentRecord /*Map*/) { //6.2.5.6 (4,5,6)
+                    /*const $var = record.base.get(record.referencedName);
                     if($var instanceof TemporalDeadZoneVariable) {
                         $var.get(); //force throw
                     }
@@ -8158,9 +8609,14 @@
                         throw new TypeError(`Assignment to constant variable.`);
                     }
                     //set mutable binding
-                    return $var.value = rightValue;
+                    return $var.value = rightValue;*/
+
+                    record.base.SetMutableBinding(record.referencedName, rightValue, record.strict);
+                    return rightValue;
                 }else if(!(record.base instanceof Object) || record.base instanceof JavascriptObjectWrapper) { //6.2.5.6 (3)
                     const baseObj = ECMAScript.ToObject(record.base);
+                    //if IsPrivateReference
+                    //  return PrivateSet(baseObj, value.referencedName, rightValue);
                     if(typeof record.referencedName != "string" && typeof record.referencedName != "symbol") {
                         record.referencedName = ECMAScript.ToPropertyKey(record.referencedName);
                     }
@@ -8173,8 +8629,7 @@
                     }
                     return rightValue;
                 }else {
-                    //for external stuff i haven't implemented yet (e.g. globalThis.alert.name = "...")
-                    //this is also the place i would do fancy binding stuff so that we could call back into our javascript if rightValue was a JavascriptFunctionWrapper
+                    //for external stuff i haven't implemented yet
                     return record.base[record.referencedName] = rightValue;
                 }
             }
@@ -8800,44 +9255,78 @@
                 debugger; //lol
             }
 
+            ///** @param {VariableDeclarationStatement} varDeclStatement */
+            //visitVariableDeclarationStatement(varDeclStatement) {
+            //    //let z, w = (z = 6, 7); //to answer your curiosity, the expression is only evaluated once! let i = 0; let z, w = (i++, z=2, 3);
+            //    //"initializing" 2 vars with let!
+            //    //wait what the fuck?! when i wrote this i thought you couldn't do 2 vars at once!!
+            //    //apparently i could've done let z = 6, w = 7; and it would've worked (how did i forget that...)
+            //    const scope = this.state.variables.at(-1);
+            //    if(scope.has(varDeclStatement.name)) {
+            //        /** @type {Variable} */
+            //        const decl = scope.get(varDeclStatement.name);
+            //        if(decl instanceof TemporalDeadZoneVariable) { //this only applies to let and const
+            //            //promote to regular var lol
+            //            const temp = new Variable(decl.properties, varDeclStatement.value && this.evaluate(varDeclStatement.value));
+            //            scope.set(varDeclStatement.name, temp);
+            //        }/*else {
+            //            //my static analysis should handle all this?
+            //            const oldQualifier = decl.properties.qualifier?.value;
+            //            const oldGender = decl.properties.gender?.value;
+            //            if(varDeclStatement.qualifier.value == "const" || varDeclStatement.qualifier.value == "let" || oldQualifier != varDeclStatement.qualifier.value || oldGender != varDeclStatement.gender?.value) {
+            //                throw new SyntaxError(`Identifier '${varDeclStatement.name}' has already been declared${oldGender != varDeclStatement.gender?.value ? ` (with gender '${oldGender}')` : ""}`);
+            //            }
+            //            if(varDeclStatement.value == undefined && varDeclStatement.qualifier.value == "var") {
+            //                return;
+            //            }
+            //        }*/
+            //        else { //in theory, this only applies to var
+            //            //using optional chaining here because i still want the distinction between var let; and var let = undefined;
+            //            decl.value = varDeclStatement.value && this.evaluate(varDeclStatement.value);
+            //        }
+            //    }else { //this will only happen for var
+            //        scope.set(varDeclStatement.name, new Variable({qualifier: varDeclStatement.qualifier, gender: varDeclStatement.gender, name: varDeclStatement.name}, varDeclStatement.value && this.evaluate(varDeclStatement.value)));
+            //    }
+            //}
+
+
+            //oh boy, i didn't write this section the way they did in the specification, but i bet i can still make it work
+            //these two methods won't really resemble the specification lol
             /** @param {VariableDeclarationStatement} varDeclStatement */
             visitVariableDeclarationStatement(varDeclStatement) {
-                //let z, w = (z = 6, 7); //to answer your curiosity, the expression is only evaluated once! let i = 0; let z, w = (i++, z=2, 3);
-                //"initializing" 2 vars with let!
-                //wait what the fuck?! when i wrote this i thought you couldn't do 2 vars at once!!
-                //apparently i could've done let z = 6, w = 7; and it would've worked
-                const scope = this.state.variables.at(-1);
-                if(scope.has(varDeclStatement.name)) {
-                    /** @type {Variable} */
-                    const decl = scope.get(varDeclStatement.name);
-                    if(decl instanceof TemporalDeadZoneVariable) { //this only applies to let and const
-                        //promote to regular var lol
-                        const temp = new Variable(decl.properties, varDeclStatement.value && this.evaluate(varDeclStatement.value));
-                        scope.set(varDeclStatement.name, temp);
-                    }/*else {
-                        //my static analysis should handle all this?
-                        const oldQualifier = decl.properties.qualifier?.value;
-                        const oldGender = decl.properties.gender?.value;
-                        if(varDeclStatement.qualifier.value == "const" || varDeclStatement.qualifier.value == "let" || oldQualifier != varDeclStatement.qualifier.value || oldGender != varDeclStatement.gender?.value) {
-                            throw new SyntaxError(`Identifier '${varDeclStatement.name}' has already been declared${oldGender != varDeclStatement.gender?.value ? ` (with gender '${oldGender}')` : ""}`);
-                        }
-                        if(varDeclStatement.value == undefined && varDeclStatement.qualifier.value == "var") {
-                            return;
-                        }
-                    }*/
-                    else { //in theory, this only applies to var
-                        //using optional chaining here because i still want the distinction between var let; and var let = undefined;
-                        decl.value = varDeclStatement.value && this.evaluate(varDeclStatement.value);
-                    }
-                }else { //this will only happen for var
-                    scope.set(varDeclStatement.name, new Variable({qualifier: varDeclStatement.qualifier, gender: varDeclStatement.gender, name: varDeclStatement.name}, varDeclStatement.value && this.evaluate(varDeclStatement.value)));
+                if(varDeclStatement.qualifier.value == "var") {
+                    //my hoisting happens before evaluation so any vars declared in a block will be moved to function or global scope, ensuring this will be correct :)
+                    //oh wait i think i'm supposed to do something else here
+                    //https://tc39.es/ecma262/#sec-globaldeclarationinstantiation
+                    this.state.CreateMutableBinding(varDeclStatement.name, false);
+                    this.state.InitializeBinding(varDeclStatement.name, undefined); // oh yeah
+                    return undefined;
                 }
+
+                //GetIdentifierReference
+                let envRecord = this.state;
+                while(envRecord != null) {
+                    if(envRecord.HasBinding(varDeclStatement.name)) {
+                        break;
+                    }
+                    envRecord = envRecord["[[OuterEnv]]"];
+                }
+
+                //Assert: envRecord != null
+                const rhs = this.evaluate(varDeclStatement.value);
+                envRecord.InitializeBinding(varDeclStatement.name, rhs);
+                return undefined;
             }
 
             /** @param {TemporalDeadZoneDeclarationStatement} temporalDeclStatement */
             visitTemporalDeclarationStatement(temporalDeclStatement) {
-                const scope = this.state.variables.at(-1);
-                scope.set(temporalDeclStatement.name, new TemporalDeadZoneVariable({qualifier: temporalDeclStatement.qualifier, gender: temporalDeclStatement.gender, name: temporalDeclStatement.name}, undefined));
+                //const scope = this.state.variables.at(-1);
+                //scope.set(temporalDeclStatement.name, new TemporalDeadZoneVariable({qualifier: temporalDeclStatement.qualifier, gender: temporalDeclStatement.gender, name: temporalDeclStatement.name}, undefined));
+                if(temporalDeclStatement.qualifier.value == "const") {
+                    this.state.CreateImmutableBinding(temporalDeclStatement.name, this.state.strict);
+                }else {
+                    this.state.CreateMutableBinding(temporalDeclStatement.name, false);
+                }
             }
             
             //oops, he desugars the for loop but i won't because idk what if i wanted to transpile this to lua or something lol
