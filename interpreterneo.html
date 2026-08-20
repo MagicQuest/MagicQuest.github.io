@@ -51,6 +51,7 @@
             <option value="consistent3">consistent3</option>
             <option value="consistent4">consistent4</option>
             <option value="consistent5">consistent5</option>
+            <option value="consistent6">strict consistent</option>
             <option value="objectliterals">every object literal property</option>
             <option value="classes">every class property</option>
             <option value="objectliteralproto">object literal prototype</option>
@@ -61,6 +62,7 @@
         </select>
     </div>
     <script>
+        //"use strict";
         const examples = {
             "basic": "let x = 5;",
             "hashbang": "#!/usr/bin/env node",
@@ -86,6 +88,7 @@
             "consistent3": "//object literal!\nlet obj = {\n    //method!\n    valueOf() {\n        return 21;\n    },\n};\n\n//unary plus to coerce\nconsole.log(+obj); // 21!",
             "consistent4": "let x = {\n    toString() {\n        console.log(\"got!\", this);\n        return \"hello world\";\n    }\n};\n\n// Cannot convert hello world to a BigInt\nBigInt(x);",
             "consistent5": "const x = Object();\nx.valueOf = function() {return NaN;};\nconsole.log(Number.isNaN(x)); // false\nconsole.log(isNaN(x)); // true",
+            "consistent6": `"use strict";\nconst obj = {};\nObject.defineProperty(obj, "property", {value: "don't delete me", configurable: false, enumerable: false, writable: false});\n\n//deleting unqualified identifier\n//error in strict mode\ndelete obj;\n\n//deleting non configurable property\n//also error in strict mode\ndelete obj.property;`,
             "objectliterals": "let variable = \"variable\";\nlet another_obj = {\"another_obj_key\": \"another_obj_value\"};\nlet x = {\n    variable,\n    y: \"identifier name property\",\n    \"string\": \"string property\",\n    0: \"numeric property\",\n    [\"computed property\"]: \"what the key said.\",\n    method() {\n    },\n    get [\"x\"]() {\n        return 421;\n    },\n    *generator() {\n    },\n    async 5() {\n    },\n    async* \"hello_generator\"() {\n    },\n    set x(newValue) {\n        console.log(newValue);\n    },\n    ...another_obj\n};\nconsole.larp(x, x.x, x=21);",
             "classes": "class all_class_properties {\n#private_field = \"private_field\";\n// #private_field; // Identifier #private_field has already been declared\n#private_method() {\n    return this.#private_field;\n};\n\nstatic #private_static_field = \"???\";\n// static #private_field; // Identifier #private_field has already been declared\nstatic #private_static_method() {\n    return \"is this even callable?\";\n};\n\nfield = \"access instance field\";\nmethod() {\n    return this.field;\n};\n\nstatic field = \"access constructor (static) field\";\nstatic method() {\n    return this.field;\n};\n\nstatic {\n    this.another_static_field = \"Hello World from this static initialization block!\";\n};\n\nconstructor() {\n    console.log(this.constructor.name, \"instantiated\");\n};\n}",
             "objectliteralproto": "const fakenum = {__proto__: Number.prototype, value: 21};\nconsole.larp(fakenum);",
@@ -536,6 +539,8 @@
                                     switch(str[this.i]) {
                                         case '0':
                                             stringToken.value += '\0';
+                                            //here is the part where i'd disallow octal escapes per https://tc39.es/ecma262/multipage/strict-mode-of-ecmascript.html#sec-strict-mode-of-ecmascript
+                                            //useStrict.at(-1)
                                             break;
                                         case '1':
                                         case '2':
@@ -689,7 +694,11 @@
                         case '-':
                             if(str[this.i] == '-') {
                                 this.i++; //consume -
-                                tokens.push(new Token(lineNumber, charNumber, TokenKind.DECREMENT, "--"));
+                                if(str[this.i] == '>') {
+                                    this.i++;
+                                }else {
+                                    tokens.push(new Token(lineNumber, charNumber, TokenKind.DECREMENT, "--"));
+                                }
                             }else if(str[this.i] == '=') {
                                 this.i++; //consume =
                                 tokens.push(new Token(lineNumber, charNumber, TokenKind.MINUS_EQUALS, "-="));
@@ -736,6 +745,21 @@
                                 }else {
                                     tokens.push(new Token(lineNumber, charNumber, TokenKind.BITWISE_SHIFT_LEFT, "<<"));
                                 }
+                            }else if(str[this.i] == '!') {
+                                this.i++;
+                                if(str[this.i] == '-') {
+                                    this.i++;
+                                    if(str[this.i] == '-') {
+                                        this.i++;
+                                        //comment
+                                        this.i = str.indexOf("\n", this.i);
+                                        if(this.i == -1) this.i = str.length;
+                                        break;
+                                    }
+                                }
+                                //uhh since we already consume the exclamation let's just throw lol
+                                //no production allows '<!' so i'm pretty sure it's fine
+                                return Unexpected(new ParseError(lineNumber, charNumber, "Unexpected token '<'"));
                             }else {
                                 tokens.push(new Token(lineNumber, charNumber, TokenKind.LESS_THAN, "<"));
                             }
@@ -1027,6 +1051,7 @@
                                         //normal
                                         while(isNumberRegex.test(str[this.i]) || str[this.i] == '_') {
                                             if(impliedOctal && !octalRegex.test(str[this.i])) {
+                                                if(useStrict.at(-1)) return Unexpected(new ParseError(lineNumber, charNumber, "Decimals with leading zeros are not allowed in strict mode."));
                                                 impliedOctal = false;
                                             }
                                             numberString += str[this.i++]; //consume via i++
@@ -1081,6 +1106,11 @@
                                 }
                                 if(numberString.indexOf("_") != -1) {
                                     return Unexpected(new ParseError(lineNumber, charNumber, "FUCK those number separators!"));
+                                }
+                                if(impliedOctal && useStrict.at(-1)) {
+                                    //https://tc39.es/ecma262/multipage/strict-mode-of-ecmascript.html#sec-strict-mode-of-ecmascript (#2)
+                                    //nu.
+                                    return Unexpected(new ParseError(lineNumber, charNumber, "Octal literals are not allowed in strict mode."));
                                 }
                                 if(str[this.i] == "n") {
                                     this.i++; //consume
@@ -1297,9 +1327,9 @@
          * @param {Expression} expression
          */
         //this could be a visitor too lol!
-        function isValidLeftHandAssignment(expression, depth = 0) {
+        function isValidLeftHandAssignment(strict, expression, depth = 0) {
             if(expression instanceof BinaryExpression) {
-                let valid = isValidLeftHandAssignment(expression.left, depth+1);
+                let valid = isValidLeftHandAssignment(strict, expression.left, depth+1);
                 if(!valid) {
                     return false;
                 }
@@ -1308,7 +1338,7 @@
                     case TokenKind.DOT:
                     case TokenKind.OPEN_PARENTHESIS:
                     case TokenKind.OPEN_BRACKET:
-                        return isValidLeftHandAssignment(expression.right, depth+1);
+                        return isValidLeftHandAssignment(strict, expression.right, depth+1);
                         break;
                     
                     default:
@@ -1316,9 +1346,17 @@
                         break;
                 }
             }else if(expression instanceof FunctionCallExpression && depth != 0) { // a function expression is not assignable! if we just entered this function (depth == 0), don't allow this!
-                return isValidLeftHandAssignment(expression.functionExpr, depth+1);
+                return isValidLeftHandAssignment(strict, expression.functionExpr, depth+1);
             }else if(expression instanceof IdentifierExpression) {
-                return depth != 0 || expression.nameToken.value != "this"; //this is not assignable!
+                if(depth != 0) {
+                    return true;
+                }
+                if(strict && (expression.nameToken.value == "arguments" || expression.nameToken.value == "eval")) {
+                    //we'll just throw the error here since i can't change the error message for every time i call isValidwhateverthefuckthisfunctioniscalled
+                    //https://tc39.es/ecma262/multipage/strict-mode-of-ecmascript.html#sec-strict-mode-of-ecmascript (#5)
+                    throw new ParseError(expression.nameToken.line, expression.nameToken.char, "Unexpected eval or arguments in strict mode");
+                }
+                return expression.nameToken.value != "this"; //this is not assignable!
             }
             return depth != 0; //return false if depth == 0
         }
@@ -2075,7 +2113,7 @@
              * @param {Array<{identifier: IdentifierExpression, default: Expression | undefined}>} paramList
              * @param {Statement} body
              * @param {ThisMode} thisMode
-             * @param {Array<Map<String, Variable>>} envRecord
+             * @param {EnvironmentRecord} envRecord
              * @param {PrivateEnvironment | null} privateEnv
              */
             static OrdinaryFunctionCreate(interpreter, proto, sourceText, paramList, body, thisMode, envRecord, privateEnv) {
@@ -2089,7 +2127,7 @@
                 func.formalParameters = paramList;
                 func.ECMAScriptCode = body;
                 //IsStrict(body);
-                const strict = false;
+                const strict = body.strict;
                 func.strict = strict;
                 if(thisMode == ThisMode.LEXICAL) {
                     func.thisMode = ThisMode.LEXICAL;
@@ -3442,6 +3480,13 @@
             static NON_LEXICAL_THIS = 4;
         }
 
+        //for FunctionEnvironmentRecord
+        class BindingStatus {
+            static LEXICAL = 1;
+            static INITIALIZED = 2;
+            static UNINITIALIZED = 3;
+        }
+
         class ConstructorKind {
             static BASE = 1;
             static DERIVED = 2;
@@ -3468,44 +3513,115 @@
 
             //definitely not in the specification!
             //isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetailCommaThisIsActuallyTheNameOfThisFunctionForTheScopeLol;
-            functionNameForScopeOfFunctionExpressions;
+            //functionNameForScopeOfFunctionExpressions;
 
             //https://tc39.es/ecma262/#sec-ecmascript-function-objects-call-thisargument-argumentslist
             ["[[Call]]"](thisArg, argList = []) {
                 //bound functions are their own *exotic* objects so they will call this method with the appropriate thisArg and argList as seen here https://tc39.es/ecma262/#sec-bound-function-exotic-objects-call-thisargument-argumentslist
                 //we're mostly gonna copy what FunctionWrapper::invoke said
 
-                const old = this.interpreter.state.variables;
-                this.interpreter.state.variables = this.environment;
-                const scope = new Map();
-                this.environment.push(scope);
+                //const old = this.interpreter.state.variables;
+                //this.interpreter.state.variables = this.environment;
+                //const scope = new Map();
+                //this.environment.push(scope);
+
+                //const calleeContext = ECMAScript.PrepareForOrdinaryCall(this, undefined);
+
+                //PrepareForOrdinaryCall
+                const callerContext = this.interpreter.state;
+
+                let calleeContext = {};
+                {
+                    const localEnv = new FunctionEnvironmentRecord(this, undefined);
+                    calleeContext.lexicalEnvironment = localEnv;
+                    calleeContext.variableEnvironment = localEnv;
+                    calleeContext.privateEnvironment = this.privateEnvironment;
+                }
+                this.interpreter.state = calleeContext.lexicalEnvironment; //idk bruh we've lost the plot
 
                 if(this.isClassConstructor) {
-                    this.environment.pop();
-                    this.interpreter.state.variables = old;
+                    //this.environment.pop();
+                    //this.interpreter.state.variables = old;
+                    this.interpreter.state = callerContext;
                     throw TypeError(`Class constructor ${this.classFieldInitializerName} cannot be invoked without 'new'`);
                 }
 
                 //https://tc39.es/ecma262/#sec-ordinarycallbindthis
                 if(this.thisMode == ThisMode.LEXICAL) {
                     //return UNUSED;
-                }else if(thisArg == undefined || thisArg == null) {
-                    const thisValue = globalThis;
-                    scope.set("this", new Variable({qualifier: {line: 1, char: 1, value: "const", kind: TokenKind.RESERVED}, gender: undefined, name: "this"}, thisValue));
                 }else {
-                    const thisValue = ECMAScript.ToObject(thisArg);
-                    scope.set("this", new Variable({qualifier: {line: 1, char: 1, value: "const", kind: TokenKind.RESERVED}, gender: undefined, name: "this"}, thisValue));
+                    const localEnv = calleeContext.lexicalEnvironment;
+                    let thisValue;
+                    if(this.thisMode == ThisMode.STRICT) {
+                        thisValue = thisArg;
+                    }else if(thisArg == undefined || thisArg == null) {
+                        //const thisValue = globalThis;
+                        //scope.set("this", new Variable({qualifier: {line: 1, char: 1, value: "const", kind: TokenKind.RESERVED}, gender: undefined, name: "this"}, thisValue));
+                        thisValue = this.interpreter["[[GlobalEnv]]"]["[[GlobalThisValue]]"];
+                    }else {
+                        thisValue = ECMAScript.ToObject(thisArg);
+                        // scope.set("this", new Variable({qualifier: {line: 1, char: 1, value: "const", kind: TokenKind.RESERVED}, gender: undefined, name: "this"}, thisValue));
+                    }
+                    //Assert: localEnv instanceof FunctionEnvironmentRecord
+                    //BindThisValue
+                    if(localEnv["[[ThisBindingStatus]]"] == BindingStatus.INITIALIZED) {
+                        throw ReferenceError("localEnv[\"[[ThisBindingStatus]]\"] == BindingStatus.INITIALIZED"); //i can't imagine what this error would be... (damn i don't know how all ts works to attempt to trigger this one...)
+                    }
+                    localEnv["[[ThisValue]]"] = thisValue;
+                    localEnv["[[ThisBindingStatus]]"] = BindingStatus.INITIALIZED;
                 }
 
-                if(this.functionNameForScopeOfFunctionExpressions) {
-                    scope.set(this.functionNameForScopeOfFunctionExpressions, new Variable({qualifier: {line: 1, char: 1, value: "var", kind: TokenKind.RESERVED}, name: this.functionNameForScopeOfFunctionExpressions, gender: undefined}, this));
-                }
+                //this is now handled in visitFunctionStatement by setting closure to a new DeclarativeEnvironmentRecord
+                //if(this.functionNameForScopeOfFunctionExpressions) {
+                //    scope.set(this.functionNameForScopeOfFunctionExpressions, new Variable({qualifier: {line: 1, char: 1, value: "var", kind: TokenKind.RESERVED}, name: this.functionNameForScopeOfFunctionExpressions, gender: undefined}, this));
+                //}
+
+                //OrdinaryCallEvaluateBody
+                //EvaluateFunctionBody
+                //FunctionDeclarationInstantiation
+
+                //https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-functiondeclarationinstantiation
 
                 //oops, the arguments object is supposed to be set here!
                 //scope.set("arguments", new Variable({qualifier: {line: 1, char: 1, value: "let", kind: TokenKind.RESERVED}, gender: undefined, name: "arguments"}, ));
 
+                let argumentsObjNeeded = true;
+
+                const hasParamExprs = this.formalParameters.filter(p=>p.default).length != 0;
+                let hasDuplicates = false;
+                {
+                    const seen = new Map();
+                    for(const {identifier, default: $default} of this.formalParameters) {
+                        const name = identifier.nameToken.value;
+                        if(seen.has(name)) {
+                            hasDuplicates = true;
+                            break;
+                        }
+                        seen.set(name, true);
+                    }
+                }
+
+                if(this.thisMode == ThisMode.LEXICAL || this.formalParameters.find(p=>p.identifier.nameToken.value=="arguments") != undefined) {
+                    argumentsObjNeeded = false;
+                }else if(!hasParamExprs) {
+                    //we're supposed to check all function and lexical declaration names here but my shit lowkey doesn't work like that
+                }
+
+                let envRecord;
+                
+                if(this.strict || !hasParamExprs) {
+                    envRecord = calleeContext.lexicalEnvironment; //lexical environment
+                }else {
+                    envRecord = new DeclarativeEnvironmentRecord(calleeContext.lexicalEnvironment); //lexical environment
+                    //Assert: calleeContext.variableEnvironment == calleeContext.lexicalEnvironment
+                    //https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-functiondeclarationinstantiation (step 20.d)
+                    calleeContext.lexicalEnvironment = envRecord;
+                    this.interpreter.state = calleeContext.lexicalEnvironment; //i guess this goes here too unless i write this correctly!
+                }
+
                 for(let i = 0; i < this.formalParameters.length; i++) {
                     const {identifier, default: $default} = this.formalParameters[i];
+                    /*
                     let value = undefined;
                     if(i < argList.length) {
                         value = argList[i];
@@ -3519,7 +3635,99 @@
 
                     //we are cheating by saying the parameter variable has been declared with var so that var is allowed to shadow it or whatever var does (because this allowed)
                     scope.set(identifier.nameToken.value, new Variable({qualifier: {line: 1, char: 1, value: "var", kind: TokenKind.RESERVED}, name: identifier.nameToken.value, gender: undefined}, value));
+                    */
+                   const name = identifier.nameToken.value;
+                    if(!envRecord.HasBinding(name)) {
+                        let value = undefined;
+                        envRecord.CreateMutableBinding(name, false);
+                        if(hasDuplicates) {
+                            envRecord.InitializeBinding(name, undefined);
+                        }
+                    }
                 }
+
+                if(argumentsObjNeeded) {
+                    let argumentsObj;
+                    if(this.strict || hasParamExprs) {
+                        console.error("argumentsObj = ECMAScript.CreateUnmappedArgumentsObject(argList);");
+                        //argumentsObj = ECMAScript.CreateUnmappedArgumentsObject(argList);
+                    }else {
+                        console.error("argumentsObj = ECMAScript.CreateMappedArgumentsObject(argList);");
+                        //argumentsObj = ECMAScript.CreateMappedArgumentsObject(argList);
+                    }
+                    if(this.strict) {
+                        envRecord.CreateImmutableBinding("arguments", false); //allegedly being in strict mode stops you from trying to assign to arguments anyways (but did i do that?)
+                    }else {
+                        envRecord.CreateMutableBinding("arguments", false);
+                    }
+                    envRecord.InitializeBinding("arguments", argumentsObj);
+                }
+
+                //let usedEnv;
+                //
+                //if(hasDuplicates) {
+                //    usedEnv = undefined;
+                //}else {
+                //    usedEnv = envRecord;
+                //}
+
+                //IteratorBindingInitialization(..., usedEnv) (which i assume initializes the parameters?)
+                //ah yes, SingleNameBinding seems to be doing what i expected!
+                for(let i = 0; i < this.formalParameters.length; i++) {
+                    const {identifier, default: $default} = this.formalParameters[i];
+                    // const ref = identifier.accept(this.interpreter);
+                    const ref = this.interpreter.ResolveBinding(identifier.nameToken.value, envRecord);
+                    let value = undefined;
+                    if(i < argList.length) {
+                        value = argList[i];
+                    }else if($default) {
+                        //oh my god i wasn't calling evaluate here!
+                        // value = $default?.accept(this.interpreter);
+
+                        //hmm this is getting weird calling evaluate though...
+                        value = this.interpreter.evaluate($default);
+                    }
+                    if(hasDuplicates) {
+                        //PutValue
+                        this.interpreter.PutValue(ref, value);
+                    }else {
+                        //InitializeReferencedBinding
+                        //Assert: ref.base != undefined
+                        //Assert: ref.base instanceof EnvironmentRecord
+                        ref.base.InitializeBinding(ref.referencedName, value);
+                    }
+                }
+
+                let variableEnv;
+
+                if(!hasParamExprs) {
+                    //...
+                    variableEnv = envRecord;
+                }else {
+                    //let variableEnv = new DeclarativeEnvironmentRecord(envRecord);
+                    //oh man, what's all this talk of a "LexicalEnvironment" and a "VariableEnvironment"
+                    //surely one environment was enough!
+                    //why is this so complicated and how the hell is this distinction important?
+
+                    variableEnv = new DeclarativeEnvironmentRecord(envRecord);
+                    calleeContext.variableEnvironment = variableEnv;
+                }
+
+                let lexicalEnv;
+
+                if(this.strict) {
+                    lexicalEnv = variableEnv;
+                }else {
+                    //Block-Level Function Declarations Web Legacy Compatibility Semantics
+                    //...
+                    //...
+                    //...
+                    lexicalEnv = new DeclarativeEnvironmentRecord(variableEnv);
+                    //c. NOTE: Non-strict functions use a separate Environment Record for top-level lexical declarations so that a direct eval can determine whether any var scoped declarations introduced by the eval code conflict with pre-existing top-level lexically scoped declarations. This is not needed for strict functions because a strict direct eval always places all declarations into a new Environment Record.
+                }
+
+                calleeContext.lexicalEnvironment = lexicalEnv;
+                this.interpreter.state = calleeContext.lexicalEnvironment; //i guess this goes here too unless i write this correctly!
                 
                 //evaluate...
                 let retval = undefined;
@@ -3532,8 +3740,9 @@
                     retval = e; //the return expression is evaluated when we reach it (i honestly wasn't sure if that was the right move, but with scopes you could try to return a local var!)
                 }
 
-                this.environment.pop();
-                this.interpreter.state.variables = old;
+                //this.environment.pop();
+                //this.interpreter.state.variables = old;
+                this.interpreter.state = callerContext;
                 return retval;
             }
 
@@ -4152,7 +4361,7 @@
                 this.scope.push(new StaticAnalysisScope("block", tdzStatements));
                 const forVar = this.variableDeclarationOrExpression(gender, qualifier);
                 if(forVar instanceof Expression) {
-                    if(!isValidLeftHandAssignment(forVar)) {
+                    if(!isValidLeftHandAssignment(this.useStrict, forVar)) {
                         throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Invalid left-hand side in for-loop"); //byeah
                     }
                 }
@@ -4281,7 +4490,7 @@
                     //    throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Invalid left-hand side in assignment");
                     //}
                     // if(!isValidLeftHandAssignment(expr) || this.tokens[this.i-1].kind == TokenKind.CLOSING_PARENTHESIS) {
-                    if(!isValidLeftHandAssignment(expr)) {
+                    if(!isValidLeftHandAssignment(this.useStrict, expr)) {
                         throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Invalid left-hand side in assignment");
                     }
                     //damn if i wrote mine like he wrote his assignment grammar this would be easier!
@@ -4398,8 +4607,21 @@
                     const doesAssignment = this.peek(TokenKind.DECREMENT) || this.peek(TokenKind.INCREMENT);
                     const operator = this.tokens[this.i++];
                     const expr = this.unary_prefix();
-                    if(doesAssignment && !isValidLeftHandAssignment(expr)) {
+                    if(doesAssignment && !isValidLeftHandAssignment(this.useStrict, expr)) {
                         throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Invalid left-hand side expression in prefix operation");
+                    }else if(operator.value == "delete") {
+                        //https://tc39.es/ecma262/multipage/ecmascript-language-expressions.html#sec-delete-operator
+                        //am i reading the specification wrong?
+                        //yet again it says we must be in strict mode but devtools will throw with private properties anyways!
+                        //i'm still chuffed about this and i swear it seems like this applies only in strict mode!
+                        if(this.useStrict) {
+                            if(expr instanceof IdentifierExpression) {
+                                throw new ParseError(operator.line, operator.char, "Delete of an unqualified identifier in strict mode."); //SyntaxError
+                            }
+                        }
+                        if(expr instanceof BinaryExpression && expr.right instanceof PrivateIdentifierExpression) {
+                            throw new ParseError(operator.line, operator.char, "Private fields can not be deleted");
+                        }
                     }
                     return new UnaryExpression(false, operator, expr); //right associative
                 }else {
@@ -4410,7 +4632,7 @@
             unary_postfix() {
                 let expr = this.new_operator();
                 if(this.peek(TokenKind.DECREMENT) || this.peek(TokenKind.INCREMENT)) {
-                    if(!isValidLeftHandAssignment(expr)) {
+                    if(!isValidLeftHandAssignment(this.useStrict, expr)) {
                         throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Invalid left-hand side expression in postfix operation");
                     }
                     expr = new UnaryExpression(true, this.tokens[this.i++], expr);
@@ -4759,13 +4981,14 @@
                     ...another_obj
                 };
                 */
+                const assignmentTokenKind = inClass ? TokenKind.EQUALS : TokenKind.COLON;
                 if(this.peek(TokenKind.SPREAD) && !inClass) {
                     //FAWK. (FACK)
                     this.i++; //consume
                     const key = this.unary_misc();
                     return [new SpreadExpressionToBeEvaluatedManuallyBecauseContextIsImportant(key), undefined];
                 //}else if(this.peek(TokenKind.IDENTIFIER)) {
-                }else if((this.peek(TokenKind.IDENTIFIER) && (this.tokens[this.i].value == "get" || this.tokens[this.i].value == "set" || this.tokens[this.i].value == "async") || this.peekNext(TokenKind.OPEN_PARENTHESIS)) || this.peek(TokenKind.ASTERISK)) {
+                }else if(((this.peek(TokenKind.IDENTIFIER) && (this.tokens[this.i].value == "get" || this.tokens[this.i].value == "set" || this.tokens[this.i].value == "async") && !this.peekNext(assignmentTokenKind)) || this.peekNext(TokenKind.OPEN_PARENTHESIS)) || this.peek(TokenKind.ASTERISK)) {
                     //let generator = false;
                     //let async = false;
                     //if(this.tokens[this.i].value == "async") {
@@ -4783,10 +5006,9 @@
                     //return [key, this.doCommonFunctionStuff(undefined, async, undefined, generator, key, FunctionKind.METHOD)];
                     return this.MethodDefinition(inClass);
                 }else {
-                    const assignmentToken = inClass ? TokenKind.EQUALS : TokenKind.COLON;
                     const temp = this.tokens[this.i];
                     let key;
-                    if(this.peek(TokenKind.IDENTIFIER) && !this.peekNext(assignmentToken)) {
+                    if(this.peek(TokenKind.IDENTIFIER) && !this.peekNext(assignmentTokenKind)) {
                         //{variable}
                         key = this.tokens[this.i++]; //we set the key to the actual token so that printer can tell
                     }else {
@@ -4797,7 +5019,7 @@
                         }
                     }
                     let value;
-                    if(this.match(assignmentToken)) {
+                    if(this.match(assignmentTokenKind)) {
                         //{key: value}
                         value = this.unary_misc();
                     }else if(inClass) {
@@ -4895,6 +5117,10 @@
              * @param {Token} name
              */
             doCommonIdentifierDeclStuff(gender, qualifier, name) {
+                if(this.useStrict && (name.value == "eval" || name.value == "arguments")) {
+                    throw new ParseError(name.line, name.char, "Unexpected eval or arguments in strict mode");
+                }
+
                 let value = undefined;
                 const equals = this.match(TokenKind.EQUALS);
                 //this probably shouldn't happen this way but hush!
@@ -4926,7 +5152,31 @@
                 }
                 if(scope.variables.has(name.value)) {
                     const old = scope.variables.get(name.value);
-                    if(qualifier.value != "var" || qualifier.value != old.qualifier.value || gender?.value != old.gender?.value) { //we can redeclare with var, but not with let or const!
+                    if(old.qualifier.value == "function" && qualifier.value == "var") {
+                        //oh boy the plot is getting lost
+
+                        //this behavior is also seen in function blocks!
+                        //function abc() {}
+                        //var abc = 5;
+                        //abc; // 5
+
+                        //var abc = 5;
+                        //function abc() {}
+                        //abc; // 5
+
+                        //{
+                        //  var abc = 5;
+                        //  function abc() {} // Identifier 'abc' has already been declared
+                        //}
+
+                        //{
+                        //  function abc() {}
+                        //  var abc = 5; // Identifier 'abc' has already been declared
+                        //}
+                        if(scope.kind == "block") {
+                            throw new ParseError(name.line, name.char, `Identifier '${name.value}' has already been declared!`);
+                        }
+                    }else if(qualifier.value != "var" || qualifier.value != old.qualifier.value || gender?.value != old.gender?.value) { //we can redeclare with var, but not with let or const!
                         //bad (boy | girl | thing)!
                         //i forgot where i wrote this originally but i just knew this was where it should go once more...
                         throw new ParseError(name.line, name.char, `Identifier '${name.value}' has already been declared!`);
@@ -4962,11 +5212,19 @@
                 const scope = this.scope[this.scope.length-1];
                 let $var;
                 if(kind == FunctionKind.FUNCTION) { // the name of a function expression is not hoisted and is only accessable by the parameters and body of the function!
-                    if(scope.variables.has(name.value)) {
+                    if(scope.variables.has(name.value)) { //bruh this happens here and in doCommonIdentifierDeclStuff
                         const old = scope.variables.get(name.value);
                         if(old.qualifier.value != "function") {
-                            throw new ParseError(name.line, name.char, `Identifier '${name.value}' has already been declared!`);
+                            if(old.qualifier.value == "var") {
+                                if(scope.kind == "block") {
+                                    throw new ParseError(name.line, name.char, `Identifier '${name.value}' has already been declared!`);
+                                }
+                                //don't throw if var but not in block
+                            }else {
+                                throw new ParseError(name.line, name.char, `Identifier '${name.value}' has already been declared!`);
+                            }
                         }
+                        //in a very quirky way, if a var was declared with the same name, this function doesn't actually replace the variable because $var's qualifier is "var" and not "function"
                         $var = scope.variables.get(name.value);
                     }else {
                         $var = new StaticAnalysisFunctionVariable(gender || undefined, funcToken, name);
@@ -4996,6 +5254,7 @@
                     //(function sum(x = sum, sum) { // V8: Cannot access 'sum' before initialization
                     //  console.log(x, sum);
                     //})();
+                    //ok nevermind i fixed it :)
                     scopeRef.variables.set(name.value, new StaticAnalysisVariable(undefined, {line: 1, char: 1, value: "var", kind: TokenKind.RESERVED}, name.value));
                 }
 
@@ -5025,6 +5284,22 @@
                 this.directivePrologue(); //if useStrict is now true, the function body had the "use strict" directive!
                 this.i = currentIndex;
 
+                //if we're now in strict mode or we've been in strict mode
+                if(old || this.useStrict) {
+                    functionBody.strict = true; //this is important! in strict mode functions don't automagically have their 'this' value be globalThis!
+                    if(name && (kind == FunctionKind.FUNCTION || kind == FunctionKind.EXPRESSION)) {
+                        if(name.value == "eval" || name.value == "arguments") {
+                            throw new ParseError(name.line, name.char, "Unexpected eval or arguments in strict mode");
+                        }
+                    }
+                    for(const parameter of parameters) {
+                        const name = parameter.identifier.nameToken.value;
+                        if(name == "eval" || name == "arguments") {
+                            throw new ParseError(parameter.identifier.nameToken.line, parameter.identifier.nameToken.char, "Unexpected eval or arguments in strict mode");
+                        }
+                    }
+                }
+
                 //aw damn this shit is wrong bruh
                 //if((functionBody.statements[0] instanceof ExpressionStatement) && functionBody.statements[0].expression?.value == "use strict") {
                 if(this.useStrict) {
@@ -5042,16 +5317,24 @@
                     //}
                     
                     for(const parameter of parameters) {
-                        if(JavascriptLexer.strict_reserved.has(parameter.identifier.nameToken.value)) {
+                        const name = parameter.identifier.nameToken.value;
+                        if(JavascriptLexer.strict_reserved.has(name)) {
                             throw new ParseError(parameter.identifier.nameToken.line, parameter.identifier.nameToken.char, "Unexpected strict mode reserved word");
                         }
                     }
 
+                    //https://tc39.es/ecma262/multipage/ecmascript-language-functions-and-classes.html#sec-function-definitions-static-semantics-early-errors
                     if(name && (kind == FunctionKind.FUNCTION || kind == FunctionKind.EXPRESSION)) {
                         if(JavascriptLexer.strict_reserved.has(name.value)) {
                             throw new ParseError(name.line, name.char, "Unexpected strict mode reserved word");
                         }
                     }
+                }
+
+                if(kind == FunctionKind.FUNCTION || kind == FunctionKind.EXPRESSION) {
+                    //we now need to check if there are any super properties or super calls :/
+                    //throw Error("Here's the part where we check for SuperProperty or SuperCall in formal parameters and function body");
+                    console.error("Here's the part where we check for SuperProperty or SuperCall in formal parameters and function body");
                 }
 
                 this.useStrict = old; // restore
@@ -5249,6 +5532,11 @@
                     if(duplicateMap.has(identifier.nameToken.value)) {
                         const $$default = duplicateMap.get(identifier.nameToken.value);
                         if($$default || $default) {
+                            //welp, now we know why this is needed!
+                            //(function sum(x = sum, sum, x) {
+                            //    console.log(x, sum);
+                            //})();
+                            //hasDuplicates is true, so all parameters get initialized! this means we'd be able to use sum before it appeared in the parameter list
                             throw new ParseError(identifier.nameToken.line, identifier.nameToken.char, "Duplicate parameter name not allowed in this context"); //apparently, you can't have duplicate parameter names if you try to give one a default value! (the first time i've ever seen this error was yesterday!)
                         }
                     }
@@ -5444,7 +5732,7 @@
                             if(initialization_or_decl instanceof Expression) {
                                 //we need to make sure the left hand side is valid! (somehow)
                                 //...
-                                if(!isValidLeftHandAssignment(initialization_or_decl)) {// || this.tokens[this.i-1].kind == TokenKind.CLOSING_PARENTHESIS) {
+                                if(!isValidLeftHandAssignment(this.useStrict, initialization_or_decl)) {// || this.tokens[this.i-1].kind == TokenKind.CLOSING_PARENTHESIS) {
                                     throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Invalid left-hand side in for-loop"); //this is not exactly the same as v8 because it shows this error instead of the previous one if you use var!
                                 }
                             }
@@ -5693,24 +5981,25 @@
                 const statements = scope.blockStatementArray;
                 /** @type {Array<StaticAnalysisFunctionVariable>} */
                 const tempFunctions = [];
-                let i = 0;
-                for(i; i < scope.hoisted.length; i++) {
-                    const $var = scope.hoisted[i];
+                let j = 0;
+                for(const $var of scope.hoisted) {
                     if($var.qualifier.value == "var") {
                         //splicing at i so they're in order even though that's probably not important
-                        statements.splice(i, 0, new VariableDeclarationStatement($var.gender, $var.qualifier, $var.name.value, undefined));
+                        statements.splice(j, 0, new VariableDeclarationStatement($var.gender, $var.qualifier, $var.name.value, undefined));
+                        j++;
+                    }else if($var.qualifier.value == "function") {
+                        //with my new implementation, do function need the temporal dead zone? (or did they ever?)
+                        tempFunctions.push($var);
                     }else {
                         //temporal dead zone...
-                        statements.splice(i, 0, new TemporalDeadZoneDeclarationStatement($var.gender, $var.qualifier, $var.name.value, undefined));
-                        if($var.qualifier.value == "function") {
-                            tempFunctions.push($var);
-                        }
+                        statements.splice(j, 0, new TemporalDeadZoneDeclarationStatement($var.gender, $var.qualifier, $var.name.value, undefined));
+                        j++;
                     }
                 }
                 for(const $var of tempFunctions) {
                     //we put actual functions after all declarations so that the functions can reference each other as well as all local variables
-                    statements.splice(i, 0, $var.statement);
-                    i++;
+                    statements.splice(j, 0, $var.statement);
+                    j++;
                 }
 
                 // this.hoistedVars = [];
@@ -5742,7 +6031,8 @@
                 this.directivePrologue();
 
                 //i'm being lazy as FUCK here because i just remembered the lexer and parser have access to the interpreter
-                this.interpreter.state.strict = this.useStrict;
+                // this.interpreter.state.strict = this.useStrict;
+                this.interpreter.state.SetStrict(this.useStrict);
 
                 ///** @type {Array<Statement>} */
                 //const statements = [];
@@ -6014,7 +6304,10 @@
                     //"use strict";
                     //x = (delete x, 0);
                     //no no no this isn't the right error?
-                    throw new ReferenceError("Delete of an unqualified identifier in strict mode."); //how exactly would i trigger this error? with statements don't exist in strict mode (wait the global object uses an object environment)
+                    // throw new ReferenceError("Delete of an unqualified identifier in strict mode."); //how exactly would i trigger this error? with statements don't exist in strict mode (wait the global object uses an object environment)
+                    
+                    //surely this is the right one? (yet again how could i trigger this?)
+                    throw new ReferenceError(`${name} is not defined`);
                 }
                 //Set
                 if(!this["[[BindingObject]]"]["[[Set]]"](name, value, this["[[BindingObject]]"]) && strict) {
@@ -6059,7 +6352,37 @@
         }
 
         class FunctionEnvironmentRecord extends DeclarativeEnvironmentRecord {
-            
+            ["[[ThisValue]]"];
+            ["[[ThisBindingStatus]]"];
+            ["[[FunctionObject]]"];
+            ["[[NewTarget]]"];
+
+            //https://tc39.es/ecma262/#sec-newfunctionenvironment
+            constructor(func, newTarget) {
+                super(func.environment);
+                this["[[FunctionObject]]"] = func;
+                if(func.thisMode == ThisMode.LEXICAL) {
+                    this["[[ThisBindingStatus]]"] = BindingStatus.LEXICAL;
+                }else {
+                    this["[[ThisBindingStatus]]"] = BindingStatus.UNINITIALIZED; //UNINITIALIZED
+                }
+                this["[[NewTarget]]"] = newTarget;
+                // this["[[DisposableResourceStack]]"] = []; //handled by super
+            }
+
+            HasThisBinding() /*override*/ {
+                return this["[[ThisBindingStatus]]"] != BindingStatus.LEXICAL;
+            }
+
+            GetThisBinding() /*override*/ {
+                //Assert: this["[[ThisBindingStatus]]"] == BindingStatus.LEXICAL;
+                if(this["[[ThisBindingStatus]]"] == BindingStatus.UNINITIALIZED) throw ReferenceError(); //how the hell could i possibly trigger this error?!
+                return this["[[ThisValue]]"];
+            }
+
+            HasSuperBinding() /*override*/ {
+                return !(this["[[ThisBindingStatus]]"] == BindingStatus.LEXICAL || this["[[FunctionObject]]"]["[[HomeObject]]"] == undefined);
+            }
         }
 
         class GlobalEnvironmentRecord extends EnvironmentRecord {
@@ -6073,12 +6396,17 @@
             //https://tc39.es/ecma262/multipage/executable-code-and-execution-contexts.html#sec-newglobalenvironment
             constructor(strict, obj, thisValue) {
                 super(null);
-                this.strict = strict; //nonstandard
                 this["[[ObjectRecord]]"] = new ObjectEnvironmentRecord(obj, false, null);
                 this["[[DeclarativeRecord]]"] = new DeclarativeEnvironmentRecord(null);
-                this["[[ObjectRecord]]"].strict = strict; //nonstandard
-                this["[[DeclarativeRecord]]"].strict = strict; //nonstandard
+                this.SetStrict(strict);
                 this["[[GlobalThisValue]]"] = thisValue;
+            }
+
+            //nonstandard
+            SetStrict(strict) {
+                this.strict = strict;
+                this["[[ObjectRecord]]"].strict = strict;
+                this["[[DeclarativeRecord]]"].strict = strict;
             }
 
             HasBinding(name) /*override*/ {
@@ -6161,8 +6489,9 @@
             //runtime
             //scope;
             //state = new RuntimeState;
-            state;
-            ["[[GlobalObject]]"]; //does that make JavascriptInterpreter currentRealm?
+            state; //technically, state is actually the current execution context's lexical environment (side note, variable environment is only mentioned by name 18 times in the whole specification, do i really need to implement that?)
+            ["[[GlobalObject]]"]; //does that make JavascriptInterpreter currentRealm? (yeah i think JavascriptInterpreter qualifies as a Realm)
+            ["[[GlobalEnv]]"];
 
             constructor() {
                 super();
@@ -7315,7 +7644,11 @@
                         const propertyKey = ECMAScript.ToPropertyKey(argList[1]);
                         const propertyDesc = ECMAScript.ToPropertyDescriptor(argList[2]);
                         if(!argList[0]["[[DefineOwnProperty]]"](propertyKey, propertyDesc)) {
-                            throw TypeError(`Failed to set property '${propertyKey}' on object`);
+                            // const obj = {};
+                            // Object.defineProperty(obj, "property", {value: "don't configure me", configurable: false, enumerable: false, writable: false});
+                            // Object.defineProperty(obj, "property", {get: function() {}, configurable: true, enumerable: true});
+                            //throw TypeError(`Failed to set property '${propertyKey}' on object`);
+                            throw TypeError(`Cannot redefine property: ${propertyKey}`);
                         }
                         return argList[0];
                     },
@@ -8204,8 +8537,10 @@
                     0, "larp", [], this
                 );
 
-                this.state = new GlobalEnvironmentRecord(globalObj, globalObj);
+                this["[[GlobalEnv]]"] = new GlobalEnvironmentRecord(false, globalObj, globalObj);
                 this["[[GlobalObject]]"] = globalObj;
+
+                this.state = this["[[GlobalEnv]]"];
             }
 
             parse(str) {
@@ -8456,12 +8791,18 @@
                 //return globalThis[identifierExpression.nameToken.value];
 
                 //purrhaps this is where i got this part from?
+                //https://tc39.es/ecma262/#sec-identifiers-runtime-semantics-evaluation
                 //https://tc39.es/ecma262/multipage/executable-code-and-execution-contexts.html#sec-resolvebinding
                 //https://tc39.es/ecma262/multipage/executable-code-and-execution-contexts.html#sec-getidentifierreference
 
                 //i won't write it exactly the same though so that globalThis properties can still be accessed (for the lolz)
 
                 const name = identifierExpression.nameToken.value;
+                if(name == "this") {
+                    //LOL!
+                    //this should be its own expression but shh!
+                    return this.GetThisEnvironment().GetThisBinding();
+                }
 
                 //if(this.state.variables.has(name)) {
                 //    return this.state.variables.get(name).value;
@@ -8482,20 +8823,11 @@
                 //    }
                 //}
 
-                let envRecord = this.state;
-
-                while(envRecord != null) {
-                    if(envRecord.HasBinding(name)) {
-                        return new ReferenceRecord(envRecord, name, this.state.strict, undefined); //EMPTY
-                    }
-                    envRecord = envRecord["[[OuterEnv]]"];
-                }
-
                 //if(!(name in globalThis)) {
                 //    throw new ReferenceError(`${name} is not defined`);
                 //}
                 //return globalThis[name];
-                return new ReferenceRecord((name in globalThis) ? globalThis : undefined /*UNRESOLVABLE*/, name, this.state.strict, undefined); //EMPTY
+                return this.ResolveBinding(name) || new ReferenceRecord((name in globalThis) ? globalThis : undefined /*UNRESOLVABLE*/, name, this.state.strict, undefined); //EMPTY
                 //good god man.
                 //return new class extends Variable {
                 //    get() {
@@ -8559,6 +8891,18 @@
                     return value.get();
                 }*/
                 return this.GetValue(value);
+            }
+
+            //https://tc39.es/ecma262/#sec-resolvebinding
+            //                               lexical environment
+            ResolveBinding(name, envRecord = this.state) {
+                const strict = this.state.strict; //ehh not exactly what the specification says but whatever
+                while(envRecord != null) {
+                    if(envRecord.HasBinding(name)) {
+                        return new ReferenceRecord(envRecord, name, strict, undefined); //EMPTY
+                    }
+                    envRecord = envRecord["[[OuterEnv]]"];
+                }
             }
 
             //https://tc39.es/ecma262/#sec-getvalue
@@ -8631,6 +8975,22 @@
                 }else {
                     //for external stuff i haven't implemented yet
                     return record.base[record.referencedName] = rightValue;
+                }
+            }
+
+            //https://tc39.es/ecma262/#sec-getthisenvironment
+            GetThisEnvironment() {
+                //let index = this.state.variables.length-1;
+                //let envRecord = this.state.variables[index];
+                //while(!envRecord.has("this")) {
+                //    envRecord = this.state.variables[--index];
+                //}
+                //return envRecord;
+
+                let envRecord = this.state; //lexical environment
+                while(envRecord != null) {
+                    if(envRecord.HasThisBinding()) return envRecord;
+                    envRecord = envRecord["[[OuterEnv]]"];
                 }
             }
 
@@ -9163,16 +9523,15 @@
                 const func = this.GetValue(ref); //dereference
                 let thisValue;
                 if(ref instanceof ReferenceRecord) {
-                    if(ref.base instanceof Map) { //!IsPropertyReference
+                    if(ref.base instanceof EnvironmentRecord) { //!IsPropertyReference
                         if(ref.referencedName == "eval") {
-                            if(func == this.state.variables[0].get("eval")) {
+                            if(func == ECMAScript["%eval%"]) {
                                 //direct eval
                                 //return...
                             }
                         }
                         //EvaluateCall
-                        //thisValue = ref.base.WithBaseObject(); //we don't have the with statement yet so no..
-                        thisValue = undefined; //1.b
+                        thisValue = ref.base.WithBaseObject(); //1.b
                     }else {
                         //EvaluateCall
                         thisValue = ref.GetThisValue(); //1.a
@@ -9217,30 +9576,28 @@
                 //return ECMAScript.Call(func, thisValue, funcCallExpression.argumentsExprArr.map(v=>this.evaluate(v)));
             }
 
-            GetThisEnvironment() {
-                let index = this.state.variables.length-1;
-                let envRecord = this.state.variables[index];
-                while(!envRecord.has("this")) {
-                    envRecord = this.state.variables[--index];
-                }
-                return envRecord;
-            }
-
+            //https://tc39.es/ecma262/multipage/ecmascript-language-expressions.html#sec-super-keyword-runtime-semantics-evaluation
             /** @param {SuperPropertyExpression} superPropertyExpression */
             visitSuperPropertyExpression(superPropertyExpression) {
                 const envRecord = this.GetThisEnvironment();
-                const actualThis = envRecord.get("this"); // uhh something like that
-                const strict = this.strict;
+                // const actualThis = envRecord.get("this"); // uhh something like that
+                const actualThis = envRecord.GetThisBinding();
+                const strict = this.state.strict;
                 let key;
                 if(superPropertyExpression.propertyExpr instanceof IdentifierExpression) {
                     key = superPropertyExpression.propertyExpr.nameToken.value;
                 }else {
-                    key = superPropertyExpression.propertyExpr.accept(this);
+                    key = this.evaluate(superPropertyExpression.propertyExpr);
                 }
                 //MakeSuperPropertyReference
-                //Assert: envRecord.has("super") or something
-                //Assert: envRecord is a Function Environment Record
-                const baseValue = envRecord;
+                //Assert: envRecord.HasSuperBinding()
+                //Assert: envRecord instanceof FunctionEnvironmentRecord
+                //GetSuperBase
+                let baseValue = envRecord["[[FunctionObject]]"]["[[HomeObject]]"];
+                if(baseValue) {
+                    //Assert: baseValue /*home*/ instanceof JavascriptObjectWrapper
+                    baseValue = baseValue["[[GetPrototypeOf]]"]();
+                }
                 return new ReferenceRecord(baseValue, key, strict, actualThis);
             }
 
@@ -9298,8 +9655,19 @@
                     //my hoisting happens before evaluation so any vars declared in a block will be moved to function or global scope, ensuring this will be correct :)
                     //oh wait i think i'm supposed to do something else here
                     //https://tc39.es/ecma262/#sec-globaldeclarationinstantiation
-                    this.state.CreateMutableBinding(varDeclStatement.name, false);
-                    this.state.InitializeBinding(varDeclStatement.name, undefined); // oh yeah
+                    //in GlobalDeclarationInstantiation, no vars are deletable
+                    if(this.state instanceof GlobalEnvironmentRecord) {
+                        //CreateGlobalVarBinding
+                        const objRecord = this.state["[[ObjectRecord]]"];
+                        const globalObj = objRecord["[[BindingObject]]"];
+                        if(!globalObj["[[HasProperty]]"](varDeclStatement.name) && globalObj["[[IsExtensible]]"]()) {
+                            objRecord.CreateMutableBinding(varDeclStatement.name, false);
+                            objRecord.InitializeBinding(varDeclStatement.name, undefined);
+                        }
+                    }else {
+                        this.state.CreateMutableBinding(varDeclStatement.name, false);
+                        this.state.InitializeBinding(varDeclStatement.name, undefined); // oh yeah
+                    }
                     return undefined;
                 }
 
@@ -9323,8 +9691,15 @@
                 //const scope = this.state.variables.at(-1);
                 //scope.set(temporalDeclStatement.name, new TemporalDeadZoneVariable({qualifier: temporalDeclStatement.qualifier, gender: temporalDeclStatement.gender, name: temporalDeclStatement.name}, undefined));
                 if(temporalDeclStatement.qualifier.value == "const") {
-                    this.state.CreateImmutableBinding(temporalDeclStatement.name, this.state.strict);
-                }else {
+                    if(this.state instanceof GlobalEnvironmentRecord) {
+                        //bruhhhhh you had to go deep to find this one, for some reason strict is set to true!!
+                        //16.7.1 step.15.b.i.1
+                        this.state.CreateImmutableBinding(temporalDeclStatement.name, true);
+                    }else {
+                        // this.state.CreateImmutableBinding(temporalDeclStatement.name, this.state.strict);
+                        throw Error("idk yet hold on");
+                    }
+                }else if(temporalDeclStatement.qualifier.value != "function") {
                     this.state.CreateMutableBinding(temporalDeclStatement.name, false);
                 }
             }
@@ -9492,14 +9867,22 @@
 
             /** @param {FunctionStatement} functionStatement */
             visitFunctionStatement(functionStatement) {
-                const scope = this.state.variables.at(-1);
-                const closure = [];
-                for(const map of this.state.variables) {
-                    //const newMap = new Map();
-                    //for(const [key, value] of map.entries()) {
-                    //    newMap.set(key, value);
-                    //}
-                    closure.push(map); //we're creating a copy of the array so that push and pop don't affect our closure
+                // const scope = this.state.variables.at(-1);
+                //const scope = this.state;
+                //const closure = [];
+                //for(const map of this.state.variables) {
+                //    //const newMap = new Map();
+                //    //for(const [key, value] of map.entries()) {
+                //    //    newMap.set(key, value);
+                //    //}
+                //    closure.push(map); //we're creating a copy of the array so that push and pop don't affect our closure
+                //}
+
+                let closure = this.state;
+
+                if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.EXPRESSION && functionStatement.nameToken) {
+                    closure = new DeclarativeEnvironmentRecord(closure);
+                    closure.CreateImmutableBinding(functionStatement.nameToken.value, false);
                 }
 
                 // const wrapper = new FunctionWrapper(functionStatement, closure, undefined);
@@ -9512,6 +9895,7 @@
                 //if(!success) {
                 //    throw TypeError("Cannot redefine property: name");
                 //}
+                
                 let prefix = undefined;
                 if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.GETTER) {
                     prefix = "get";
@@ -9521,33 +9905,70 @@
                 ECMAScript.SetFunctionName(wrapper, functionStatement.nameToken.value ?? "", prefix); //function expressions with no name have the empty string
                 //bruh i forgot the very next line
                 ECMAScript.MakeConstructor(wrapper);
-                
-                if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.FUNCTION) {
-                    if(scope.has(functionStatement.nameToken.value)) {
-                        const old = scope.get(functionStatement.nameToken.value);
-                        if(old instanceof TemporalDeadZoneVariable) {
-                            //promote to regular var lol
-                            const temp = new Variable(old.properties, wrapper);
-                            scope.set(functionStatement.nameToken.value, temp);
-                        }else { //for some reason you can redeclare functions with the same name
 
-                            //my static analysis should handle all this?
-                            //const oldGender = old.properties.gender?.value;
-                            ////some kind of function object idk
-                            //if(!(old.value instanceof FunctionWrapper)) {
-                            //    throw new SyntaxError(`Identifier '${functionStatement.nameToken.value}' has already been declared${oldGender != functionStatement.genderToken?.value ? ` (with gender '${oldGender}')` : ""}`);
-                            //}
-                            old.value = wrapper;
+                // we need to actually set the name to the function now lol
+                if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.EXPRESSION && functionStatement.nameToken) {
+                    closure.InitializeBinding(functionStatement.nameToken.value, wrapper);
+                }
+                
+                //if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.FUNCTION) {
+                //    if(scope.has(functionStatement.nameToken.value)) {
+                //        const old = scope.get(functionStatement.nameToken.value);
+                //        if(old instanceof TemporalDeadZoneVariable) {
+                //            //promote to regular var lol
+                //            const temp = new Variable(old.properties, wrapper);
+                //            scope.set(functionStatement.nameToken.value, temp);
+                //        }else { //for some reason you can redeclare functions with the same name
+                //
+                //            //my static analysis should handle all this?
+                //            //const oldGender = old.properties.gender?.value;
+                //            ////some kind of function object idk
+                //            //if(!(old.value instanceof FunctionWrapper)) {
+                //            //    throw new SyntaxError(`Identifier '${functionStatement.nameToken.value}' has already been declared${oldGender != functionStatement.genderToken?.value ? ` (with gender '${oldGender}')` : ""}`);
+                //            //}
+                //            old.value = wrapper;
+                //        }
+                //    }else {
+                //        scope.set(functionStatement.nameToken.value, new Variable({qualifier: undefined, gender: functionStatement.genderToken, name: functionStatement.nameToken.value}, wrapper));
+                //        //closure.at(-1).set(functionStatement.nameToken.value, scope.get(functionStatement.nameToken.value)); //reference
+                //    }
+                //}else if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.EXPRESSION) {
+                //    //wrapper.isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetail = true;
+                //    //wrapper.isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetailCommaThisIsActuallyTheNameOfThisFunctionForTheScopeLol = functionStatement.nameToken.value;
+                //    wrapper.functionNameForScopeOfFunctionExpressions = functionStatement.nameToken.value;
+                //}
+
+                if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.FUNCTION) {
+                    // this.state.InitializeBinding(functionStatement.nameToken.value, wrapper);
+
+                    if(this.state instanceof GlobalEnvironmentRecord) {
+                        //in GlobalDeclarationInstantiation, no vars are deletable
+                        //CreateGlobalFunctionBinding
+
+                        const objRecord = this.state["[[ObjectRecord]]"];
+                        const globalObj = objRecord["[[BindingObject]]"];
+                        const existingProperty = globalObj["[[GetOwnProperty]]"](functionStatement.nameToken.value);
+                        let propertyDesc;
+                        if(existingProperty == undefined || existingProperty.configurable) {
+                            propertyDesc = new JavascriptDataProperty(true, true, /*deletable*/ false, wrapper);
+                        }else {
+                            propertyDesc = {value: wrapper};
                         }
+                        //DefinePropertyOrThrow
+                        if(!globalObj["[[DefineOwnProperty]]"](functionStatement.nameToken.value, propertyDesc)) {
+                            throw TypeError(`Cannot redefine property: ${functionStatement.nameToken.value}`);
+                        }
+                        //why does it set it again?
+                        globalObj["[[Set]]"](functionStatement.nameToken.value, wrapper, globalObj);
                     }else {
-                        scope.set(functionStatement.nameToken.value, new Variable({qualifier: undefined, gender: functionStatement.genderToken, name: functionStatement.nameToken.value}, wrapper));
-                        //closure.at(-1).set(functionStatement.nameToken.value, scope.get(functionStatement.nameToken.value)); //reference
+                        throw Error("idk yet hold on");
                     }
-                }else if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.EXPRESSION) {
+                }/*else if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.EXPRESSION) {
                     //wrapper.isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetail = true;
                     //wrapper.isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetailCommaThisIsActuallyTheNameOfThisFunctionForTheScopeLol = functionStatement.nameToken.value;
                     wrapper.functionNameForScopeOfFunctionExpressions = functionStatement.nameToken.value;
-                }
+                }*/
+
                 return wrapper; // this is required for function expressions unless i bother to make them their own class (which i mean come on they're basically the same so fawk that)
             }
 
