@@ -52,8 +52,11 @@
             <option value="consistent4">consistent4</option>
             <option value="consistent5">consistent5</option>
             <option value="consistent6">strict consistent</option>
+            <option value="consistent7">strict consistent 2</option>
+            <option value="consistent8">strict consistent 3</option>
             <option value="objectliterals">every object literal property</option>
             <option value="classes">every class property</option>
+            <option value="classes2">allowed class field names</option>
             <option value="objectliteralproto">object literal prototype</option>
             <option value="COMPREHENSION">ARRAY COMPREHENSION?!</option>
             <option value="closures">closures</option>
@@ -88,9 +91,12 @@
             "consistent3": "//object literal!\nlet obj = {\n    //method!\n    valueOf() {\n        return 21;\n    },\n};\n\n//unary plus to coerce\nconsole.log(+obj); // 21!",
             "consistent4": "let x = {\n    toString() {\n        console.log(\"got!\", this);\n        return \"hello world\";\n    }\n};\n\n// Cannot convert hello world to a BigInt\nBigInt(x);",
             "consistent5": "const x = Object();\nx.valueOf = function() {return NaN;};\nconsole.log(Number.isNaN(x)); // false\nconsole.log(isNaN(x)); // true",
-            "consistent6": `"use strict";\nconst obj = {};\nObject.defineProperty(obj, "property", {value: "don't delete me", configurable: false, enumerable: false, writable: false});\n\n//deleting unqualified identifier\n//error in strict mode\ndelete obj;\n\n//deleting non configurable property\n//also error in strict mode\ndelete obj.property;`,
+            "consistent6": `"use strict";\nconst obj = {};\nObject.defineProperty(obj, "property", {value: "don't delete me", configurable: false, enumerable: false, writable: false});\n\n//deleting unqualified identifier\n//error in strict mode\n//comment to see the next error\ndelete obj;\n\n//deleting non configurable property\n//also error in strict mode\ndelete obj.property;`,
+            "consistent7": `"use strict";\n//in strict mode, 'this' is undefined (globalThis in non strict mode) unless the function is a property of an object (in which case the object would be 'this')\nfunction abc(x) {\n    console.larp(arguments, this);\n    return x;\n}\nabc(5); //'this' == undefined\n({abc}).abc(5); //'this' == ({abc})`,
+            "consistent8": "//super.hasOwnProperty == obj.__proto__.hasOwnProperty\nconst obj = {x(y = super.hasOwnProperty) {\n    //assigning xyz to super will actually add xyz to obj instead!\n    super.xyz = this;\n    return y;\n}};\nconsole.larp(obj.x(), obj);",
             "objectliterals": "let variable = \"variable\";\nlet another_obj = {\"another_obj_key\": \"another_obj_value\"};\nlet x = {\n    variable,\n    y: \"identifier name property\",\n    \"string\": \"string property\",\n    0: \"numeric property\",\n    [\"computed property\"]: \"what the key said.\",\n    method() {\n    },\n    get [\"x\"]() {\n        return 421;\n    },\n    *generator() {\n    },\n    async 5() {\n    },\n    async* \"hello_generator\"() {\n    },\n    set x(newValue) {\n        console.log(newValue);\n    },\n    ...another_obj\n};\nconsole.larp(x, x.x, x=21);",
             "classes": "class all_class_properties {\n#private_field = \"private_field\";\n// #private_field; // Identifier #private_field has already been declared\n#private_method() {\n    return this.#private_field;\n};\n\nstatic #private_static_field = \"???\";\n// static #private_field; // Identifier #private_field has already been declared\nstatic #private_static_method() {\n    return \"is this even callable?\";\n};\n\nfield = \"access instance field\";\nmethod() {\n    return this.field;\n};\n\nstatic field = \"access constructor (static) field\";\nstatic method() {\n    return this.field;\n};\n\nstatic {\n    this.another_static_field = \"Hello World from this static initialization block!\";\n};\n\nconstructor() {\n    console.log(this.constructor.name, \"instantiated\");\n};\n}",
+            "classes2": "class test {\n    async = 2; //async prefix\n    class = 3; //reserved\n    get = 4;   //getter prefix\n    set = 5;   //setter prefix\n    static prototype = 34; //error\n}",
             "objectliteralproto": "const fakenum = {__proto__: Number.prototype, value: 21};\nconsole.larp(fakenum);",
             "COMPREHENSION": "let split = [for (const x of \"string\") x];",
             "closures": "function makeCounter() {\n  let i = 0;\n  function count() {\n    i = i + 1;\n    console.log(i);\n  }\n\n  return count;\n}\n\nlet counter = makeCounter();\ncounter(); // \"1\".\ncounter(); // \"2\".",
@@ -1107,7 +1113,7 @@
                                 if(numberString.indexOf("_") != -1) {
                                     return Unexpected(new ParseError(lineNumber, charNumber, "FUCK those number separators!"));
                                 }
-                                if(impliedOctal && useStrict.at(-1)) {
+                                if(impliedOctal && numberString.length > 1 && useStrict.at(-1)) {
                                     //https://tc39.es/ecma262/multipage/strict-mode-of-ecmascript.html#sec-strict-mode-of-ecmascript (#2)
                                     //nu.
                                     return Unexpected(new ParseError(lineNumber, charNumber, "Octal literals are not allowed in strict mode."));
@@ -1357,6 +1363,8 @@
                     throw new ParseError(expression.nameToken.line, expression.nameToken.char, "Unexpected eval or arguments in strict mode");
                 }
                 return expression.nameToken.value != "this"; //this is not assignable!
+            }else if(expression instanceof SuperPropertyExpression) {
+                return true;
             }
             return depth != 0; //return false if depth == 0
         }
@@ -1404,88 +1412,108 @@
             //we don't have to check class expressions because they will call this function too
         }
 
-        //class PredicateVisitor {
-        //    /** @type {(expression : Expression)=>Boolean}*/
-        //    predicate;
-        //
-        //    /** @param {(expression : Expression)=>Boolean} predicate */
-        //    constructor(predicate) {
-        //        this.predicate = predicate;
-        //    }
-        //
-        //    visitLiteralExpression(expression) {
-        //        return this.predicate(expression);
-        //    }
-        //
-        //    visitArrayLiteralExpression(expression) {
-        //        for(const value of expression.value) {
-        //            if((value instanceof SpreadExpressionToBeEvaluatedManuallyBecauseContextIsImportant && this.accept(value.rhs)) || this.accept(value)) {
-        //                return true;
-        //            }
-        //        }
-        //        return false;
-        //    }
-        //
-        //    visitObjectLiteralExpression(expression) {
-        //        for(const [key, value] of expression.properties.entries()) {
-        //            //key could be SpreadExpression...
-        //            if(key instanceof SpreadExpressionToBeEvaluatedManuallyBecauseContextIsImportant && this.accept(key.rhs)) {
-        //                return true;
-        //            }
-        //            if(key.accept(this) || value.accept(this)) {
-        //                return true;
-        //            }
-        //        }
-        //        return false;
-        //    }
-        //
-        //    visitIdentifierExpression(expression) {
-        //        return this.predicate(expression);
-        //    }
-        //
-        //    visitPrivateIdentifierExpression(expression) {
-        //        return this.predicate(expression);
-        //    }
-        //
-        //    visitUnaryExpression(expression) {
-        //        return expression.operand.accept(this);
-        //    }
-        //
-        //    visitBinaryExpression(expression) {
-        //        return expression.left.accept(this) || expression.right.accept(this);
-        //    }
-        //
-        //    visitTernaryExpression(expression) {
-        //        return expression.condition.accept(this) || expression.trueExpr.accept(this) || expression.falseExpr.accept(this);
-        //    }
-        //
-        //    visitAssignmentExpression(expression) {
-        //        return this.visitBinaryExpression(expression);
-        //    }
-        //
-        //    visitFunctionCallExpression(expression) {
-        //        if(expression.functionExpr.accept(this)) {
-        //            return true;
-        //        }
-        //        for(const arg of expression.argumentsExprArr) {
-        //            if((arg instanceof SpreadExpressionToBeEvaluatedManuallyBecauseContextIsImportant && arg.rhs.accept(this)) || arg.accept(this)) {
-        //                return true;
-        //            }
-        //        }
-        //    }
-        //
-        //    visitSuperPropertyExpression(expression) {
-        //        return this.predicate(expression);
-        //    }
-        //
-        //    visitSuperCallExpression(expression) {
-        //        return this.predicate(expression);
-        //    }
-        //
-        //    visitVariableDeclarationStatement(statement) {
-        //        return statement.value.accept(this);
-        //    }
-        //}
+        class PredicateVisitor {
+            /** @type {(expression : Expression)=>Boolean}*/
+            predicate;
+        
+            /** @param {(expression : Expression)=>Boolean} predicate */
+            constructor(predicate) {
+                this.predicate = predicate;
+            }
+        
+            visitLiteralExpression(expression) {
+                return this.predicate(expression);
+            }
+        
+            visitArrayLiteralExpression(expression) {
+                for(const value of expression.value) {
+                    if((value instanceof SpreadExpressionToBeEvaluatedManuallyBecauseContextIsImportant && value.rhs.accept(this)) || value.accept(this)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        
+            visitObjectLiteralExpression(expression) {
+                for(const [key, value] of expression.properties.entries()) {
+                    //key could be SpreadExpression...
+                    if(key instanceof SpreadExpressionToBeEvaluatedManuallyBecauseContextIsImportant && key.rhs.accept(this)) {
+                        return true;
+                    }
+                    if((key instanceof Token && this.predicate(key)) || value.accept(this)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        
+            visitIdentifierExpression(expression) {
+                return this.predicate(expression);
+            }
+        
+            visitPrivateIdentifierExpression(expression) {
+                return this.predicate(expression);
+            }
+        
+            visitUnaryExpression(expression) {
+                return expression.operand.accept(this);
+            }
+        
+            visitBinaryExpression(expression) {
+                return expression.left.accept(this) || expression.right.accept(this);
+            }
+        
+            visitTernaryExpression(expression) {
+                return expression.condition.accept(this) || expression.trueExpr.accept(this) || expression.falseExpr.accept(this);
+            }
+        
+            visitAssignmentExpression(expression) {
+                return this.visitBinaryExpression(expression);
+            }
+        
+            visitFunctionCallExpression(expression) {
+                if(expression.functionExpr.accept(this)) {
+                    return true;
+                }
+                for(const arg of expression.argumentsExprArr) {
+                    if((arg instanceof SpreadExpressionToBeEvaluatedManuallyBecauseContextIsImportant && arg.rhs.accept(this)) || arg.accept(this)) {
+                        return true;
+                    }
+                }
+            }
+        
+            visitSuperPropertyExpression(expression) {
+                return this.predicate(expression);
+            }
+        
+            visitSuperCallExpression(expression) {
+                return this.predicate(expression);
+            }
+
+            //ok hell no bruh we're just gonna do some bullshit in JavascriptParser to stop you from using the super keyword
+
+            //visitEmptyStatement(statement) {}
+            //
+            //visitVariableDeclarationStatement(statement) {
+            //    return this.predicate(statement);
+            //}
+            //
+            //visitTemporalDeadZoneDeclarationStatement(statement) {
+            //    return this.predicate(statement);
+            //}
+            //
+            //visitBlockStatement(statement) {
+            //    return this.predicate(statement);
+            //}
+            //
+            //visitIfStatement(statement) {
+            //    return statement.condition.accept(this) || statement.ifClause.accept(this) || statement.elseClause.accept(this);
+            //}
+            //
+            //visitForLoopStatement(statement) {
+            //    return 
+            //}
+        }
 
         //const PredicateVisitor = function(predicate) {
         //    return new Proxy({}, {
@@ -1709,17 +1737,21 @@
         class SuperPropertyExpression extends Expression {
             strict;
             /** @type {Token} */
+            superToken;
+            /** @type {Token} */
             operator;
             /** @type {Expression} */
             propertyExpr;
 
             /**
+             * @param {Token} superToken
              * @param {Token} operator
              * @param {Expression} propertyExpr
              */
-            constructor(strict, operator, propertyExpr) {
+            constructor(strict, superToken, operator, propertyExpr) {
                 super();
                 this.strict = strict;
+                this.superToken = superToken;
                 this.operator = operator;
                 this.propertyExpr = propertyExpr;
             }
@@ -1731,15 +1763,19 @@
 
         class SuperCallExpression extends Expression {
             strict;
+            /** @type {Token} */
+            superToken;
             /** @type {Array<Expression>} */
             argumentsExprArr;
 
             /**
+             * @param {Token} superToken
              * @param {Array<Expression>} argumentsExprArr
              */
-            constructor(strict, argumentsExprArr) {
+            constructor(strict, superToken, argumentsExprArr) {
                 super();
                 this.strict = strict;
+                this.superToken = superToken;
                 this.argumentsExprArr = argumentsExprArr;
             }
 
@@ -2140,8 +2176,8 @@
                 func.environment = envRecord;
                 func.privateEnvironment = privateEnv;
                 //func.scriptOrModule = ...;
-                //func.realm = ...;
-                func.homeObject = undefined;
+                func.realm = interpreter; // i guess?
+                func["[[HomeObject]]"] = undefined;
                 //func.fields = [];
                 //func.privateMethods = [];
                 func.classFieldInitializerName = "";
@@ -2160,6 +2196,12 @@
                     //Object.defineProperty(x, "length", {enumerable: false, configurable: false, writable: false, value: undefined});
                     //Object.defineProperty(x, "length", {enumerable: false, configurable: false, writable: false, value: 1});
                     throw TypeError(`Cannot redefine property: length`);
+                }
+
+                if(!func.strict) {
+                    //this isn't in the specification but see what i wrote at the bottom of JavascriptFunctionWrapper["[[Call]]"] !!
+                    func["[[DefineOwnProperty]]"]("caller", new JavascriptDataProperty(false, false, true, null));
+                    func["[[DefineOwnProperty]]"]("arguments", new JavascriptDataProperty(false, false, true, null));
                 }
 
                 return func;
@@ -2212,6 +2254,13 @@
                 if(!success) {
                     throw TypeError("Cannot redefine property: prototype");
                 }
+            }
+
+            //https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-makemethod
+            static MakeMethod(func, homeObj) {
+                //Assert: homeObj instanceof JavascriptObjectWrapper && is ordinary lol
+                func["[[HomeObject]]"] = homeObj;
+                return undefined; //UNUSED
             }
 
             static SetFunctionName(func, name, prefix) {
@@ -2332,6 +2381,88 @@
                     throw TypeError(`Cannot redefine property: length`);
                 }
                 return string;
+            }
+
+            static CreateUnmappedArgumentsObject(argList) {
+                const obj = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"], "[[ParameterMap]]");
+                obj["[[ParameterMap]]"] = undefined; // we lowkey don't need this line lol OrdinaryObjectCreate will set this to undefined for us
+                //! DefinePropertyOrThrow
+                if(!obj["[[DefineOwnProperty]]"]("length", new JavascriptDataProperty(true, false, true, argList.length))) {
+                    throw TypeError(`Cannot redefine property: length`);
+                }
+                for(let index = 0; index < argList.length; index++) {
+                    //! CreateDataPropertyOrThrow
+                    ECMAScript.CreateDataPropertyOrThrow(obj, index.toString(), argList[index]);
+                }
+                //! DefinePropertyOrThrow
+                if(!obj["[[DefineOwnProperty]]"](ECMAScript["%Symbol.iterator%"], new JavascriptDataProperty(true, false, true, ECMAScript["%Array.prototype.values%"]))) { //function x() {return arguments[Symbol.iterator] == Array.prototype.values;} x(); // true !!
+                    throw TypeError(`Cannot redefine property: [Symbol.iterator]`);
+                }
+                //! DefinePropertyOrThrow
+                if(!obj["[[DefineOwnProperty]]"]("callee", new JavascriptAccessorProperty(false, false, ECMAScript["%ThrowTypeError%"], ECMAScript["%ThrowTypeError%"]))) {
+                    throw TypeError(`Cannot redefine property: callee`);
+                }
+                return obj;
+            }
+
+            static CreateMappedArgumentsObject(func, formals, argList, envRecord) {
+                //Assert: formals does not contain a rest parameter, any binding patterns, or any initializers. It may contain duplicate identifiers.
+                const obj = ECMAScript.MakeBasicObject(["[[Prototype]]", "[[Extensible]]", "[[ParameterMap]]"]);
+                obj["[[GetOwnProperty]]"] = ExoticArgumentsObject["[[GetOwnProperty]]"];
+                obj["[[DefineOwnProperty]]"] = ExoticArgumentsObject["[[DefineOwnProperty]]"];
+                obj["[[Get]]"] = ExoticArgumentsObject["[[Get]]"];
+                obj["[[Set]]"] = ExoticArgumentsObject["[[Set]]"];
+                obj["[[Delete]]"] = ExoticArgumentsObject["[[Delete]]"];
+                obj["[[Prototype]]"] = ECMAScript["%Object.prototype%"];
+                const map = ECMAScript.OrdinaryObjectCreate(null);
+                obj["[[ParameterMap]]"] = map;
+                for(let index = 0; index < argList.length; index++) {
+                    //! CreateDataPropertyOrThrow
+                    ECMAScript.CreateDataPropertyOrThrow(obj, index.toString(), argList[index]);
+                }
+                //! DefinePropertyOrThrow
+                if(!obj["[[DefineOwnProperty]]"]("length", new JavascriptDataProperty(true, false, true, argList.length))) {
+                    throw TypeError(`Cannot redefine property: length`);
+                }
+                const mappedNames = [];
+                for(let index = formals.length-1; index >= 0; index--) {
+                    //i swear this part doesn't seem to be observable in v8?
+                    //damn it! i literally saw a clue and didn't realize it
+                    //the purpose of this part is so that the arguments object always reflects the values in each argument
+                    //i wrote the following function and was confused when arguments was "wrong"
+                    //function func(parameter) {var parameter = "another value";}
+                    //func(parameter); //arguments[0] = "another value" !!
+                    //omitting the var keyword would also do the exact same thing
+                    const name = formals[index].identifier.nameToken.value;
+                    if(mappedNames.indexOf(name) == -1) {
+                        mappedNames.push(name);
+                        if(index < argList.length) {
+                            //we're losing the plot here lol, even the specification says [[ParameterMap]] doesn't actually have to be a real object
+                            const getter = ECMAScript.CreateBuiltinFunction(
+                                function(thisArg, argList, newTarget) {
+                                    return envRecord.GetBindingValue(name, false);
+                                },
+                                0, "", [], func.realm
+                            );
+                            const setter = ECMAScript.CreateBuiltinFunction(
+                                function(thisArg, argList, newTarget) { //set ...(value)
+                                    return envRecord.SetMutableBinding(name, argList[0], false);
+                                },
+                                1, "", [], func.realm
+                            );
+                            map["[[DefineOwnProperty]]"](index.toString(), new JavascriptAccessorProperty(false, true, getter, setter));
+                        }
+                    }
+                }
+                //! DefinePropertyOrThrow
+                if(!obj["[[DefineOwnProperty]]"](ECMAScript["%Symbol.iterator%"], new JavascriptDataProperty(true, false, true, ECMAScript["%Array.prototype.values%"]))) { //function x() {return arguments[Symbol.iterator] == Array.prototype.values;} x(); // true !!
+                    throw TypeError(`Cannot redefine property: [Symbol.iterator]`);
+                }
+                //! DefinePropertyOrThrow
+                if(!obj["[[DefineOwnProperty]]"]("callee", new JavascriptDataProperty(true, false, true, func))) {
+                    throw TypeError(`Cannot redefine property: callee`);
+                }
+                return obj;
             }
 
             static CreateAsyncFromSyncIterator(syncIteratorRecord) {
@@ -3504,7 +3635,7 @@
             //scriptOrModule
             thisMode;
             strict;
-            homeObject; //parent
+            ["[[HomeObject]]"]; //parent
             ["[[SourceText]]"];
             //fields
             //privateMethods
@@ -3605,6 +3736,7 @@
                     argumentsObjNeeded = false;
                 }else if(!hasParamExprs) {
                     //we're supposed to check all function and lexical declaration names here but my shit lowkey doesn't work like that
+                    //ah but it's true we could just look through the first statements in functionBody until they're not a TemporalDeadZone or var declaration
                 }
 
                 let envRecord;
@@ -3646,17 +3778,18 @@
                     }
                 }
 
+                let argumentsObj;
+
                 if(argumentsObjNeeded) {
-                    let argumentsObj;
                     if(this.strict || hasParamExprs) {
-                        console.error("argumentsObj = ECMAScript.CreateUnmappedArgumentsObject(argList);");
-                        //argumentsObj = ECMAScript.CreateUnmappedArgumentsObject(argList);
+                        // console.error("argumentsObj = ECMAScript.CreateUnmappedArgumentsObject(argList);");
+                        argumentsObj = ECMAScript.CreateUnmappedArgumentsObject(argList);
                     }else {
-                        console.error("argumentsObj = ECMAScript.CreateMappedArgumentsObject(argList);");
-                        //argumentsObj = ECMAScript.CreateMappedArgumentsObject(argList);
+                        // console.error("argumentsObj = ECMAScript.CreateMappedArgumentsObject(this, this.formalParameters, argList, envRecord);");
+                        argumentsObj = ECMAScript.CreateMappedArgumentsObject(this, this.formalParameters, argList, envRecord);
                     }
                     if(this.strict) {
-                        envRecord.CreateImmutableBinding("arguments", false); //allegedly being in strict mode stops you from trying to assign to arguments anyways (but did i do that?)
+                        envRecord.CreateImmutableBinding("arguments", false); //allegedly being in strict mode stops you from trying to assign to arguments anyways (but did i do that?) (yes, i did do that)
                     }else {
                         envRecord.CreateMutableBinding("arguments", false);
                     }
@@ -3729,6 +3862,16 @@
                 calleeContext.lexicalEnvironment = lexicalEnv;
                 this.interpreter.state = calleeContext.lexicalEnvironment; //i guess this goes here too unless i write this correctly!
                 
+                //somehow this specific behavior isn't mentioned at all in the specification, but it's observable in v8!
+                //we're going to implement it too!
+
+                if(!this.strict && argumentsObjNeeded) {
+                    //in non strict mode, the callee function has its caller and arguments properties set (and won't throw when they're accessed)
+                    //i'm not sure how these are actually defined in v8 because Object.getOwnPropertyDescriptors(func) doesn't list caller or arguments, and func.__proto__ (and Function.prototype) still have them as %ThrowTypeError% accessor properties
+                    //these properties are now defined in OrdinaryFunctionCreate, since it seems builtin functions always throw
+                    this.properties.get("arguments").value = argumentsObj;
+                }
+
                 //evaluate...
                 let retval = undefined;
                 try {
@@ -3738,6 +3881,10 @@
                         throw e;
                     }
                     retval = e; //the return expression is evaluated when we reach it (i honestly wasn't sure if that was the right move, but with scopes you could try to return a local var!)
+                }
+
+                if(!this.strict && argumentsObjNeeded) {
+                    this.properties.get("arguments").value = null;
                 }
 
                 //this.environment.pop();
@@ -4010,6 +4157,80 @@
             }
         }
 
+        class ExoticArgumentsObject {
+            //["[[ParameterMap]]"];
+            static ["[[GetOwnProperty]]"](propertyKey) {
+                //OrdinaryGetOwnProperty
+                const propertyDesc = JavascriptObjectWrapper.prototype["[[GetOwnProperty]]"].call(this, propertyKey);
+                if(!propertyDesc) return undefined;
+                const map = this["[[ParameterMap]]"];
+                if(map["[[GetOwnProperty]]"](propertyKey) != undefined) { //! HasOwnProperty
+                    propertyDesc.value = map["[[Get]]"](propertyKey, map); //Get
+                }
+                return propertyDesc;
+            }
+
+            static ["[[DefineOwnProperty]]"](propertyKey, propertyDesc) {
+                const map = this["[[ParameterMap]]"];
+                const isMapped = map["[[GetOwnProperty]]"](propertyKey) != undefined; //! HasOwnProperty
+                let newArgDesc = propertyDesc;
+                if(isMapped && ("value" in propertyDesc || "writable" in propertyDesc)) { //IsDataDescriptor
+                    if(!"value" in propertyDesc && !propertyDesc.writable) {
+                        newArgDesc = {...propertyDesc}; //w copies bro
+                        newArgDesc.value = map["[[Get]]"](propertyKey, map); //Get
+                    }
+                }
+                if(!JavascriptObjectWrapper.prototype["[[DefineOwnProperty]]"].call(this, propertyKey, newArgDesc)) return false;
+                if(isMapped) {
+                    //IsAccessorDescriptor
+                    if("getter" in propertyDesc || "setter" in propertyDesc) {
+                        map["[[Delete]]"](propertyKey);
+                    }else {
+                        if("value" in propertyDesc) {
+                            //Assert: The following Set will succeed, since formal parameters mapped by arguments objects are always writable.
+                            map["[[Set]]"](propertyKey, propertyDesc.value, map); //Set
+                        }
+                        if("writable" in propertyDesc && !propertyDesc.writable) {
+                            map["[[Delete]]"](propertyKey);
+                        }
+                    }
+                }
+                return true;
+            }
+
+            static ["[[Get]]"](propertyKey, receiver) {
+                const map = this["[[ParameterMap]]"];
+                const isMapped = map["[[GetOwnProperty]]"](propertyKey) != undefined; //! HasOwnProperty
+                if(!isMapped) return JavascriptObjectWrapper.prototype["[[Get]]"].call(this, propertyKey, receiver); //OrdinaryGet
+                //Assert: map contains a formal parameter mapping for propertyKey
+                return map["[[Get]]"](propertyKey, map); //Get
+            }
+
+            static ["[[Set]]"](propertyKey, value, receiver) {
+                let isMapped;
+                if(this != receiver) {
+                    isMapped = false;
+                }else {
+                    isMapped = this["[[ParameterMap]]"]["[[GetOwnProperty]]"](propertyKey) != undefined; //! HasOwnProperty
+                }
+                if(isMapped) {
+                    //Assert: The following Set will succeed, since formal parameters mapped by arguments objects are always writable.
+                    this["[[ParameterMap]]"]["[[Set]]"](propertyKey, value, this["[[ParameterMap]]"]); //Set
+                }
+                return JavascriptObjectWrapper.prototype["[[Set]]"].call(this, propertyKey, value, receiver); //OrdinarySet
+            }
+
+            static ["[[Delete]]"](propertyKey) {
+                const map = this["[[ParameterMap]]"];
+                const isMapped = map["[[GetOwnProperty]]"](propertyKey) != undefined; //! HasOwnProperty
+                const result = JavascriptObjectWrapper.prototype["[[Delete]]"].call(this, propertyKey); //OrdinaryDelete
+                if(result && isMapped) {
+                    map["[[Delete]]"](propertyKey);
+                }
+                return result;
+            }
+        }
+
         //see JavascriptFunctionWrapper for the "real" implementation
         //class FunctionWrapper {
         //    /** @type {FunctionStatement} */
@@ -4153,6 +4374,18 @@
             constructor(kind, blockStatementArray) {
                 this.kind = kind;
                 this.blockStatementArray = blockStatementArray;
+            }
+        }
+
+        class StaticAnalysisFunctionScope extends StaticAnalysisScope {
+            /** @type {FunctionKind} */
+            subkind;
+            /** @type {Boolean} */
+            isCtor;
+            constructor(subkind, isCtor, blockStatementArray) {
+                super("function", blockStatementArray);
+                this.subkind = subkind;
+                this.isCtor = isCtor;
             }
         }
 
@@ -4813,6 +5046,22 @@
                         if(this.tokens[this.i].value == "super") {
                             const $super = this.tokens[this.i++];
                             const operator = this.tokens[this.i];
+                            let scope;
+                            {
+                                //i was about to replace the next 5 lines with a simple this.scope.find(...) but that would check in the wrong order! we need the nearest function scope! (the top most function scope could be a method but the nearest could be a declaration!)
+                                let index = this.scope.length-1;
+                                scope = this.scope[index];
+                                while(scope && !(scope instanceof StaticAnalysisFunctionScope)) {
+                                    scope = this.scope[--index];
+                                }
+                                //https://tc39.es/ecma262/multipage/ecmascript-language-functions-and-classes.html#sec-function-definitions-static-semantics-early-errors
+                                if(!scope) {
+                                    throw new ParseError($super.line, $super.char, "'super' keyword unexpected here");
+                                }else if(scope.subkind == FunctionKind.EXPRESSION || scope.subkind == FunctionKind.FUNCTION) {
+                                    //15.7.1 (#5, #6, #7, #8)
+                                    throw new ParseError($super.line, $super.char, "'super' keyword unexpected here");
+                                }
+                            }
                             if(operator.kind == TokenKind.DOT || operator.kind == TokenKind.OPEN_BRACKET) {
                                 this.i++; //consume lol
                                 let expr;
@@ -4823,9 +5072,13 @@
                                     // expr = this.primary(true); //lol
                                     expr = this.identifierName();
                                 }
-                                return new SuperPropertyExpression(this.useStrict, operator, expr);
+                                return new SuperPropertyExpression(this.useStrict, $super, operator, expr);
                             }else if(operator.kind == TokenKind.OPEN_PARENTHESIS) {
-                                return new SuperCallExpression(this.useStrict, this.$arguments());
+                                //super call is literally only allowed in a class constructor method
+                                if(scope.subkind != FunctionKind.METHOD || !scope.isCtor) {
+                                    throw new ParseError($super.line, $super.char, "'super' keyword unexpected here");
+                                }
+                                return new SuperCallExpression(this.useStrict, $super, this.$arguments());
                             }
                             throw new ParseError($super.line, $super.char, "'super' keyword unexpected here");
                             //return new IdentifierExpression($super);
@@ -5108,7 +5361,7 @@
                     beginningToken = async || generator || tempForBeginningTokenIfNotAsyncOrGenerator;
                 }
 
-                return [key, this.doCommonFunctionStuff(undefined, async, undefined, generator, false, kind, beginningToken)]; //we set the function name later since we might have to evaluate it!
+                return [key, this.doCommonFunctionStuff(undefined, async, undefined, generator, false, kind, beginningToken, allowPrivate)]; //we set the function name later since we might have to evaluate it!
             }
 
             /**
@@ -5206,10 +5459,24 @@
                 }
             }
 
-            doCommonFunctionStuff(gender, async, funcToken, generator, name, kind, beginningToken) {
+            doCommonFunctionStuff(gender, async, funcToken, generator, name, kind, beginningToken, inClass) {
                 //oh no.. the function name and parameters are affected by strict mode
                 //i don't think the lexer can handle that so we'll check stuff here...
-                const scope = this.scope[this.scope.length-1];
+                // const scope = this.scope[this.scope.length-1];
+
+                //wait a second, just like var, functions ignore blocks (at least in v8 lol)
+                //this might be that Block-Level Function Declaration shit
+
+                let index = this.scope.length-1;
+                let scope = this.scope[index];
+                while(scope.kind == "block") { //function declarations are only scoped to function/global just like var!
+                    scope = this.scope[--index];
+                }
+
+                //oh man we're seeing never before seen errors before
+                ////"use strict";
+                //for(let i = 0; i < 10; i++) function abi() {return i}; // In non-strict mode code, functions can only be declared at top level, inside a block, or as the body of an if statement.
+
                 let $var;
                 if(kind == FunctionKind.FUNCTION) { // the name of a function expression is not hoisted and is only accessable by the parameters and body of the function!
                     if(scope.variables.has(name.value)) { //bruh this happens here and in doCommonIdentifierDeclStuff
@@ -5235,6 +5502,15 @@
                     $var = {}; // lazy
                 }
                 
+                //this.inFunction = true;
+                //this.inFunction.push(true);
+                //const scopeRef = new StaticAnalysisScope("function", undefined);
+                //we're gonna lazily check beginningToken here since methods don't have a name when doCommonFunctionStuff is called! (i mean i probably could get the name but fawk)
+                const scopeRef = new StaticAnalysisFunctionScope(kind, beginningToken.value == "constructor" && inClass, undefined);
+                this.scope.push(scopeRef);
+
+                //we're pushing the scope before parameters because there could be a super property/call which is bad...
+
                 const parameterTempTokensForError = this.tokens[this.i];
                 const parameters = this.parameters();
                 if(kind == FunctionKind.GETTER && parameters.length != 0) {
@@ -5244,10 +5520,6 @@
                     //SyntaxError
                     throw new ParseError(parameterTempTokensForError.line, parameterTempTokensForError.char, "Setter must have exactly one formal parameter.");
                 }
-                //this.inFunction = true;
-                //this.inFunction.push(true);
-                const scopeRef = new StaticAnalysisScope("function", undefined);
-                this.scope.push(scopeRef);
 
                 if(kind == FunctionKind.EXPRESSION && name) {
                     //hmm i'm sure the specification is calling me an idiot right now but my implementation allows the following to work, even though it shouldn't...
@@ -5285,8 +5557,10 @@
                 this.i = currentIndex;
 
                 //if we're now in strict mode or we've been in strict mode
+                functionBody.strict = old || this.useStrict; //this is important! in strict mode functions don't automagically have their 'this' value be globalThis!
+
+                //if we're now in strict mode or we've been in strict mode
                 if(old || this.useStrict) {
-                    functionBody.strict = true; //this is important! in strict mode functions don't automagically have their 'this' value be globalThis!
                     if(name && (kind == FunctionKind.FUNCTION || kind == FunctionKind.EXPRESSION)) {
                         if(name.value == "eval" || name.value == "arguments") {
                             throw new ParseError(name.line, name.char, "Unexpected eval or arguments in strict mode");
@@ -5334,7 +5608,27 @@
                 if(kind == FunctionKind.FUNCTION || kind == FunctionKind.EXPRESSION) {
                     //we now need to check if there are any super properties or super calls :/
                     //throw Error("Here's the part where we check for SuperProperty or SuperCall in formal parameters and function body");
-                    console.error("Here's the part where we check for SuperProperty or SuperCall in formal parameters and function body");
+                    //console.error("Here's the part where we check for SuperProperty or SuperCall in formal parameters and function body");
+                    ///** @type {SuperPropertyExpression | SuperCallExpression} */
+                    //let $super;
+                    //const visitor = new PredicateVisitor(function(expr) {
+                    //    if(expr instanceof SuperPropertyExpression || expr instanceof SuperCallExpression) {
+                    //        $super = expr;
+                    //        return true;
+                    //    }
+                    //});
+                    //for(const parameter of parameters) {
+                    //    if(parameter.default) {
+                    //        if(parameter.default.accept(visitor)) {
+                    //            throw new ParseError($super.superToken.line, $super.superToken.char, "'super' keyword unexpected here");
+                    //        }
+                    //    }
+                    //}
+                    //if(functionBody.accept(visitor)) {
+                    //    throw new ParseError($super.superToken.line, $super.superToken.char, "'super' keyword unexpected here");
+                    //}
+
+                    //ok nevermind we do some StaticAnalysis scope shit to figure out if we're allowed to encounter the super keyword yet :)
                 }
 
                 this.useStrict = old; // restore
@@ -5495,9 +5789,18 @@
                                     }
                                 }
                                 //bruh we need to make sure the arguments object isn't referenced :///
-                                if(containsArguments(value)) {
-                                    //15.7.1 (#7)
-                                    throw new ParseError(keyToken.line, keyToken.char, "'arguments' is not allowed in class field initializer or static initialization block");
+                                //if(containsArguments(value)) {
+                                //    //15.7.1 (#7)
+                                //    throw new ParseError(keyToken.line, keyToken.char, "'arguments' is not allowed in class field initializer or static initialization block");
+                                //}
+                                {
+                                    const visitor = new PredicateVisitor(function(expr) {
+                                        return (expr instanceof IdentifierExpression && expr.nameToken.value == "arguments") || (expr instanceof Token && expr.value == "arguments");
+                                    });
+                                    if(value.accept(visitor)) {
+                                        //15.7.1 (#7)
+                                        throw new ParseError(keyToken.line, keyToken.char, "'arguments' is not allowed in class field initializer or static initialization block");
+                                    }
                                 }
                                 properties.set(key, value);
                             }
@@ -5505,11 +5808,14 @@
                         this.consume(TokenKind.SEMICOLON, "Semicolon expected after property in class statement/expression");
                     }
 
+                    const endingToken = this.tokens[this.i];
                     this.consume(TokenKind.CLOSING_CURLY_BRACKET, "Expected closing curly bracket here!!");
                     
                     this.useStrict = old;
 
-                    return new ClassStatement(properties, constructor);
+                    const sourceText = this.sourceText.substring(indexFromToken(classToken, this.sourceText), indexFromToken(endingToken, this.sourceText)+1);
+
+                    return new ClassStatement(properties, constructor, sourceText);
                 }
                 if(genderbutouhhiwillhavetobacktrackifthisnexttokenisnotconstorlet) {
                     //the gender might be needed elsewhere!
@@ -6136,18 +6442,31 @@
             }
         }
 
+        class DeclarationInstantiation {
+            static GLOBAL = 1;
+            static FUNCTION = 2;
+            static BLOCK = 3;
+            static EVAL = 4;
+            static FOR = 5;
+        }
+
         class EnvironmentRecord {
             ["[[OuterEnv]]"];
             /** @type {Map<String, Binding>} */
             bindings = new Map();
             /** @type {Boolean} */
             strict;
+            /** @type {DeclarationInstantiation} */
+            instantiation;
 
-            constructor(outerEnv) {
+            constructor(outerEnv, strict = undefined, instantiation = undefined) {
                 this["[[OuterEnv]]"] = outerEnv;
                 if(outerEnv) {
-                    this.strict = outerEnv.strict;
+                    if(strict == undefined) strict = outerEnv.strict;
+                    if(instantiation == undefined) instantiation = outerEnv.instantiation;
                 }
+                this.strict = strict;
+                this.instantiation = instantiation;
             }
 
             HasBinding(name) {}; // = 0;
@@ -6358,8 +6677,9 @@
             ["[[NewTarget]]"];
 
             //https://tc39.es/ecma262/#sec-newfunctionenvironment
+            /** @param {JavascriptFunctionWrapper} func */
             constructor(func, newTarget) {
-                super(func.environment);
+                super(func.environment, func.strict, DeclarationInstantiation.FUNCTION);
                 this["[[FunctionObject]]"] = func;
                 if(func.thisMode == ThisMode.LEXICAL) {
                     this["[[ThisBindingStatus]]"] = BindingStatus.LEXICAL;
@@ -6395,9 +6715,11 @@
 
             //https://tc39.es/ecma262/multipage/executable-code-and-execution-contexts.html#sec-newglobalenvironment
             constructor(strict, obj, thisValue) {
-                super(null);
+                super(null, undefined, DeclarationInstantiation.GLOBAL);
                 this["[[ObjectRecord]]"] = new ObjectEnvironmentRecord(obj, false, null);
                 this["[[DeclarativeRecord]]"] = new DeclarativeEnvironmentRecord(null);
+                this["[[ObjectRecord]]"].instantiation = DeclarationInstantiation.GLOBAL;
+                this["[[DeclarativeRecord]]"].instantiation = DeclarationInstantiation.GLOBAL;
                 this.SetStrict(strict);
                 this["[[GlobalThisValue]]"] = thisValue;
             }
@@ -6535,6 +6857,16 @@
                     },
                     1, "parseInt", [], this
                 );
+
+                ECMAScript["%ThrowTypeError%"] = ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        throw TypeError("'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them");
+                    },
+                    0, "", [], this
+                );
+                ECMAScript["%ThrowTypeError%"]["[[Extensible]]"] = false;
+                ECMAScript["%ThrowTypeError%"].properties.set("length", new JavascriptDataProperty(false, false, false, 0));
+                ECMAScript["%ThrowTypeError%"].properties.set("name", new JavascriptDataProperty(false, false, false, ""));
 
                 //prototypes
                 {
@@ -6875,6 +7207,35 @@
                         funcProto.SetDataProperty("toString", true, false, true, $toString);
                         funcProto.SetDataProperty(ECMAScript["%Symbol.hasInstance%"], false, false, false, $hasInstance);
                     }
+
+                    //https://tc39.es/ecma262/multipage/executable-code-and-execution-contexts.html#sec-createintrinsics
+                    //https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-addrestrictedfunctionproperties
+                    //apparently these getters and setters actually have names and correct lengths, unlike using ECMAScript["%ThrowTypeError%"] directly
+                    //globalThis.alert.__lookupGetter__("caller").name == "get caller"; ...
+                    //globalThis.alert.__lookupSetter__("caller").name == "set caller"; ...
+                    funcProto.SetAccessorProperty("caller", false, true, ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            ECMAScript["%ThrowTypeError%"]["[[Call]]"](thisArg, argList);
+                        },
+                        0, "caller", [], this, undefined, "get"
+                    ), ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            ECMAScript["%ThrowTypeError%"]["[[Call]]"](thisArg, argList);
+                        },
+                        1, "caller", [], this, undefined, "set"
+                    ));
+                    funcProto.SetAccessorProperty("arguments", false, true, ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            ECMAScript["%ThrowTypeError%"]["[[Call]]"](thisArg, argList);
+                        },
+                        0, "arguments", [], this, undefined, "get"
+                    ), ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            ECMAScript["%ThrowTypeError%"]["[[Call]]"](thisArg, argList);
+                        },
+                        1, "arguments", [], this, undefined, "set"
+                    ));
+
                     ECMAScript["%Function.prototype%"] = funcProto;
 
                     const boolProto = ECMAScript.OrdinaryObjectCreate(objProto, "[[BooleanData]]");
@@ -7190,6 +7551,7 @@
                             0, "toString", [], this
                         )
 
+                        //the specification seems to get a lot out of this one lol
                         const $values = ECMAScript.CreateBuiltinFunction(
                             function(thisArg, argList, newTarget) {
                                 const obj = ECMAScript.ToObject(thisArg);
@@ -7197,6 +7559,8 @@
                             },
                             0, "values", [], this
                         );
+
+                        ECMAScript["%Array.prototype.values%"] = $values; //for use with the Arguments object
 
                         const $$iterator = $values; //Array.prototype[Symbol.iterator].name == "values" !!
                         const $$unscopables = ECMAScript.CreateBuiltinFunction(
@@ -7219,7 +7583,7 @@
                                 //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "toSpliced", true);
                                 //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "values", true);
 
-                                //lowkey what are we doing man, i don't think these can even fail
+                                //lowkey what are we doing man, i don't think these can even fail (oh yeah that's probably why they used the ! shorthand instead of the ?)
                                 unscopableList["[[DefineOwnProperty]]"]("at", new JavascriptDataProperty(true, true, true, true));
                                 unscopableList["[[DefineOwnProperty]]"]("copyWithin", new JavascriptDataProperty(true, true, true, true));
                                 unscopableList["[[DefineOwnProperty]]"]("entries", new JavascriptDataProperty(true, true, true, true));
@@ -8404,12 +8768,19 @@
                                         const strings = [];
                                         const symbols = [];
                                         for(const key of temp) {
-                                            if(typeof key == "symbol") {
-                                                symbols.push([key, arg["[[Get]]"](key, arg)]);
-                                            }else if(isFinite(key) && key >= 0) {
-                                                arrayindices.push([key, arg["[[Get]]"](key, arg)]);
+                                            const descriptor = arg.properties.get(key);
+                                            let value;
+                                            if("getter" in descriptor || "setter" in descriptor) {
+                                                value = "(...)"; //because of the arguments object i had to finally add this lol
                                             }else {
-                                                strings.push([key, arg["[[Get]]"](key, arg)]);
+                                                value = arg["[[Get]]"](key, arg);
+                                            }
+                                            if(typeof key == "symbol") {
+                                                symbols.push([key, value]);
+                                            }else if(isFinite(key) && key >= 0) {
+                                                arrayindices.push([key, value]);
+                                            }else {
+                                                strings.push([key, value]);
                                             }
                                         }
                                         entries = [...arrayindices, ...strings, ...symbols];
@@ -8747,7 +9118,7 @@
             visitBlockStatement(blockStatement) {
                 // !blockStatement.precedingStatementIsSpecialSoDontBotherMakingScopeBecauseJavascriptBS && this.state.variables.push(new Map());
                 if(!blockStatement.precedingStatementIsSpecialSoDontBotherMakingScopeBecauseJavascriptBS) {
-                    this.state = new DeclarativeEnvironmentRecord(this.state);
+                    this.state = new DeclarativeEnvironmentRecord(this.state, undefined, DeclarationInstantiation.BLOCK);
                 }
                 let last = undefined;
                 for(const statement of blockStatement.statements) {
@@ -9656,7 +10027,7 @@
                     //oh wait i think i'm supposed to do something else here
                     //https://tc39.es/ecma262/#sec-globaldeclarationinstantiation
                     //in GlobalDeclarationInstantiation, no vars are deletable
-                    if(this.state instanceof GlobalEnvironmentRecord) {
+                    if(this.state.instantiation == DeclarationInstantiation.GLOBAL) {
                         //CreateGlobalVarBinding
                         const objRecord = this.state["[[ObjectRecord]]"];
                         const globalObj = objRecord["[[BindingObject]]"];
@@ -9691,15 +10062,18 @@
                 //const scope = this.state.variables.at(-1);
                 //scope.set(temporalDeclStatement.name, new TemporalDeadZoneVariable({qualifier: temporalDeclStatement.qualifier, gender: temporalDeclStatement.gender, name: temporalDeclStatement.name}, undefined));
                 if(temporalDeclStatement.qualifier.value == "const") {
-                    if(this.state instanceof GlobalEnvironmentRecord) {
-                        //bruhhhhh you had to go deep to find this one, for some reason strict is set to true!!
+                    //if(this.state instanceof GlobalEnvironmentRecord) {
+                        //bruhhhhh you had to go deep to find this one, for some reason strict is just set to true!!
                         //16.7.1 step.15.b.i.1
+                        //fortunately, this seems to be the same for all scope instantiation things
                         this.state.CreateImmutableBinding(temporalDeclStatement.name, true);
-                    }else {
-                        // this.state.CreateImmutableBinding(temporalDeclStatement.name, this.state.strict);
-                        throw Error("idk yet hold on");
-                    }
-                }else if(temporalDeclStatement.qualifier.value != "function") {
+                    //}else {
+                    //    // this.state.CreateImmutableBinding(temporalDeclStatement.name, this.state.strict);
+                    //    throw Error("idk yet hold on");
+                    //}
+                }else { // if(temporalDeclStatement.qualifier.value != "function") {
+                    //this part is slightly different for blocks (this.state.instantiation == DeclarationInstantiation.BLOCK) if i wanted to support Block-Level Function Declarations Web Legacy Compatibility Semantics
+                    //https://tc39.es/ecma262/multipage/ecmascript-language-statements-and-declarations.html#sec-blockdeclarationinstantiation
                     this.state.CreateMutableBinding(temporalDeclStatement.name, false);
                 }
             }
@@ -9903,8 +10277,16 @@
                     prefix = "set";
                 }
                 ECMAScript.SetFunctionName(wrapper, functionStatement.nameToken.value ?? "", prefix); //function expressions with no name have the empty string
-                //bruh i forgot the very next line
-                ECMAScript.MakeConstructor(wrapper);
+
+                if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.EXPRESSION || functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.FUNCTION) {
+                    //bruh i forgot the very next line
+                    ECMAScript.MakeConstructor(wrapper);
+                }else {
+                    //apparently methods can't be constructors so we call MakeMethod instead (which sets the [[HomeObject]] for super)
+                    // ECMAScript.MakeMethod(wrapper, );
+                    //oh yeah... we wouldn't know anything about the object from here
+                    //we need to call MakeMethod in visitObjectLiteralExpression and visitClassStatement :/
+                }
 
                 // we need to actually set the name to the function now lol
                 if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.EXPRESSION && functionStatement.nameToken) {
@@ -9941,7 +10323,7 @@
                 if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.FUNCTION) {
                     // this.state.InitializeBinding(functionStatement.nameToken.value, wrapper);
 
-                    if(this.state instanceof GlobalEnvironmentRecord) {
+                    if(this.state.instantiation == DeclarationInstantiation.GLOBAL) {
                         //in GlobalDeclarationInstantiation, no vars are deletable
                         //CreateGlobalFunctionBinding
 
@@ -9960,7 +10342,15 @@
                         }
                         //why does it set it again?
                         globalObj["[[Set]]"](functionStatement.nameToken.value, wrapper, globalObj);
+                    }else if(this.state.instantiation == DeclarationInstantiation.FUNCTION) {
+                        //FunctionDeclarationInstantiation
+                        //this should probably work the same way var does
+                        console.warn("SetMutableBinding should be called on calleeContext.variableEnvironment!!");
+                        this.state.SetMutableBinding(functionStatement.nameToken.value, wrapper, false);
                     }else {
+                        //EvalDeclarationInstantiation
+                        //ForDeclarationInstantiation
+                        //BlockDeclarationInstantiation (is skipped when function is hoisted)
                         throw Error("idk yet hold on");
                     }
                 }/*else if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.EXPRESSION) {
@@ -10018,6 +10408,8 @@
                         //    value.sourceText = value.accept(p);
                         //}
                         const func = this.evaluate(value); //evaluating does all of the stuff like creating the function and naming it even though that's not what happens in the specification
+                        ECMAScript.MakeMethod(func, obj); //fairs, i suppose
+
                         if(value.kindSoThatICanDoThisStuffCorrectly == FunctionKind.GETTER) {
                             obj["[[DefineOwnProperty]]"](propertyKey, {configurable: true, enumerable: true, getter: func}); //PropertyDefinition : MethodDefinition passes true for enumerable
                         }else if(value.kindSoThatICanDoThisStuffCorrectly == FunctionKind.SETTER) {
