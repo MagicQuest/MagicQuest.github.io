@@ -702,6 +702,13 @@
                                 this.i++; //consume -
                                 if(str[this.i] == '>') {
                                     this.i++;
+                                    //comment
+                                    //--> closing single html comment for some reason
+                                    //https://tc39.es/ecma262/multipage/additional-ecmascript-features-for-web-browsers.html#sec-html-like-comments
+                                    //these aren't allowed for modules though! (thank god we don't have those...)
+                                    this.i = str.indexOf("\n", this.i);
+                                    if(this.i == -1) this.i = str.length;
+                                    break;
                                 }else {
                                     tokens.push(new Token(lineNumber, charNumber, TokenKind.DECREMENT, "--"));
                                 }
@@ -758,6 +765,9 @@
                                     if(str[this.i] == '-') {
                                         this.i++;
                                         //comment
+                                        //<!-- single html comment for some reason
+                                        //https://tc39.es/ecma262/multipage/additional-ecmascript-features-for-web-browsers.html#sec-html-like-comments
+                                        //these aren't allowed for modules though! (thank god we don't have those...)
                                         this.i = str.indexOf("\n", this.i);
                                         if(this.i == -1) this.i = str.length;
                                         break;
@@ -1335,15 +1345,20 @@
         //this could be a visitor too lol!
         function isValidLeftHandAssignment(strict, expression, depth = 0) {
             if(expression instanceof BinaryExpression) {
-                let valid = isValidLeftHandAssignment(strict, expression.left, depth+1);
-                if(!valid) {
+                if(expression.operatorToken.kind != TokenKind.COMMA) {
+                    let valid = isValidLeftHandAssignment(strict, expression.left, depth+1);
+                    if(!valid) {
+                        return false;
+                    }
+                }else if(depth == 0) {
                     return false;
                 }
                 switch(expression.operatorToken.kind) {
-                    //no optional chaining because you can't do that
+                    //no optional chaining because you're not allowed to assign to it
                     case TokenKind.DOT:
                     case TokenKind.OPEN_PARENTHESIS:
                     case TokenKind.OPEN_BRACKET:
+                    case TokenKind.COMMA:
                         return isValidLeftHandAssignment(strict, expression.right, depth+1);
                         break;
                     
@@ -1370,9 +1385,12 @@
         }
 
         //this too could be a visitor...
-        //fortunately we only have to check expressions
+        //fortunately we only have to check expressions (ok i forgot i had to check static initialization blocks FAWK)
         /** @param {Expression} expression */
         function containsArguments(expression) {
+            //bro...
+            //i've accidently written this.containsArguments for every invocation
+            //thank god we're not in strict mode and globalThis does, indeed, have the containsArguments property
             if(expression instanceof BinaryExpression || expression instanceof AssignmentExpression) {
                 if(expression.operatorToken.kind == TokenKind.DOT) {
                     return this.containsArguments(expression.left);
@@ -1406,10 +1424,30 @@
                         return true;
                     }
                 }
+            }else if(expression instanceof VariableDeclarationStatement) {
+                return this.containsArguments(expression.value);
+            }else if(expression instanceof BlockStatement) {
+                for(const statement of expression.statements) {
+                    if(this.containsArguments(statement)) {
+                        return true;
+                    }
+                }
+            }else if(expression instanceof IfStatement) {
+                return this.containsArguments(expression.condition) || this.containsArguments(expression.ifClause) || this.containsArguments(expression.elseClause);
+            }else if(expression instanceof WhileStatement) {
+                return this.containsArguments(expression.condition) || this.containsArguments(expression.body);
+            }else if(expression instanceof ForLoopStatement) {
+                return this.containsArguments(expression.initialization) || this.containsArguments(expression.condition) || this.containsArguments(expression.afterthought) || this.containsArguments(expression.body);
+            }else if(expression instanceof ReturnStatement) {
+                //this won't happen in a class static block (because return isn't allowed there)
+                return this.containsArguments(expression.expr);
+            }else if(expression instanceof ArrayComprehensionExpression) {
+                return expression.containsArguments();
             }else if(expression instanceof IdentifierExpression) {
                 return expression.nameToken.value == "arguments";
             }
             //we don't have to check class expressions because they will call this function too
+            return false;
         }
 
         class PredicateVisitor {
@@ -1885,6 +1923,10 @@
             constructor(condition, body) {
                 super(condition, body);
             }
+
+            accept(visitor) {
+                return visitor.visitWhileStatement(this); //yo... have i ever used a while statement in the whole time i've been writing this interpreter?
+            }
         }
 
         //we're writing unique permutations of the for loops as their own classes because i suddenly feel like caring about performance
@@ -2039,6 +2081,34 @@
 
             accept(visitor) /*override*/ {
                 return visitor.visitArrayComprehensionExpression(this);
+            }
+
+            containsArguments() {
+                //we're writing this here because i bet i'll change how array comprehension works or something and i'd probably forget to change ts in containsArguments so here this method is
+                return containsArguments(this.topMostStatementTree);
+            }
+        }
+
+        class ClassStatement extends Statement {
+            /** @type {Map<any, any>} */
+            properties;
+            /** @type {FunctionStatement | undefined} */
+            $constructor;
+            /** @type {String} */
+            bindingName;
+            /** @type {String} */
+            sourceText;
+
+            constructor(properties, constructor, bindingName, sourceText) {
+                super();
+                this.properties = properties;
+                this.$constructor = constructor;
+                this.bindingName = bindingName;
+                this.sourceText = sourceText;
+            }
+
+            accept(visitor) {
+                return visitor.visitClassStatement(this);
             }
         }
 
@@ -3122,6 +3192,12 @@
                     //this was a hard one!
                     //parseFloat(Symbol.asyncDispose);
                     throw TypeError("Cannot convert a Symbol value to a string");
+                }
+                if(typeof arg == "undefined") {
+                    return "undefined";
+                }
+                if(arg == null) {
+                    return "null";
                 }
                 if(!(arg instanceof JavascriptObjectWrapper)) {
                     return arg.toString(); //lol bro
@@ -4382,6 +4458,14 @@
             subkind;
             /** @type {Boolean} */
             isCtor;
+
+            //wait nevermind lol this is a runtime thing not static
+            ////if isCtor,
+            ///** @type {Boolean} */
+            //superRequired;
+            ///** @type {Number} */
+            //superCount;
+
             constructor(subkind, isCtor, blockStatementArray) {
                 super("function", blockStatementArray);
                 this.subkind = subkind;
@@ -4396,6 +4480,14 @@
             static METHOD = 2;
             static GETTER = 3;
             static SETTER = 4;
+            static CONSTRUCTOR = 5;
+        }
+
+        //for JavascriptParser's block method
+        class BlockKind {
+            static NORMAL = 0;
+            static FUNCTION = 1;
+            static STATIC_CLASS = 2;
         }
 
         class JavascriptParser extends Parser {
@@ -4933,7 +5025,22 @@
                         
                         let right;
                         if(this.peek(TokenKind.PRIVATE_IDENTIFIER)) {
-                            right = new PrivateIdentifierExpression(this.tokens[this.i++]);
+                            const privateIdentifier = this.tokens[this.i++];
+                            let index = this.scope.length-1;
+                            let scope = this.scope[index];
+                            while(scope && scope.kind != "class_body" && scope.kind != "global") {
+                                scope = this.scope[--index];
+                            }
+                            const actualCurrentScope = this.scope[this.scope.length-1];
+                            if(scope.kind == "global") {
+                                if(actualCurrentScope.kind != "global") {
+                                    throw new ParseError(privateIdentifier.line, privateIdentifier.char, `Private field '${privateIdentifier.value}' must be declared in an enclosing class`);
+                                }
+                            }else {
+                                //actually in a class, add the private identifier name to scope list so we can check later
+                                scope.privateIdentifiers.push(privateIdentifier);
+                            }
+                            right = new PrivateIdentifierExpression(privateIdentifier);
                         }else {
                             right = this.identifierName(); //ok by using identifier name we've cleared up that bullshit i accidently allowed
                         }
@@ -5075,7 +5182,9 @@
                                 return new SuperPropertyExpression(this.useStrict, $super, operator, expr);
                             }else if(operator.kind == TokenKind.OPEN_PARENTHESIS) {
                                 //super call is literally only allowed in a class constructor method
-                                if(scope.subkind != FunctionKind.METHOD || !scope.isCtor) {
+                                const actualCurrentScope = this.scope[this.scope.length-1];
+                                //super calls can't happen in functions or blocks or even if statements that are inside of class constructor methods (apparently)
+                                if(actualCurrentScope != scope || scope.subkind != FunctionKind.CONSTRUCTOR || !scope.superRequired /*(15.7.1 (#1))*/) {
                                     throw new ParseError($super.line, $super.char, "'super' keyword unexpected here");
                                 }
                                 return new SuperCallExpression(this.useStrict, $super, this.$arguments());
@@ -5506,7 +5615,14 @@
                 //this.inFunction.push(true);
                 //const scopeRef = new StaticAnalysisScope("function", undefined);
                 //we're gonna lazily check beginningToken here since methods don't have a name when doCommonFunctionStuff is called! (i mean i probably could get the name but fawk)
-                const scopeRef = new StaticAnalysisFunctionScope(kind, beginningToken.value == "constructor" && inClass, undefined);
+                const isCtor = beginningToken.value == "constructor" && inClass;
+                if(isCtor && kind == FunctionKind.METHOD) {
+                    kind = FunctionKind.CONSTRUCTOR;
+                }
+                const scopeRef = new StaticAnalysisFunctionScope(kind, isCtor, undefined);
+                //scopeRef.superCount = 0;
+                scopeRef.superRequired = isCtor && beginningToken.superRequired; //i wrote a whole message about how this was lazy, then got rid of this line because i didn't think i needed it anymore, and now here we are again.
+                //wait nevermind checking super calls in the constructor is runtime :)))
                 this.scope.push(scopeRef);
 
                 //we're pushing the scope before parameters because there could be a super property/call which is bad...
@@ -5535,7 +5651,7 @@
                 }
 
                 const directivePrologueIndex = this.i+1; //we need to check this again to see if this function is strict so we can reparse the name (if it's an expression or function declaration) and parameters (+1 to skip the open curly bracket)
-                const functionBody = this.block(true); //purrhaps i could just pass inFunction to block lol
+                const functionBody = this.block(BlockKind.FUNCTION); //purrhaps i could just pass inFunction to block lol
                 const endingToken = this.tokens[this.i-1]; //Assert: endingToken.kind == TokenKind.CLOSING_CURLY_BRACKET
                 
                 scopeRef.blockStatementArray = functionBody.statements;
@@ -5702,7 +5818,7 @@
                         scope.hoisted.push($var);
                     }
 
-                    //super is actually just Object.getPrototypeOf(this); (or this.__proto__)
+                    //super is actually just Object.getPrototypeOf(this); (or this.__proto__) (kinda)
 
                     let superclass = undefined;
                     if(this.matchReserved("extends")) {
@@ -5714,7 +5830,14 @@
 
                     let hasConstructor = false;
                     let constructor = undefined;
-                    let seenPrivateKeys = [];
+                    const seenPrivateKeys = [];
+                    //const staticBlocks = [];
+
+                    //this isn't actually for variables lol, for private identifiers, we need a list of all the ones used in this class and all the ones that have been actually defined (i think this is for 16.1.1 #8) https://tc39.es/ecma262/multipage/ecmascript-language-scripts-and-modules.html#sec-scripts-static-semantics-early-errors
+                    const privateIdentifierScope = new StaticAnalysisScope("class_body", undefined);
+                    /** @type {Array<Token>} */
+                    privateIdentifierScope.privateIdentifiers = [];
+                    this.scope.push(privateIdentifierScope);
 
                     while(this.i < this.tokens.length && !this.peek(TokenKind.CLOSING_CURLY_BRACKET)) {
                         //this.classStatement()
@@ -5727,6 +5850,7 @@
                                 throw new ParseError(constructorToken.line, constructorToken.char, "A class may only have one constructor"); //SyntaxError
                             }
                             hasConstructor = true;
+                            constructorToken.superRequired = superclass != undefined; //maximum laziness achieved (15.7.1 (#1))
                             const [key, value] = this.objectkeyvalue(true);
                             if(!key.method) { //15.7.1 (#5)
                                 throw new ParseError(constructorToken.line, constructorToken.char, "Classes may not have a field named 'constructor'"); //SyntaxError
@@ -5735,12 +5859,31 @@
                             properties.set(key, value);
                         }else {
                             const $static = this.matchReserved("static"); // why the hell did i only write this.match(TokenKind.RESERVED)
+                            let value;
+                            let method = false;
+                            let keyToken;
                             if(this.peek(TokenKind.OPEN_CURLY_BRACKET)) {
                                 //static initialization block
-                                const staticBlock = this.block();
+                                value = this.block(BlockKind.STATIC_CLASS);
+                                //oh boy it executes in the order it's defined
+                                //class test {
+                                //  static x = console.log("x");
+                                //  static {
+                                //      console.log("y");
+                                //  }
+                                //  static z = console.log("z");
+                                //}
+                                //-> x, y, z
+
+                                //after looking at the specification, googling, then looking BACK at the specification i finally found the TINEST HINT that maps are sorted by key insertion order (i mean, i believed it when i saw it on mdn, but I couldn't find it with my own eyes!)
+                                //https://tc39.es/ecma262/multipage/keyed-collections.html#sec-map-objects:~:text=the%20Map%2C%20in-,key%20insertion%20order,-.%20callback%20is
+                                //staticBlocks.push({i: properties.size, block: staticBlock}); //because they're sorted by insertion order, we can safely write down the amount of entries in the map so that once we get to this index, we evaluate this static block
+                                //nevermind lol since it's sorted by insertion we can just add the block straight in
+                                properties.set(value, "static block yes haha");
                             }else {
-                                const keyToken = this.tokens[this.i];
-                                const [key, value] = this.objectkeyvalue(true);
+                                keyToken = this.tokens[this.i];
+                                const [key, thevaluebutweneeditinthevaluevariabledefinedabove] = this.objectkeyvalue(true);
+                                value = thevaluebutweneeditinthevaluevariabledefinedabove;
                                 //key instanceof LiteralExpression, property => "constructor";
                                 //key instanceof Token, property => constructor;
                                 //key instanceof IdentifierExpression, property => constructor = ...; // or constructor() {...}
@@ -5760,6 +5903,7 @@
                                     }
                                     seenPrivateKeys.push(stringvalue);
                                 }
+                                method = key.method;
                                 if(!key.computed && (((key instanceof LiteralExpression || key instanceof Token) && key.value == "constructor") || (key instanceof IdentifierExpression && key.nameToken.value == "constructor") || (key instanceof PrivateIdentifierExpression && key.nameToken.value == "#constructor"))) {
                                     if(key.method) {
                                         if(key instanceof PrivateIdentifierExpression) {
@@ -5788,21 +5932,23 @@
                                         throw new ParseError($static.line, $static.char, "Classes may not have a static property named 'prototype'"); //SyntaxError
                                     }
                                 }
+                                properties.set(key, value);
+                            }
+                            if(!method) {
+                                //this only applies to static blocks or static? fields!
                                 //bruh we need to make sure the arguments object isn't referenced :///
-                                //if(containsArguments(value)) {
+                                if(containsArguments(value)) { //we're back to using containsArguments until i flip flop again
+                                    //15.7.1 (#7)
+                                    const token = $static ?? keyToken; //"lowkeyidkwhatthetokenis:(";
+                                    throw new ParseError(token.line, token.char, "'arguments' is not allowed in class field initializer or static initialization block");
+                                }
+                                //const visitor = new PredicateVisitor(function(expr) {
+                                //    return (expr instanceof IdentifierExpression && expr.nameToken.value == "arguments") || (expr instanceof Token && expr.value == "arguments");
+                                //});
+                                //if(value.accept(visitor)) {
                                 //    //15.7.1 (#7)
                                 //    throw new ParseError(keyToken.line, keyToken.char, "'arguments' is not allowed in class field initializer or static initialization block");
                                 //}
-                                {
-                                    const visitor = new PredicateVisitor(function(expr) {
-                                        return (expr instanceof IdentifierExpression && expr.nameToken.value == "arguments") || (expr instanceof Token && expr.value == "arguments");
-                                    });
-                                    if(value.accept(visitor)) {
-                                        //15.7.1 (#7)
-                                        throw new ParseError(keyToken.line, keyToken.char, "'arguments' is not allowed in class field initializer or static initialization block");
-                                    }
-                                }
-                                properties.set(key, value);
                             }
                         }
                         this.consume(TokenKind.SEMICOLON, "Semicolon expected after property in class statement/expression");
@@ -5811,11 +5957,20 @@
                     const endingToken = this.tokens[this.i];
                     this.consume(TokenKind.CLOSING_CURLY_BRACKET, "Expected closing curly bracket here!!");
                     
+                    this.scope.pop();
+
                     this.useStrict = old;
+
+                    //16.1.1 (#8)
+                    for(const privateIdentifier of privateIdentifierScope.privateIdentifiers) {
+                        if(seenPrivateKeys.indexOf(privateIdentifier.value) == -1) {
+                            throw new ParseError(privateIdentifier.line, privateIdentifier.char, "Private field '#private' must be declared in an enclosing class");
+                        }
+                    }
 
                     const sourceText = this.sourceText.substring(indexFromToken(classToken, this.sourceText), indexFromToken(endingToken, this.sourceText)+1);
 
-                    return new ClassStatement(properties, constructor, sourceText);
+                    return new ClassStatement(properties, constructor, name.value, sourceText);
                 }
                 if(genderbutouhhiwillhavetobacktrackifthisnexttokenisnotconstorlet) {
                     //the gender might be needed elsewhere!
@@ -5857,16 +6012,20 @@
             }
 
             // block(insideFunction = false) {
-            block(dontMakeScopeBecauseFunctionAlreadyDidIt = false) {
+            // block(dontMakeScopeBecauseFunctionAlreadyDidIt = false) {
+            block(kind = BlockKind.NORMAL) {
                 this.consume(TokenKind.OPEN_CURLY_BRACKET, "Block statement expected but didn't find open curly bracket?");
                 const expr = new BlockStatement();
                 //this.scope.push(new StaticAnalysisScope(insideFunction ? "function" : "block", expr.statements));
                 const old = this.useStrict;
-                if(!dontMakeScopeBecauseFunctionAlreadyDidIt) {
+                if(kind == BlockKind.NORMAL) {
                     this.scope.push(new StaticAnalysisScope("block", expr.statements));
-                }else {
+                }else if(kind == BlockKind.FUNCTION) {
                     //if this is a function block we must process le directive prologue for use strict!
                     this.directivePrologue();
+                }else if(kind == BlockKind.STATIC_CLASS) {
+                    //vars and functions are hoisted to the top of the static initialization block like in functions
+                    this.scope.push(new StaticAnalysisScope("static_initialization", expr.statements));
                 }
                 while(this.i < this.tokens.length && !this.peek(TokenKind.CLOSING_CURLY_BRACKET)) {
                     const statement = this.declaration();
@@ -5893,7 +6052,7 @@
                 //if(insideFunction) {
                 //    this.inFunction.pop();
                 //}
-                if(!dontMakeScopeBecauseFunctionAlreadyDidIt) {
+                if(kind != BlockKind.FUNCTION) {
                     this.pushHoistedDeclarations();
                     this.scope.pop();
                 }
@@ -6805,6 +6964,41 @@
             }
         }
 
+        //when will i learn not to half ass the specification :/
+        //there've been at least like 3 times i've had to redo something important
+        //RuntimeState,
+        //now JavascriptInterpreter's replacement, state (which was ONLY the lexical environment)
+        class ExecutionContext {
+            //...
+            /** @type {JavascriptFunctionObject} */
+            function;
+            /** @type {JavascriptInterpreter} */
+            realm;
+            //scriptOrModule;
+
+            /** @type {EnvironmentRecord} */
+            lexicalEnvironment;
+            //variableEnvironment;
+            /** @type {PrivateEnvironmentRecord} */
+            privateEnvironment;
+
+            //because i can't be bothered to make this an array
+            /** @type {ExecutionContext | null} */
+            parentContext;
+
+            constructor(parent, lexicalEnvironment = undefined, privateEnvironment = undefined, $function = undefined) {
+                this.parentContext = parent;
+                if(parent) {
+                    this.realm = parent.realm;
+                    if(!lexicalEnvironment) lexicalEnvironment = parent.lexicalEnvironment;
+                    if(!privateEnvironment) privateEnvironment = parent.privateEnvironment;
+                }
+                this.lexicalEnvironment = lexicalEnvironment;
+                this.privateEnvironment = privateEnvironment;
+                this.function = $function;
+            }
+        }
+
         class JavascriptInterpreter extends Interpreter {
             static globals = window; //lol
 
@@ -6812,6 +7006,7 @@
             //scope;
             //state = new RuntimeState;
             state; //technically, state is actually the current execution context's lexical environment (side note, variable environment is only mentioned by name 18 times in the whole specification, do i really need to implement that?)
+            //executionContext;
             ["[[GlobalObject]]"]; //does that make JavascriptInterpreter currentRealm? (yeah i think JavascriptInterpreter qualifies as a Realm)
             ["[[GlobalEnv]]"];
 
@@ -8912,6 +9107,7 @@
                 this["[[GlobalObject]]"] = globalObj;
 
                 this.state = this["[[GlobalEnv]]"];
+                // this.executionContext = new ExecutionContext(null, this["[[GlobalEnv]]"], null, undefined);
             }
 
             parse(str) {
@@ -10376,7 +10572,7 @@
             /** @param {ObjectLiteralExpression} objectLiteralExpression */
             visitObjectLiteralExpression(objectLiteralExpression) {
                 const obj = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]);
-                const entries = objectLiteralExpression.properties.entries();
+                const entries = objectLiteralExpression.properties.entries(); //wait lol looking at the specification i just learned that maps are directly iterable thanks to [Symbol.iterator]
                 for(const [key, value] of entries) {
                     if(key instanceof Token) { //IdentifierReference
                         //{variable}
@@ -10442,6 +10638,18 @@
                     }
                 }
                 return obj;
+            }
+
+            /** @param {ClassStatement} classStatement */
+            visitClassStatement(classStatement) {
+                //https://tc39.es/ecma262/multipage/ecmascript-language-functions-and-classes.html#sec-runtime-semantics-classdefinitionevaluation
+                //oh my god when will i learn?
+                const envRecord = this.executionContext.lexicalEnvironment;
+                const classEnv = new DeclarativeEnvironmentRecord(envRecord); //instantiation...
+                if(classStatement.bindingName) {
+                    classEnv.CreateImmutableBinding(classStatement.bindingName, true);
+                }
+                const outerPrivateEnv = this.executionContext.privateEnvironment;
             }
         }
 
@@ -10684,6 +10892,11 @@
                     i++;
                 }
                 return result + "}";
+            }
+
+            /** @param {ClassStatement} classStatement */
+            visitClassStatement(classStatement) {
+                throw error;
             }
 
             /** @param {AssignmentExpression} assignmentExpression */
