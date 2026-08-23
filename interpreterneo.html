@@ -2090,20 +2090,26 @@
         }
 
         class ClassStatement extends Statement {
+            /** @type {Expression} */
+            classHeritage;
             /** @type {Map<any, any>} */
             properties;
             /** @type {FunctionStatement | undefined} */
             $constructor;
             /** @type {String} */
-            bindingName;
+            classBinding; //bindingName
+            /** @type {String} */
+            className; //this is just binding name unless this is a class expression!
             /** @type {String} */
             sourceText;
 
-            constructor(properties, constructor, bindingName, sourceText) {
+            constructor(classHeritage, properties, constructor, classBinding, className, sourceText) {
                 super();
+                this.classHeritage = classHeritage;
                 this.properties = properties;
                 this.$constructor = constructor;
-                this.bindingName = bindingName;
+                this.classBinding = classBinding;
+                this.className = className;
                 this.sourceText = sourceText;
             }
 
@@ -2220,7 +2226,7 @@
              * @param {Statement} body
              * @param {ThisMode} thisMode
              * @param {EnvironmentRecord} envRecord
-             * @param {PrivateEnvironment | null} privateEnv
+             * @param {PrivateEnvironmentRecord | null} privateEnv
              */
             static OrdinaryFunctionCreate(interpreter, proto, sourceText, paramList, body, thisMode, envRecord, privateEnv) {
                 const internalSlotsList = ["[[Prototype]]", "[[Extensible]]"];
@@ -2245,11 +2251,17 @@
                 func.isClassConstructor = false;
                 func.environment = envRecord;
                 func.privateEnvironment = privateEnv;
-                //func.scriptOrModule = ...;
+                {
+                    let context = interpreter.executionContext;
+                    while(context && context.scriptOrModule == null) {
+                        context = context.parentContext;
+                    }
+                    func.scriptOrModule = context ? context.scriptOrModule : null;
+                }
                 func.realm = interpreter; // i guess?
                 func["[[HomeObject]]"] = undefined;
-                //func.fields = [];
-                //func.privateMethods = [];
+                func["[[Fields]]"] = [];
+                func["[[PrivateMethods]]"] = [];
                 func.classFieldInitializerName = "";
                 //SetFunctionLength(func, length);
                 //DefineOwnProperty
@@ -2330,6 +2342,300 @@
             static MakeMethod(func, homeObj) {
                 //Assert: homeObj instanceof JavascriptObjectWrapper && is ordinary lol
                 func["[[HomeObject]]"] = homeObj;
+                return undefined; //UNUSED
+            }
+            
+            //https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-definemethodproperty
+            static DefineMethodProperty(homeObj, name, closure, enumerable) {
+                //Assert: homeObj instanceof JavascriptObjectWrapper && homeObj["[[Extensible]]"]
+                if(name instanceof PrivateName) {
+                    return new PrivateElement(name, PrivateElementKind.METHOD, closure);
+                }
+                //? DefinePropertyOrThrow
+                if(!homeObj["[[DefineOwnProperty]]"](name, new JavascriptDataProperty(true, enumerable, true, closure))) {
+                    throw TypeError(`Cannot redefine property: ${name}`);
+                }
+                //NOTE: DefinePropertyOrThrow only returns an abrupt completion when attempting to define a class static method whose name is "prototype".
+                return undefined; //UNUSED
+            }
+
+            //https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-prepareforordinarycall
+            static PrepareForOrdinaryCall(func, newTarget) {
+                const agent = func.interpreter;
+
+                const callerContext = agent.executionContext; //lol
+                const localEnv = new FunctionEnvironmentRecord(func, newTarget);
+                const calleeContext = new ExecutionContext(callerContext, localEnv, func.privateEnvironment, func);
+                //calleeContext.variableEnvironment = localEnv;
+                calleeContext.realm = func.realm;
+                calleeContext.scriptOrModule = func.scriptOrModule;
+                agent.executionContext = calleeContext;
+                return calleeContext;
+            }
+
+            //https://tc39.es/ecma262/#sec-ordinarycallbindthis
+            static OrdinaryCallBindThis(func, calleeContext, thisArg) {
+                if(func.thisMode == ThisMode.LEXICAL) {
+                    return undefined; //UNUSED
+                }else {
+                    const calleeRealm = func.interpreter;
+                    const localEnv = calleeContext.lexicalEnvironment;
+                    let thisValue;
+                    if(func.thisMode == ThisMode.STRICT) {
+                        thisValue = thisArg;
+                    }else if(thisArg == undefined || thisArg == null) {
+                        //const thisValue = globalThis;
+                        //scope.set("this", new Variable({qualifier: {line: 1, char: 1, value: "const", kind: TokenKind.RESERVED}, gender: undefined, name: "this"}, thisValue));
+                        //Assert: calleeRealm["[[GlobalEnv]]"] instanceof GlobalEnvironmentRecord
+                        thisValue = calleeRealm["[[GlobalEnv]]"]["[[GlobalThisValue]]"];
+                    }else {
+                        // scope.set("this", new Variable({qualifier: {line: 1, char: 1, value: "const", kind: TokenKind.RESERVED}, gender: undefined, name: "this"}, thisValue));
+                        thisValue = ECMAScript.ToObject(thisArg);
+                        //NOTE: ToObject produces wrapper objects using calleeRealm.
+                    }
+                    //Assert: localEnv instanceof FunctionEnvironmentRecord
+
+                    //! ECMAScript.BindThisValue(localEnv, thisValue);
+                    //Assert: localEnv["[[ThisBindingStatus]]"] != BindingStatus.LEXICAL
+                    if(localEnv["[[ThisBindingStatus]]"] == BindingStatus.INITIALIZED) {
+                        throw ReferenceError("localEnv[\"[[ThisBindingStatus]]\"] == BindingStatus.INITIALIZED"); //i can't imagine what this error would be... (damn i don't know how all ts works to attempt to trigger this one...)
+                    }
+                    localEnv["[[ThisValue]]"] = thisValue;
+                    localEnv["[[ThisBindingStatus]]"] = BindingStatus.INITIALIZED;
+                    //return undefined; // UNUSED
+
+                    return undefined; //UNUSED
+                }
+            }
+
+            static OrdinaryCallEvaluateBody(func, argList) {
+                //OrdinaryCallEvaluateBody
+                //EvaluateFunctionBody
+                //FunctionDeclarationInstantiation
+
+                //https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-functiondeclarationinstantiation
+
+                //oops, the arguments object is supposed to be set here!
+                //scope.set("arguments", new Variable({qualifier: {line: 1, char: 1, value: "let", kind: TokenKind.RESERVED}, gender: undefined, name: "arguments"}, ));
+
+                const calleeContext = func.interpreter.executionContext;
+
+                const hasParamExprs = func.formalParameters.filter(p=>p.default).length != 0;
+
+                let hasDuplicates = false;
+                {
+                    const seen = new Map();
+                    for(const {identifier, default: $default} of func.formalParameters) {
+                        const name = identifier.nameToken.value;
+                        if(seen.has(name)) {
+                            hasDuplicates = true;
+                            break;
+                        }
+                        seen.set(name, true);
+                    }
+                }
+
+                let argumentsObjNeeded = true;
+
+                if(func.thisMode == ThisMode.LEXICAL || func.formalParameters.find(p=>p.identifier.nameToken.value=="arguments") != undefined) {
+                    argumentsObjNeeded = false;
+                }else if(!hasParamExprs) {
+                    //we're supposed to check all function and lexical declaration names here but my shit lowkey doesn't work like that
+                    //ah but it's true we could just look through the first statements in functionBody until they're not a TemporalDeadZone or var declaration
+                }
+
+                let envRecord;
+                
+                if(func.strict || !hasParamExprs) {
+                    //NOTE: Only a single Environment Record is needed for the parameters, since calls to eval in strict mode code cannot create new bindings which are visible outside of the eval.
+                    envRecord = calleeContext.lexicalEnvironment; //lexical environment
+                }else {
+                    //NOTE: A separate Environment Record is needed to ensure that bindings created by direct eval calls in the formal parameter list are outside the environment where parameters are declared.
+                    envRecord = new DeclarativeEnvironmentRecord(calleeContext.lexicalEnvironment); //lexical environment
+                    //Assert: calleeContext.variableEnvironment == calleeContext.lexicalEnvironment
+                    //https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-functiondeclarationinstantiation (step 20.d)
+                    calleeContext.lexicalEnvironment = envRecord;
+                    //this.interpreter.state = calleeContext.lexicalEnvironment; //i guess this goes here too unless i write this correctly!
+                }
+
+                for(let i = 0; i < func.formalParameters.length; i++) {
+                    const {identifier, default: $default} = func.formalParameters[i];
+                    /*
+                    let value = undefined;
+                    if(i < argList.length) {
+                        value = argList[i];
+                    }else if($default) {
+                        //oh my god i wasn't calling evaluate here!
+                        // value = $default?.accept(this.interpreter);
+
+                        //hmm this is getting weird calling evaluate though...
+                        value = this.interpreter.evaluate($default);
+                    }
+
+                    //we are cheating by saying the parameter variable has been declared with var so that var is allowed to shadow it or whatever var does (because this allowed)
+                    scope.set(identifier.nameToken.value, new Variable({qualifier: {line: 1, char: 1, value: "var", kind: TokenKind.RESERVED}, name: identifier.nameToken.value, gender: undefined}, value));
+                    */
+                   const name = identifier.nameToken.value;
+                    if(!envRecord.HasBinding(name)) {
+                        let value = undefined;
+                        envRecord.CreateMutableBinding(name, false);
+                        if(hasDuplicates) {
+                            envRecord.InitializeBinding(name, undefined);
+                        }
+                    }
+                }
+
+                let argumentsObj;
+
+                if(argumentsObjNeeded) {
+                    if(func.strict || hasParamExprs) {
+                        argumentsObj = ECMAScript.CreateUnmappedArgumentsObject(argList);
+                    }else {
+                        //NOTE: A mapped argument object is only provided for non-strict functions that don't have a rest parameter, any parameter default value initializers, or any destructured parameters.
+                        argumentsObj = ECMAScript.CreateMappedArgumentsObject(func, func.formalParameters, argList, envRecord);
+                    }
+                    if(func.strict) {
+                        envRecord.CreateImmutableBinding("arguments", false); //allegedly being in strict mode stops you from trying to assign to arguments anyways (but did i do that?) (yes, i did do that)
+                        //NOTE: In strict mode code early errors prevent attempting to assign to this binding, so its mutability is not observable.
+                    }else {
+                        envRecord.CreateMutableBinding("arguments", false);
+                    }
+                    envRecord.InitializeBinding("arguments", argumentsObj);
+                }
+
+                //let usedEnv;
+                //
+                //if(hasDuplicates) {
+                //    usedEnv = undefined;
+                //}else {
+                //    usedEnv = envRecord;
+                //}
+
+                //IteratorBindingInitialization(..., usedEnv) (which i assume initializes the parameters?)
+                //ah yes, SingleNameBinding seems to be doing what i expected!
+                for(let i = 0; i < func.formalParameters.length; i++) {
+                    const {identifier, default: $default} = func.formalParameters[i];
+                    // const ref = identifier.accept(this.interpreter);
+                    const ref = func.interpreter.ResolveBinding(identifier.nameToken.value, envRecord);
+                    let value = undefined;
+                    if(i < argList.length) {
+                        value = argList[i];
+                    }else if($default) {
+                        //oh my god i wasn't calling evaluate here!
+                        // value = $default?.accept(this.interpreter);
+
+                        //hmm this is getting weird calling evaluate though...
+                        value = func.interpreter.evaluate($default);
+                    }
+                    if(hasDuplicates) {
+                        //PutValue
+                        func.interpreter.PutValue(ref, value);
+                    }else {
+                        //InitializeReferencedBinding
+                        //Assert: ref.base != undefined
+                        //Assert: ref.base instanceof EnvironmentRecord
+                        ref.base.InitializeBinding(ref.referencedName, value);
+                    }
+                }
+
+                //we probably don't need this?
+                let variableEnv;
+
+                if(!hasParamExprs) {
+                    //... 10.2.11 step 29.
+                    variableEnv = envRecord;
+                }else {
+                    //let variableEnv = new DeclarativeEnvironmentRecord(envRecord);
+                    //oh man, what's all this talk of a "LexicalEnvironment" and a "VariableEnvironment"
+                    //surely one environment was enough!
+                    //why is this so complicated and how the hell is this distinction important?
+
+                    variableEnv = new DeclarativeEnvironmentRecord(envRecord);
+                    calleeContext.variableEnvironment = variableEnv;
+                }
+
+                let lexicalEnv;
+
+                if(func.strict) {
+                    lexicalEnv = variableEnv;
+                }else {
+                    //Block-Level Function Declarations Web Legacy Compatibility Semantics
+                    //...
+                    //...
+                    //...
+                    lexicalEnv = new DeclarativeEnvironmentRecord(variableEnv);
+                    //c. NOTE: Non-strict functions use a separate Environment Record for top-level lexical declarations so that a direct eval can determine whether any var scoped declarations introduced by the eval code conflict with pre-existing top-level lexically scoped declarations. This is not needed for strict functions because a strict direct eval always places all declarations into a new Environment Record.
+                }
+
+                calleeContext.lexicalEnvironment = lexicalEnv;
+                //this.interpreter.state = calleeContext.lexicalEnvironment; //i guess this goes here too unless i write this correctly!
+                
+                //somehow this specific behavior isn't mentioned at all in the specification, but it's observable in v8!
+                //we're going to implement it too!
+
+                if(!func.strict && argumentsObjNeeded) {
+                    //in non strict mode, the callee function has its caller and arguments properties set (and won't throw when they're accessed)
+                    //i'm not sure how these are actually defined in v8 because Object.getOwnPropertyDescriptors(func) doesn't list caller or arguments, and func.__proto__ (and Function.prototype) still have them as %ThrowTypeError% accessor properties
+                    //these properties are now defined in OrdinaryFunctionCreate, since it seems builtin functions always throw
+                    func.properties.get("arguments").value = argumentsObj;
+                    //even with a proxy the changing of arguments is not observable! (which justifies my usage of properties.set instead of actually calling the [[Set]] internal method)
+                    //also with a proxy if you're in the body of the function you STILL can't access arguments or caller (USING Reflect.get) despite being able to directly with func.caller
+                }
+
+                //evaluate...
+                let retval = undefined;
+                try {
+                    func.ECMAScriptCode.accept(func.interpreter); //somehow he needs to handle return statements
+                }catch(e) {
+                    if(e instanceof Error) {
+                        throw e;
+                    }
+                    retval = e; //the return expression is evaluated as soon as we reach it in the function (i honestly wasn't sure if that was the right move, but with scopes you could try to return a local var!)
+                }
+
+                if(!func.strict && argumentsObjNeeded) {
+                    func.properties.get("arguments").value = null;
+                }
+                return retval;
+            }
+
+            static PrivateMethodOrAccessorAdd(obj, method) {
+                //Assert: method["[[Kind]]"] == PrivateElementKind.METHOD || method["[[Kind]]"] == PrivateElementKind.ACCESSOR
+                //If the host is a web browser, then
+                //  Perform ? HostEnsureCanAddPrivateElement(obj);
+                const entry = obj["[[PrivateElements]]"].find(element=>element["[[Key]]"]==method["[[Key]]"]); //PrivateElementFind
+                if(entry != undefined) throw TypeError("How the hell do i trigger this error, it's already a SyntaxError to have duplicate private keys!");
+                obj["[[PrivateElements]]"].push(method);
+                return undefined; //UNUSED
+            }
+
+            static InitializeInstanceElements(obj, ctor) {
+                for(const method of ctor["[[PrivateMethods]]"]) {
+                    //Perform ? PrivateMethodOrAccessorAdd(obj, method);
+                    /*?*/ ECMAScript.PrivateMethodOrAccessorAdd(obj, method);
+                }
+                for(const fieldRecord of ctor["[[Fields]]"]) {
+                    //Perform ? DefineField(obj, fieldRecord);
+                    const fieldName = fieldRecord["[[Name]]"];
+                    const initializer = fieldRecord["[[Initializer]]"];
+                    let initValue = undefined;
+                    if(initializer) {
+                        initValue = ECMAScript.Call(initializer, obj); //well THAT explains why arguments can't be referenced!!
+                    }
+                    if(fieldName instanceof PrivateName) {
+                        //Perform ? PrivateFieldAdd(receiver, fieldName, initValue);
+                        //If the host is a web browser, then
+                        //  Perform ? HostEnsureCanAddPrivateElement(obj);
+                        const entry = obj["[[PrivateElements]]"].find(element=>element["[[Key]]"]==fieldName["[[Key]]"]); //PrivateElementFind
+                        if(entry != undefined) throw TypeError("How the hell do i trigger this error, it's already a SyntaxError to have duplicate private keys!");
+                        obj["[[PrivateElements]]"].push(new PrivateElement(fieldName, PrivateElementKind.FIELD, initValue));
+                        //return undefined; //UNUSED
+                    }else {
+                        //Assert: typeof fieldName == "string" || typeof fieldName == "symbol"
+                        /*?*/ ECMAScript.CreateDataPropertyOrThrow(obj, fieldName, initValue);
+                    }
+                    //return undefined; //UNUSED
+                }
                 return undefined; //UNUSED
             }
 
@@ -3708,13 +4014,15 @@
             ECMAScriptCode; //declaration.body
             constructorKind;
             realm;
-            //scriptOrModule
+            scriptOrModule;
             thisMode;
             strict;
             ["[[HomeObject]]"]; //parent
             ["[[SourceText]]"];
-            //fields
-            //privateMethods
+
+            //for class constructors
+            ["[[Fields]]"];
+            ["[[PrivateMethods]]"];
             classFieldInitializerName;
             isClassConstructor;
 
@@ -3735,238 +4043,41 @@
                 //const calleeContext = ECMAScript.PrepareForOrdinaryCall(this, undefined);
 
                 //PrepareForOrdinaryCall
-                const callerContext = this.interpreter.state;
+                //const callerContext = this.interpreter.executionContext;
+//
+                //let calleeContext;
+                //{
+                //    const localEnv = new FunctionEnvironmentRecord(this, undefined);
+                //    calleeContext = new ExecutionContext(callerContext, localEnv, this.privateEnvironment, this);
+                //    //calleeContext.lexicalEnvironment = localEnv;
+                //    //calleeContext.variableEnvironment = localEnv;
+                //    //calleeContext.privateEnvironment = this.privateEnvironment;
+                //    this.interpreter.executionContext = calleeContext;
+                //}
 
-                let calleeContext = {};
-                {
-                    const localEnv = new FunctionEnvironmentRecord(this, undefined);
-                    calleeContext.lexicalEnvironment = localEnv;
-                    calleeContext.variableEnvironment = localEnv;
-                    calleeContext.privateEnvironment = this.privateEnvironment;
-                }
-                this.interpreter.state = calleeContext.lexicalEnvironment; //idk bruh we've lost the plot
+                const calleeContext = ECMAScript.PrepareForOrdinaryCall(this, undefined);
 
                 if(this.isClassConstructor) {
                     //this.environment.pop();
                     //this.interpreter.state.variables = old;
-                    this.interpreter.state = callerContext;
-                    throw TypeError(`Class constructor ${this.classFieldInitializerName} cannot be invoked without 'new'`);
+                    this.interpreter.executionContext = calleeContext.parentContext; // pop execution context
+                    throw TypeError(`Class constructor ${GetConstructorName(thisArg)} cannot be invoked without 'new'`);
                 }
 
-                //https://tc39.es/ecma262/#sec-ordinarycallbindthis
-                if(this.thisMode == ThisMode.LEXICAL) {
-                    //return UNUSED;
-                }else {
-                    const localEnv = calleeContext.lexicalEnvironment;
-                    let thisValue;
-                    if(this.thisMode == ThisMode.STRICT) {
-                        thisValue = thisArg;
-                    }else if(thisArg == undefined || thisArg == null) {
-                        //const thisValue = globalThis;
-                        //scope.set("this", new Variable({qualifier: {line: 1, char: 1, value: "const", kind: TokenKind.RESERVED}, gender: undefined, name: "this"}, thisValue));
-                        thisValue = this.interpreter["[[GlobalEnv]]"]["[[GlobalThisValue]]"];
-                    }else {
-                        thisValue = ECMAScript.ToObject(thisArg);
-                        // scope.set("this", new Variable({qualifier: {line: 1, char: 1, value: "const", kind: TokenKind.RESERVED}, gender: undefined, name: "this"}, thisValue));
-                    }
-                    //Assert: localEnv instanceof FunctionEnvironmentRecord
-                    //BindThisValue
-                    if(localEnv["[[ThisBindingStatus]]"] == BindingStatus.INITIALIZED) {
-                        throw ReferenceError("localEnv[\"[[ThisBindingStatus]]\"] == BindingStatus.INITIALIZED"); //i can't imagine what this error would be... (damn i don't know how all ts works to attempt to trigger this one...)
-                    }
-                    localEnv["[[ThisValue]]"] = thisValue;
-                    localEnv["[[ThisBindingStatus]]"] = BindingStatus.INITIALIZED;
-                }
+                ECMAScript.OrdinaryCallBindThis(this, calleeContext, thisArg);
 
                 //this is now handled in visitFunctionStatement by setting closure to a new DeclarativeEnvironmentRecord
                 //if(this.functionNameForScopeOfFunctionExpressions) {
                 //    scope.set(this.functionNameForScopeOfFunctionExpressions, new Variable({qualifier: {line: 1, char: 1, value: "var", kind: TokenKind.RESERVED}, name: this.functionNameForScopeOfFunctionExpressions, gender: undefined}, this));
                 //}
 
-                //OrdinaryCallEvaluateBody
-                //EvaluateFunctionBody
-                //FunctionDeclarationInstantiation
-
-                //https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-functiondeclarationinstantiation
-
-                //oops, the arguments object is supposed to be set here!
-                //scope.set("arguments", new Variable({qualifier: {line: 1, char: 1, value: "let", kind: TokenKind.RESERVED}, gender: undefined, name: "arguments"}, ));
-
-                let argumentsObjNeeded = true;
-
-                const hasParamExprs = this.formalParameters.filter(p=>p.default).length != 0;
-                let hasDuplicates = false;
-                {
-                    const seen = new Map();
-                    for(const {identifier, default: $default} of this.formalParameters) {
-                        const name = identifier.nameToken.value;
-                        if(seen.has(name)) {
-                            hasDuplicates = true;
-                            break;
-                        }
-                        seen.set(name, true);
-                    }
-                }
-
-                if(this.thisMode == ThisMode.LEXICAL || this.formalParameters.find(p=>p.identifier.nameToken.value=="arguments") != undefined) {
-                    argumentsObjNeeded = false;
-                }else if(!hasParamExprs) {
-                    //we're supposed to check all function and lexical declaration names here but my shit lowkey doesn't work like that
-                    //ah but it's true we could just look through the first statements in functionBody until they're not a TemporalDeadZone or var declaration
-                }
-
-                let envRecord;
-                
-                if(this.strict || !hasParamExprs) {
-                    envRecord = calleeContext.lexicalEnvironment; //lexical environment
-                }else {
-                    envRecord = new DeclarativeEnvironmentRecord(calleeContext.lexicalEnvironment); //lexical environment
-                    //Assert: calleeContext.variableEnvironment == calleeContext.lexicalEnvironment
-                    //https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-functiondeclarationinstantiation (step 20.d)
-                    calleeContext.lexicalEnvironment = envRecord;
-                    this.interpreter.state = calleeContext.lexicalEnvironment; //i guess this goes here too unless i write this correctly!
-                }
-
-                for(let i = 0; i < this.formalParameters.length; i++) {
-                    const {identifier, default: $default} = this.formalParameters[i];
-                    /*
-                    let value = undefined;
-                    if(i < argList.length) {
-                        value = argList[i];
-                    }else if($default) {
-                        //oh my god i wasn't calling evaluate here!
-                        // value = $default?.accept(this.interpreter);
-
-                        //hmm this is getting weird calling evaluate though...
-                        value = this.interpreter.evaluate($default);
-                    }
-
-                    //we are cheating by saying the parameter variable has been declared with var so that var is allowed to shadow it or whatever var does (because this allowed)
-                    scope.set(identifier.nameToken.value, new Variable({qualifier: {line: 1, char: 1, value: "var", kind: TokenKind.RESERVED}, name: identifier.nameToken.value, gender: undefined}, value));
-                    */
-                   const name = identifier.nameToken.value;
-                    if(!envRecord.HasBinding(name)) {
-                        let value = undefined;
-                        envRecord.CreateMutableBinding(name, false);
-                        if(hasDuplicates) {
-                            envRecord.InitializeBinding(name, undefined);
-                        }
-                    }
-                }
-
-                let argumentsObj;
-
-                if(argumentsObjNeeded) {
-                    if(this.strict || hasParamExprs) {
-                        // console.error("argumentsObj = ECMAScript.CreateUnmappedArgumentsObject(argList);");
-                        argumentsObj = ECMAScript.CreateUnmappedArgumentsObject(argList);
-                    }else {
-                        // console.error("argumentsObj = ECMAScript.CreateMappedArgumentsObject(this, this.formalParameters, argList, envRecord);");
-                        argumentsObj = ECMAScript.CreateMappedArgumentsObject(this, this.formalParameters, argList, envRecord);
-                    }
-                    if(this.strict) {
-                        envRecord.CreateImmutableBinding("arguments", false); //allegedly being in strict mode stops you from trying to assign to arguments anyways (but did i do that?) (yes, i did do that)
-                    }else {
-                        envRecord.CreateMutableBinding("arguments", false);
-                    }
-                    envRecord.InitializeBinding("arguments", argumentsObj);
-                }
-
-                //let usedEnv;
-                //
-                //if(hasDuplicates) {
-                //    usedEnv = undefined;
-                //}else {
-                //    usedEnv = envRecord;
-                //}
-
-                //IteratorBindingInitialization(..., usedEnv) (which i assume initializes the parameters?)
-                //ah yes, SingleNameBinding seems to be doing what i expected!
-                for(let i = 0; i < this.formalParameters.length; i++) {
-                    const {identifier, default: $default} = this.formalParameters[i];
-                    // const ref = identifier.accept(this.interpreter);
-                    const ref = this.interpreter.ResolveBinding(identifier.nameToken.value, envRecord);
-                    let value = undefined;
-                    if(i < argList.length) {
-                        value = argList[i];
-                    }else if($default) {
-                        //oh my god i wasn't calling evaluate here!
-                        // value = $default?.accept(this.interpreter);
-
-                        //hmm this is getting weird calling evaluate though...
-                        value = this.interpreter.evaluate($default);
-                    }
-                    if(hasDuplicates) {
-                        //PutValue
-                        this.interpreter.PutValue(ref, value);
-                    }else {
-                        //InitializeReferencedBinding
-                        //Assert: ref.base != undefined
-                        //Assert: ref.base instanceof EnvironmentRecord
-                        ref.base.InitializeBinding(ref.referencedName, value);
-                    }
-                }
-
-                let variableEnv;
-
-                if(!hasParamExprs) {
-                    //...
-                    variableEnv = envRecord;
-                }else {
-                    //let variableEnv = new DeclarativeEnvironmentRecord(envRecord);
-                    //oh man, what's all this talk of a "LexicalEnvironment" and a "VariableEnvironment"
-                    //surely one environment was enough!
-                    //why is this so complicated and how the hell is this distinction important?
-
-                    variableEnv = new DeclarativeEnvironmentRecord(envRecord);
-                    calleeContext.variableEnvironment = variableEnv;
-                }
-
-                let lexicalEnv;
-
-                if(this.strict) {
-                    lexicalEnv = variableEnv;
-                }else {
-                    //Block-Level Function Declarations Web Legacy Compatibility Semantics
-                    //...
-                    //...
-                    //...
-                    lexicalEnv = new DeclarativeEnvironmentRecord(variableEnv);
-                    //c. NOTE: Non-strict functions use a separate Environment Record for top-level lexical declarations so that a direct eval can determine whether any var scoped declarations introduced by the eval code conflict with pre-existing top-level lexically scoped declarations. This is not needed for strict functions because a strict direct eval always places all declarations into a new Environment Record.
-                }
-
-                calleeContext.lexicalEnvironment = lexicalEnv;
-                this.interpreter.state = calleeContext.lexicalEnvironment; //i guess this goes here too unless i write this correctly!
-                
-                //somehow this specific behavior isn't mentioned at all in the specification, but it's observable in v8!
-                //we're going to implement it too!
-
-                if(!this.strict && argumentsObjNeeded) {
-                    //in non strict mode, the callee function has its caller and arguments properties set (and won't throw when they're accessed)
-                    //i'm not sure how these are actually defined in v8 because Object.getOwnPropertyDescriptors(func) doesn't list caller or arguments, and func.__proto__ (and Function.prototype) still have them as %ThrowTypeError% accessor properties
-                    //these properties are now defined in OrdinaryFunctionCreate, since it seems builtin functions always throw
-                    this.properties.get("arguments").value = argumentsObj;
-                }
-
-                //evaluate...
-                let retval = undefined;
-                try {
-                    this.ECMAScriptCode.accept(this.interpreter); //somehow he needs to handle return statements
-                }catch(e) {
-                    if(e instanceof Error) {
-                        throw e;
-                    }
-                    retval = e; //the return expression is evaluated when we reach it (i honestly wasn't sure if that was the right move, but with scopes you could try to return a local var!)
-                }
-
-                if(!this.strict && argumentsObjNeeded) {
-                    this.properties.get("arguments").value = null;
-                }
+                const result = ECMAScript.OrdinaryCallEvaluateBody(this, argList);
 
                 //this.environment.pop();
                 //this.interpreter.state.variables = old;
-                this.interpreter.state = callerContext;
-                return retval;
+                // this.interpreter.state = callerContext;
+                this.interpreter.executionContext = calleeContext.parentContext;
+                return result;
             }
 
             //static because not required
@@ -3975,11 +4086,32 @@
                 if(this.constructorKind == ConstructorKind.BASE) {
                     thisArg = ECMAScript.OrdinaryCreateFromConstructor(newTarget, "%Object.prototype%");
                 }
-                //do scope stuff (but we're being lazy and just using call)
+                const calleeContext = ECMAScript.PrepareForOrdinaryCall(this, newTarget);
+                //Assert: this.interpreter.executionContext == calleeContext
                 if(this.constructorKind == ConstructorKind.BASE) {
                     //bind this, handle instance elements...
+                    ECMAScript.OrdinaryCallBindThis(this, calleeContext, thisArg);
+                    try {
+                        ECMAScript.InitializeInstanceElements(thisArg, this); // well this explains why you HAVE to call super before using 'this', the base class constructor is the one that initializes the fields!!
+                    }catch(abruptCompletion) {
+                        this.interpreter.executionContext = calleeContext.parentContext; //pop execution context
+                        throw abruptCompletion; //rethrow i guess
+                    }
                 }
-                const result = this["[[Call]]"](thisArg, argList);
+                const ctorEnv = calleeContext.lexicalEnvironment;
+
+                // const result = this["[[Call]]"](thisArg, argList);
+                let result;
+                try {
+                    result = ECMAScript.OrdinaryCallEvaluateBody(this, argList);
+                }catch(throwCompletion) {
+                    //we already catch the return value in OrdinaryCallEvaluateBody so anything caught here will be undesired!
+                    this.interpreter.executionContext = calleeContext.parentContext; //pop execution context
+                    throw throwCompletion; //rethrow i guess
+                }
+                //Assert: Completion(result) instanceof ReturnCompletion
+                this.interpreter.executionContext = calleeContext.parentContext; //pop execution context
+
                 if(result instanceof JavascriptObjectWrapper) {
                     return result;
                 }
@@ -4001,12 +4133,10 @@
                     //}
                     throw TypeError("Derived constructors may only return objects or undefined");
                 }
-                //GetThisBinding
-                if(this.interpreter.state.strict) {
-                    return undefined;
-                }else {
-                    return globalThis; //sure?..
-                }
+
+                const thisBinding = ctorEnv.GetThisBinding();
+                //Assert: thisBinding instanceof JavascriptObjectWrapper
+                return thisBinding;
             }
         }
 
@@ -5491,6 +5621,13 @@
                     //assignment
                     value = this.unary_misc();
 
+                    if(value instanceof ClassStatement) {
+                        // the name of the function/class expression is the variable name!
+                        value.className = name.value;
+                    }else if(value instanceof FunctionStatement) {
+                        value.nameToken = name;
+                    }
+
                     //we'll just peek again lol
                     inFor = this.peekReserved("in") || (this.peek(TokenKind.IDENTIFIER) && this.tokens[this.i].value == "of");
                 }else if(!inFor && qualifier.value == "const") {
@@ -5856,7 +5993,7 @@
                                 throw new ParseError(constructorToken.line, constructorToken.char, "Classes may not have a field named 'constructor'"); //SyntaxError
                             }
                             constructor = value;
-                            properties.set(key, value);
+                            //properties.set(key, value);
                         }else {
                             const $static = this.matchReserved("static"); // why the hell did i only write this.match(TokenKind.RESERVED)
                             let value;
@@ -5932,6 +6069,7 @@
                                         throw new ParseError($static.line, $static.char, "Classes may not have a static property named 'prototype'"); //SyntaxError
                                     }
                                 }
+                                key.static = !!$static; //lazy for IsStatic
                                 properties.set(key, value);
                             }
                             if(!method) {
@@ -5970,7 +6108,7 @@
 
                     const sourceText = this.sourceText.substring(indexFromToken(classToken, this.sourceText), indexFromToken(endingToken, this.sourceText)+1);
 
-                    return new ClassStatement(properties, constructor, name.value, sourceText);
+                    return new ClassStatement(superclass, properties, constructor, name.value, name.value, sourceText);
                 }
                 if(genderbutouhhiwillhavetobacktrackifthisnexttokenisnotconstorlet) {
                     //the gender might be needed elsewhere!
@@ -6497,7 +6635,7 @@
 
                 //i'm being lazy as FUCK here because i just remembered the lexer and parser have access to the interpreter
                 // this.interpreter.state.strict = this.useStrict;
-                this.interpreter.state.SetStrict(this.useStrict);
+                this.interpreter.executionContext.lexicalEnvironment.SetStrict(this.useStrict);
 
                 ///** @type {Array<Statement>} */
                 //const statements = [];
@@ -6964,6 +7102,68 @@
             }
         }
 
+        class PrivateEnvironmentRecord {
+            ["[[OuterPrivateEnvironment]]"];
+            ["[[Names]]"];
+
+            constructor(outerPrivateEnv) {
+                this["[[OuterPrivateEnvironment]]"] = outerPrivateEnv;
+                this["[[Names]]"] = [];
+            }
+        }
+
+        //a private name is kind of like a symbol?
+        class PrivateName {
+            ["[[Description]]"];
+            constructor(description) {
+                this["[[Description]]"] = description;
+            }
+        }
+
+        class PrivateElementKind {
+            static FIELD = 1;
+            static METHOD = 2;
+            static ACCESSOR = 3;
+        }
+
+        class PrivateElement {
+            /** @type {PrivateName} */
+            ["[[Key]]"];
+            /** @type {PrivateElementKind} */
+            ["[[Kind]]"];
+
+            //if [[Kind]] == PrivateElementKind.FIELD || [[Kind]] == PrivateElementKind.METHOD
+            ["[[Value]]"];
+
+            //if [[Kind]] == PrivateElementKind.ACCESSOR
+            ["[[Getter]]"];
+            ["[[Setter]]"];
+
+            constructor(key, kind, value = undefined, getter = undefined, setter = undefined) {
+                this["[[Key]]"] = key;
+                this["[[Kind]]"] = kind;
+                this["[[Value]]"] = value;
+                this["[[Getter]]"] = getter;
+                this["[[Setter]]"] = setter;
+            }
+        }
+
+        class ClassFieldDefinitionRecord {
+            ["[[Name]]"];
+            ["[[Initializer]]"];
+            constructor(name, initValue) {
+                this["[[Name]]"] = name;
+                this["[[Initializer]]"] = initValue;
+            }
+        }
+
+        class ClassStaticBlockDefinitionRecord {
+            ["[[BodyFunction]]"];
+            constructor(bodyFunc) {
+                this["[[BodyFunction]]"] = bodyFunc;
+            }
+        }
+
         //when will i learn not to half ass the specification :/
         //there've been at least like 3 times i've had to redo something important
         //RuntimeState,
@@ -6974,11 +7174,14 @@
             function;
             /** @type {JavascriptInterpreter} */
             realm;
-            //scriptOrModule;
+            /** @type {ScriptRecord | ModuleRecord | null} */
+            scriptOrModule;
 
             /** @type {EnvironmentRecord} */
             lexicalEnvironment;
-            //variableEnvironment;
+
+            //variableEnvironment; //for some reason after sleeping on it, i just realized the variable environment is probably just for hoisted vars!
+            
             /** @type {PrivateEnvironmentRecord} */
             privateEnvironment;
 
@@ -6990,6 +7193,7 @@
                 this.parentContext = parent;
                 if(parent) {
                     this.realm = parent.realm;
+                    this.scriptOrModule = parent.scriptOrModule;
                     if(!lexicalEnvironment) lexicalEnvironment = parent.lexicalEnvironment;
                     if(!privateEnvironment) privateEnvironment = parent.privateEnvironment;
                 }
@@ -7005,8 +7209,8 @@
             //runtime
             //scope;
             //state = new RuntimeState;
-            state; //technically, state is actually the current execution context's lexical environment (side note, variable environment is only mentioned by name 18 times in the whole specification, do i really need to implement that?)
-            //executionContext;
+            // state; //technically, state is actually the current execution context's lexical environment (side note, variable environment is only mentioned by name 18 times in the whole specification, do i really need to implement that?)
+            executionContext;
             ["[[GlobalObject]]"]; //does that make JavascriptInterpreter currentRealm? (yeah i think JavascriptInterpreter qualifies as a Realm)
             ["[[GlobalEnv]]"];
 
@@ -9106,8 +9310,10 @@
                 this["[[GlobalEnv]]"] = new GlobalEnvironmentRecord(false, globalObj, globalObj);
                 this["[[GlobalObject]]"] = globalObj;
 
-                this.state = this["[[GlobalEnv]]"];
-                // this.executionContext = new ExecutionContext(null, this["[[GlobalEnv]]"], null, undefined);
+                // this.state = this["[[GlobalEnv]]"];
+                this.executionContext = new ExecutionContext(null, this["[[GlobalEnv]]"], null, undefined);
+                this.executionContext.realm = this;
+                this.executionContext.scriptOrModule = {[Symbol.toStringTag]: "ScriptRecord"}; //fucking lol
             }
 
             parse(str) {
@@ -9314,7 +9520,7 @@
             visitBlockStatement(blockStatement) {
                 // !blockStatement.precedingStatementIsSpecialSoDontBotherMakingScopeBecauseJavascriptBS && this.state.variables.push(new Map());
                 if(!blockStatement.precedingStatementIsSpecialSoDontBotherMakingScopeBecauseJavascriptBS) {
-                    this.state = new DeclarativeEnvironmentRecord(this.state, undefined, DeclarationInstantiation.BLOCK);
+                    this.executionContext.lexicalEnvironment = new DeclarativeEnvironmentRecord(this.executionContext.lexicalEnvironment, undefined, DeclarationInstantiation.BLOCK);
                 }
                 let last = undefined;
                 for(const statement of blockStatement.statements) {
@@ -9323,7 +9529,7 @@
                 }
                 // !blockStatement.precedingStatementIsSpecialSoDontBotherMakingScopeBecauseJavascriptBS && this.state.variables.pop();
                 if(!blockStatement.precedingStatementIsSpecialSoDontBotherMakingScopeBecauseJavascriptBS) {
-                    this.state = this.state["[[OuterEnv]]"];
+                    this.executionContext.lexicalEnvironment = this.executionContext.lexicalEnvironment["[[OuterEnv]]"];
                 }
                 return last;
             }
@@ -9394,7 +9600,7 @@
                 //    throw new ReferenceError(`${name} is not defined`);
                 //}
                 //return globalThis[name];
-                return this.ResolveBinding(name) || new ReferenceRecord((name in globalThis) ? globalThis : undefined /*UNRESOLVABLE*/, name, this.state.strict, undefined); //EMPTY
+                return this.ResolveBinding(name) || new ReferenceRecord((name in globalThis) ? globalThis : undefined /*UNRESOLVABLE*/, name, this.executionContext.lexicalEnvironment.strict, undefined); //EMPTY
                 //good god man.
                 //return new class extends Variable {
                 //    get() {
@@ -9462,8 +9668,8 @@
 
             //https://tc39.es/ecma262/#sec-resolvebinding
             //                               lexical environment
-            ResolveBinding(name, envRecord = this.state) {
-                const strict = this.state.strict; //ehh not exactly what the specification says but whatever
+            ResolveBinding(name, envRecord = this.executionContext.lexicalEnvironment) {
+                const strict = this.executionContext.lexicalEnvironment.strict; //ehh not exactly what the specification says but whatever
                 while(envRecord != null) {
                     if(envRecord.HasBinding(name)) {
                         return new ReferenceRecord(envRecord, name, strict, undefined); //EMPTY
@@ -9505,7 +9711,7 @@
                     throw "Invalid left hand assignment but shouldn't this not happen?";
                 }
                 if(record.base == undefined) { //6.2.5.6 (2)
-                    if(record.base == undefined && this.state.strict) {
+                    if(record.base == undefined && this.executionContext.lexicalEnvironment.strict) {
                         throw ReferenceError(record.referencedName + " is not defined");
                     }
                     this["[[GlobalObject]]"]["[[Set]]"](record.referencedName, rightValue, this["[[GlobalObject]]"]);
@@ -9532,7 +9738,7 @@
                         record.referencedName = ECMAScript.ToPropertyKey(record.referencedName);
                     }
                     const result = baseObj["[[Set]]"](record.referencedName, rightValue, record.GetThisValue());
-                    if(!result && this.state.strict) {
+                    if(!result && this.executionContext.lexicalEnvironment.strict) {
                         //"use strict";
                         //Object.defineProperty(console, "larp", {value: "larp", writable: false,});
                         //console.larp = 2;
@@ -9554,7 +9760,7 @@
                 //}
                 //return envRecord;
 
-                let envRecord = this.state; //lexical environment
+                let envRecord = this.executionContext.lexicalEnvironment; //lexical environment
                 while(envRecord != null) {
                     if(envRecord.HasThisBinding()) return envRecord;
                     envRecord = envRecord["[[OuterEnv]]"];
@@ -9873,7 +10079,7 @@
 
                     //https://tc39.es/ecma262/#sec-evaluate-property-access-with-identifier-key
                     //const key = this.evaluate(binaryExpression.right).toString(); //explicit toString
-                    return new ReferenceRecord(left, key, this.state.strict, undefined); //[[ThisValue]]: EMPTY
+                    return new ReferenceRecord(left, key, this.executionContext.lexicalEnvironment.strict, undefined); //[[ThisValue]]: EMPTY
                 }
                 //we can safely evaluate the right :)
                 const right = this.evaluate(binaryExpression.right);
@@ -10149,7 +10355,7 @@
                 const envRecord = this.GetThisEnvironment();
                 // const actualThis = envRecord.get("this"); // uhh something like that
                 const actualThis = envRecord.GetThisBinding();
-                const strict = this.state.strict;
+                const strict = this.executionContext.lexicalEnvironment.strict; //IsStrict(superPropertyExpression)
                 let key;
                 if(superPropertyExpression.propertyExpr instanceof IdentifierExpression) {
                     key = superPropertyExpression.propertyExpr.nameToken.value;
@@ -10223,23 +10429,23 @@
                     //oh wait i think i'm supposed to do something else here
                     //https://tc39.es/ecma262/#sec-globaldeclarationinstantiation
                     //in GlobalDeclarationInstantiation, no vars are deletable
-                    if(this.state.instantiation == DeclarationInstantiation.GLOBAL) {
+                    if(this.executionContext.lexicalEnvironment.instantiation == DeclarationInstantiation.GLOBAL) {
                         //CreateGlobalVarBinding
-                        const objRecord = this.state["[[ObjectRecord]]"];
+                        const objRecord = this.executionContext.lexicalEnvironment["[[ObjectRecord]]"];
                         const globalObj = objRecord["[[BindingObject]]"];
                         if(!globalObj["[[HasProperty]]"](varDeclStatement.name) && globalObj["[[IsExtensible]]"]()) {
                             objRecord.CreateMutableBinding(varDeclStatement.name, false);
                             objRecord.InitializeBinding(varDeclStatement.name, undefined);
                         }
                     }else {
-                        this.state.CreateMutableBinding(varDeclStatement.name, false);
-                        this.state.InitializeBinding(varDeclStatement.name, undefined); // oh yeah
+                        this.executionContext.lexicalEnvironment.CreateMutableBinding(varDeclStatement.name, false);
+                        this.executionContext.lexicalEnvironment.InitializeBinding(varDeclStatement.name, undefined); // oh yeah
                     }
                     return undefined;
                 }
 
                 //GetIdentifierReference
-                let envRecord = this.state;
+                let envRecord = this.executionContext.lexicalEnvironment;
                 while(envRecord != null) {
                     if(envRecord.HasBinding(varDeclStatement.name)) {
                         break;
@@ -10262,7 +10468,7 @@
                         //bruhhhhh you had to go deep to find this one, for some reason strict is just set to true!!
                         //16.7.1 step.15.b.i.1
                         //fortunately, this seems to be the same for all scope instantiation things
-                        this.state.CreateImmutableBinding(temporalDeclStatement.name, true);
+                        this.executionContext.lexicalEnvironment.CreateImmutableBinding(temporalDeclStatement.name, true);
                     //}else {
                     //    // this.state.CreateImmutableBinding(temporalDeclStatement.name, this.state.strict);
                     //    throw Error("idk yet hold on");
@@ -10270,7 +10476,7 @@
                 }else { // if(temporalDeclStatement.qualifier.value != "function") {
                     //this part is slightly different for blocks (this.state.instantiation == DeclarationInstantiation.BLOCK) if i wanted to support Block-Level Function Declarations Web Legacy Compatibility Semantics
                     //https://tc39.es/ecma262/multipage/ecmascript-language-statements-and-declarations.html#sec-blockdeclarationinstantiation
-                    this.state.CreateMutableBinding(temporalDeclStatement.name, false);
+                    this.executionContext.lexicalEnvironment.CreateMutableBinding(temporalDeclStatement.name, false);
                 }
             }
             
@@ -10435,8 +10641,7 @@
                 return result;
             }
 
-            /** @param {FunctionStatement} functionStatement */
-            visitFunctionStatement(functionStatement) {
+            CreateFunction(functionStatement, proto = ECMAScript["%Function.prototype%"]) {
                 // const scope = this.state.variables.at(-1);
                 //const scope = this.state;
                 //const closure = [];
@@ -10448,7 +10653,7 @@
                 //    closure.push(map); //we're creating a copy of the array so that push and pop don't affect our closure
                 //}
 
-                let closure = this.state;
+                let closure = this.executionContext.lexicalEnvironment;
 
                 if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.EXPRESSION && functionStatement.nameToken) {
                     closure = new DeclarativeEnvironmentRecord(closure);
@@ -10457,8 +10662,8 @@
 
                 // const wrapper = new FunctionWrapper(functionStatement, closure, undefined);
                 //https://tc39.es/ecma262/#sec-runtime-semantics-instantiateordinaryfunctionobject
-                const privateEnv = null;
-                const wrapper = ECMAScript.OrdinaryFunctionCreate(this, ECMAScript["%Function.prototype%"], functionStatement.sourceText, functionStatement.parameters, functionStatement.body, ThisMode.NON_LEXICAL_THIS, closure, privateEnv);
+                const privateEnv = this.executionContext.privateEnvironment;
+                const wrapper = ECMAScript.OrdinaryFunctionCreate(this, proto, functionStatement.sourceText, functionStatement.parameters, functionStatement.body, ThisMode.NON_LEXICAL_THIS, closure, privateEnv);
                 //for some reason SetFunctionName is actually special
                 //https://tc39.es/ecma262/#sec-setfunctionname
                 //const success = wrapper["[[DefineOwnProperty]]"]("name", new JavascriptDataProperty(false, false, true, functionStatement.nameToken.value)); //simplified!
@@ -10519,11 +10724,11 @@
                 if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.FUNCTION) {
                     // this.state.InitializeBinding(functionStatement.nameToken.value, wrapper);
 
-                    if(this.state.instantiation == DeclarationInstantiation.GLOBAL) {
+                    if(this.executionContext.lexicalEnvironment.instantiation == DeclarationInstantiation.GLOBAL) {
                         //in GlobalDeclarationInstantiation, no vars are deletable
                         //CreateGlobalFunctionBinding
 
-                        const objRecord = this.state["[[ObjectRecord]]"];
+                        const objRecord = this.executionContext.lexicalEnvironment["[[ObjectRecord]]"];
                         const globalObj = objRecord["[[BindingObject]]"];
                         const existingProperty = globalObj["[[GetOwnProperty]]"](functionStatement.nameToken.value);
                         let propertyDesc;
@@ -10538,11 +10743,11 @@
                         }
                         //why does it set it again?
                         globalObj["[[Set]]"](functionStatement.nameToken.value, wrapper, globalObj);
-                    }else if(this.state.instantiation == DeclarationInstantiation.FUNCTION) {
+                    }else if(this.executionContext.lexicalEnvironment.instantiation == DeclarationInstantiation.FUNCTION) {
                         //FunctionDeclarationInstantiation
                         //this should probably work the same way var does
                         console.warn("SetMutableBinding should be called on calleeContext.variableEnvironment!!");
-                        this.state.SetMutableBinding(functionStatement.nameToken.value, wrapper, false);
+                        this.executionContext.lexicalEnvironment.SetMutableBinding(functionStatement.nameToken.value, wrapper, false);
                     }else {
                         //EvalDeclarationInstantiation
                         //ForDeclarationInstantiation
@@ -10558,6 +10763,11 @@
                 return wrapper; // this is required for function expressions unless i bother to make them their own class (which i mean come on they're basically the same so fawk that)
             }
 
+            /** @param {FunctionStatement} functionStatement */
+            visitFunctionStatement(functionStatement) {
+                return this.CreateFunction(functionStatement);
+            }
+
             /** @param {ReturnStatement} returnStatement */
             visitReturnStatement(returnStatement) {
                 throw this.evaluate(returnStatement.expr); //lol
@@ -10567,6 +10777,22 @@
             visitArrayLiteralExpression(arrayLiteralExpression) {
                 //return arrayLiteralExpression.value.map(v=>this.evaluate(v));
                 return ECMAScript.CreateArrayFromList(arrayLiteralExpression.value.map(v=>this.evaluate(v)));
+            }
+
+            PropertiesPropertyToString(key) {
+                let propertyKey;
+                if(!key.computed && key instanceof IdentifierExpression) {
+                    propertyKey = key.nameToken.value;
+                }else if(key.computed) {
+                    propertyKey = ECMAScript.ToPropertyKey(this.evaluate(key));
+                }else if(key instanceof PrivateIdentifierExpression) { //for classes
+                    const privateIdentifier = key.nameToken.value;
+                    //Assert: this.executionContext.privateEnvironment["[[Names]]"].filter(name=>name["[[Description]]"]==privateIdentifier).length == 1
+                    return this.executionContext.privateEnvironment["[[Names]]"].find(name=>name["[[Description]]"]==privateIdentifier);
+                }else {
+                    propertyKey = this.evaluate(key).toString(); //yeah
+                }
+                return propertyKey;
             }
 
             /** @param {ObjectLiteralExpression} objectLiteralExpression */
@@ -10588,14 +10814,7 @@
                     }else if(key.method) {
                         //technically i'm not supposed to do it like this but
                         // const propertyKey = this.evaluate(key);
-                        let propertyKey;
-                        if(!key.computed && key instanceof IdentifierExpression) {
-                            propertyKey = key.nameToken.value;
-                        }else if(key.computed) {
-                            propertyKey = ECMAScript.ToPropertyKey(this.evaluate(key));
-                        }else {
-                            propertyKey = this.evaluate(key).toString(); //yeah
-                        }
+                        const propertyKey = this.PropertiesPropertyToString(key);
                         value.nameToken = {value: propertyKey}; //trickery
                         //bruh we need to regenerate the source text because we've updated the name! (yeah yeah this wouldn't be a problem if i finally actually made the lexer keep track of this part but i haven't done that yet >:P) (tighten up young man i thought a)
                         //ok nevermind again lol how would the lexer know when methods/arrow functions began so we're doing in the parser (and lowkey it wasn't hard at all..)
@@ -10614,14 +10833,7 @@
                             obj["[[DefineOwnProperty]]"](propertyKey, new JavascriptDataProperty(true, true, true, func));
                         }
                     }else {
-                        let propertyKey;
-                        if(!key.computed && key instanceof IdentifierExpression) {
-                            propertyKey = key.nameToken.value;
-                        }else if(key.computed) {
-                            propertyKey = ECMAScript.ToPropertyKey(this.evaluate(key));
-                        }else {
-                            propertyKey = this.evaluate(key).toString(); //yeah
-                        }
+                        const propertyKey = this.PropertiesPropertyToString(key);
                         let isProtoSetter = false;
                         //ParseJSON...
                         if(propertyKey == "__proto__" && !key.computed) {
@@ -10640,16 +10852,212 @@
                 return obj;
             }
 
+            DefineMethod(key, value, obj, proto = ECMAScript["%Function.prototype%"]) {
+                //const propertyKey = key.computed ? key.accept(this) : key instanceof IdentifierExpression ? key.nameToken.value : key instanceof ;
+                const propertyKey = this.PropertiesPropertyToString(key);
+                const closure = this.CreateFunction(value, proto);
+                ECMAScript.MakeMethod(closure, obj);
+                return {"[[Key]]": propertyKey, "[[Closure]]": closure};
+            }
+
             /** @param {ClassStatement} classStatement */
             visitClassStatement(classStatement) {
                 //https://tc39.es/ecma262/multipage/ecmascript-language-functions-and-classes.html#sec-runtime-semantics-classdefinitionevaluation
                 //oh my god when will i learn?
                 const envRecord = this.executionContext.lexicalEnvironment;
                 const classEnv = new DeclarativeEnvironmentRecord(envRecord); //instantiation...
-                if(classStatement.bindingName) {
-                    classEnv.CreateImmutableBinding(classStatement.bindingName, true);
+                if(classStatement.classBinding) {
+                    classEnv.CreateImmutableBinding(classStatement.classBinding, true);
                 }
                 const outerPrivateEnv = this.executionContext.privateEnvironment;
+                const classPrivateEnv = new PrivateEnvironmentRecord(outerPrivateEnv);
+                if(classStatement.properties.size) {
+                    //we need to add the private keys to classPrivateEnv
+                    for(const key of classStatement.properties.keys()) {
+                        if(key instanceof PrivateIdentifierExpression) {
+                            const description = key.nameToken.value;
+                            const privateName = classPrivateEnv["[[Names]]"].find(pn=>pn.description == description);
+                            // if(classPrivateEnv["[[Names]]"].indexOf(description) != -1) {
+                            if(privateName) {
+                                //Assert: This is only possible for getter/setter pairs
+                            }else {
+                                classPrivateEnv["[[Names]]"].push(new PrivateName(description));
+                            }
+                        }
+                    }
+                }
+                let protoParent, ctorParent;
+                if(!classStatement.classHeritage) {
+                    protoParent = ECMAScript["%Object.prototype%"];
+                    ctorParent = ECMAScript["%Function.prototype%"];
+                }else {
+                    this.executionContext.lexicalEnvironment = classEnv;
+                    //NOTE: this.executionContext's PrivateEnvironment is outerPrivateEnv when evaluating ClassHeritage.
+                    const superclassref = classStatement.classHeritage.accept(this);
+                    this.executionContext.lexicalEnvironment = envRecord;
+                    const superclass = /*?*/ this.GetValue(/*?*/ superclassref);
+                    if(superclass == null) {
+                        protoParent = null;
+                        ctorParent = ECMAScript["%Function.prototype%"];
+                    }else if(!("[[Construct]]" in superclass)) {
+                        let stringvalue;
+                        if(superclass instanceof JavascriptObjectWrapper) {
+                            stringvalue = `#<${GetConstructorName(superclass)}>`;
+                        }else if(typeof stringvalue == "undefined" || typeof stringvalue == "null") {
+                            stringvalue = ""+stringvalue;
+                        }else {
+                            stringvalue = superclass.toString();
+                        }
+                        throw TypeError(`Class extends value ${stringvalue} is not a constructor or null`);
+                    }else {
+                        protoParent = /*?*/ superclass["[[Get]]"]("prototype", superclass); // Get
+                        if(!(protoParent instanceof JavascriptObjectWrapper) && protoParent != null) {
+                            throw TypeError(); //how could i even make this happen lol
+                        }
+                        ctorParent = superclass;
+                    }
+                }
+                const proto = ECMAScript.OrdinaryObjectCreate(protoParent);
+                this.executionContext.lexicalEnvironment = classEnv;
+                this.executionContext.privateEnvironment = classPrivateEnv;
+                let ctorFunc;
+                if(!classStatement.$constructor) {
+                    ctorFunc = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            if(newTarget == undefined) throw TypeError(`Class constructor${classStatement.classBinding ? " "+classStatement.classBinding : "s"} cannot be invoked without 'new'`);
+                            let result;
+                            if(this.constructorKind == ConstructorKind.DERIVED) {
+                                const func = this["[[GetPrototypeOf]]"]();
+                                if(!("[[Construct]]" in func)) {
+                                    result = func["[[Construct]]"](argList, newTarget);
+                                }
+                            }else {
+                                result = ECMAScript.OrdinaryCreateFromConstructor(newTarget, "%Object.prototype%");
+                            }
+                            ECMAScript.InitializeInstanceElements(result, this);
+                            return result;
+                        },
+                        0, classStatement.className, [], this, ctorParent
+                    );
+                }else {
+                    // const ctorInfo = this.DefineMethod(classStatement.$constructor, proto, ctorParent);
+                    
+                    ctorFunc = this.CreateFunction(classStatement.$constructor, ctorParent);
+                    ECMAScript.MakeMethod(ctorFunc, proto);
+                    
+                    //MakeClassConstructor
+                    //Assert: ctorFunc.isClassConstructor == false
+                    ctorFunc.isClassConstructor = true;
+
+                    // ECMAScript.SetFunctionName(ctorFunc, classStatement.className);
+                    ctorFunc.properties.set("name", new JavascriptDataProperty(false, false, true, classStatement.className));
+                }
+                ctorFunc["[[SourceText]]"] = classStatement.sourceText;
+                ECMAScript.MakeConstructor(ctorFunc, false, proto);
+                if(classStatement.classHeritage) {
+                    ctorFunc.constructorKind = ConstructorKind.DERIVED;
+                }
+                ECMAScript.DefineMethodProperty(proto, "constructor", ctorFunc, false);
+                let classElements;
+                let instancePrivateMethods = [];
+                let staticPrivateMethods = [];
+                let instanceFields = [];
+                let staticElements = [];
+                if(!classStatement.properties.size) {
+                    classElements = [];
+                }else {
+                    for(const [key, value] of classStatement.properties) {
+                        let element;
+                        let obj;
+                        //!IsStatic(classElement)
+                        if(!key.static) {
+                            obj = proto;
+                        }else {
+                            obj = ctorFunc;
+                        }
+                        try {
+                            //ClassElementEvaluation(obj)
+                            if(key.method) {
+                                //MethodDefinition
+                                //static MethodDefinition
+                                //MethodDefinitionEvaluation(obj, false)
+                                const methodDef = this.DefineMethod(key, value, obj);
+                                //SetFunctionName
+                                methodDef["[[Closure]]"].properties.set("name", new JavascriptDataProperty(false, false, true, methodDef["[[Key]]"]));
+                                //return ? ECMAScript.DefineMethodProperty
+                                ECMAScript.DefineMethodProperty(obj, methodDef["[[Key]]"], methodDef["[[Closure]]"], false /*enumerable*/);
+                            }else if(key.static && key instanceof BlockStatement) {
+                                //ClassStaticBlockDefinitionEvaluation
+                                //NOTE  The function bodyFunc is never directly accessible to ECMAScript code.
+                                const bodyFunc = ECMAScript.OrdinaryFunctionCreate(this, ECMAScript["%Function.prototype%"], "", [], key, ThisMode.NON_LEXICAL_THIS, this.executionContext.lexicalEnvironment, this.executionContext.privateEnvironment);
+                                ECMAScript.MakeMethod(bodyFunc, obj);
+                                //return ClassStaticBlockDefinitionRecord
+                                element = new ClassStaticBlockDefinitionRecord(bodyFunc);
+                            }else {
+                                //ClassFieldDefinitionEvaluation
+                                let name;
+                                let initializer = undefined;
+                                if(key instanceof Token) {
+                                    name = key.value;
+                                }else {
+                                    name = this.PropertiesPropertyToString(key);
+                                    if(value !== undefined) {
+                                        //NOTE  The function created for initializer is never directly accessible to ECMAScript code.
+                                        initializer = ECMAScript.OrdinaryFunctionCreate(this, ECMAScript["%Function.prototype%"], "", [], new ReturnStatement(value), ThisMode.NON_LEXICAL_THIS, this.executionContext.lexicalEnvironment, this.executionContext.privateEnvironment);
+                                        initializer.body.strict = true; //probably lol
+                                        ECMAScript.MakeMethod(initializer, obj);
+                                        initializer.classFieldInitializerName = name;
+                                    }
+                                }
+                                element = new ClassFieldDefinitionRecord(name, initializer);
+                            }
+                        }catch(abruptCompletion) {
+                            this.executionContext.lexicalEnvironment = envRecord;
+                            this.executionContext.privateEnvironment = outerPrivateEnv;
+                            throw abruptCompletion; //rethrow i guess
+                        }
+                        if(element instanceof PrivateElement) {
+                            throw Error("hawk tuah man!");
+                        }else if(element instanceof ClassFieldDefinitionRecord) {
+                            //!IsStatic(classElement)
+                            if(!key.static) {
+                                instanceFields.push(element);
+                            }else {
+                                staticElements.push(element);
+                            }
+                        }else if(element instanceof ClassStaticBlockDefinitionRecord) {
+                            staticElement.push(element);
+                        }else {
+                            //Assert: element == undefined
+                        }
+                    }
+                }
+                this.executionContext.lexicalEnvironment = envRecord; //pop lexicalEnvironment
+                if(classStatement.classBinding) {
+                    classEnv.InitializeBinding(classStatement.classBinding, ctorFunc);
+                }
+                ctorFunc["[[PrivateMethods]]"] = instancePrivateMethods;
+                ctorFunc["[[Fields]]"] = instanceFields;
+                for(const method of staticPrivateMethods) {
+                    /*!*/ ECMAScript.PrivateMethodOrAccessorAdd(ctorFunc, method);
+                }
+                for(const elementRecord of staticElements) {
+                    let result;
+                    if(elementRecord instanceof ClassFieldDefinitionRecord) {
+
+                    }else {
+                        //Assert: elementRecord instanceof ClassStaticBlockDefinitionRecord
+                    }
+                }
+                this.executionContext.privateEnvironment = outerPrivateEnv; //pop privateEnvironment
+                
+                //BindingClassDeclarationEvaluation 15.7.15
+                if(classStatement.classBinding) {
+                    //InitializeBoundName
+                    this.executionContext.lexicalEnvironment.InitializeBinding(classStatement.classBinding, ctorFunc);
+                }
+                
+                return ctorFunc;
             }
         }
 
@@ -10896,7 +11304,8 @@
 
             /** @param {ClassStatement} classStatement */
             visitClassStatement(classStatement) {
-                throw error;
+                //throw error;
+                return `class ${classStatement.classBinding}${classStatement.classHeritage ? ` extends (${classStatement.classHeritage.accept(this)})` : ""} {...}`;
             }
 
             /** @param {AssignmentExpression} assignmentExpression */
