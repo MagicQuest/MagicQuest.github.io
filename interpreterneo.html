@@ -40,6 +40,7 @@
             <option value="boundfuncs!">bound function test</option>
             <option value="symbolstuff">accurate symbol overloading</option>
             <option value="functionclasses">function classes</option>
+            <option value="realclasses">real classes</option>
             <option value="scope">scope</option>
             <option value="scope2">scope 2</option>
             <option value="varscope">var scope</option>
@@ -54,7 +55,16 @@
             <option value="consistent6">strict consistent</option>
             <option value="consistent7">strict consistent 2</option>
             <option value="consistent8">strict consistent 3</option>
+            <option value="consistent9">immutable name in class</option>
+            <option value="consistent10">complicated class consistent</option>
+            <option value="consistent10.1">terrifying class consistent2</option>
+            <option value="consistent11">extending classes</option>
+            <option value="consistent12">practical classes</option>
+            <option value="consistent13">super method</option>
+            <option value="consistent14">consistent14</option>
             <option value="objectliterals">every object literal property</option>
+            <option value="consistent15">crazy syntax</option>
+            <option value="consistent16">crazy syntax consistent error</option>
             <option value="classes">every class property</option>
             <option value="classes2">allowed class field names</option>
             <option value="objectliteralproto">object literal prototype</option>
@@ -79,6 +89,7 @@
             "symbolstuff": "const x = {\n    [Symbol.toPrimitive](x, y) {\n        console.log(x, y);\n        return 4;\n    }\n};\nconst y = {};\ny[x] = 2; // x is coerced!\nconsole.larp(Object.keys(y)); // [\"4\"]",
             //"functionclasses": "function abc(x) {\n    console.log(this);\n    this.x = 2;\n}\n\nconsole.log(Object.keys(new abc));",
             "functionclasses": "function ScreenObject(x, y) {\n    this.x = x;\n    this.y = y;\n    this.vx = 1;\n    this.vy = 1;\n    function update() {\n        this.x = this.x + this.vx;\n        this.y = this.y + this.vy;\n    }\n    this.update = update;\n}\n\nconst instance = new ScreenObject(100, 100);\nconsole.log(instance.x, instance.y);\ninstance.update();\nconsole.log(instance.x, instance.y);",
+            "realclasses": "class ScreenObject {\n    x;\n    y;\n    vx = 1;\n    vy = 1;\n    constructor(x, y) {\n        this.x = x;\n        this.y = y;\n    }\n    update() {\n        this.x += this.vx;\n        this.y += this.vy;\n    }\n}\n\nconst instance = new ScreenObject(100, 100);\nconsole.larp(instance);\ninstance.update();\nconsole.larp(instance);",
             "rodwave": "[(5+5, window.location.href.length),5,5]",
             "ternary": "5 ? 7 : 6 ? 3 : 2;",
             "bs2": "female var hai = \"rawr\";",
@@ -94,13 +105,32 @@
             "consistent6": `"use strict";\nconst obj = {};\nObject.defineProperty(obj, "property", {value: "don't delete me", configurable: false, enumerable: false, writable: false});\n\n//deleting unqualified identifier\n//error in strict mode\n//comment to see the next error\ndelete obj;\n\n//deleting non configurable property\n//also error in strict mode\ndelete obj.property;`,
             "consistent7": `"use strict";\n//in strict mode, 'this' is undefined (globalThis in non strict mode) unless the function is a property of an object (in which case the object would be 'this')\nfunction abc(x) {\n    console.larp(arguments, this);\n    return x;\n}\nabc(5); //'this' == undefined\n({abc}).abc(5); //'this' == ({abc})`,
             "consistent8": "//super.hasOwnProperty == obj.__proto__.hasOwnProperty\nconst obj = {x(y = super.hasOwnProperty) {\n    //assigning xyz to super will actually add xyz to obj instead!\n    super.xyz = this;\n    return y;\n}};\nconsole.larp(obj.x(), obj);",
+            "consistent9": "class $clazz {\n    //the name of the class is immutable!\n    static bruh = ($clazz = 2);\n};",
+            "consistent10": "//for testing in the browser!\nif(!(\"larp\" in console)) {\n    console.larp = console.log;\n}\n\n//testing class computed keys\nconst real3 = \"real3\";\n\nclass ScreenObject {\n    static #p = \"#p\";\n    static get property() {\n        return this.#p;\n    };\n    static set property(newValue) {\n        return this.#p = newValue;\n    };\n    static get #prop() {\n        console.log(\"get #prop\");\n    };\n    static set #prop(newValue) {\n        console.log(\"set #prop =\", newValue);\n    };\n    static {\n        //property getter returns ScreenObject.#p\n        console.log(this.property);\n        //property setter sets ScreenObject.#p\n        this.property = \"hai\";\n        console.log(this.property);\n        //setting ScreenObject.#p directly\n        this.#p = \"direct\";\n        console.log(this.property, this.#p);\n        //getting/setting private accessor\n        this.#prop;\n        this.#prop = 2;\n    };\n    get property() {\n        console.log(\"get property\");\n    };\n    set property(newValue) {\n        console.log(\"set property =\", newValue);\n    };\n    real = 2;\n    \"real2\" = 3; //string literal\n    0o50n = 5;   //numeric literal\n    [real3] = 4; //computed\n    #kobi = Math.PI;\n    method() {\n        //getting private instance field\n        return this.#kobi;\n    };\n    //testing custom constructor\n    constructor(x) {\n        this.newProperty = x;\n    };\n}\nconst instance = new ScreenObject(\"constructor parameter\");\n\n//testing instance accessors\ninstance.property;\ninstance.property = 2;\n\nconsole.larp(Object.keys(instance));\nconsole.larp(instance.method());\nconsole.larp(instance.newProperty);",
+            "consistent10.1": "class x {\n    #private = \"private stuff\";\n    do_stuff() {\n        const temp = class {\n            do_stuff(obj) {\n                return obj.#private;\n            }\n        };\n        return (new temp).do_stuff(this);\n    }\n}\n(new x).do_stuff();",
+            "consistent11": `class $super {\n    property = "super";\n    constructor() {\n        console.log("$super instantiated!");\n    }\n    get propertyGetter() {\n        return "rizz";\n    }\n    //static properties are not on the prototype lol they're set on the constructor function (which is $super!)\n    static thing = "whatevvs";\n}\n\nclass foo extends $super {\n    //the super property access gets properties from this.__proto__ (methods are set on the prototype for classes)\n    //we can't say super.property because it's not on the prototype (it's a property of all instances)\n    skibidi = super.propertyGetter;\n    constructor() {\n        super(); //$super instantiated!\n        console.log(this.skibidi, super.thing); // "rizz" undefined\n    }\n}\n\ndebugger;\nconst instance = new foo;`,
+            "consistent12": "if(!(\"larp\" in console)) {\n    console.larp = console.log;\n}\n\nclass Vector2 {\n    x;\n    y;\n    get magnitude() {\n        return Math.sqrt(this.x ** 2 + this.y ** 2);\n    }\n    set magnitude(newMag) {\n        const ratio = newMag/this.magnitude;\n        this.x *= ratio;\n        this.y *= ratio;\n    }\n    constructor(x, y) {\n        this.x = x;\n        this.y = y;\n    }\n}\n\nconst position = new Vector2(1, 1);\nconsole.larp(position, position.magnitude);\nposition.magnitude = 1;\nconsole.larp(position, position.magnitude);",
+            "consistent13": "class $super {\n    #private = 2;\n    getPrivate() {return this.#private;};\n}\n\nclass derived extends $super {\n    constructor() {\n        super();\n        this.hawk = super.getPrivate();\n    }\n}\n\nnew derived;",
+            "consistent14": "if(!(\"larp\" in console)) {\n    console.larp = console.log;\n}\n\nclass ScreenObject {\n    static field;\n    static initField = ScreenObject;\n    static NaNField = +this.initField;\n    static #priv = this.NaNField;\n    static #getPriv() {\n        return this.#priv;\n    };\n    //static bad = (ScreenObject = 2);\n    static method() {\n        return this.#priv;\n    };\n    static {\n        console.log(\"Hello from static\");\n        console.larp(this);\n        console.larp(this.NaNField);\n        this.another_static = \"toby\";\n    };\n}\nconsole.larp(Object.keys(ScreenObject));\n/*debugger;*/\nScreenObject.method();",
+            "consistent15": "if(!(\"larp\" in console)) {\n    console.larp = console.log;\n}\n\n//class expression extends class expression!\nconst ScreenObject = class extends class {\n    super_property = \"hello!\";\n} {\n    derived_property = \"hullo\";\n};\n\nconsole.larp(ScreenObject);\nconsole.larp(new ScreenObject);",
+            "consistent16": "(class {\nstatic {\n(function funcName() {\n    funcName = 2;\n})();\n}\n});",
             "objectliterals": "let variable = \"variable\";\nlet another_obj = {\"another_obj_key\": \"another_obj_value\"};\nlet x = {\n    variable,\n    y: \"identifier name property\",\n    \"string\": \"string property\",\n    0: \"numeric property\",\n    [\"computed property\"]: \"what the key said.\",\n    method() {\n    },\n    get [\"x\"]() {\n        return 421;\n    },\n    *generator() {\n    },\n    async 5() {\n    },\n    async* \"hello_generator\"() {\n    },\n    set x(newValue) {\n        console.log(newValue);\n    },\n    ...another_obj\n};\nconsole.larp(x, x.x, x=21);",
             "classes": "class all_class_properties {\n#private_field = \"private_field\";\n// #private_field; // Identifier #private_field has already been declared\n#private_method() {\n    return this.#private_field;\n};\n\nstatic #private_static_field = \"???\";\n// static #private_field; // Identifier #private_field has already been declared\nstatic #private_static_method() {\n    return \"is this even callable?\";\n};\n\nfield = \"access instance field\";\nmethod() {\n    return this.field;\n};\n\nstatic field = \"access constructor (static) field\";\nstatic method() {\n    return this.field;\n};\n\nstatic {\n    this.another_static_field = \"Hello World from this static initialization block!\";\n};\n\nconstructor() {\n    console.log(this.constructor.name, \"instantiated\");\n};\n}",
             "classes2": "class test {\n    async = 2; //async prefix\n    class = 3; //reserved\n    get = 4;   //getter prefix\n    set = 5;   //setter prefix\n    static prototype = 34; //error\n}",
             "objectliteralproto": "const fakenum = {__proto__: Number.prototype, value: 21};\nconsole.larp(fakenum);",
             "COMPREHENSION": "let split = [for (const x of \"string\") x];",
             "closures": "function makeCounter() {\n  let i = 0;\n  function count() {\n    i = i + 1;\n    console.log(i);\n  }\n\n  return count;\n}\n\nlet counter = makeCounter();\ncounter(); // \"1\".\ncounter(); // \"2\".",
-        }
+        };
+        //devtools is tricking!
+        /*
+            const xyz = class byx {
+                static prop = 5;
+                static prop2 = byx.prop;
+                static prop3 = this.prop2;
+                static bad = xyz.prop2; //in devtools outside of blocks or functions, this produces an "is not defined" reference error, otherwise it's "cannot access before initialization" !
+            };
+            //uncomment this block and you'll see the real error is supposed to be cannot access before initialization! devtools is doing something... (which is something you gotta look out for) (i assume this is the real error because this is the topmost scope of a script)
+        */
 		function selectExample(/** @type {InputEvent} */ event) {
 			letext.value = examples[event.target.value];
 		}
@@ -263,22 +293,7 @@
              * @returns {Expected<Array, ParseError>}
              * */
             parse(str) {} // = 0;
-            interpret(str) {
-                const result = this.parse(str);
-                if(!result.has_value()) {
-                    const err = result.error.toString(str);
-                    letext.style.backgroundColor = "pink";
-                    //addConsoleText(true, [err]);
-                    const temp = err.split("\n");
-                    temp[temp.length-1] = "(this font isn't monospace so see the console for the correct character position)";
-                    letext.setAttribute("title", temp.join("\n"));
-                    throw err;
-                }
-                letext.style.backgroundColor = "";
-                letext.removeAttribute("title");
-                console.log(result.value);
-                //etc...
-            }
+            interpret(str) {} // = 0;
         }
 
         class Lexer {
@@ -1332,7 +1347,7 @@
         //array ::= '[' (unary_misc? ',')* ']'
         //object ::= '{' (objectkeyvalue (',' objectkeyvalue)* ','?)? '}'
         //objectkeyvalue ::= (objectkey ':' unary_misc) | identifier | ('...' unary_misc) | MethodDefinition
-        //objectkey ::= identifier | reserved | number | string | ('[' unary_misc ']')
+        //objectkey ::= identifier | reserved | number | bigint | string | ('[' unary_misc ']')
         //MethodDefinition ::= (('get' | 'set') | ('async'? '*'))? objectkey parameters functionBlock
 
         //method definition is like the only one actually based on the specification lol
@@ -2090,6 +2105,8 @@
         }
 
         class ClassStatement extends Statement {
+            /** @type {Token | false} */
+            gender;
             /** @type {Expression} */
             classHeritage;
             /** @type {Map<any, any>} */
@@ -2103,8 +2120,9 @@
             /** @type {String} */
             sourceText;
 
-            constructor(classHeritage, properties, constructor, classBinding, className, sourceText) {
+            constructor(gender, classHeritage, properties, constructor, classBinding, className, sourceText) {
                 super();
+                this.gender = gender;
                 this.classHeritage = classHeritage;
                 this.properties = properties;
                 this.$constructor = constructor;
@@ -2373,6 +2391,16 @@
                 return calleeContext;
             }
 
+            static BindThisValue(envRecord, value) {
+                //Assert: envRecord["[[ThisBindingStatus]]"] != BindingStatus.LEXICAL
+                if(envRecord["[[ThisBindingStatus]]"] == BindingStatus.INITIALIZED) {
+                    throw ReferenceError("envRecord[\"[[ThisBindingStatus]]\"] == BindingStatus.INITIALIZED"); //i can't imagine what this error would be... (damn i don't know how all ts works to attempt to trigger this one...)
+                }
+                envRecord["[[ThisValue]]"] = value;
+                envRecord["[[ThisBindingStatus]]"] = BindingStatus.INITIALIZED;
+                return undefined; // UNUSED
+            }
+
             //https://tc39.es/ecma262/#sec-ordinarycallbindthis
             static OrdinaryCallBindThis(func, calleeContext, thisArg) {
                 if(func.thisMode == ThisMode.LEXICAL) {
@@ -2395,14 +2423,7 @@
                     }
                     //Assert: localEnv instanceof FunctionEnvironmentRecord
 
-                    //! ECMAScript.BindThisValue(localEnv, thisValue);
-                    //Assert: localEnv["[[ThisBindingStatus]]"] != BindingStatus.LEXICAL
-                    if(localEnv["[[ThisBindingStatus]]"] == BindingStatus.INITIALIZED) {
-                        throw ReferenceError("localEnv[\"[[ThisBindingStatus]]\"] == BindingStatus.INITIALIZED"); //i can't imagine what this error would be... (damn i don't know how all ts works to attempt to trigger this one...)
-                    }
-                    localEnv["[[ThisValue]]"] = thisValue;
-                    localEnv["[[ThisBindingStatus]]"] = BindingStatus.INITIALIZED;
-                    //return undefined; // UNUSED
+                    /*!*/ ECMAScript.BindThisValue(localEnv, thisValue);
 
                     return undefined; //UNUSED
                 }
@@ -2609,6 +2630,28 @@
                 return undefined; //UNUSED
             }
 
+            static DefineField(receiver, fieldRecord) {
+                const fieldName = fieldRecord["[[Name]]"];
+                const initializer = fieldRecord["[[Initializer]]"];
+                let initValue = undefined;
+                if(initializer) {
+                    initValue = ECMAScript.Call(initializer, receiver); //well THAT explains why arguments can't be referenced!!
+                }
+                if(fieldName instanceof PrivateName) {
+                    //Perform ? PrivateFieldAdd(receiver, fieldName, initValue);
+                    //If the host is a web browser, then
+                    //  Perform ? HostEnsureCanAddPrivateElement(receiver);
+                    const entry = receiver["[[PrivateElements]]"].find(element=>element["[[Key]]"]==fieldName["[[Key]]"]); //PrivateElementFind
+                    if(entry != undefined) throw TypeError("How the hell do i trigger this error, it's already a SyntaxError to have duplicate private keys!");
+                    receiver["[[PrivateElements]]"].push(new PrivateElement(fieldName, PrivateElementKind.FIELD, initValue));
+                    //return undefined; //UNUSED
+                }else {
+                    //Assert: typeof fieldName == "string" || typeof fieldName == "symbol"
+                    /*?*/ ECMAScript.CreateDataPropertyOrThrow(receiver, fieldName, initValue);
+                }
+                return undefined; //UNUSED
+            }
+
             static InitializeInstanceElements(obj, ctor) {
                 for(const method of ctor["[[PrivateMethods]]"]) {
                     //Perform ? PrivateMethodOrAccessorAdd(obj, method);
@@ -2616,25 +2659,7 @@
                 }
                 for(const fieldRecord of ctor["[[Fields]]"]) {
                     //Perform ? DefineField(obj, fieldRecord);
-                    const fieldName = fieldRecord["[[Name]]"];
-                    const initializer = fieldRecord["[[Initializer]]"];
-                    let initValue = undefined;
-                    if(initializer) {
-                        initValue = ECMAScript.Call(initializer, obj); //well THAT explains why arguments can't be referenced!!
-                    }
-                    if(fieldName instanceof PrivateName) {
-                        //Perform ? PrivateFieldAdd(receiver, fieldName, initValue);
-                        //If the host is a web browser, then
-                        //  Perform ? HostEnsureCanAddPrivateElement(obj);
-                        const entry = obj["[[PrivateElements]]"].find(element=>element["[[Key]]"]==fieldName["[[Key]]"]); //PrivateElementFind
-                        if(entry != undefined) throw TypeError("How the hell do i trigger this error, it's already a SyntaxError to have duplicate private keys!");
-                        obj["[[PrivateElements]]"].push(new PrivateElement(fieldName, PrivateElementKind.FIELD, initValue));
-                        //return undefined; //UNUSED
-                    }else {
-                        //Assert: typeof fieldName == "string" || typeof fieldName == "symbol"
-                        /*?*/ ECMAScript.CreateDataPropertyOrThrow(obj, fieldName, initValue);
-                    }
-                    //return undefined; //UNUSED
+                    ECMAScript.DefineField(obj, fieldRecord);
                 }
                 return undefined; //UNUSED
             }
@@ -3490,6 +3515,32 @@
                 return propertyDesc;
             }
 
+            /** @param {JavascriptDataProperty | JavascriptAccessorProperty} propertyDesc */
+            static FromPropertyDescriptor(propertyDesc) {
+                if(propertyDesc == undefined) return undefined;
+                const obj = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]);
+                //Assert: obj is, in fact, ordinary
+                if("value" in propertyDesc) {
+                    ECMAScript.CreateDataPropertyOrThrow(obj, "value", propertyDesc.value);
+                }
+                if("writable" in propertyDesc) {
+                    ECMAScript.CreateDataPropertyOrThrow(obj, "writable", propertyDesc.writable);
+                }
+                if("getter" in propertyDesc) {
+                    ECMAScript.CreateDataPropertyOrThrow(obj, "get", propertyDesc.getter);
+                }
+                if("setter" in propertyDesc) {
+                    ECMAScript.CreateDataPropertyOrThrow(obj, "set", propertyDesc.setter);
+                }
+                if("enumerable" in propertyDesc) {
+                    ECMAScript.CreateDataPropertyOrThrow(obj, "enumerable", propertyDesc.enumerable);
+                }
+                if("configurable" in propertyDesc) {
+                    ECMAScript.CreateDataPropertyOrThrow(obj, "configurable", propertyDesc.configurable);
+                }
+                return obj;
+            }
+
             static ToString(arg) {
                 if(typeof arg == "string") {
                     return arg;
@@ -4081,10 +4132,11 @@
             }
 
             //static because not required
+            //https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-ecmascript-function-objects-construct-argumentslist-newtarget
             static ["[[Construct]]"](argList, newTarget) {
                 let thisArg;
                 if(this.constructorKind == ConstructorKind.BASE) {
-                    thisArg = ECMAScript.OrdinaryCreateFromConstructor(newTarget, "%Object.prototype%");
+                    thisArg = ECMAScript.OrdinaryCreateFromConstructor(newTarget, "%Object.prototype%"); // this also explains why you have to call super because the base class actually creates thisArg!!
                 }
                 const calleeContext = ECMAScript.PrepareForOrdinaryCall(this, newTarget);
                 //Assert: this.interpreter.executionContext == calleeContext
@@ -4092,7 +4144,7 @@
                     //bind this, handle instance elements...
                     ECMAScript.OrdinaryCallBindThis(this, calleeContext, thisArg);
                     try {
-                        ECMAScript.InitializeInstanceElements(thisArg, this); // well this explains why you HAVE to call super before using 'this', the base class constructor is the one that initializes the fields!!
+                        ECMAScript.InitializeInstanceElements(thisArg, this); // well this explains why you HAVE to call super before using 'this', the base class constructor is the one that initializes the fields!! (well ok the base class constructor initializes it's OWN fields, when the super call is evaluated it sets the this binding and initializes the current constructor's fields)
                     }catch(abruptCompletion) {
                         this.interpreter.executionContext = calleeContext.parentContext; //pop execution context
                         throw abruptCompletion; //rethrow i guess
@@ -5168,7 +5220,7 @@
                                 }
                             }else {
                                 //actually in a class, add the private identifier name to scope list so we can check later
-                                scope.privateIdentifiers.push(privateIdentifier);
+                                scope.seenPrivateIdentifiers.push(privateIdentifier);
                             }
                             right = new PrivateIdentifierExpression(privateIdentifier);
                         }else {
@@ -5288,12 +5340,14 @@
                                 //i was about to replace the next 5 lines with a simple this.scope.find(...) but that would check in the wrong order! we need the nearest function scope! (the top most function scope could be a method but the nearest could be a declaration!)
                                 let index = this.scope.length-1;
                                 scope = this.scope[index];
-                                while(scope && !(scope instanceof StaticAnalysisFunctionScope)) {
+                                while(scope && !(scope instanceof StaticAnalysisFunctionScope) && scope.kind != "class_body") {
                                     scope = this.scope[--index];
                                 }
                                 //https://tc39.es/ecma262/multipage/ecmascript-language-functions-and-classes.html#sec-function-definitions-static-semantics-early-errors
                                 if(!scope) {
                                     throw new ParseError($super.line, $super.char, "'super' keyword unexpected here");
+                                }else if(scope.kind == "class_body") {
+                                    //go ahead buddy...
                                 }else if(scope.subkind == FunctionKind.EXPRESSION || scope.subkind == FunctionKind.FUNCTION) {
                                     //15.7.1 (#5, #6, #7, #8)
                                     throw new ParseError($super.line, $super.char, "'super' keyword unexpected here");
@@ -5335,39 +5389,42 @@
                     return new IdentifierExpression(this.match(TokenKind.RESERVED));
                 }
                 //class
-                if(this.matchReserved("class")) {
+                if(this.peekReserved("class")) {
+                    const classToken = this.tokens[this.i++];
+                    //const name = this.match(TokenKind.IDENTIFIER);
+                    //if(this.matchReserved("extends")) {
+                    //    const extendsName = this.match(TokenKind.IDENTIFIER);
+                    //    //jesus christ...
+                    //    //the following lines are *gulp*... valid
+                    //    /*
+                    //    function x() {
+                    //        return class {
+                    //            constructor() {
+                    //            
+                    //            }
+                    //        }
+                    //    }
+                    //    (class abc extends x() {
+                    //        constructor() {
+                    //            super();
+                    //        }
+                    //    });
+                    //    */
+                    //    /*
+                    //    (class abc extends class {
+                    //        constructor() {
+                    //            console.log("Hello from anonymous class!");
+                    //        }
+                    //    } {
+                    //        constructor() {
+                    //            super();
+                    //            console.log("Hello from subclass!");
+                    //        }
+                    //    });
+                    //    */
+                    //}
                     const name = this.match(TokenKind.IDENTIFIER);
-                    if(this.matchReserved("extends")) {
-                        const extendsName = this.match(TokenKind.IDENTIFIER);
-                        //jesus christ...
-                        //the following lines are *gulp*... valid
-                        /*
-                        function x() {
-                            return class {
-                                constructor() {
-                                
-                                }
-                            }
-                        }
-                        (class abc extends x() {
-                            constructor() {
-                                super();
-                            }
-                        });
-                        */
-                        /*
-                        (class abc extends class {
-                            constructor() {
-                                console.log("Hello from anonymous class!");
-                            }
-                        } {
-                            constructor() {
-                                super();
-                                console.log("Hello from subclass!");
-                            }
-                        });
-                        */
-                    }
+                    return this.doCommonClassStuff(false, classToken, name, true); //maybe this should be allowed a gender since it has a name...
                 }
                 else {
                     //function/arrow/expression
@@ -5543,6 +5600,8 @@
                     return new IdentifierExpression(this.tokens[this.i++]);
                 }else if(this.peek(TokenKind.NUMBER) || this.peek(TokenKind.STRING)) {
                     return new LiteralExpression(this.tokens[this.i++].value);
+                }else if(this.peek(TokenKind.BIGINT)) {
+                    return new LiteralExpression(Number(this.tokens[this.i++].value)); //essentially
                 }else if(this.peek(TokenKind.OPEN_BRACKET)) {
                     this.i++;
                     const temp = this.unary_misc();
@@ -5623,9 +5682,14 @@
 
                     if(value instanceof ClassStatement) {
                         // the name of the function/class expression is the variable name!
-                        value.className = name.value;
+                        value.className ||= name.value;
                     }else if(value instanceof FunctionStatement) {
-                        value.nameToken = name;
+                        //this random situation made me realize i wrote this wrong and should've been using logical or equals!
+                        //const func = function x() {
+                        //  return x.caller;
+                        //};
+                        //func.name;
+                        value.nameToken ||= name; //only update name token if it's falsy (if there's no name already)!
                     }
 
                     //we'll just peek again lol
@@ -5900,6 +5964,226 @@
                 return $var.statement;
             }
 
+            doCommonClassStuff(gender, classToken, name, expression = false) {
+                const old = this.useStrict;
+                this.useStrict = true;
+
+                const scope = this.scope[this.scope.length-1];
+
+                if(!expression) {
+                    if(scope.variables.has(name.value)) {
+                        throw new ParseError(name.line, name.char, `Identifier '${name.value}' has already been declared!`);
+                    }else {
+                        //class declarations are like const/let declarations in that they have the temporal dead zone kind of hoisting
+                        const $var = new StaticAnalysisVariable(gender || undefined, classToken, name);
+                        scope.variables.set(name.value, $var);
+                        scope.hoisted.push($var);
+                    }
+                }
+
+                //super is actually just Object.getPrototypeOf(this); (or this.__proto__) (kinda)
+
+                let superclass = undefined;
+                if(this.matchReserved("extends")) {
+                    superclass = this.unary_misc();
+                }
+                this.consume(TokenKind.OPEN_CURLY_BRACKET, "Expected open curly bracket here!!");
+
+                const properties = new Map();
+
+                let hasConstructor = false;
+                let constructor = undefined;
+                /** @type {Array<PrivateElement>} */
+                const definedPrivateKeys = [];
+                //const staticBlocks = [];
+
+                //this isn't actually for variables lol, for private identifiers, we need a list of all the ones used in this class and all the ones that have been actually defined (i think this is for 16.1.1 #8) https://tc39.es/ecma262/multipage/ecmascript-language-scripts-and-modules.html#sec-scripts-static-semantics-early-errors
+                const privateIdentifierScope = new StaticAnalysisScope("class_body", undefined);
+                /** @type {Array<Token>} */
+                privateIdentifierScope.seenPrivateIdentifiers = [];
+                privateIdentifierScope.definedPrivateIdentifiers = definedPrivateKeys;
+                this.scope.push(privateIdentifierScope);
+
+                while(this.i < this.tokens.length && !this.peek(TokenKind.CLOSING_CURLY_BRACKET)) {
+                    //this.classStatement()
+                    //in a static block, 'this' is the class object
+                    //oh boy, apparently the arrow function expression can inherit super just like this... eek!
+                    //computed properties that evaluate to "constructor" don't count
+                    if((this.peek(TokenKind.IDENTIFIER) || this.peek(TokenKind.STRING)) && this.tokens[this.i].value == "constructor") {
+                        const constructorToken = this.tokens[this.i];
+                        if(hasConstructor) { //15.7.1 (#2)
+                            throw new ParseError(constructorToken.line, constructorToken.char, "A class may only have one constructor"); //SyntaxError
+                        }
+                        hasConstructor = true;
+                        constructorToken.superRequired = superclass != undefined; //maximum laziness achieved (15.7.1 (#1))
+                        const [key, value] = this.objectkeyvalue(true);
+                        if(!key.method) { //15.7.1 (#5)
+                            throw new ParseError(constructorToken.line, constructorToken.char, "Classes may not have a field named 'constructor'"); //SyntaxError
+                        }
+                        constructor = value;
+                        //properties.set(key, value);
+                        this.match(TokenKind.SEMICOLON); //semicolon allowed but not required
+                    }else {
+                        const $static = this.matchReserved("static"); // why the hell did i only write this.match(TokenKind.RESERVED)
+                        let value;
+                        let method = false;
+                        let keyToken;
+                        if(this.peek(TokenKind.OPEN_CURLY_BRACKET)) {
+                            //static initialization block
+                            value = this.block(BlockKind.STATIC_CLASS);
+                            value.precedingStatementIsSpecialSoDontBotherMakingScopeBecauseJavascriptBS = true;
+                            //oh boy it executes in the order it's defined
+                            //class test {
+                            //  static x = console.log("x");
+                            //  static {
+                            //      console.log("y");
+                            //  }
+                            //  static z = console.log("z");
+                            //}
+                            //-> x, y, z
+
+                            //after looking at the specification, googling, then looking BACK at the specification i finally found the TINEST HINT that maps are sorted by key insertion order (i mean, i believed it when i saw it on mdn, but I couldn't find it with my own eyes!)
+                            //https://tc39.es/ecma262/multipage/keyed-collections.html#sec-map-objects:~:text=the%20Map%2C%20in-,key%20insertion%20order,-.%20callback%20is
+                            //staticBlocks.push({i: properties.size, block: staticBlock}); //because they're sorted by insertion order, we can safely write down the amount of entries in the map so that once we get to this index, we evaluate this static block
+                            //nevermind lol since it's sorted by insertion we can just add the block straight in
+                            properties.set(value, "static block yes haha");
+                        }else {
+                            keyToken = this.tokens[this.i];
+                            const [key, thevaluebutweneeditinthevaluevariabledefinedabove] = this.objectkeyvalue(true);
+                            value = thevaluebutweneeditinthevaluevariabledefinedabove;
+                            //key instanceof LiteralExpression, property => "constructor";
+                            //key instanceof Token, property => constructor;
+                            //key instanceof IdentifierExpression, property => constructor = ...; // or constructor() {...}
+                            if(key instanceof PrivateIdentifierExpression) {
+                                let stringvalue = key.nameToken.value;
+                                let kind = PrivateElementKind.FIELD;
+                                let getter, setter;
+                                if(key.method) {
+                                    //prepending the type so getter and setter pair is allowed
+                                    if(value.kindSoThatICanDoThisStuffCorrectly == FunctionKind.GETTER) {
+                                        //stringvalue = "get " + stringvalue;
+                                        getter = true;
+                                        kind = PrivateElementKind.ACCESSOR;
+                                    }else if(value.kindSoThatICanDoThisStuffCorrectly == FunctionKind.SETTER) {
+                                        //stringvalue = "set " + stringvalue;
+                                        setter = true;
+                                        kind = PrivateElementKind.ACCESSOR;
+                                    }else {
+                                        kind = PrivateElementKind.METHOD;
+                                    }
+                                }
+                                const seenKeyIndex = definedPrivateKeys.findIndex(existingKey=>existingKey["[[Key]]"]==stringvalue); //ordinarily, [[Key]] would be a PrivateName but we don't need all that
+                                if(seenKeyIndex != -1) {
+                                    const seenKey = definedPrivateKeys[seenKeyIndex];
+                                    if(seenKey["[[Kind]]"] == PrivateElementKind.ACCESSOR && kind == PrivateElementKind.ACCESSOR) {
+                                        if(seenKey["[[Getter]]"] && setter) {
+                                            seenKey["[[Setter]]"] = true;
+                                        }else if(seenKey["[[Setter]]"] && getter) {
+                                            seenKey["[[Getter]]"] = true;
+                                        }else {
+                                            //15.7.1 (#2)
+                                            throw new ParseError(key.nameToken.line, key.nameToken.char, `Identifier '${key.nameToken.value}' has already been declared`);
+                                        }
+                                    }else {
+                                        //15.7.1 (#2)
+                                        throw new ParseError(key.nameToken.line, key.nameToken.char, `Identifier '${key.nameToken.value}' has already been declared`);
+                                    }
+                                }else {
+                                    definedPrivateKeys.push(new PrivateElement(stringvalue, kind, null, getter, setter));
+                                    // privateIdentifierScope.definedPrivateIdentifiers.push(stringvalue);
+                                }
+                            }
+                            method = key.method;
+                            if(!key.computed && (((key instanceof LiteralExpression || key instanceof Token) && key.value == "constructor") || (key instanceof IdentifierExpression && key.nameToken.value == "constructor") || (key instanceof PrivateIdentifierExpression && key.nameToken.value == "#constructor"))) {
+                                if(key.method) {
+                                    if(key instanceof PrivateIdentifierExpression) {
+                                        //15.7.1 (#8)
+                                        throw new ParseError(keyToken.line, keyToken.char, "Class constructor may not be a private method");
+                                    }
+                                    if(!$static) { //for some reason if it's static, this is allowed
+                                        //15.7.1 (#3)
+                                        if(value.isGenerator) {
+                                            throw new ParseError(keyToken.line, keyToken.char, "Class constructor may not be a generator"); //SyntaxError
+                                        }else if(value.isAsync) {
+                                            throw new ParseError(keyToken.line, keyToken.char, "Class constructor may not be an async method"); //SyntaxError
+                                        }else {
+                                            throw new ParseError(keyToken.line, keyToken.char, "Class constructor may not be an accessor"); //SyntaxError
+                                        }
+                                    }
+                                }else {
+                                    //15.7.1 (#5)
+                                    throw new ParseError(keyToken.line, keyToken.char, "Classes may not have a field named 'constructor'"); //SyntaxError
+                                }
+                            }
+                            if($static) {
+                                //we must also check again at runtime to make sure a static computed property isn't prototype! (the runtime check isn't done for constructor though, i wonder why...)
+                                if(!key.computed && (((key instanceof LiteralExpression || key instanceof Token) && key.value == "prototype") || (key instanceof IdentifierExpression && key.nameToken.value == "prototype"))) {
+                                    //15.7.1 (#4, #6)
+                                    throw new ParseError($static.line, $static.char, "Classes may not have a static property named 'prototype'"); //SyntaxError
+                                }
+                            }
+                            key.static = !!$static; //lazy for IsStatic
+                            properties.set(key, value);
+                        }
+                        if(!method) {
+                            //this only applies to static blocks or static? fields!
+                            //bruh we need to make sure the arguments object isn't referenced :///
+                            if(containsArguments(value)) { //we're back to using containsArguments until i flip flop again
+                                //15.7.1 (#7)
+                                const token = $static ?? keyToken; //"lowkeyidkwhatthetokenis:(";
+                                throw new ParseError(token.line, token.char, "'arguments' is not allowed in class field initializer or static initialization block");
+                            }
+                            //const visitor = new PredicateVisitor(function(expr) {
+                            //    return (expr instanceof IdentifierExpression && expr.nameToken.value == "arguments") || (expr instanceof Token && expr.value == "arguments");
+                            //});
+                            //if(value.accept(visitor)) {
+                            //    //15.7.1 (#7)
+                            //    throw new ParseError(keyToken.line, keyToken.char, "'arguments' is not allowed in class field initializer or static initialization block");
+                            //}
+                            if(!(value instanceof BlockStatement)) {
+                                //methods and static blocks don't require semicolons!
+                                this.consume(TokenKind.SEMICOLON, "Semicolon expected after property in class statement/expression");
+                            }else {
+                                this.match(TokenKind.SEMICOLON); //semicolon allowed but not required
+                            }
+                        }else {
+                            this.match(TokenKind.SEMICOLON); //semicolon allowed but not required
+                        }
+                    }
+                }
+
+                const endingToken = this.tokens[this.i];
+                this.consume(TokenKind.CLOSING_CURLY_BRACKET, "Expected closing curly bracket here!!");
+                
+                this.scope.pop();
+
+                this.useStrict = old;
+
+                //16.1.1 (#8)
+                for(const privateIdentifier of privateIdentifierScope.seenPrivateIdentifiers) {
+                    let definedKeys = definedPrivateKeys;
+                    while(definedKeys) {
+                        if(definedKeys.findIndex(existingKey=>existingKey["[[Key]]"]==privateIdentifier.value) != -1) {
+                            break;
+                        }
+                        let index = this.scope.length-1;
+                        let scope = this.scope[index];
+                        while(scope && scope.kind != "class_body") {
+                            scope = this.scope[--index];
+                        }
+                        if(scope) {
+                            definedKeys = scope.definedPrivateIdentifiers;
+                        }else {
+                            throw new ParseError(privateIdentifier.line, privateIdentifier.char, "Private field '#private' must be declared in an enclosing class");
+                        }
+                    }
+                }
+
+                const sourceText = this.sourceText.substring(indexFromToken(classToken, this.sourceText), indexFromToken(endingToken, this.sourceText)+1);
+
+                return new ClassStatement(gender, superclass, properties, constructor, name.value, name.value, sourceText); //expressions don't have a binding name!
+            }
+
             //for let and const :/
             //and also class statements apparently
             declaration() {
@@ -5929,9 +6213,6 @@
                     // };
                     //allow me to read the specification...
                     
-                    const old = this.useStrict;
-                    this.useStrict = true;
-
                     const classToken = this.tokens[this.i++];
                     const name = this.match(TokenKind.IDENTIFIER);
                     if(!name) {
@@ -5944,171 +6225,7 @@
                         throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, msg);
                     }
 
-                    const scope = this.scope[this.scope.length-1];
-
-                    if(scope.variables.has(name.value)) {
-                        throw new ParseError(name.line, name.char, `Identifier '${name.value}' has already been declared!`);
-                    }else {
-                        //class declarations are like const/let declarations in that they have the temporal dead zone kind of hoisting
-                        const $var = new StaticAnalysisVariable(genderbutouhhiwillhavetobacktrackifthisnexttokenisnotconstorlet || undefined, classToken, name);
-                        scope.variables.set(name.value, $var);
-                        scope.hoisted.push($var);
-                    }
-
-                    //super is actually just Object.getPrototypeOf(this); (or this.__proto__) (kinda)
-
-                    let superclass = undefined;
-                    if(this.matchReserved("extends")) {
-                        superclass = this.unary_misc();
-                    }
-                    this.consume(TokenKind.OPEN_CURLY_BRACKET, "Expected open curly bracket here!!");
-
-                    const properties = new Map();
-
-                    let hasConstructor = false;
-                    let constructor = undefined;
-                    const seenPrivateKeys = [];
-                    //const staticBlocks = [];
-
-                    //this isn't actually for variables lol, for private identifiers, we need a list of all the ones used in this class and all the ones that have been actually defined (i think this is for 16.1.1 #8) https://tc39.es/ecma262/multipage/ecmascript-language-scripts-and-modules.html#sec-scripts-static-semantics-early-errors
-                    const privateIdentifierScope = new StaticAnalysisScope("class_body", undefined);
-                    /** @type {Array<Token>} */
-                    privateIdentifierScope.privateIdentifiers = [];
-                    this.scope.push(privateIdentifierScope);
-
-                    while(this.i < this.tokens.length && !this.peek(TokenKind.CLOSING_CURLY_BRACKET)) {
-                        //this.classStatement()
-                        //in a static block, 'this' is the class object
-                        //oh boy, apparently the arrow function expression can inherit super just like this... eek!
-                        //computed properties that evaluate to "constructor" don't count
-                        if((this.peek(TokenKind.IDENTIFIER) || this.peek(TokenKind.STRING)) && this.tokens[this.i].value == "constructor") {
-                            const constructorToken = this.tokens[this.i];
-                            if(hasConstructor) { //15.7.1 (#2)
-                                throw new ParseError(constructorToken.line, constructorToken.char, "A class may only have one constructor"); //SyntaxError
-                            }
-                            hasConstructor = true;
-                            constructorToken.superRequired = superclass != undefined; //maximum laziness achieved (15.7.1 (#1))
-                            const [key, value] = this.objectkeyvalue(true);
-                            if(!key.method) { //15.7.1 (#5)
-                                throw new ParseError(constructorToken.line, constructorToken.char, "Classes may not have a field named 'constructor'"); //SyntaxError
-                            }
-                            constructor = value;
-                            //properties.set(key, value);
-                        }else {
-                            const $static = this.matchReserved("static"); // why the hell did i only write this.match(TokenKind.RESERVED)
-                            let value;
-                            let method = false;
-                            let keyToken;
-                            if(this.peek(TokenKind.OPEN_CURLY_BRACKET)) {
-                                //static initialization block
-                                value = this.block(BlockKind.STATIC_CLASS);
-                                //oh boy it executes in the order it's defined
-                                //class test {
-                                //  static x = console.log("x");
-                                //  static {
-                                //      console.log("y");
-                                //  }
-                                //  static z = console.log("z");
-                                //}
-                                //-> x, y, z
-
-                                //after looking at the specification, googling, then looking BACK at the specification i finally found the TINEST HINT that maps are sorted by key insertion order (i mean, i believed it when i saw it on mdn, but I couldn't find it with my own eyes!)
-                                //https://tc39.es/ecma262/multipage/keyed-collections.html#sec-map-objects:~:text=the%20Map%2C%20in-,key%20insertion%20order,-.%20callback%20is
-                                //staticBlocks.push({i: properties.size, block: staticBlock}); //because they're sorted by insertion order, we can safely write down the amount of entries in the map so that once we get to this index, we evaluate this static block
-                                //nevermind lol since it's sorted by insertion we can just add the block straight in
-                                properties.set(value, "static block yes haha");
-                            }else {
-                                keyToken = this.tokens[this.i];
-                                const [key, thevaluebutweneeditinthevaluevariabledefinedabove] = this.objectkeyvalue(true);
-                                value = thevaluebutweneeditinthevaluevariabledefinedabove;
-                                //key instanceof LiteralExpression, property => "constructor";
-                                //key instanceof Token, property => constructor;
-                                //key instanceof IdentifierExpression, property => constructor = ...; // or constructor() {...}
-                                if(key instanceof PrivateIdentifierExpression) {
-                                    let stringvalue = key.nameToken.value;
-                                    if(key.method) {
-                                        //prepending the type so getter and setter pair is allowed
-                                        if(value.kindSoThatICanDoThisStuffCorrectly == FunctionKind.GETTER) {
-                                            stringvalue = "get " + stringvalue;
-                                        }else if(value.kindSoThatICanDoThisStuffCorrectly == FunctionKind.SETTER) {
-                                            stringvalue = "set " + stringvalue;
-                                        }
-                                    }
-                                    if(seenPrivateKeys.indexOf(stringvalue) != -1) {
-                                        //15.7.1 (#2)
-                                        throw new ParseError(key.nameToken.line, key.nameToken.char, `Identifier '${key.nameToken.value}' has already been declared`);
-                                    }
-                                    seenPrivateKeys.push(stringvalue);
-                                }
-                                method = key.method;
-                                if(!key.computed && (((key instanceof LiteralExpression || key instanceof Token) && key.value == "constructor") || (key instanceof IdentifierExpression && key.nameToken.value == "constructor") || (key instanceof PrivateIdentifierExpression && key.nameToken.value == "#constructor"))) {
-                                    if(key.method) {
-                                        if(key instanceof PrivateIdentifierExpression) {
-                                            //15.7.1 (#8)
-                                            throw new ParseError(keyToken.line, keyToken.char, "Class constructor may not be a private method");
-                                        }
-                                        if(!$static) { //for some reason if it's static, this is allowed
-                                            //15.7.1 (#3)
-                                            if(value.isGenerator) {
-                                                throw new ParseError(keyToken.line, keyToken.char, "Class constructor may not be a generator"); //SyntaxError
-                                            }else if(value.isAsync) {
-                                                throw new ParseError(keyToken.line, keyToken.char, "Class constructor may not be an async method"); //SyntaxError
-                                            }else {
-                                                throw new ParseError(keyToken.line, keyToken.char, "Class constructor may not be an accessor"); //SyntaxError
-                                            }
-                                        }
-                                    }else {
-                                        //15.7.1 (#5)
-                                        throw new ParseError(keyToken.line, keyToken.char, "Classes may not have a field named 'constructor'"); //SyntaxError
-                                    }
-                                }
-                                if($static) {
-                                    //we must also check again at runtime to make sure a static computed property isn't prototype! (the runtime check isn't done for constructor though, i wonder why...)
-                                    if(!key.computed && (((key instanceof LiteralExpression || key instanceof Token) && key.value == "prototype") || (key instanceof IdentifierExpression && key.nameToken.value == "prototype"))) {
-                                        //15.7.1 (#4, #6)
-                                        throw new ParseError($static.line, $static.char, "Classes may not have a static property named 'prototype'"); //SyntaxError
-                                    }
-                                }
-                                key.static = !!$static; //lazy for IsStatic
-                                properties.set(key, value);
-                            }
-                            if(!method) {
-                                //this only applies to static blocks or static? fields!
-                                //bruh we need to make sure the arguments object isn't referenced :///
-                                if(containsArguments(value)) { //we're back to using containsArguments until i flip flop again
-                                    //15.7.1 (#7)
-                                    const token = $static ?? keyToken; //"lowkeyidkwhatthetokenis:(";
-                                    throw new ParseError(token.line, token.char, "'arguments' is not allowed in class field initializer or static initialization block");
-                                }
-                                //const visitor = new PredicateVisitor(function(expr) {
-                                //    return (expr instanceof IdentifierExpression && expr.nameToken.value == "arguments") || (expr instanceof Token && expr.value == "arguments");
-                                //});
-                                //if(value.accept(visitor)) {
-                                //    //15.7.1 (#7)
-                                //    throw new ParseError(keyToken.line, keyToken.char, "'arguments' is not allowed in class field initializer or static initialization block");
-                                //}
-                            }
-                        }
-                        this.consume(TokenKind.SEMICOLON, "Semicolon expected after property in class statement/expression");
-                    }
-
-                    const endingToken = this.tokens[this.i];
-                    this.consume(TokenKind.CLOSING_CURLY_BRACKET, "Expected closing curly bracket here!!");
-                    
-                    this.scope.pop();
-
-                    this.useStrict = old;
-
-                    //16.1.1 (#8)
-                    for(const privateIdentifier of privateIdentifierScope.privateIdentifiers) {
-                        if(seenPrivateKeys.indexOf(privateIdentifier.value) == -1) {
-                            throw new ParseError(privateIdentifier.line, privateIdentifier.char, "Private field '#private' must be declared in an enclosing class");
-                        }
-                    }
-
-                    const sourceText = this.sourceText.substring(indexFromToken(classToken, this.sourceText), indexFromToken(endingToken, this.sourceText)+1);
-
-                    return new ClassStatement(superclass, properties, constructor, name.value, name.value, sourceText);
+                    return this.doCommonClassStuff(genderbutouhhiwillhavetobacktrackifthisnexttokenisnotconstorlet, classToken, name);
                 }
                 if(genderbutouhhiwillhavetobacktrackifthisnexttokenisnotconstorlet) {
                     //the gender might be needed elsewhere!
@@ -6993,7 +7110,8 @@
 
             GetThisBinding() /*override*/ {
                 //Assert: this["[[ThisBindingStatus]]"] == BindingStatus.LEXICAL;
-                if(this["[[ThisBindingStatus]]"] == BindingStatus.UNINITIALIZED) throw ReferenceError(); //how the hell could i possibly trigger this error?!
+                // if(this["[[ThisBindingStatus]]"] == BindingStatus.UNINITIALIZED) throw ReferenceError(); //how the hell could i possibly trigger this error?!
+                if(this["[[ThisBindingStatus]]"] == BindingStatus.UNINITIALIZED) throw ReferenceError("Must call super constructor in derived class before accessing 'this' or returning from derived constructor"); //apparently this is where that happens?
                 return this["[[ThisValue]]"];
             }
 
@@ -7103,7 +7221,9 @@
         }
 
         class PrivateEnvironmentRecord {
+            /** @type {PrivateEnvironmentRecord} */
             ["[[OuterPrivateEnvironment]]"];
+            /** @type {Array<PrivateName>} */
             ["[[Names]]"];
 
             constructor(outerPrivateEnv) {
@@ -8428,6 +8548,7 @@
                 //$Object.SetDataProperty("freeze", true, false, true, ECMAScript.CreateBuiltinFunction(
                 //    function(thisArg, argList, newTarget) {
                 //        if(!(argList[0] instanceof JavascriptObjectWrapper)) return argList[0];
+                //        //SetIntegrityLevel(argList[0], IntegrityLevel.FROZEN);
                 //        
                 //    },
                 //    1, "freeze", [], this
@@ -8440,6 +8561,53 @@
                     },
                     1, "keys", [], this
                 ));
+
+                $Object.SetDataProperty("getOwnPropertyDescriptor", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) { //Object.getOwnPropertyDescriptor(obj, key);
+                        const coerced = ECMAScript.ToObject(argList[0]);
+                        const propertyKey = ECMAScript.ToPropertyKey(argList[1]);
+                        return ECMAScript.FromPropertyDescriptor(coerced["[[GetOwnProperty]]"](propertyKey));
+                    },
+                    2, "getOwnPropertyDescriptor", [], this
+                ));
+
+                $Object.SetDataProperty("getOwnPropertyDescriptors", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) { //Object.getOwnPropertyDescriptor(obj);
+                        const coerced = ECMAScript.ToObject(argList[0]);
+                        const ownKeys = coerced["[[OwnPropertyKeys]]"]();
+                        const descs = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]);
+                        for(const key of ownKeys) {
+                            const propertyDescObj = ECMAScript.FromPropertyDescriptor(coerced["[[GetOwnProperty]]"](key));
+                            if(propertyDescObj != undefined) {
+                                ECMAScript.CreateDataPropertyOrThrow(descs, key, propertyDescObj);
+                            }
+                        }
+                        return descs;
+                    },
+                    1, "getOwnPropertyDescriptors", [], this
+                ));
+
+                $Object.SetDataProperty("getPrototypeOf", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function lmaonamedfunctionexpressionfornoreason(thisArg, argList, newTarget) {
+                        return ECMAScript.ToObject(argList[0])["[[GetPrototypeOf]]"]();
+                    },
+                    1, "getPrototypeOf", [], this
+                ));
+
+                $Object.SetDataProperty("isExtensible", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        if(!(argList[0] instanceof JavascriptObjectWrapper)) return false;
+                        return argList[0]["[[IsExtensible]]"]();
+                    },
+                    1, "isExtensible", [], this
+                ));
+
+                //$Object.SetDataProperty("setPrototypeOf", true, false, true, ECMAScript.CreateBuiltinFunction(
+                //    function(thisArg, argList, newTarget) {
+                //        
+                //    },
+                //    2, "setPrototypeOf", [], this
+                //));
 
                 // this.state.variables[0].set("Object", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Object"}, $Object));
                 globalObj.SetDataProperty("Object", true, false, true, $Object);
@@ -9239,6 +9407,11 @@
                                                 tag = "String";
                                             }else if(ECMAScript.InstanceofOperator(arg, $Symbol)) {
                                                 tag = "Symbol";
+                                            }else {
+                                                const ctor = arg["[[Get]]"]("constructor", arg);
+                                                if(ctor instanceof JavascriptFunctionWrapper /*&& ctor.isClassConstructor*/) {
+                                                    tag = ctor["[[Get]]"]("name", ctor);
+                                                }
                                             }
                                         }
                                         let result = `{`;
@@ -9289,6 +9462,7 @@
                         Console.ObjectEntries = $Object.properties.get("entries").value;
                     }
                 }
+                //we're assigning "larp" to the real console object because i'd have to remake the whole console object otherwise
                 console.larp = ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) { //console.log
                         //console.log implementation
@@ -9325,9 +9499,24 @@
                 console.log(result.value);
                 const parser = new JavascriptParser(this, result.value, str);
                 result = parser.parse(); //javascript parser also needs to keep track of vars for hoisting!
+                return result;
+            }
+
+            interpret(str) {
+                const result = this.parse(str);
                 if(!result.has_value()) {
-                    return result;
+                    const err = result.error.toString(str);
+                    letext.style.backgroundColor = "pink";
+                    //addConsoleText(true, [err]);
+                    const temp = err.split("\n");
+                    // temp.at(-1) = "(the title attribute doesn't show monospace text so see the console for the precise position)"; // i was gonna say what the HELL made me think this line was valid but the answer is probably c++ (although i never use vector.at so idk what was happening)
+                    // temp[temp.length-1] = "(the title attribute doesn't show monospace text so see the console for the precise position)";
+                    temp[temp.length-1] = "(this font isn't monospace so see the console for the correct character position)";
+                    letext.setAttribute("title", temp.join("\n"));
+                    throw err;
                 }
+                letext.style.backgroundColor = "";
+                letext.removeAttribute("title");
                 const p = new Printer;
                 for(const statement of result.value) {
                     p.print(statement);
@@ -9341,9 +9530,10 @@
                 }
                 // console.log(Printer.prototype.visitLiteralExpression({value: this.evaluate(result.value.at(-1))}));
                 //calling console.larp lol!
-                console.larp["[[Call]]"](undefined, [this.evaluate(result.value.at(-1))]);
+                //console.larp["[[Call]]"](undefined, [this.evaluate(result.value.at(-1))]);
 
                 //because arrays and objects shouldn't be too hard, we'll probably use a recursive descent solution (at least for these types)
+                return this.evaluate(result.value.at(-1));
             }
 
             /** @param {UnaryExpression} unaryExpression */
@@ -9678,6 +9868,20 @@
                 }
             }
 
+            /** @param {PrivateEnvironmentRecord} privateEnv */
+            /** @param {PrivateIdentifierExpression} identifier */
+            ResolvePrivateIdentifier(privateEnv, identifier) {
+                while(privateEnv) {
+                    for(const privateName of privateEnv["[[Names]]"]) {
+                        if(privateName["[[Description]]"] == identifier.nameToken.value) return privateName;
+                    }
+                    privateEnv = privateEnv["[[OuterPrivateEnvironment]]"];
+                }
+                //probably throw?
+                //throw Error(`Cannot read private member ${identifier.nameToken.value} from an object whose class did not declare it`);
+                return new PrivateName(identifier.nameToken.value); //so we can throw later
+            }
+
             //https://tc39.es/ecma262/#sec-getvalue
             GetValue(value) {
                 if(!(value instanceof ReferenceRecord)) return value;
@@ -9690,10 +9894,27 @@
                 }else {
                     if(!(value.base instanceof Object) || value.base instanceof JavascriptObjectWrapper) { //6.2.5.5 (3)
                         const baseObj = ECMAScript.ToObject(value.base);
-                        //if IsPrivateReference
-                        //  return PrivateGet(baseObj, value.referencedName);
+                        if(value.referencedName instanceof PrivateName) {
+                            //return ? PrivateGet(baseObj, value.referencedName);
+                            const entry = baseObj["[[PrivateElements]]"].find(entry=>entry["[[Key]]"] == value.referencedName);
+                            if(entry == undefined) {
+                                //hmm... it says throw a type error but v8 (assuming i'm throwing the right error) only throws a regular error here
+                                //throw Error(`Cannot read private member ${value.referencedName["[[Description]]"]} from an object whose class did not declare it`);
+                                //ok for some reason writing
+                                //this.#privateIdentifier;
+                                //throws a regular Error
+                                throw TypeError(`Cannot read private member ${value.referencedName["[[Description]]"]} from an object whose class did not declare it`);
+                            }
+                            if(entry["[[Kind]]"] == PrivateElementKind.FIELD || entry["[[Kind]]"] == PrivateElementKind.METHOD) {
+                                return entry["[[Value]]"];
+                            }
+                            //Assert: entry["[[Kind]]"] == PrivateElementKind.ACCESSOR
+                            if(entry["[[Getter]]"] == undefined) {
+                                throw TypeError(`'${value.referencedName["[[Description]]"]}' was defined without a getter`);
+                            }
+                            return ECMAScript.Call(entry["[[Getter]]"], baseObj);
+                        }
                         if(typeof value.referencedName != "string" && typeof value.referencedName != "symbol") { // is property key
-                            //ToPropertyKey (kind of)
                             value.referencedName = ECMAScript.ToPropertyKey(value.referencedName);
                         }
                         return baseObj["[[Get]]"](value.referencedName, value.GetThisValue());
@@ -9715,7 +9936,6 @@
                         throw ReferenceError(record.referencedName + " is not defined");
                     }
                     this["[[GlobalObject]]"]["[[Set]]"](record.referencedName, rightValue, this["[[GlobalObject]]"]);
-                    return rightValue;
                 }else if(record.base instanceof EnvironmentRecord /*Map*/) { //6.2.5.6 (4,5,6)
                     /*const $var = record.base.get(record.referencedName);
                     if($var instanceof TemporalDeadZoneVariable) {
@@ -9729,11 +9949,30 @@
                     return $var.value = rightValue;*/
 
                     record.base.SetMutableBinding(record.referencedName, rightValue, record.strict);
-                    return rightValue;
                 }else if(!(record.base instanceof Object) || record.base instanceof JavascriptObjectWrapper) { //6.2.5.6 (3)
                     const baseObj = ECMAScript.ToObject(record.base);
-                    //if IsPrivateReference
-                    //  return PrivateSet(baseObj, value.referencedName, rightValue);
+                    if(record.referencedName instanceof PrivateName) {
+                        //return ? PrivateSet(baseObj, value.referencedName, rightValue);
+                        const entry = baseObj["[[PrivateElements]]"].find(entry=>entry["[[Key]]"] == record.referencedName);
+                        if(entry == undefined) {
+                            //in the specification this is a type error and v8 throws one too...
+                            throw TypeError(`Cannot write private member ${record.referencedName["[[Description]]"]} to an object whose class did not declare it`);
+                        }
+                        if(entry["[[Kind]]"] == PrivateElementKind.METHOD) {
+                            throw TypeError(`Private method '${record.referencedName["[[Description]]"]}' is not writable`);
+                        }
+                        if(entry["[[Kind]]"] == PrivateElementKind.FIELD) {
+                            entry["[[Value]]"] = rightValue;
+                        }else {
+                            //Assert: entry["[[Kind]]"] == PrivateElementKind.ACCESSOR
+                            if(entry["[[Setter]]"] == undefined) {
+                                throw TypeError(`'${record.referencedName["[[Description]]"]}' was defined without a setter`);
+                            }
+                            /*?*/ ECMAScript.Call(entry["[[Setter]]"], baseObj, [rightValue]);
+                        }
+                        //return undefined; //UNUSED
+                        return rightValue;
+                    }
                     if(typeof record.referencedName != "string" && typeof record.referencedName != "symbol") {
                         record.referencedName = ECMAScript.ToPropertyKey(record.referencedName);
                     }
@@ -9744,11 +9983,11 @@
                         //console.larp = 2;
                         throw new TypeError(`Cannot assign to read only property '${record.referencedName} of object '#<${GetConstructorName(baseObj)}>'`);
                     }
-                    return rightValue;
                 }else {
                     //for external stuff i haven't implemented yet
                     return record.base[record.referencedName] = rightValue;
                 }
+                return rightValue;
             }
 
             //https://tc39.es/ecma262/#sec-getthisenvironment
@@ -10059,9 +10298,8 @@
                         if(binaryExpression.right instanceof PrivateIdentifierExpression) {
                             //https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-makeprivatereference
                             //6.2.5.9
-                            //return new ReferenceRecord();
-                            debugger;
-                            throw undefined;
+                            //Assert: this.executionContext.privateEnvironment != null
+                            return new ReferenceRecord(left, this.ResolvePrivateIdentifier(this.executionContext.privateEnvironment, binaryExpression.right), true, undefined); //EMPTY
                         }
                         key = binaryExpression.right.nameToken.value;
                     }
@@ -10374,9 +10612,46 @@
                 return new ReferenceRecord(baseValue, key, strict, actualThis);
             }
 
+            //https://tc39.es/ecma262/multipage/ecmascript-language-expressions.html#sec-super-keyword-runtime-semantics-evaluation
+            //SuperCall
             /** @param {SuperCallExpression} superCallExpression */
             visitSuperCallExpression(superCallExpression) {
-                
+                let newTarget; // = this.GetNewTarget();
+                const envRecord = this.GetThisEnvironment();
+                //Assert: "[[NewTarget]]" in envRecord
+                newTarget = envRecord["[[NewTarget]]"];
+
+                //Assert: "[[Construct]]" in newTarget
+                let superCtor; //this.GetSuperConstructor();
+                //const envRecord = this.GetThisEnvironment();
+                //Assert: envRecord instanceof JavascriptFunctionWrapper
+                {
+                    const activeFunc = envRecord["[[FunctionObject]]"];
+                    //Assert: activeFunc instanceof JavascriptFunctionWrapper
+                    superCtor = activeFunc["[[GetPrototypeOf]]"]();
+                }
+
+                const argList = superCallExpression.argumentsExprArr.map(v=>this.evaluate(v));
+                if(!("[[Construct]]" in superCtor)) {
+                    //i can't believe i figured out so fast how exactly to make this happen
+                    //class object extends null {
+                    //    constructor() {
+                    //        super();
+                    //    }
+                    //}
+                    //new object; //Super constructor null of object is not a constructor
+
+                    //hopefully the right error
+                    throw TypeError("Super constructor null of object is not a constructor");
+                }
+                const result = /*?*/ superCtor["[[Construct]]"](argList, newTarget);
+                const thisER = envRecord;
+                //Assert: thisER instanceof FunctionEnvironmentRecord
+                /*?*/ ECMAScript.BindThisValue(thisER, result);
+                const funcObj = thisER["[[FunctionObject]]"];
+                //Assert: funcObj instanceof JavascriptFunctionWrapper
+                /*?*/ ECMAScript.InitializeInstanceElements(result, funcObj); //oh that's not what i thought happened before
+                return result;
             }
 
             visitEmptyStatement() {};
@@ -10876,7 +11151,7 @@
                     for(const key of classStatement.properties.keys()) {
                         if(key instanceof PrivateIdentifierExpression) {
                             const description = key.nameToken.value;
-                            const privateName = classPrivateEnv["[[Names]]"].find(pn=>pn.description == description);
+                            const privateName = classPrivateEnv["[[Names]]"].find(pn=>pn["[[Description]]"] == description);
                             // if(classPrivateEnv["[[Names]]"].indexOf(description) != -1) {
                             if(privateName) {
                                 //Assert: This is only possible for getter/setter pairs
@@ -10929,8 +11204,9 @@
                             if(this.constructorKind == ConstructorKind.DERIVED) {
                                 const func = this["[[GetPrototypeOf]]"]();
                                 if(!("[[Construct]]" in func)) {
-                                    result = func["[[Construct]]"](argList, newTarget);
+                                    throw TypeError("Super constructor null of object is not a constructor");
                                 }
+                                result = func["[[Construct]]"](argList, newTarget);
                             }else {
                                 result = ECMAScript.OrdinaryCreateFromConstructor(newTarget, "%Object.prototype%");
                             }
@@ -10971,22 +11247,54 @@
                         let obj;
                         //!IsStatic(classElement)
                         if(!key.static) {
-                            obj = proto;
+                            obj = proto; // fields aren't actually added to the prototype here (and obj is only briefly referenced) because fields are initialized later
                         }else {
                             obj = ctorFunc;
                         }
                         try {
                             //ClassElementEvaluation(obj)
-                            if(key.method) {
+                            if(key.method) { //aw shoot we're not done yet...
                                 //MethodDefinition
                                 //static MethodDefinition
                                 //MethodDefinitionEvaluation(obj, false)
-                                const methodDef = this.DefineMethod(key, value, obj);
-                                //SetFunctionName
-                                methodDef["[[Closure]]"].properties.set("name", new JavascriptDataProperty(false, false, true, methodDef["[[Key]]"]));
-                                //return ? ECMAScript.DefineMethodProperty
-                                ECMAScript.DefineMethodProperty(obj, methodDef["[[Key]]"], methodDef["[[Closure]]"], false /*enumerable*/);
-                            }else if(key.static && key instanceof BlockStatement) {
+                                if(value.kindSoThatICanDoThisStuffCorrectly == FunctionKind.METHOD) {
+                                    const methodDef = this.DefineMethod(key, value, obj);
+                                    //SetFunctionName
+                                    methodDef["[[Closure]]"].properties.set("name", new JavascriptDataProperty(false, false, true, methodDef["[[Key]]"]));
+                                    //return ? ECMAScript.DefineMethodProperty
+                                    element = ECMAScript.DefineMethodProperty(obj, methodDef["[[Key]]"], methodDef["[[Closure]]"], false /*enumerable*/);
+                                }else if(value.kindSoThatICanDoThisStuffCorrectly == FunctionKind.GETTER) {
+                                    const propertyKey = this.PropertiesPropertyToString(key);
+                                    const closure = ECMAScript.OrdinaryFunctionCreate(this, ECMAScript["%Function.prototype%"], value.sourceText, [], value.body, ThisMode.NON_LEXICAL_THIS, this.executionContext.lexicalEnvironment, this.executionContext.privateEnvironment);
+                                    ECMAScript.MakeMethod(closure, obj);
+                                    ECMAScript.SetFunctionName(closure, propertyKey, "get");
+                                    if(propertyKey instanceof PrivateName) {
+                                        /*return*/ element = new PrivateElement(propertyKey, PrivateElementKind.ACCESSOR, null, closure, undefined);
+                                    }else {
+                                        //? DefinePropertyOrThrow
+                                        if(!obj["[[DefineOwnProperty]]"](propertyKey, {getter: closure, enumerable: false /*enumerable*/, configurable: true})) {
+                                            throw TypeError(`Cannot redefine property: ${propertyKey}`);
+                                        }
+                                    }
+                                    //return EMPTY;
+                                }else if(value.kindSoThatICanDoThisStuffCorrectly == FunctionKind.SETTER) {
+                                    const propertyKey = this.PropertiesPropertyToString(key);
+                                    const closure = ECMAScript.OrdinaryFunctionCreate(this, ECMAScript["%Function.prototype%"], value.sourceText, value.parameters, value.body, ThisMode.NON_LEXICAL_THIS, this.executionContext.lexicalEnvironment, this.executionContext.privateEnvironment);
+                                    ECMAScript.MakeMethod(closure, obj);
+                                    ECMAScript.SetFunctionName(closure, propertyKey, "set");
+                                    if(propertyKey instanceof PrivateName) {
+                                        /*return*/ element = new PrivateElement(propertyKey, PrivateElementKind.ACCESSOR, null, undefined, closure);
+                                    }else {
+                                        //? DefinePropertyOrThrow
+                                        if(!obj["[[DefineOwnProperty]]"](propertyKey, {setter: closure, enumerable: false /*enumerable*/, configurable: true})) {
+                                            throw TypeError(`Cannot redefine property: ${propertyKey}`);
+                                        }
+                                    }
+                                    //return EMPTY;
+                                }else {
+                                    throw Error("Method kind not implemented in class statement :/");
+                                }
+                            }else if(key instanceof BlockStatement) {
                                 //ClassStaticBlockDefinitionEvaluation
                                 //NOTE  The function bodyFunc is never directly accessible to ECMAScript code.
                                 const bodyFunc = ECMAScript.OrdinaryFunctionCreate(this, ECMAScript["%Function.prototype%"], "", [], key, ThisMode.NON_LEXICAL_THIS, this.executionContext.lexicalEnvironment, this.executionContext.privateEnvironment);
@@ -11003,8 +11311,9 @@
                                     name = this.PropertiesPropertyToString(key);
                                     if(value !== undefined) {
                                         //NOTE  The function created for initializer is never directly accessible to ECMAScript code.
-                                        initializer = ECMAScript.OrdinaryFunctionCreate(this, ECMAScript["%Function.prototype%"], "", [], new ReturnStatement(value), ThisMode.NON_LEXICAL_THIS, this.executionContext.lexicalEnvironment, this.executionContext.privateEnvironment);
-                                        initializer.body.strict = true; //probably lol
+                                        const body = new ReturnStatement(value); //i'm not exactly sure how the specification wants this part to work (because i did the parsing of class myself, minus the static semantics stuff)
+                                        body.strict = true; //probably lol
+                                        initializer = ECMAScript.OrdinaryFunctionCreate(this, ECMAScript["%Function.prototype%"], "", [], body, ThisMode.NON_LEXICAL_THIS, this.executionContext.lexicalEnvironment, this.executionContext.privateEnvironment);
                                         ECMAScript.MakeMethod(initializer, obj);
                                         initializer.classFieldInitializerName = name;
                                     }
@@ -11017,7 +11326,28 @@
                             throw abruptCompletion; //rethrow i guess
                         }
                         if(element instanceof PrivateElement) {
-                            throw Error("hawk tuah man!");
+                            //Assert: element["[[Kind]]"] == PrivateElementKind.METHOD || element["[[Kind]]"] == PrivateElementKind.ACCESSOR
+                            //!IsStatic(classElement)
+                            let container;
+                            if(!key.static) {
+                                container = instancePrivateMethods;
+                            }else {
+                                container = staticPrivateMethods;
+                            }
+                            const existingElementIndex = container.findIndex(existingElement=>existingElement instanceof PrivateElement && existingElement["[[Key]]"] == element["[[Key]]"]);
+                            if(existingElementIndex != -1) {
+                                //Assert: element["[[Kind]]"] == PrivateElementKind.ACCESSOR && existingElement["[[Kind]]"] == PrivateElementKind.ACCESSOR;
+                                const existingElement = container[existingElementIndex];
+                                let combined;
+                                if(element["[[Getter]]"] == undefined) {
+                                    combined = new PrivateElement(element["[[Key]]"], PrivateElementKind.ACCESSOR, undefined, existingElement["[[Getter]]"], element["[[Setter]]"]);
+                                }else {
+                                    combined = new PrivateElement(element["[[Key]]"], PrivateElementKind.ACCESSOR, undefined, element["[[Getter]]"], existingElement["[[Setter]]"]);
+                                }
+                                container[existingElementIndex] = combined;
+                            }else {
+                                container.push(element);
+                            }
                         }else if(element instanceof ClassFieldDefinitionRecord) {
                             //!IsStatic(classElement)
                             if(!key.static) {
@@ -11026,7 +11356,7 @@
                                 staticElements.push(element);
                             }
                         }else if(element instanceof ClassStaticBlockDefinitionRecord) {
-                            staticElement.push(element);
+                            staticElements.push(element);
                         }else {
                             //Assert: element == undefined
                         }
@@ -11043,10 +11373,36 @@
                 }
                 for(const elementRecord of staticElements) {
                     let result;
-                    if(elementRecord instanceof ClassFieldDefinitionRecord) {
+                    try {
+                        if(elementRecord instanceof ClassFieldDefinitionRecord) {
+                            //result = Completion(DefineField(ctorFunc, elementRecord));
+                            //DefineField(ctorFunc, elementRecord);
+                            //const fieldName = elementRecord["[[Name]]"];
+                            //const initializer = elementRecord["[[Initializer]]"];
+                            //let initValue;
+                            //if(initializer !== undefined) {
+                            //    initValue = ECMAScript.Call(initializer, ctorFunc);
+                            //}else {
+                            //    initValue = undefined;
+                            //}
+                            //if(fieldName instanceof PrivateName) {
+                            //    //Perform ? PrivateFieldAdd(ctorFunc, fieldName, initValue);
+//
+                            //}else {
+                            //    //Assert: typeof fieldName == "string" || fieldName == "symbol"
+                            //    /*?*/ ECMAScript.CreateDataPropertyOrThrow(ctorFunc, fieldName, initValue);
+                            //}
+                            //return undefined; //UNUSED
 
-                    }else {
-                        //Assert: elementRecord instanceof ClassStaticBlockDefinitionRecord
+                            //bruh i just reinvented the wheel here because i forgot i'd already written this entire function earlier
+                            result = ECMAScript.DefineField(ctorFunc, elementRecord);
+                        }else {
+                            //Assert: elementRecord instanceof ClassStaticBlockDefinitionRecord
+                            result = ECMAScript.Call(elementRecord["[[BodyFunction]]"], ctorFunc); //ah yes, ctorFunc as the thisArg
+                        }
+                    }catch(abruptCompletion) {
+                        this.executionContext.privateEnvironment = outerPrivateEnv; //pop privateEnvironment
+                        throw abruptCompletion; //rethrow i guess
                     }
                 }
                 this.executionContext.privateEnvironment = outerPrivateEnv; //pop privateEnvironment
@@ -11305,7 +11661,7 @@
             /** @param {ClassStatement} classStatement */
             visitClassStatement(classStatement) {
                 //throw error;
-                return `class ${classStatement.classBinding}${classStatement.classHeritage ? ` extends (${classStatement.classHeritage.accept(this)})` : ""} {...}`;
+                return `class${classStatement.classBinding ? " "+classStatement.classBinding : ""}${classStatement.classHeritage ? ` extends (${classStatement.classHeritage.accept(this)})` : ""} {...}`;
             }
 
             /** @param {AssignmentExpression} assignmentExpression */
@@ -11326,7 +11682,8 @@
 
         execute.addEventListener("click", function(event) {
             let interpreter = new JavascriptInterpreter();
-            console.log("$0:", interpreter.interpret(letext.value));
+            // console.log("$0:", interpreter.interpret(letext.value));
+            console.larp["[[Call]]"](undefined, [interpreter.interpret(letext.value)]);
         });
     </script>
 </body>
