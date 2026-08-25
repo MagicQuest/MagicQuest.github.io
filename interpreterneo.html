@@ -65,6 +65,9 @@
             <option value="objectliterals">every object literal property</option>
             <option value="consistent15">crazy syntax</option>
             <option value="consistent16">crazy syntax consistent error</option>
+            <option value="consistent17">crazy syntax 3</option>
+            <option value="consistent18">consistent class expressions</option>
+            <option value="iterator">iterator</option>
             <option value="classes">every class property</option>
             <option value="classes2">allowed class field names</option>
             <option value="objectliteralproto">object literal prototype</option>
@@ -96,7 +99,7 @@
             "scope": "{\n    let sogga = \"wet\";\n}",
             "scope2": "let a = \"global a\";\nlet b = \"global b\";\nlet c = \"global c\";\n{\n  let a = \"outer a\";\n  let b = \"outer b\";\n  {\n    let a = \"inner a\";\n    console.log(a);\n    console.log(b);\n    console.log(c);\n  }\n  console.log(a);\n  console.log(b);\n  console.log(c);\n}\nconsole.log(a);\nconsole.log(b);\nconsole.log(c);\n",
             "varscope": "var a = \"global a\";\nvar b = \"global b\";\nvar c = \"global c\";\n{\n  var a = \"outer a\";\n  var b = \"outer b\";\n  {\n    var a = \"inner a\";\n    var a;\n    console.log(a);\n    console.log(b);\n    console.log(c);\n  }\n  console.log(a);\n  console.log(b);\n  console.log(c);\n}\nconsole.log(a);\nconsole.log(b);\nconsole.log(c);\n",
-            "varscope2": "var hoist = \"okay\";\n{\n    var block = true;\n}\nvar after = \"yes\";\n\nconsole.log(hoist, block, after);",
+            "varscope2": "console.log(hoist, block, after);\n\nvar hoist = \"okay\";\n{\n    var block = true;\n}\nvar after = \"yes\";\n\nconsole.log(hoist, block, after);",
             "consistent": "let x = 2;\n{\n    console.log(x); //should be ReferenceError because of let shadow!\n    let x;\n}",
             "consistent2": "Math.abs(new Boolean(5)); // 1", // it should coerce (new Boolean(5)) into the primitive '1' (but i haven't done that) (now i have ;)
             "consistent3": "//object literal!\nlet obj = {\n    //method!\n    valueOf() {\n        return 21;\n    },\n};\n\n//unary plus to coerce\nconsole.log(+obj); // 21!",
@@ -114,6 +117,9 @@
             "consistent14": "if(!(\"larp\" in console)) {\n    console.larp = console.log;\n}\n\nclass ScreenObject {\n    static field;\n    static initField = ScreenObject;\n    static NaNField = +this.initField;\n    static #priv = this.NaNField;\n    static #getPriv() {\n        return this.#priv;\n    };\n    //static bad = (ScreenObject = 2);\n    static method() {\n        return this.#priv;\n    };\n    static {\n        console.log(\"Hello from static\");\n        console.larp(this);\n        console.larp(this.NaNField);\n        this.another_static = \"toby\";\n    };\n}\nconsole.larp(Object.keys(ScreenObject));\n/*debugger;*/\nScreenObject.method();",
             "consistent15": "if(!(\"larp\" in console)) {\n    console.larp = console.log;\n}\n\n//class expression extends class expression!\nconst ScreenObject = class extends class {\n    super_property = \"hello!\";\n} {\n    derived_property = \"hullo\";\n};\n\nconsole.larp(ScreenObject);\nconsole.larp(new ScreenObject);",
             "consistent16": "(class {\nstatic {\n(function funcName() {\n    funcName = 2;\n})();\n}\n});",
+            "consistent17": "if(!(\"larp\" in console)) {\n    console.larp = console.log;\n}\n\nclass Test extends Object {\n    constructor() {\n        //calling super in immediately invoked arrow expression!\n        (()=>super())();\n        const func = ()=>super.hasOwnProperty;\n        console.larp(func.toString());\n        console.larp(func());\n    }\n}\n//debugger;\nnew Test;",
+            "consistent18": "if(!(\"larp\" in console)) {\n    console.larp = console.log;\n}\nconst clazz = class {\n    property = super.hasOwnProperty;\n};\nconsole.larp(clazz);\nconsole.larp(clazz.name);\nconsole.larp(clazz.length);\nnew clazz;",
+            "iterator": "const iterator = {\n    list: [1, 2, 3],\n    i: 0,\n    next() {\n        return {value: this.list[this.i], done: ++this.i > this.list.length};\n    },\n    [Symbol.iterator]() {\n        return this;\n    },\n};\nfor(const value of iterator) {\n    console.log(value);\n}",
             "objectliterals": "let variable = \"variable\";\nlet another_obj = {\"another_obj_key\": \"another_obj_value\"};\nlet x = {\n    variable,\n    y: \"identifier name property\",\n    \"string\": \"string property\",\n    0: \"numeric property\",\n    [\"computed property\"]: \"what the key said.\",\n    method() {\n    },\n    get [\"x\"]() {\n        return 421;\n    },\n    *generator() {\n    },\n    async 5() {\n    },\n    async* \"hello_generator\"() {\n    },\n    set x(newValue) {\n        console.log(newValue);\n    },\n    ...another_obj\n};\nconsole.larp(x, x.x, x=21);",
             "classes": "class all_class_properties {\n#private_field = \"private_field\";\n// #private_field; // Identifier #private_field has already been declared\n#private_method() {\n    return this.#private_field;\n};\n\nstatic #private_static_field = \"???\";\n// static #private_field; // Identifier #private_field has already been declared\nstatic #private_static_method() {\n    return \"is this even callable?\";\n};\n\nfield = \"access instance field\";\nmethod() {\n    return this.field;\n};\n\nstatic field = \"access constructor (static) field\";\nstatic method() {\n    return this.field;\n};\n\nstatic {\n    this.another_static_field = \"Hello World from this static initialization block!\";\n};\n\nconstructor() {\n    console.log(this.constructor.name, \"instantiated\");\n};\n}",
             "classes2": "class test {\n    async = 2; //async prefix\n    class = 3; //reserved\n    get = 4;   //getter prefix\n    set = 5;   //setter prefix\n    static prototype = 34; //error\n}",
@@ -1275,7 +1281,7 @@
         //literal ::= boolean | null | undefined | array | object | string | number | bigint
         //gender ::= 'male' | 'female' | 'nonbinary'
         //classExpression ::= 'class' identifier? ('extends' unary_misc)? '{' classStatement* '}'
-        //functionExpression ::= 'async'? (('function' '*'? identifier? parameters functionBlock) | ((identifier | parameters) '=>' functionBlock | expression))
+        //functionExpression ::= 'async'? (('function' '*'? identifier? parameters functionBlock) | ((identifier | parameters) '=>' functionBlock | unary_misc))
         //identifierExpression ::= identifierAccess
         //identifierAccess ::= identifier (('.' identifier) | ('[' expression ']') | (arguments))*
         //arrayComprehensionExpression ::= '[' listFor ']'
@@ -2021,8 +2027,8 @@
             /** @type {Token | undefined} */
             genderToken;
             /** @type {Boolean} */
-            isStrict;
-            /** @type {Boolean} */
+            //isStrict;
+            ///** @type {Boolean} */
             isAsync;
             /** @type {Boolean} */
             isGenerator;
@@ -2048,15 +2054,15 @@
              * @param {String} sourceText
              * @param {Number} kindSoThatICanDoThisStuffCorrectly
              */
-            constructor(genderToken, isStrict, isAsync, isGenerator, nameToken, parameters, body, sourceText, kindSoThatICanDoThisStuffCorrectly) {
+            constructor(genderToken/*, isStrict*/, isAsync, isGenerator, nameToken, parameters, body, sourceText, kindSoThatICanDoThisStuffCorrectly) {
                 super();
                 this.genderToken = genderToken;
-                this.isStrict = isStrict;
+                // this.isStrict = isStrict;
                 this.isAsync = isAsync;
                 this.isGenerator = isGenerator;
                 this.nameToken = nameToken;
                 this.parameters = parameters;
-                this.body = body;
+                this.body = body; //body tells us if it's strict!
                 this.sourceText = sourceText;
                 this.kindSoThatICanDoThisStuffCorrectly = kindSoThatICanDoThisStuffCorrectly;
             }
@@ -2150,6 +2156,36 @@
         class IteratorKind {
             static ASYNC = 1;
             static SYNC = 2;
+        }
+
+        //for for
+        class IterationKind {
+            static ITERATE = 1;
+            static ENUMERATE = 2;
+            static ASYNC_ITERATE = 3;
+        }
+
+        class ForLHSKind {
+            static ASSIGNMENT = 1;
+            static VAR_BINDING = 2;
+            static LEXICAL_BINDING = 3;
+        }
+
+        class ForDeclarationKind {
+            static NORMAL = 1;
+            static SYNC_DISPOSE = 2;
+            static ASYNC_DISPOSE = 3;
+        }
+
+        class IteratorRecord {
+            ["[[Iterator]]"];
+            ["[[NextMethod]]"];
+            ["[[Done]]"];
+            constructor(iterator, nextMethod, done) {
+                this["[[Iterator]]"] = iterator;
+                this["[[NextMethod]]"] = nextMethod;
+                this["[[Done]]"] = done;
+            }
         }
 
         //helper
@@ -2394,7 +2430,9 @@
             static BindThisValue(envRecord, value) {
                 //Assert: envRecord["[[ThisBindingStatus]]"] != BindingStatus.LEXICAL
                 if(envRecord["[[ThisBindingStatus]]"] == BindingStatus.INITIALIZED) {
-                    throw ReferenceError("envRecord[\"[[ThisBindingStatus]]\"] == BindingStatus.INITIALIZED"); //i can't imagine what this error would be... (damn i don't know how all ts works to attempt to trigger this one...)
+                    // throw ReferenceError("envRecord[\"[[ThisBindingStatus]]\"] == BindingStatus.INITIALIZED"); //i can't imagine what this error would be... (damn i don't know how all ts works to attempt to trigger this one...)
+                    //wow ok apparently this happens when calling the super constructor twice!
+                    throw ReferenceError("Super constructor may only be called once");
                 }
                 envRecord["[[ThisValue]]"] = value;
                 envRecord["[[ThisBindingStatus]]"] = BindingStatus.INITIALIZED;
@@ -2606,7 +2644,12 @@
                 //evaluate...
                 let retval = undefined;
                 try {
-                    func.ECMAScriptCode.accept(func.interpreter); //somehow he needs to handle return statements
+                    const temp = func.ECMAScriptCode.accept(func.interpreter); //somehow he needs to handle return statements
+                    
+                    //not in the specification lol
+                    if(func.thisMode == ThisMode.LEXICAL) {
+                        retval = temp;
+                    }
                 }catch(e) {
                     if(e instanceof Error) {
                         throw e;
@@ -2870,7 +2913,8 @@
                 const asyncIterator = ECMAScript.OrdinaryObjectCreate(ECMAScript["%AsyncFromSyncIteratorPrototype%"], "[[SyncIteratorRecord]]");
                 asyncIterator["[[SyncIteratorRecord]]"] = syncIteratorRecord;
                 const nextMethod = asyncIterator["[[Get]]"]("next", asyncIterator);
-                return {"[[Iterator]]": asyncIterator, "[[NextMethod]]": nextMethod, "[[Done]]": false};
+                //return {"[[Iterator]]": asyncIterator, "[[NextMethod]]": nextMethod, "[[Done]]": false};
+                return new IteratorRecord(asyncIterator, nextMethod, false);
             }
 
             //using custom parameter async so we can get the error right lol
@@ -2887,7 +2931,8 @@
                 }
                 //return GetIteratorDirect(iterator);
                 const nextMethod = iterator["[[Get]]"]("next", iterator);
-                return {"[[Iterator]]": iterator, "[[NextMethod]]": nextMethod, "[[Done]]": false};
+                // return {"[[Iterator]]": iterator, "[[NextMethod]]": nextMethod, "[[Done]]": false};
+                return new IteratorRecord(iterator, nextMethod, false);
             }
 
             //IteratorKind
@@ -4638,8 +4683,8 @@
         class StaticAnalysisFunctionScope extends StaticAnalysisScope {
             /** @type {FunctionKind} */
             subkind;
-            /** @type {Boolean} */
-            isCtor;
+            ///** @type {Boolean} */
+            //isCtor;
 
             //wait nevermind lol this is a runtime thing not static
             ////if isCtor,
@@ -4648,10 +4693,10 @@
             ///** @type {Number} */
             //superCount;
 
-            constructor(subkind, isCtor, blockStatementArray) {
+            constructor(subkind/*, isCtor*/, blockStatementArray) {
                 super("function", blockStatementArray);
                 this.subkind = subkind;
-                this.isCtor = isCtor;
+                //this.isCtor = isCtor;
             }
         }
 
@@ -4663,6 +4708,7 @@
             static GETTER = 3;
             static SETTER = 4;
             static CONSTRUCTOR = 5;
+            static ARROW = 6;
         }
 
         //for JavascriptParser's block method
@@ -5335,11 +5381,11 @@
                         if(this.tokens[this.i].value == "super") {
                             const $super = this.tokens[this.i++];
                             const operator = this.tokens[this.i];
-                            let scope;
+                            let superCallAllowed = false;
                             {
                                 //i was about to replace the next 5 lines with a simple this.scope.find(...) but that would check in the wrong order! we need the nearest function scope! (the top most function scope could be a method but the nearest could be a declaration!)
                                 let index = this.scope.length-1;
-                                scope = this.scope[index];
+                                let scope = this.scope[index];
                                 while(scope && !(scope instanceof StaticAnalysisFunctionScope) && scope.kind != "class_body") {
                                     scope = this.scope[--index];
                                 }
@@ -5348,9 +5394,34 @@
                                     throw new ParseError($super.line, $super.char, "'super' keyword unexpected here");
                                 }else if(scope.kind == "class_body") {
                                     //go ahead buddy...
+                                    superCallAllowed = false; //(no super call though lol)
+                                    //this could be something like
+                                    //class xyz {
+                                    //property = super();
+                                    //}
                                 }else if(scope.subkind == FunctionKind.EXPRESSION || scope.subkind == FunctionKind.FUNCTION) {
                                     //15.7.1 (#5, #6, #7, #8)
                                     throw new ParseError($super.line, $super.char, "'super' keyword unexpected here");
+                                }else if(scope.subkind == FunctionKind.ARROW) {
+                                    let index = this.scope.length-1;
+                                    let scope = this.scope[index];
+                                    while(scope && scope.kind != "class_body") {
+                                        scope = this.scope[--index];
+                                    }
+                                    if(!scope) {
+                                        //there's no super binding if there's no class body!
+                                        throw new ParseError($super.line, $super.char, "'super' keyword unexpected here");
+                                    }
+
+                                    //finally, one last scope search to make sure we're in a constructor method
+                                    index = this.scope.length-1;
+                                    scope = this.scope[index];
+                                    while(scope && !(scope instanceof StaticAnalysisFunctionScope && scope.subkind == FunctionKind.CONSTRUCTOR)) {
+                                        scope = this.scope[--index];
+                                    }
+                                    superCallAllowed = scope ? scope.superRequired : false;
+                                }else if(scope.subkind == FunctionKind.CONSTRUCTOR) {
+                                    superCallAllowed = scope.superRequired;
                                 }
                             }
                             if(operator.kind == TokenKind.DOT || operator.kind == TokenKind.OPEN_BRACKET) {
@@ -5366,9 +5437,12 @@
                                 return new SuperPropertyExpression(this.useStrict, $super, operator, expr);
                             }else if(operator.kind == TokenKind.OPEN_PARENTHESIS) {
                                 //super call is literally only allowed in a class constructor method
-                                const actualCurrentScope = this.scope[this.scope.length-1];
-                                //super calls can't happen in functions or blocks or even if statements that are inside of class constructor methods (apparently)
-                                if(actualCurrentScope != scope || scope.subkind != FunctionKind.CONSTRUCTOR || !scope.superRequired /*(15.7.1 (#1))*/) {
+                                //super calls can't happen in function expressions or statements (ok i had some other stuff here about how you can't use super in if statements or blocks but that's lowkey just not true, maybe in my tests i forgot to extend another class...)
+                                // const actualCurrentScope = this.scope[this.scope.length-1];
+                                //if((functionScope && functionScope.subkind != FunctionKind.CONSTRUCTOR && functionScope.subkind != FunctionKind.ARROW) || !classScope.superRequired /*(15.7.1 (#1))*/) {
+                                //    throw new ParseError($super.line, $super.char, "'super' keyword unexpected here");
+                                //}
+                                if(!superCallAllowed) {
                                     throw new ParseError($super.line, $super.char, "'super' keyword unexpected here");
                                 }
                                 return new SuperCallExpression(this.useStrict, $super, this.$arguments());
@@ -5452,14 +5526,17 @@
                             //arrow
                             const parameter = this.match(TokenKind.IDENTIFIER);
                             this.consume(TokenKind.ARROW, "Expected arrow after arrow function?? this shouldn't happen right?");
-                            // const body = this.block();
-                            if(this.peek(TokenKind.OPEN_CURLY_BRACKET)) {
-                                //async? x=>{...};
-                                //functionBlock
-                            }else {
-                                //async? x=>x;
-                                //expression
-                            }
+                            //let body;
+                            //if(this.peek(TokenKind.OPEN_CURLY_BRACKET)) {
+                            //    //async? x=>{...};
+                            //    //functionBlock
+                            //    body = this.block(BlockKind.FUNCTION);
+                            //}else {
+                            //    //async? x=>x;
+                            //    //unary_misc
+                            //    body = this.unary_misc();
+                            //}
+                            return this.doCommonArrowFunctionStuff(async, parameter, [{identifier: new IdentifierExpression(parameter), default: undefined}]);
                         }
                     }
                     else if(this.peek(TokenKind.OPEN_PARENTHESIS)) {
@@ -5475,13 +5552,19 @@
                             //the only allowed operators are the equal sign and the comma!
                             //OR i could lazily reparse it... (we could also skip parsing by looking ahead to see if the arrow comes after the closing parenthesis (but then we'd have to keep track of the parenthesis))
                             this.i = parenthesisIndex;
-                            const parameters = this.parameters();
-                            if(this.peek(TokenKind.OPEN_CURLY_BRACKET)) {
-                                //async? (...)=>{...};
-                                //functionBlock
-                            }else {
-                                //async? (...)=>expression;
-                            }
+                            const beginningToken = this.tokens[this.i];
+                            const parameters = this.parameters(true);
+                            this.consume(TokenKind.ARROW, "Expected arrow after arrow function?? this shouldn't happen right?"); //reconsume the arrow lol
+                            //let body;
+                            //if(this.peek(TokenKind.OPEN_CURLY_BRACKET)) {
+                            //    //async? (...)=>{...};
+                            //    //functionBlock
+                            //    body = this.block(BlockKind.FUNCTION);
+                            //}else {
+                            //    //async? (...)=>unary_misc;
+                            //    body = this.unary_misc();
+                            //}
+                            return this.doCommonArrowFunctionStuff(async, beginningToken, parameters);
                         }else if(async) {
                             throw new ParseError(async.line, async.char, "Async not expected here!");
                         }
@@ -5626,26 +5709,28 @@
                 let generator = false;
                 let beginningToken;
                 if(!key) {
-                    if(this.tokens[this.i].value == "async") {
-                        async = this.tokens[this.i++];
-                        generator = this.match(TokenKind.ASTERISK);
-                    }else if(this.tokens[this.i].kind == TokenKind.ASTERISK) {
-                        generator = this.tokens[this.i++];
-                    }/*else if(this.tokens[this.i].value == "get" || this.tokens[this.i].value == "set") {
-                        const accessor = this.tokens[this.i++];
-                        if(accessor.value == "get") {
+                    if(!this.peekNext(TokenKind.OPEN_PARENTHESIS)) {
+                        if(this.tokens[this.i].value == "async") {
+                            async = this.tokens[this.i++];
+                            generator = this.match(TokenKind.ASTERISK);
+                        }else if(this.tokens[this.i].kind == TokenKind.ASTERISK) {
+                            generator = this.tokens[this.i++];
+                        }/*else if(this.tokens[this.i].value == "get" || this.tokens[this.i].value == "set") {
+                            const accessor = this.tokens[this.i++];
+                            if(accessor.value == "get") {
+                                kind = FunctionKind.GETTER;
+                            }else {
+                                kind = FunctionKind.SETTER;
+                            }
+                        }*/else if(this.tokens[this.i].value == "get") {
+                            beginningToken = this.tokens[this.i];
+                            this.i++; //consume
                             kind = FunctionKind.GETTER;
-                        }else {
+                        }else if(this.tokens[this.i].value == "set") {
+                            beginningToken = this.tokens[this.i];
+                            this.i++; //consume
                             kind = FunctionKind.SETTER;
                         }
-                    }*/else if(this.tokens[this.i].value == "get") {
-                        beginningToken = this.tokens[this.i];
-                        this.i++; //consume
-                        kind = FunctionKind.GETTER;
-                    }else if(this.tokens[this.i].value == "set") {
-                        beginningToken = this.tokens[this.i];
-                        this.i++; //consume
-                        kind = FunctionKind.SETTER;
                     }
 
                     //get, set, async and the asterisk are the only things that can come before a method in an object literal
@@ -5820,7 +5905,7 @@
                 if(isCtor && kind == FunctionKind.METHOD) {
                     kind = FunctionKind.CONSTRUCTOR;
                 }
-                const scopeRef = new StaticAnalysisFunctionScope(kind, isCtor, undefined);
+                const scopeRef = new StaticAnalysisFunctionScope(kind/*, isCtor*/, undefined);
                 //scopeRef.superCount = 0;
                 scopeRef.superRequired = isCtor && beginningToken.superRequired; //i wrote a whole message about how this was lazy, then got rid of this line because i didn't think i needed it anymore, and now here we are again.
                 //wait nevermind checking super calls in the constructor is runtime :)))
@@ -5853,7 +5938,7 @@
 
                 const directivePrologueIndex = this.i+1; //we need to check this again to see if this function is strict so we can reparse the name (if it's an expression or function declaration) and parameters (+1 to skip the open curly bracket)
                 const functionBody = this.block(BlockKind.FUNCTION); //purrhaps i could just pass inFunction to block lol
-                const endingToken = this.tokens[this.i-1]; //Assert: endingToken.kind == TokenKind.CLOSING_CURLY_BRACKET
+                const endingToken = this.tokens[this.i]; //Assert: endingToken.kind == TokenKind.CLOSING_CURLY_BRACKET
                 
                 scopeRef.blockStatementArray = functionBody.statements;
                 this.pushHoistedDeclarations();
@@ -5864,6 +5949,23 @@
                 // this.inFunction = false;
                 //this.inFunction.pop();
 
+                this.doExtraCommonStuffThatFunctionsAndTheirArrowCounterpartsHaveInCommonKTHXBAI(directivePrologueIndex, name, kind, parameters, functionBody);
+
+                $var.statement = new FunctionStatement(gender || undefined/*, this.useStrict*/, !!async, !!generator, name, parameters, functionBody, undefined, kind);
+
+
+                //let sourceText = "";
+                //{
+                //    const p = new Printer;
+                //    sourceText += $var.statement.accept(p);
+                //}
+                //$var.statement.sourceText = sourceText;
+                $var.statement.sourceText = this.sourceText.substring(indexFromToken(beginningToken, this.sourceText), indexFromToken(endingToken, this.sourceText));
+                
+                return $var.statement;
+            }
+
+            doExtraCommonStuffThatFunctionsAndTheirArrowCounterpartsHaveInCommonKTHXBAI(directivePrologueIndex, name, kind, parameters, functionBody) {
                 //i swear these are all needed and important and make sense
                 const old = this.useStrict; // we save useStrict because we're just using it to figure out if the function body had the "use strict" directive
                 const currentIndex = this.i; // temp
@@ -5949,19 +6051,41 @@
                 }
 
                 this.useStrict = old; // restore
+            }
+            
+            doCommonArrowFunctionStuff(async, beginningToken, parameters) {
+                const scopeRef = new StaticAnalysisFunctionScope(FunctionKind.ARROW, false, undefined);
+                this.scope.push(scopeRef);
+                for(const {identifier, default: $default} of parameters) {
+                    scopeRef.variables.set(identifier.nameToken.value, new StaticAnalysisVariable(undefined, {line: 1, char: 1, value: "var", kind: TokenKind.RESERVED}, identifier.nameToken.value));
+                }
 
-                $var.statement = new FunctionStatement(gender || undefined, old, !!async, !!generator, name, parameters, functionBody, undefined, kind);
+                let directivePrologueIndex;
+                let functionBody;
+                if(this.peek(TokenKind.OPEN_CURLY_BRACKET)) {
+                    //async? ...=>{...}
+                    directivePrologueIndex = this.i+1; //we need to check this again to see if this function is strict so we can reparse the parameters (+1 to skip curly bracket)
+                    functionBody = this.block(BlockKind.FUNCTION);
+                }else {
+                    //async? ...=>unary_misc
+                    functionBody = this.unary_misc();
+                }
+                const endingToken = this.tokens[this.i];
 
+                if(functionBody instanceof BlockStatement) {
+                    scopeRef.blockStatementArray = functionBody.statements;
+                    this.pushHoistedDeclarations();
 
-                //let sourceText = "";
-                //{
-                //    const p = new Printer;
-                //    sourceText += $var.statement.accept(p);
-                //}
-                //$var.statement.sourceText = sourceText;
-                $var.statement.sourceText = this.sourceText.substring(indexFromToken(beginningToken, this.sourceText), indexFromToken(endingToken, this.sourceText)+1);
-                
-                return $var.statement;
+                    functionBody.precedingStatementIsSpecialSoDontBotherMakingScopeBecauseJavascriptBS = true; //when the function is visited it will create a scope for its parameters so the block needn't create another.
+                }
+                this.scope.pop();
+
+                if(functionBody instanceof BlockStatement) {
+                    this.doExtraCommonStuffThatFunctionsAndTheirArrowCounterpartsHaveInCommonKTHXBAI(directivePrologueIndex, false, FunctionKind.ARROW, parameters, functionBody);
+                }
+
+                const sourceText = this.sourceText.substring(indexFromToken(beginningToken, this.sourceText), indexFromToken(endingToken, this.sourceText));
+                return new FunctionStatement(undefined, !!async, false, false, parameters, functionBody, sourceText, FunctionKind.ARROW);
             }
 
             doCommonClassStuff(gender, classToken, name, expression = false) {
@@ -6235,7 +6359,11 @@
             }
 
             /** @returns {{identifier: IdentifierExpression, default: Expression | undefined}} */
-            parameters() {
+            parameters(forArrowExpr = false) {
+                //for some reason, arrow functions can't have duplicate parameter names at all in devtools, but i haven't found this rule in the specification ? https://tc39.es/ecma262/multipage/ecmascript-language-functions-and-classes.html#sec-arrow-function-definitions-static-semantics-early-errors
+
+                let hasDuplicates = false;
+                let hasDefaults = false;
                 const duplicateMap = new Map();
                 const parameters = [];
                 this.consume(TokenKind.OPEN_PARENTHESIS, "Expected parameters but didn't find open parenthesis?!");
@@ -6243,18 +6371,26 @@
                     const identifier = this.identifier();
                     let $default;
                     if(this.match(TokenKind.EQUALS)) {
+                        this.hasDefaults = true;
+                        if(hasDuplicates) {
+                            throw new ParseError(identifier.nameToken.line, identifier.nameToken.char, "Duplicate parameter name not allowed in this context");
+                        }
                         $default = this.unary_misc();
                     }
                     if(duplicateMap.has(identifier.nameToken.value)) {
-                        const $$default = duplicateMap.get(identifier.nameToken.value);
-                        if($$default || $default) {
-                            //welp, now we know why this is needed!
-                            //(function sum(x = sum, sum, x) {
-                            //    console.log(x, sum);
-                            //})();
-                            //hasDuplicates is true, so all parameters get initialized! this means we'd be able to use sum before it appeared in the parameter list
-                            throw new ParseError(identifier.nameToken.line, identifier.nameToken.char, "Duplicate parameter name not allowed in this context"); //apparently, you can't have duplicate parameter names if you try to give one a default value! (the first time i've ever seen this error was yesterday!)
+                        hasDuplicates = true;
+                        if(hasDefaults || forArrowExpr) {
+                            throw new ParseError(identifier.nameToken.line, identifier.nameToken.char, "Duplicate parameter name not allowed in this context");
                         }
+                        //const $$default = duplicateMap.get(identifier.nameToken.value);
+                        //if($$default || $default) {
+                        //    //welp, now we know why this is needed!
+                        //    //(function sum(x = sum, sum, x) {
+                        //    //    console.log(x, sum);
+                        //    //})();
+                        //    //hasDuplicates is true, so all parameters get initialized! this means we'd be able to use sum before it appeared in the parameter list
+                        //    throw new ParseError(identifier.nameToken.line, identifier.nameToken.char, "Duplicate parameter name not allowed in this context"); //apparently, you can't have duplicate parameter names if you try to give any parameter a default value! (the first time i've ever seen this error was yesterday!)
+                        //}
                     }
                     duplicateMap.set(identifier.nameToken.value, $default);
                     parameters.push({identifier, default: $default}); //uh oh i don't think in my implementation you are allowed to access properties with reserved names like i did here with default!
@@ -8001,6 +8137,19 @@
                             return string.substring(start, end) == searchString;
                         },
                         1, "endsWith", [], this
+                    ));
+                    stringProto.SetDataProperty(ECMAScript["%Symbol.iterator%"], true, false, true, ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            //const string = thisArg;
+                            //Perform ? RequireObjectCoercible(thisArg)
+                            if(thisArg == null || thisArg == undefined) {
+                                throw TypeError(`String.prototype[Symbol.iterator] called on null or undefined`);
+                            }
+                            const string = ECMAScript.ToString(thisArg);
+                            //...
+                            
+                        },
+                        0, "[Symbol.iterator]", [], this
                     ));
                     ECMAScript["%String.prototype%"] = stringProto;
 
@@ -10773,63 +10922,359 @@
                 return last;
             }
 
+            ///** @param {ForOfStatement} forOfStatement */
+            //visitForOfStatement(forOfStatement) {
+            //    //this could be any special javascript iterable thing...
+            //    //we'll just check if it's one of those wrappers right here, otherwise do normal stuff so this thing can still do stuff until i write wrappers for all javascript objects or however that goes
+            //    const scope = new Map();
+            //    this.state.variables.push(scope);
+            //    for(const tdz of forOfStatement.tdzStatements) {
+            //        tdz.accept(this); //should be fine
+            //    }
+            //    //hmm maybe i should've read the specification, how the hell does this part work?
+            //    //with the ole reference record stuff this might be a lot simpler than before so we'll see lol
+            //    let bindingRef;
+            //    if(forOfStatement.identifierDeclaration instanceof VariableDeclarationStatement) {
+            //        //let, const
+            //        forOfStatement.identifierDeclaration.accept(this); // actually declare first lol
+            //        //bindingRef = this.visitIdentifierExpression({nameToken: {value: forOfStatement.identifierDeclaration.name}}); //bs engaged
+            //        //damn PutValue checks if that shit is const >:[
+            //    }/*else if((forOfStatement.identifierDeclaration instanceof IdentifierExpression) || (forOfStatement.identifierDeclaration instanceof BinaryExpression)) {
+            //        //var declaration, other identifier
+            //        //property, if you really needed to do that
+            //        //const gv = this.getVariable(forOfStatement.identifierDeclaration);
+            //
+            //        }*/
+            //    else {
+            //        //well shit with that reference shit this is so much easier
+            //        bindingRef = this.evaluate(forOfStatement.identifierDeclaration, false);
+            //    }
+            //    let last = undefined; //i suppose i'm also using this like iterationResult
+            //    const iterable = this.evaluate(forOfStatement.iterableExpr);
+            //    //https://tc39.es/ecma262/#sec-runtime-semantics-forinofheadevaluation
+            //    if(iterable instanceof JavascriptObjectWrapper) {
+            //        //special
+            //        //wait maybe await should just be a property of ForOfStatement instead of being its own class
+            //        let kind, iteratorRecord;
+            //        if(forOfStatement instanceof ForInStatement) {
+            //            //forInStatement
+            //            if(iterable == undefined || iterable == null) {
+            //                //{"[[Type]]": BREAK, "[[Value]]": undefined, "[[Target]]": undefined};
+            //            }else {
+            //                const obj = ECMAScript.ToObject(iterable);
+            //                const iterator = ECMAScript.EnumerateObjectProperties(obj); //FAWK
+            //                //GetV
+            //                const temp = ECMAScript.ToObject(iterator);
+            //                const nextMethod = temp["[[Get]]"]("next", temp);
+            //                iteratorRecord = {"[[Iterator]]": iterator, "[[NextMethod]]": nextMethod, "[[Done]]": false};
+            //            }
+            //        }else {
+            //            if(forOfStatement.doAwait) {
+            //                throw Error("await not implemented!!");
+            //            }
+            //            kind = forOfStatement.doAwait ? IteratorKind.ASYNC : IteratorKind.SYNC;
+            //            iteratorRecord = ECMAScript.GetIterator(iterable, kind);
+            //        }
+            //        for(;;) {
+            //            const nextResult = ECMAScript.Call(iteratorRecord["[[NextMethod]]"], iteratorRecord["[[Iterator]]"], []);
+            //            if(kind == IteratorKind.ASYNC) {
+            //                // nextResult = ECMAScript.Await(nextResult); //yeah right lol!
+            //                throw Error("Await not implemented!!");
+            //            }
+            //            if(!(nextResult instanceof JavascriptObjectWrapper)) { //14.7.5.7 step 8.c
+            //                // let iterable = {};
+            //                // iterable[Symbol.iterator] = function() {
+            //                //     let results = [
+            //                //         {value: 6, done: false},
+            //                //         {value: 7, done: false},
+            //                //         {value: undefined, done: true},
+            //                //     ];
+            //                //     return {i: 0, next: function() {
+            //                //         // return results[this.i++];
+            //                //         return "what"; // Iterator result what is not an object
+            //                //     }};
+            //                // };
+            //                // for(const obj of iterable) obj;
+            //                throw TypeError(`Iterator result ${nextResult} is not an object`);
+            //            }
+            //            //IteratorComplete
+            //            const done = ECMAScript.ToBoolean(nextResult["[[Get]]"]("done", nextResult));
+            //            if(done) {
+            //                break;
+            //            }else {
+            //                //IteratorValue
+            //                const nextValue = nextResult["[[Get]]"]("value", nextResult);
+            //                if(!bindingRef) {
+            //                    //i mean sure bro
+            //                    scope.get(forOfStatement.identifierDeclaration.name).value = nextValue;
+            //                }else {
+            //                    this.PutValue(bindingRef, nextValue);
+            //                }
+            //                last = forOfStatement.body.accept(this);
+            //            }
+            //        }
+            //    }else if(forOfStatement.doAwait) {
+            //        throw Error("idk if i'll do await yet lol");
+            //    }else if(forOfStatement instanceof ForInStatement) {
+            //        //me being lazy primitive
+            //        for(const result in iterable) {
+            //            //we're doing bs
+            //            //SetValue(result); //some hypothetical function that handles allat bs
+            //            if(!bindingRef) {
+            //                //i mean sure bro
+            //                scope.get(forOfStatement.identifierDeclaration.name).value = result;
+            //            }else {
+            //                this.PutValue(bindingRef, result);
+            //            }
+            //            last = forOfStatement.body.accept(this);
+            //        }
+            //    }else {
+            //        //me being lazy primitive
+            //        for(const result of iterable) {
+            //            //we're doing bs
+            //            //SetValue(result); //some hypothetical function that handles allat bs
+            //            if(!bindingRef) {
+            //                //i mean sure bro
+            //                scope.get(forOfStatement.identifierDeclaration.name).value = result;
+            //            }else {
+            //                this.PutValue(bindingRef, result);
+            //            }
+            //            last = forOfStatement.body.accept(this);
+            //        }
+            //    }
+            //    this.state.variables.pop();
+            //    return last;
+            //}
+            
+            //https://tc39.es/ecma262/multipage/ecmascript-language-statements-and-declarations.html#sec-runtime-semantics-forinofheadevaluation
+            ForInOfHeadEvaluation(uninitializedBoundNames, expr, iterationKind) {
+                const oldEnv = this.executionContext.lexicalEnvironment;
+                if(uninitializedBoundNames.length) {
+                    //Assert: uninitializedBoundNames has no duplicate entries
+                    const newEnv = new DeclarativeEnvironmentRecord(oldEnv);
+                    for(const name of uninitializedBoundNames) {
+                        newEnv.CreateMutableBinding(name, false);
+                    }
+                    this.executionContext.lexicalEnvironment = newEnv;
+                }
+                const exprRef = this.evaluate(expr, false);
+                this.executionContext.lexicalEnvironment = oldEnv;
+                const iterable /*exprValue*/ = this.GetValue(exprRef);
+                if(typeof iterable == "object" && !(iterable instanceof JavascriptObjectWrapper)) {
+                    return iterable;
+                }
+                if(iterationKind == IterationKind.ENUMERATE) {
+                    if(iterable == undefined || iterable == null) {
+                        //return CompletionRecord(CompletionKind.BREAK, undefined, undefined)
+                    }
+                    const obj = ECMAScript.ToObject(iterable);
+                    //if(!(obj instanceof JavascriptObjectWrapper)) {
+                    //    return obj;
+                    //}
+                    const iterator = ECMAScript.EnumerateObjectProperties(obj);
+                    const temp = ECMAScript.ToObject(iterator);
+                    const nextMethod = temp["[[Get]]"]("next", temp); //GetV
+                    //return {"[[Iterator]]": iterator, "[[NextMethod]]": nextMethod, "[[Done]]": false};
+                    return new IteratorRecord(iterator, nextMethod, false);
+                }
+                //Assert: iterationKind == IterationKind.ITERATE || iterationKind == IterationKind.ASYNC_ITERATE
+                let iteratorKind;
+                if(iterationKind == IterationKind.ASYNC_ITERATE) {
+                    iteratorKind = IteratorKind.ASYNC;
+                }else {
+                    iteratorKind = IteratorKind.SYNC;
+                }
+                return /*?*/ ECMAScript.GetIterator(iterable, iteratorKind);
+            }
+
+            /** 
+             * @param {VariableDeclarationStatement} identifierDeclaration
+             * @param {EnvironmentRecord} envRecord
+             */
+            ForDeclarationBindingInstantiation(identifierDeclaration, envRecord) {
+                //for(const name of identifierDeclaration...)
+                if(identifierDeclaration.qualifier.value == "const" /*&& also if using or await using*/) {
+                    envRecord.CreateImmutableBinding(identifierDeclaration.name, true);
+                }else {
+                    envRecord.CreateMutableBinding(name, false);
+                }
+                return undefined; //UNUSED
+            }
+
             /** @param {ForOfStatement} forOfStatement */
             visitForOfStatement(forOfStatement) {
-                //this could be any special javascript iterable thing...
-                //we'll just check if it's one of those wrappers right here, otherwise do normal stuff so this thing can still do stuff until i write wrappers for all javascript objects or however that goes
-                const scope = new Map();
-                this.state.variables.push(scope);
-                for(const tdz of forOfStatement.tdzStatements) {
-                    tdz.accept(this); //should be fine
+                const lhs = forOfStatement.identifierDeclaration;
+                const iterationKind = forOfStatement instanceof ForInStatement ? IterationKind.ENUMERATE : IterationKind.ITERATE;
+                let lhsKind;
+                let keyResult;
+                let iteratorKind = forOfStatement.doAwait ? IteratorKind.ASYNC : IteratorKind.SYNC;
+                if(forOfStatement.identifierDeclaration instanceof VariableDeclarationStatement && forOfStatement.identifierDeclaration.qualifier.value != "var") {
+                    //ForDeclaration
+                    keyResult = /*?*/ this.ForInOfHeadEvaluation([forOfStatement.identifierDeclaration.name], forOfStatement.iterableExpr, iterationKind);
+                    lhsKind = ForLHSKind.LEXICAL_BINDING;
+                }else {
+                    if(forOfStatement.identifierDeclaration instanceof VariableDeclarationStatement) {
+                        lhsKind = ForLHSKind.VAR_BINDING;
+                    }else {
+                        lhsKind = ForLHSKind.ASSIGNMENT;
+                    }
+                    //LeftHandSideExpression, var ForBinding
+                    keyResult = /*?*/ this.ForInOfHeadEvaluation([], forOfStatement.iterableExpr, iterationKind);
                 }
-                //hmm maybe i should've read the specification, how the hell does this part work?
-                //with the ole reference record stuff this might be a lot simpler than before so we'll see lol
-                let bindingRef;
-                if(forOfStatement.identifierDeclaration instanceof VariableDeclarationStatement) {
-                    //let, const
-                    forOfStatement.identifierDeclaration.accept(this); // actually declare first lol
-                    //bindingRef = this.visitIdentifierExpression({nameToken: {value: forOfStatement.identifierDeclaration.name}}); //bs engaged
-                    //damn PutValue checks if that shit is const >:[
-                }/*else if((forOfStatement.identifierDeclaration instanceof IdentifierExpression) || (forOfStatement.identifierDeclaration instanceof BinaryExpression)) {
-                    //var declaration, other identifier
-                    //property, if you really needed to do that
-                    //const gv = this.getVariable(forOfStatement.identifierDeclaration);
+                //return ? ForInOfBodyEvaluation(lhs, forOfStatement.body, keyResult, iterationKind, lhsKind, )
+                const stmt = forOfStatement.body;
+                const iteratorRecord = keyResult;
+                const oldEnv = this.executionContext.lexicalEnvironment;
+                let iterationResult = undefined;
+                let declKind;
+                if(lhsKind == ForLHSKind.LEXICAL_BINDING) {
+                    //Assert: lhs instanceof VariableDeclarationStatement && lhs.qualifier.value != "var"
+                    //If IsAwaitUsingDeclaration of lhs,
+                    //  declKind = ForDeclarationKind.ASYNC_DISPOSE;
+                    //Else if IsUsingDeclaration of lhs,
+                    //  declKind = ForDeclarationKind.SYNC_DISPOSE;
+                    //Else,
+                    declKind = ForDeclarationKind.NORMAL;
+                }else {
+                    declKind = ForDeclarationKind.NORMAL;
+                }
+                const destructuring = false; // IsDestructuring(lhs)
+                //if(destructuring) {
+                //...
+                //}
 
-                    }*/
-                else {
-                    //well shit with that reference shit this is so much easier
-                    bindingRef = this.evaluate(forOfStatement.identifierDeclaration, false);
-                }
-                let last = undefined; //i suppose i'm also using this like iterationResult
-                const iterable = this.evaluate(forOfStatement.iterableExpr);
-                //https://tc39.es/ecma262/#sec-runtime-semantics-forinofheadevaluation
-                if(iterable instanceof JavascriptObjectWrapper) {
-                    //special
-                    //wait maybe await should just be a property of ForOfStatement instead of being its own class
-                    let kind, iteratorRecord;
-                    if(forOfStatement instanceof ForInStatement) {
-                        //forInStatement
-                        if(iterable == undefined || iterable == null) {
-                            //{"[[Type]]": BREAK, "[[Value]]": undefined, "[[Target]]": undefined};
+                const doCommonIterationStuff = (nextValue) => { // arrow function so i can still use 'this'
+                    let status;
+                    let iterationEnv;
+                    try {
+                        if(lhsKind == ForLHSKind.ASSIGNMENT || lhsKind == ForLHSKind.VAR_BINDING) {
+                            if(destructuring) {
+                                if(lhsKind == ForLHSKind.ASSIGNMENT) {
+                                    //...
+                                }else {
+                                    //Assert: lhsKind == ForLHSKind.VAR_BINDING
+                                    //Assert: lhs.qualifier.value == "var" i guess
+                                    //...
+                                }
+                            }else {
+                                try {
+                                    const lhsRef = this.evaluate(lhs, false);
+                                    //If lhsKind is assignment and the AssignmentTargetType of lhs is web-compat, throw a ReferenceError exception.
+                                    status = this.PutValue(lhsRef, nextValue);
+                                }catch(abruptCompletion) {
+                                    status = abruptCompletion;
+                                }
+                            }
+                            iterationEnv = undefined;
                         }else {
-                            const obj = ECMAScript.ToObject(iterable);
-                            const iterator = ECMAScript.EnumerateObjectProperties(obj); //FAWK
-                            //GetV
-                            const temp = ECMAScript.ToObject(iterator);
-                            const nextMethod = temp["[[Get]]"]("next", temp);
-                            iteratorRecord = {"[[Iterator]]": iterator, "[[NextMethod]]": nextMethod, "[[Done]]": false};
+                            //Assert: lhsKind == ForLHSKind.LEXICAL_BINDING
+                            //Assert: lhs.qualifier.value != "var"
+                            iterationEnv = new DeclarativeEnvironmentRecord(oldEnv);
+                            this.ForDeclarationBindingInstantiation(lhs, iterationEnv);
+                            this.executionContext.lexicalEnvironment = iterationEnv;
+                            if(destructuring) {
+                                //status = this.ForDeclarationBindingInitialization(lhs, nextValue, iterationEnv);
+                            }else {
+                                //Assert: lhs binds a single name
+                                //const lhsName = lhs.name;
+                                const lhsRef = /*!*/ this.ResolveBinding(lhs.name);
+                                if(declKind != ForDeclarationKind.NORMAL) {
+                                    //Assert: lhsRef.base != undefined
+                                    //Assert: lhsRef.base instanceof DeclarativeEnvironmentRecord
+                                    //status = AddDisposableResource(base["[[DisposableResourceStack]]"], nextValue, declKind);
+                                }else {
+                                    status = undefined; //NormalCompletion(UNUSED)
+                                }
+                                status = lhsRef.base.InitializeBinding(lhsRef.referencedName, nextValue);
+                            }
+                        }
+                    }catch(status) {
+                        if(iterationEnv) {
+                            //status = DisposeResources(iterationEnv["[[DisposableResourceStack]]"], status)
+                            //Assert: status is abrupt
+                        }
+                        this.executionContext.lexicalEnvironment = oldEnv;
+                        if(iterationKind == IterationKind.ENUMERATE) {
+                            //return ? status
+                            throw status;
+                        }
+                        //Assert: iterationKind == IterationKind.ITERATE
+                        if(iteratorKind == IteratorKind.ASYNC) {
+                            //return ? AsyncIteratorClose(iteratorRecord, status)
+                        }
+                        //return /*?*/ IteratorClose(iteratorRecord, status);
+                        if(iteratorRecord instanceof IteratorRecord) {
+                            //yeah ok this whole section is terrible and i need to make completion records more "official" for this to be normal
+                            const completion = status;
+                            //Assert: iteratorRecord["[[Iterator]]"] instanceof JavascriptObjectWrapper
+                            const iterator = iteratorRecord["[[Iterator]]"];
+                            let innerResult;
+                            try {
+                                innerResult = ECMAScript.GetMethod(iterator, "return");
+                                if(innerResult == undefined) {
+                                    //return ? completion;
+                                    throw completion;
+                                }
+                                innerResult = ECMAScript.Call(innerResult, iterator);
+                            }catch(throwCompletion) {
+                                throw throwCompletion;
+                            }
+                            throw completion; //it checks if completion is a throw completion and rethrows it
+                            //this is what would happen next in Iteratorclose
+                            if(!(innerResult instanceof JavascriptObjectWrapper)) {
+                                //for(const num of {next() {return {value: "hawk", done: false}}, return() {}, [Symbol.iterator]() {return this;}}) {
+                                //break;
+                                //}
+                                throw TypeError("Iterator result undefined is not an object");
+                            }
+                        }else {
+                            throw status;
+                        }
+                    }
+                    let result;
+                    let abrupt;
+                    try {
+                        result = /*Completion*/ this.evaluate(stmt);
+                    }catch(abruptCompletion) {
+                        abrupt = abruptCompletion;
+                    }
+                    if(iterationEnv) {
+                        //result = DisposeResources(iterationEnv["[[DisposableResourceStack]]"], result);
+                    }
+                    this.executionContext.lexicalEnvironment = oldEnv;
+                    //LoopContinues(abrupt, labelSet);
+                    if(abrupt) {
+                        return abrupt; //we return AFTER setting the lexical environment back!!
+                    }
+                    if(result != undefined /*EMPTY*/) {
+                        iterationResult = result;
+                    }
+                }
+
+                if(!(iteratorRecord instanceof IteratorRecord)) {
+                    //this is an external javascript object!
+                    if(iterationKind == IterationKind.ITERATE) {
+                        for(const nextValue of iteratorRecord) {
+                            const result = doCommonIterationStuff(nextValue);
+                            if(result) {
+                                //break;
+                                throw result;
+                            }
                         }
                     }else {
-                        if(forOfStatement.doAwait) {
-                            throw Error("await not implemented!!");
+                        for(const nextValue in iteratorRecord) {
+                            const result = doCommonIterationStuff(nextValue);
+                            if(result) {
+                                // break;
+                                throw result;
+                            }
                         }
-                        kind = forOfStatement.doAwait ? IteratorKind.ASYNC : IteratorKind.SYNC;
-                        iteratorRecord = ECMAScript.GetIterator(iterable, kind);
                     }
+                }else {
                     for(;;) {
                         const nextResult = ECMAScript.Call(iteratorRecord["[[NextMethod]]"], iteratorRecord["[[Iterator]]"], []);
-                        if(kind == IteratorKind.ASYNC) {
-                            // nextResult = ECMAScript.Await(nextResult); //yeah right lol!
+                        if(iteratorKind == IteratorKind.ASYNC) {
+                            // nextResult = /*?*/ ECMAScript.Await(nextResult); //yeah right lol!
                             throw Error("Await not implemented!!");
                         }
                         if(!(nextResult instanceof JavascriptObjectWrapper)) { //14.7.5.7 step 8.c
@@ -10848,53 +11293,21 @@
                             // for(const obj of iterable) obj;
                             throw TypeError(`Iterator result ${nextResult} is not an object`);
                         }
-                        //IteratorComplete
-                        const done = ECMAScript.ToBoolean(nextResult["[[Get]]"]("done", nextResult));
+                        //? IteratorComplete
+                        const done = ECMAScript.ToBoolean(/*?*/ nextResult["[[Get]]"]("done", nextResult)); //Get
                         if(done) {
-                            break;
+                            return iterationResult;
                         }else {
-                            //IteratorValue
-                            const nextValue = nextResult["[[Get]]"]("value", nextResult);
-                            if(!bindingRef) {
-                                //i mean sure bro
-                                scope.get(forOfStatement.identifierDeclaration.name).value = nextValue;
-                            }else {
-                                this.PutValue(bindingRef, nextValue);
+                            //? IteratorValue
+                            const nextValue = /*?*/ nextResult["[[Get]]"]("value", nextResult); // Get
+                            const result = doCommonIterationStuff(nextValue); //returns an error (if one happens lol), directly modifies iterationResult
+                            if(result) {
+                                // break;
+                                throw result;
                             }
-                            last = forOfStatement.body.accept(this);
                         }
-                    }
-                }else if(forOfStatement.doAwait) {
-                    throw Error("idk if i'll do await yet lol");
-                }else if(forOfStatement instanceof ForInStatement) {
-                    //me being lazy primitive
-                    for(const result in iterable) {
-                        //we're doing bs
-                        //SetValue(result); //some hypothetical function that handles allat bs
-                        if(!bindingRef) {
-                            //i mean sure bro
-                            scope.get(forOfStatement.identifierDeclaration.name).value = result;
-                        }else {
-                            this.PutValue(bindingRef, result);
-                        }
-                        last = forOfStatement.body.accept(this);
-                    }
-                }else {
-                    //me being lazy primitive
-                    for(const result of iterable) {
-                        //we're doing bs
-                        //SetValue(result); //some hypothetical function that handles allat bs
-                        if(!bindingRef) {
-                            //i mean sure bro
-                            scope.get(forOfStatement.identifierDeclaration.name).value = result;
-                        }else {
-                            this.PutValue(bindingRef, result);
-                        }
-                        last = forOfStatement.body.accept(this);
                     }
                 }
-                this.state.variables.pop();
-                return last;
             }
 
             /** @param {ForInStatement} forInStatement */
@@ -10938,7 +11351,7 @@
                 // const wrapper = new FunctionWrapper(functionStatement, closure, undefined);
                 //https://tc39.es/ecma262/#sec-runtime-semantics-instantiateordinaryfunctionobject
                 const privateEnv = this.executionContext.privateEnvironment;
-                const wrapper = ECMAScript.OrdinaryFunctionCreate(this, proto, functionStatement.sourceText, functionStatement.parameters, functionStatement.body, ThisMode.NON_LEXICAL_THIS, closure, privateEnv);
+                const wrapper = ECMAScript.OrdinaryFunctionCreate(this, proto, functionStatement.sourceText, functionStatement.parameters, functionStatement.body, functionStatement.kindSoThatICanDoThisStuffCorrectly != FunctionKind.ARROW ? ThisMode.NON_LEXICAL_THIS : ThisMode.LEXICAL, closure, privateEnv);
                 //for some reason SetFunctionName is actually special
                 //https://tc39.es/ecma262/#sec-setfunctionname
                 //const success = wrapper["[[DefineOwnProperty]]"]("name", new JavascriptDataProperty(false, false, true, functionStatement.nameToken.value)); //simplified!
