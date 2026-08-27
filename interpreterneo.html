@@ -73,6 +73,7 @@
             <option value="classes2">allowed class field names</option>
             <option value="objectliteralproto">object literal prototype</option>
             <option value="COMPREHENSION">ARRAY COMPREHENSION?!</option>
+            <option value="COMPREHENSION2">COMPREHENSIVE COMPREHENSION</option>
             <option value="closures">closures</option>
             <option value="operators">operators</option>
             <option value="alltokens">all token kinds</option>
@@ -127,6 +128,7 @@
             "classes2": "class test {\n    async = 2; //async prefix\n    class = 3; //reserved\n    get = 4;   //getter prefix\n    set = 5;   //setter prefix\n    static prototype = 34; //error\n}",
             "objectliteralproto": "const fakenum = {__proto__: Number.prototype, value: 21};\nconsole.larp(fakenum);",
             "COMPREHENSION": "let split = [for (const x of \"string\") x];",
+            "COMPREHENSION2": `//examples from\n//https://lia.disi.unibo.it/materiale/JS/developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Array_comprehensions.html\n\nvar numbers = [ 1, 2, 3 ];\nvar letters = [ "a", "b", "c" ];\n\nconsole.larp([for (i of numbers) for (j of letters) i+j]);\n// [ "1a", "1b", "1c", "2a", "2b", "2c", "3a", "3b", "3c" ]\n\nconsole.larp([for (i of numbers) [for (j of letters) i+j]]);\n// [\n//  ["1a", "1b", "1c"],\n//  ["2a", "2b", "2c"],\n//  ["3a", "3b", "3c"]\n// ]\n\nconsole.larp([for (i of numbers) if (i > 1) for (j of letters) if(j > "a") i+j]);\n// ["2b", "2c", "3b", "3c"], the same as below:\n\nconsole.larp([for (i of numbers) for (j of letters) if (i > 1) if(j > "a") i+j]);\n// ["2b", "2c", "3b", "3c"]\n\nconsole.larp([for (i of numbers) if (i > 1) [for (j of letters) if(j > "a") i+j]]);\n// [["2b", "2c"], ["3b", "3c"]], not the same as below:\n\nconsole.larp([for (i of numbers) [for (j of letters) if (i > 1) if(j > "a") i+j]]);\n// [[], ["2b", "2c"], ["3b", "3c"]]\n\n//at the bottom of the link, there's an example showing how\n//[for (x of [0, 1, 2]) ()=>x][1]() should return 1\n//this won't work in my implementation, because x will be a property of globalThis! (you know, unqualified identifiers, when assigned to, become properties of globalThis in non strict mode)\n//i could make it work, but in the modern day if you want x to be scoped, use let or const!\n\n[for (const x of [0, 1, 2]) ()=>x][1](); // 1`,
             "closures": "function makeCounter() {\n  let i = 0;\n  function count() {\n    i = i + 1;\n    console.log(i);\n  }\n\n  return count;\n}\n\nlet counter = makeCounter();\ncounter(); // \"1\".\ncounter(); // \"2\".",
         };
         //devtools is tricking!
@@ -2179,6 +2181,11 @@
             static ASYNC_DISPOSE = 3;
         }
 
+        class DisposableResourceKind {
+            static SYNC_DISPOSE = 2;
+            static ASYNC_DISPOSE = 3;
+        }
+
         class IteratorRecord {
             ["[[Iterator]]"];
             ["[[NextMethod]]"];
@@ -2189,6 +2196,28 @@
                 this["[[Done]]"] = done;
             }
         }
+
+        class CompletionKind {
+            static NORMAL = 1;
+            static BREAK = 2;
+            static CONTINUE = 3;
+            static RETURN = 4;
+            static THROW = 5;
+        }
+
+        class CompletionRecord {
+            "[[Type]]";
+            "[[Value]]";
+            "[[Target]]";
+
+            constructor(type, value, target) {
+                this["[[Type]]"] = type;
+                this["[[Value]]"] = value;
+                this["[[Target]]"] = target;
+            }
+        }
+
+        class EMPTY {}
 
         //helper
         function GetConstructorName(/** @type {JavascriptObjectWrapper} */ obj) {
@@ -2966,6 +2995,33 @@
                     throw TypeError(`${obj} is not iterable`);
                 }
                 return ECMAScript.GetIteratorFromMethod(obj, method, async);
+            }
+
+            static LoopContinues(completion, labelSet) {
+                if(completion["[[Type]]"] == CompletionKind.NORMAL) {
+                    return true;
+                }else if(completion["[[Type]]"] != CompletionKind.CONTINUE) {
+                    return false;
+                }
+                //completion["[[Type]]"] will be CompletionKind.CONTINUE
+                if(completion["[[Target]]"] == undefined) return true;
+                return labelSet.indexOf(completion["[[Target]]"]) != -1;
+            }
+
+            static ["?"](record) {
+                if(record["[[Type]]"] == CompletionKind.NORMAL) {
+                    return record["[[Value]]"];
+                }else {
+                    throw record;
+                }
+            }
+
+            static UpdateEmpty(completionRecord, value) {
+                //Assert: if(completionRecord["[[Type]]"] == CompletionKind.RETURN || completionRecord["[[Type]]"] == CompletionKind.THROW) completionRecord["[[Value]]"] != EMPTY
+                if(completionRecord["[[Value]]"] != EMPTY) {
+                    return ECMAScript["?"](completionRecord);
+                }
+                return new CompletionRecord(completionRecord["[[Type]]"], value, completionRecord["[[Target]]"]);
             }
 
             static ValidateAndApplyPropertyDescriptor(obj, propertyKey, extensible, propertyDesc, current) {
@@ -5842,7 +5898,9 @@
                     const id = new IdentifierExpression(name);
                     if(equals) {
                         // return new BinaryExpression(id, equals, value);
-                        return new AssignmentExpression(id, equals, value); //oops!!
+                        const temp = new AssignmentExpression(id, equals, value);
+                        temp.wasVar = true;
+                        return temp; //oops!!
                     }else {
                         //var redeclarations with no value don't change the previous value of the variable!
 
@@ -7427,6 +7485,16 @@
             }
         }
 
+        class ArrayComprehensionEnvironmentRecord {
+            ["[[OuterComprehensionEnv]]"]; //this isn't actually needed lol
+            ["[[Values]]"];
+            
+            constructor(outer) {
+                this["[[OuterComprehensionEnv]]"] = outer;
+                this["[[Values]]"] = [];
+            }
+        }
+
         //when will i learn not to half ass the specification :/
         //there've been at least like 3 times i've had to redo something important
         //RuntimeState,
@@ -7448,6 +7516,10 @@
             /** @type {PrivateEnvironmentRecord} */
             privateEnvironment;
 
+            //not part of the specification LOL! this is for my goat
+            /** @type {ArrayComprehensionEnvironmentRecord} */
+            comprehensionEnvironment;
+
             //because i can't be bothered to make this an array
             /** @type {ExecutionContext | null} */
             parentContext;
@@ -7459,6 +7531,9 @@
                     this.scriptOrModule = parent.scriptOrModule;
                     if(!lexicalEnvironment) lexicalEnvironment = parent.lexicalEnvironment;
                     if(!privateEnvironment) privateEnvironment = parent.privateEnvironment;
+                    this.comprehensionEnvironment = parent.comprehensionEnvironment;
+                }else {
+                    this.comprehensionEnvironment = null;
                 }
                 this.lexicalEnvironment = lexicalEnvironment;
                 this.privateEnvironment = privateEnvironment;
@@ -7476,6 +7551,318 @@
             executionContext;
             ["[[GlobalObject]]"]; //does that make JavascriptInterpreter currentRealm? (yeah i think JavascriptInterpreter qualifies as a Realm)
             ["[[GlobalEnv]]"];
+
+            //the following are abstract operations that reference the current exection context
+            //since only the interpreter has it, i just put them as methods of it (although they could just be static methods of the ECMAScript class and just require the interpreter be passed as an argument...)
+            
+            //https://tc39.es/ecma262/#sec-resolvebinding
+            //                               lexical environment
+            ResolveBinding(name, envRecord = this.executionContext.lexicalEnvironment) {
+                const strict = this.executionContext.lexicalEnvironment.strict; //ehh not exactly what the specification says but whatever
+                while(envRecord != null) {
+                    if(envRecord.HasBinding(name)) {
+                        return new ReferenceRecord(envRecord, name, strict, undefined); //EMPTY
+                    }
+                    envRecord = envRecord["[[OuterEnv]]"];
+                }
+            }
+
+            /** @param {PrivateEnvironmentRecord} privateEnv */
+            /** @param {PrivateIdentifierExpression} identifier */
+            ResolvePrivateIdentifier(privateEnv, identifier) {
+                while(privateEnv) {
+                    for(const privateName of privateEnv["[[Names]]"]) {
+                        if(privateName["[[Description]]"] == identifier.nameToken.value) return privateName;
+                    }
+                    privateEnv = privateEnv["[[OuterPrivateEnvironment]]"];
+                }
+                //probably throw?
+                //throw Error(`Cannot read private member ${identifier.nameToken.value} from an object whose class did not declare it`);
+                return new PrivateName(identifier.nameToken.value); //so we can throw later
+            }
+
+            //https://tc39.es/ecma262/#sec-getvalue
+            GetValue(value) {
+                if(!(value instanceof ReferenceRecord)) return value;
+                if(value.base == undefined) {
+                    throw ReferenceError(`${value.referencedName} is not defined`); //will this actually happen here?
+                }
+                if(value.base instanceof EnvironmentRecord /*Map*/) { //6.2.5.5 (4)
+                    // return value.base.get(value.referencedName).get();
+                    return value.base.GetBindingValue(value.referencedName, value.strict);
+                }else {
+                    if(!(value.base instanceof Object) || value.base instanceof JavascriptObjectWrapper) { //6.2.5.5 (3)
+                        const baseObj = ECMAScript.ToObject(value.base);
+                        if(value.referencedName instanceof PrivateName) {
+                            //return ? PrivateGet(baseObj, value.referencedName);
+                            const entry = baseObj["[[PrivateElements]]"].find(entry=>entry["[[Key]]"] == value.referencedName);
+                            if(entry == undefined) {
+                                //hmm... it says throw a type error but v8 (assuming i'm throwing the right error) only throws a regular error here
+                                //throw Error(`Cannot read private member ${value.referencedName["[[Description]]"]} from an object whose class did not declare it`);
+                                //ok for some reason writing
+                                //this.#privateIdentifier;
+                                //throws a regular Error
+                                throw TypeError(`Cannot read private member ${value.referencedName["[[Description]]"]} from an object whose class did not declare it`);
+                            }
+                            if(entry["[[Kind]]"] == PrivateElementKind.FIELD || entry["[[Kind]]"] == PrivateElementKind.METHOD) {
+                                return entry["[[Value]]"];
+                            }
+                            //Assert: entry["[[Kind]]"] == PrivateElementKind.ACCESSOR
+                            if(entry["[[Getter]]"] == undefined) {
+                                throw TypeError(`'${value.referencedName["[[Description]]"]}' was defined without a getter`);
+                            }
+                            return ECMAScript.Call(entry["[[Getter]]"], baseObj);
+                        }
+                        if(typeof value.referencedName != "string" && typeof value.referencedName != "symbol") { // is property key
+                            value.referencedName = ECMAScript.ToPropertyKey(value.referencedName);
+                        }
+                        return baseObj["[[Get]]"](value.referencedName, value.GetThisValue());
+                    }
+                }
+                return value.base[value.referencedName]; //for external stuff i haven't implemented yet
+            }
+
+            /**
+             * @param {ReferenceRecord} record
+             * @param {any} rightValue
+             */
+            PutValue(record, rightValue) {
+                if(!(record instanceof ReferenceRecord)) {
+                    throw "Invalid left hand assignment but shouldn't this not happen?";
+                }
+                if(record.base == undefined) { //6.2.5.6 (2)
+                    if(record.base == undefined && this.executionContext.lexicalEnvironment.strict) {
+                        throw ReferenceError(record.referencedName + " is not defined");
+                    }
+                    this["[[GlobalObject]]"]["[[Set]]"](record.referencedName, rightValue, this["[[GlobalObject]]"]);
+                }else if(record.base instanceof EnvironmentRecord /*Map*/) { //6.2.5.6 (4,5,6)
+                    /*const $var = record.base.get(record.referencedName);
+                    if($var instanceof TemporalDeadZoneVariable) {
+                        $var.get(); //force throw
+                    }
+                    if($var.properties.qualifier?.value == "const") {
+                        //this could probably be statically analyzed but i didn't do that, okay?
+                        throw new TypeError(`Assignment to constant variable.`);
+                    }
+                    //set mutable binding
+                    return $var.value = rightValue;*/
+
+                    record.base.SetMutableBinding(record.referencedName, rightValue, record.strict);
+                }else if(!(record.base instanceof Object) || record.base instanceof JavascriptObjectWrapper) { //6.2.5.6 (3)
+                    const baseObj = ECMAScript.ToObject(record.base);
+                    if(record.referencedName instanceof PrivateName) {
+                        //return ? PrivateSet(baseObj, value.referencedName, rightValue);
+                        const entry = baseObj["[[PrivateElements]]"].find(entry=>entry["[[Key]]"] == record.referencedName);
+                        if(entry == undefined) {
+                            //in the specification this is a type error and v8 throws one too...
+                            throw TypeError(`Cannot write private member ${record.referencedName["[[Description]]"]} to an object whose class did not declare it`);
+                        }
+                        if(entry["[[Kind]]"] == PrivateElementKind.METHOD) {
+                            throw TypeError(`Private method '${record.referencedName["[[Description]]"]}' is not writable`);
+                        }
+                        if(entry["[[Kind]]"] == PrivateElementKind.FIELD) {
+                            entry["[[Value]]"] = rightValue;
+                        }else {
+                            //Assert: entry["[[Kind]]"] == PrivateElementKind.ACCESSOR
+                            if(entry["[[Setter]]"] == undefined) {
+                                throw TypeError(`'${record.referencedName["[[Description]]"]}' was defined without a setter`);
+                            }
+                            /*?*/ ECMAScript.Call(entry["[[Setter]]"], baseObj, [rightValue]);
+                        }
+                        //return undefined; //UNUSED
+                        return rightValue;
+                    }
+                    if(typeof record.referencedName != "string" && typeof record.referencedName != "symbol") {
+                        record.referencedName = ECMAScript.ToPropertyKey(record.referencedName);
+                    }
+                    const result = baseObj["[[Set]]"](record.referencedName, rightValue, record.GetThisValue());
+                    if(!result && this.executionContext.lexicalEnvironment.strict) {
+                        //"use strict";
+                        //Object.defineProperty(console, "larp", {value: "larp", writable: false,});
+                        //console.larp = 2;
+                        throw new TypeError(`Cannot assign to read only property '${record.referencedName} of object '#<${GetConstructorName(baseObj)}>'`);
+                    }
+                }else {
+                    //for external stuff i haven't implemented yet
+                    return record.base[record.referencedName] = rightValue;
+                }
+                return rightValue;
+            }
+
+            //https://tc39.es/ecma262/#sec-getthisenvironment
+            GetThisEnvironment() {
+                //let index = this.state.variables.length-1;
+                //let envRecord = this.state.variables[index];
+                //while(!envRecord.has("this")) {
+                //    envRecord = this.state.variables[--index];
+                //}
+                //return envRecord;
+
+                let envRecord = this.executionContext.lexicalEnvironment; //lexical environment
+                while(envRecord != null) {
+                    if(envRecord.HasThisBinding()) return envRecord;
+                    envRecord = envRecord["[[OuterEnv]]"];
+                }
+            }
+
+            //in the specification, this abstract operation only asserts that the first parameter is, in fact, a completion record, unlike what i've written
+            Completion(lambda) {
+                let result;
+                try {
+                    result = lambda();
+                }catch(abrupt) {
+                    if(abrupt instanceof CompletionRecord) {
+                        return abrupt;
+                    }else {
+                        return new CompletionRecord(CompletionKind.THROW, undefined, undefined);
+                    }
+                }
+                return new CompletionRecord(CompletionKind.NORMAL, result, undefined);
+            }
+
+            DisposeResources(disposableResourceStack, completion) {
+                let needsAwait = false;
+                let hasAwaited = false;
+                let outputCompletion = completion;
+                //in reverse list order
+                for(let i = disposableResourceStack.length-1; i >= 0; i--) {
+                    const resource = disposableResourceStack[i];
+                    if(resource["[[Kind]]"] == DisposableResourceKind.SYNC_DISPOSE && needsAwait && !hasAwaited) {
+                        //Perform /*!*/ Await(undefined)
+                        this.Await(undefined);
+                        needsAwait = false;
+                    }
+                    if(resource["[[DisposeMethod]]"] != undefined) {
+                        const result = this.Completion(()=>ECMAScript.Call(resource["[[DisposeMethod]]"], resource["[[ResourceValue]]"]));
+                        if(result["[[Type]]"] == CompletionKind.NORMAL && resource["[[Kind]]"] == DisposableResourceKind.ASYNC_DISPOSE) {
+                            result = this.Completion(()=>this.Await(result["[[Value]]"]));
+                            hasAwaited = true;
+                        }else if(result["[[Type]]"] == CompletionKind.THROW) {
+                            if(outputCompletion["[[Type]]"] == CompletionKind.THROW) {
+                                result = result["[[Value]]"];
+                                const suppressed = outputCompletion["[[Value]]"];
+                                //not exactly what the specification says lol
+                                const error = SuppressedError(result, suppressed);
+                                outputCompletion = new CompletionRecord(CompletionKind.THROW, error, undefined); //ThrowCompletion
+                            }else {
+                                outputCompletion = result;
+                            }
+                        }
+                    }else {
+                        //Assert: resource["[[Kind]]"] == DisposableResourceKind.ASYNC_DISPOSE
+                        needsAwait = true;
+                        //NOTE: This can only indicate a case where either null or undefined was the initialized value of an await using declaration.
+                    }
+                }
+                if(needsAwait && !hasAwaited) {
+                    //Perform /*!*/ Await(undefined)
+                    this.Await(undefined);
+                }
+                //NOTE: At this point disposableResourceStack will never be used again. The contents of disposableResourceStack can be discarded in implementations, such as by garbage collection.
+                //return ? outputCompletion;
+                return ECMAScript["?"](completion);
+            }
+
+            /** @param {Array<VariableDeclarationStatement>} perIterationBindings */
+            CreatePerIterationEnvironment(perIterationBindings) {
+                if(perIterationBindings.length) {
+                    const lastIterationEnv = this.executionContext.lexicalEnvironment;
+                    const outer = lastIterationEnv["[[OuterEnv]]"];
+                    //Assert: outer != null
+                    const thisIterationEnv = new DeclarativeEnvironmentRecord(outer);
+                    for(const boundName of perIterationBindings) {
+                        const name = boundName.name;
+                        /*!*/ thisIterationEnv.CreateMutableBinding(name, false);
+                        const lastValue = /*?*/ lastIterationEnv.GetBindingValue(name, true);
+                        /*!*/ thisIterationEnv.InitializeBinding(name, lastValue);
+                    }
+                    this.executionContext.lexicalEnvironment = thisIterationEnv;
+                }
+                return undefined; //UNUSED
+            }
+
+            ForBodyEvaluation(test, increment, stmt, perIterationBindings, labelSet) {
+                let iterationResult = undefined;
+                /*?*/ this.CreatePerIterationEnvironment(perIterationBindings);
+                for(;;) {
+                    if(!(test instanceof EmptyStatement)) {
+                        //const testRef = /*?*/ this.evaluate(test, false);
+                        //const testValue = /*?*/ this.GetValue(testRef);
+                        const testValue = /*?*/ this.evaluate(test);
+                        if(ECMAScript.ToBoolean(testValue) == false) return iterationResult;
+                    }
+                    const result = this.Completion(()=>this.evaluate(stmt));
+                    if(!ECMAScript.LoopContinues(result, labelSet)) {
+                        return ECMAScript["?"](ECMAScript.UpdateEmpty(result, iterationResult));
+                    }
+                    if(result["[[Value]]"] != EMPTY) {
+                        iterationResult = result["[[Value]]"];
+                    }
+                    /*?*/ this.CreatePerIterationEnvironment(perIterationBindings);
+
+                    //technically i don't really need this check lol
+                    if(!(increment instanceof EmptyStatement)) {
+                        //const incRef = /*?*/ this.evaluate(increment, false);
+                        ///*?*/ this.GetValue(incRef);
+                        /*?*/ this.evaluate(increment);
+                    }
+                }
+            }
+
+            //https://tc39.es/ecma262/multipage/ecmascript-language-statements-and-declarations.html#sec-runtime-semantics-forinofheadevaluation
+            ForInOfHeadEvaluation(uninitializedBoundNames, expr, iterationKind) {
+                const oldEnv = this.executionContext.lexicalEnvironment;
+                if(uninitializedBoundNames.length) {
+                    //Assert: uninitializedBoundNames has no duplicate entries
+                    const newEnv = new DeclarativeEnvironmentRecord(oldEnv);
+                    for(const name of uninitializedBoundNames) {
+                        newEnv.CreateMutableBinding(name, false);
+                    }
+                    this.executionContext.lexicalEnvironment = newEnv;
+                }
+                const exprRef = this.evaluate(expr, false);
+                this.executionContext.lexicalEnvironment = oldEnv;
+                const iterable /*exprValue*/ = this.GetValue(exprRef);
+                if(typeof iterable == "object" && !(iterable instanceof JavascriptObjectWrapper)) {
+                    return iterable;
+                }
+                if(iterationKind == IterationKind.ENUMERATE) {
+                    if(iterable == undefined || iterable == null) {
+                        //return CompletionRecord(CompletionKind.BREAK, undefined, undefined)
+                    }
+                    const obj = ECMAScript.ToObject(iterable);
+                    //if(!(obj instanceof JavascriptObjectWrapper)) {
+                    //    return obj;
+                    //}
+                    const iterator = ECMAScript.EnumerateObjectProperties(obj);
+                    const temp = ECMAScript.ToObject(iterator);
+                    const nextMethod = temp["[[Get]]"]("next", temp); //GetV
+                    //return {"[[Iterator]]": iterator, "[[NextMethod]]": nextMethod, "[[Done]]": false};
+                    return new IteratorRecord(iterator, nextMethod, false);
+                }
+                //Assert: iterationKind == IterationKind.ITERATE || iterationKind == IterationKind.ASYNC_ITERATE
+                let iteratorKind;
+                if(iterationKind == IterationKind.ASYNC_ITERATE) {
+                    iteratorKind = IteratorKind.ASYNC;
+                }else {
+                    iteratorKind = IteratorKind.SYNC;
+                }
+                return /*?*/ ECMAScript.GetIterator(iterable, iteratorKind);
+            }
+
+            /** 
+             * @param {VariableDeclarationStatement} identifierDeclaration
+             * @param {EnvironmentRecord} envRecord
+             */
+            ForDeclarationBindingInstantiation(identifierDeclaration, envRecord) {
+                //for(const name of identifierDeclaration...)
+                if(identifierDeclaration.qualifier.value == "const" /*&& also if using or await using*/) {
+                    envRecord.CreateImmutableBinding(identifierDeclaration.name, true);
+                }else {
+                    envRecord.CreateMutableBinding(name, false);
+                }
+                return undefined; //UNUSED
+            }
 
             constructor() {
                 super();
@@ -9692,6 +10079,17 @@
                 return this.evaluate(result.value.at(-1));
             }
 
+            //used to dereference reference records
+            evaluate(expression, resolveReferences = true) {
+                const value = expression.accept(this);
+                if(!resolveReferences) {
+                    return value;
+                }/*else if(value instanceof Variable) {
+                    return value.get();
+                }*/
+                return this.GetValue(value);
+            }
+
             /** @param {UnaryExpression} unaryExpression */
             visitUnaryExpression(unaryExpression) {
                 if(unaryExpression.postfix) {
@@ -9865,6 +10263,7 @@
             /** @param {BlockStatement} blockStatement */
             visitBlockStatement(blockStatement) {
                 // !blockStatement.precedingStatementIsSpecialSoDontBotherMakingScopeBecauseJavascriptBS && this.state.variables.push(new Map());
+                const oldEnv = this.executionContext.lexicalEnvironment;
                 if(!blockStatement.precedingStatementIsSpecialSoDontBotherMakingScopeBecauseJavascriptBS) {
                     this.executionContext.lexicalEnvironment = new DeclarativeEnvironmentRecord(this.executionContext.lexicalEnvironment, undefined, DeclarationInstantiation.BLOCK);
                 }
@@ -9875,7 +10274,7 @@
                 }
                 // !blockStatement.precedingStatementIsSpecialSoDontBotherMakingScopeBecauseJavascriptBS && this.state.variables.pop();
                 if(!blockStatement.precedingStatementIsSpecialSoDontBotherMakingScopeBecauseJavascriptBS) {
-                    this.executionContext.lexicalEnvironment = this.executionContext.lexicalEnvironment["[[OuterEnv]]"];
+                    this.executionContext.lexicalEnvironment = oldEnv;
                 }
                 return last;
             }
@@ -10001,166 +10400,6 @@
             //    }
             //    throw "idk";
             //}
-
-            evaluate(expression, resolveReferences = true) {
-                const value = expression.accept(this);
-                if(!resolveReferences) {
-                    return value;
-                }/*else if(value instanceof Variable) {
-                    return value.get();
-                }*/
-                return this.GetValue(value);
-            }
-
-            //https://tc39.es/ecma262/#sec-resolvebinding
-            //                               lexical environment
-            ResolveBinding(name, envRecord = this.executionContext.lexicalEnvironment) {
-                const strict = this.executionContext.lexicalEnvironment.strict; //ehh not exactly what the specification says but whatever
-                while(envRecord != null) {
-                    if(envRecord.HasBinding(name)) {
-                        return new ReferenceRecord(envRecord, name, strict, undefined); //EMPTY
-                    }
-                    envRecord = envRecord["[[OuterEnv]]"];
-                }
-            }
-
-            /** @param {PrivateEnvironmentRecord} privateEnv */
-            /** @param {PrivateIdentifierExpression} identifier */
-            ResolvePrivateIdentifier(privateEnv, identifier) {
-                while(privateEnv) {
-                    for(const privateName of privateEnv["[[Names]]"]) {
-                        if(privateName["[[Description]]"] == identifier.nameToken.value) return privateName;
-                    }
-                    privateEnv = privateEnv["[[OuterPrivateEnvironment]]"];
-                }
-                //probably throw?
-                //throw Error(`Cannot read private member ${identifier.nameToken.value} from an object whose class did not declare it`);
-                return new PrivateName(identifier.nameToken.value); //so we can throw later
-            }
-
-            //https://tc39.es/ecma262/#sec-getvalue
-            GetValue(value) {
-                if(!(value instanceof ReferenceRecord)) return value;
-                if(value.base == undefined) {
-                    throw ReferenceError(`${value.referencedName} is not defined`); //will this actually happen here?
-                }
-                if(value.base instanceof EnvironmentRecord /*Map*/) { //6.2.5.5 (4)
-                    // return value.base.get(value.referencedName).get();
-                    return value.base.GetBindingValue(value.referencedName, value.strict);
-                }else {
-                    if(!(value.base instanceof Object) || value.base instanceof JavascriptObjectWrapper) { //6.2.5.5 (3)
-                        const baseObj = ECMAScript.ToObject(value.base);
-                        if(value.referencedName instanceof PrivateName) {
-                            //return ? PrivateGet(baseObj, value.referencedName);
-                            const entry = baseObj["[[PrivateElements]]"].find(entry=>entry["[[Key]]"] == value.referencedName);
-                            if(entry == undefined) {
-                                //hmm... it says throw a type error but v8 (assuming i'm throwing the right error) only throws a regular error here
-                                //throw Error(`Cannot read private member ${value.referencedName["[[Description]]"]} from an object whose class did not declare it`);
-                                //ok for some reason writing
-                                //this.#privateIdentifier;
-                                //throws a regular Error
-                                throw TypeError(`Cannot read private member ${value.referencedName["[[Description]]"]} from an object whose class did not declare it`);
-                            }
-                            if(entry["[[Kind]]"] == PrivateElementKind.FIELD || entry["[[Kind]]"] == PrivateElementKind.METHOD) {
-                                return entry["[[Value]]"];
-                            }
-                            //Assert: entry["[[Kind]]"] == PrivateElementKind.ACCESSOR
-                            if(entry["[[Getter]]"] == undefined) {
-                                throw TypeError(`'${value.referencedName["[[Description]]"]}' was defined without a getter`);
-                            }
-                            return ECMAScript.Call(entry["[[Getter]]"], baseObj);
-                        }
-                        if(typeof value.referencedName != "string" && typeof value.referencedName != "symbol") { // is property key
-                            value.referencedName = ECMAScript.ToPropertyKey(value.referencedName);
-                        }
-                        return baseObj["[[Get]]"](value.referencedName, value.GetThisValue());
-                    }
-                }
-                return value.base[value.referencedName]; //for external stuff i haven't implemented yet
-            }
-
-            /**
-             * @param {ReferenceRecord} record
-             * @param {any} rightValue
-             */
-            PutValue(record, rightValue) {
-                if(!(record instanceof ReferenceRecord)) {
-                    throw "Invalid left hand assignment but shouldn't this not happen?";
-                }
-                if(record.base == undefined) { //6.2.5.6 (2)
-                    if(record.base == undefined && this.executionContext.lexicalEnvironment.strict) {
-                        throw ReferenceError(record.referencedName + " is not defined");
-                    }
-                    this["[[GlobalObject]]"]["[[Set]]"](record.referencedName, rightValue, this["[[GlobalObject]]"]);
-                }else if(record.base instanceof EnvironmentRecord /*Map*/) { //6.2.5.6 (4,5,6)
-                    /*const $var = record.base.get(record.referencedName);
-                    if($var instanceof TemporalDeadZoneVariable) {
-                        $var.get(); //force throw
-                    }
-                    if($var.properties.qualifier?.value == "const") {
-                        //this could probably be statically analyzed but i didn't do that, okay?
-                        throw new TypeError(`Assignment to constant variable.`);
-                    }
-                    //set mutable binding
-                    return $var.value = rightValue;*/
-
-                    record.base.SetMutableBinding(record.referencedName, rightValue, record.strict);
-                }else if(!(record.base instanceof Object) || record.base instanceof JavascriptObjectWrapper) { //6.2.5.6 (3)
-                    const baseObj = ECMAScript.ToObject(record.base);
-                    if(record.referencedName instanceof PrivateName) {
-                        //return ? PrivateSet(baseObj, value.referencedName, rightValue);
-                        const entry = baseObj["[[PrivateElements]]"].find(entry=>entry["[[Key]]"] == record.referencedName);
-                        if(entry == undefined) {
-                            //in the specification this is a type error and v8 throws one too...
-                            throw TypeError(`Cannot write private member ${record.referencedName["[[Description]]"]} to an object whose class did not declare it`);
-                        }
-                        if(entry["[[Kind]]"] == PrivateElementKind.METHOD) {
-                            throw TypeError(`Private method '${record.referencedName["[[Description]]"]}' is not writable`);
-                        }
-                        if(entry["[[Kind]]"] == PrivateElementKind.FIELD) {
-                            entry["[[Value]]"] = rightValue;
-                        }else {
-                            //Assert: entry["[[Kind]]"] == PrivateElementKind.ACCESSOR
-                            if(entry["[[Setter]]"] == undefined) {
-                                throw TypeError(`'${record.referencedName["[[Description]]"]}' was defined without a setter`);
-                            }
-                            /*?*/ ECMAScript.Call(entry["[[Setter]]"], baseObj, [rightValue]);
-                        }
-                        //return undefined; //UNUSED
-                        return rightValue;
-                    }
-                    if(typeof record.referencedName != "string" && typeof record.referencedName != "symbol") {
-                        record.referencedName = ECMAScript.ToPropertyKey(record.referencedName);
-                    }
-                    const result = baseObj["[[Set]]"](record.referencedName, rightValue, record.GetThisValue());
-                    if(!result && this.executionContext.lexicalEnvironment.strict) {
-                        //"use strict";
-                        //Object.defineProperty(console, "larp", {value: "larp", writable: false,});
-                        //console.larp = 2;
-                        throw new TypeError(`Cannot assign to read only property '${record.referencedName} of object '#<${GetConstructorName(baseObj)}>'`);
-                    }
-                }else {
-                    //for external stuff i haven't implemented yet
-                    return record.base[record.referencedName] = rightValue;
-                }
-                return rightValue;
-            }
-
-            //https://tc39.es/ecma262/#sec-getthisenvironment
-            GetThisEnvironment() {
-                //let index = this.state.variables.length-1;
-                //let envRecord = this.state.variables[index];
-                //while(!envRecord.has("this")) {
-                //    envRecord = this.state.variables[--index];
-                //}
-                //return envRecord;
-
-                let envRecord = this.executionContext.lexicalEnvironment; //lexical environment
-                while(envRecord != null) {
-                    if(envRecord.HasThisBinding()) return envRecord;
-                    envRecord = envRecord["[[OuterEnv]]"];
-                }
-            }
 
             /** @param {AssignmentExpression} assignmentExpression */
             visitAssignmentExpression(assignmentExpression) {
@@ -10912,21 +11151,85 @@
             }
             
             //oops, he desugars the for loop but i won't because idk what if i wanted to transpile this to lua or something lol
+            ///** @param {ForLoopStatement} forLoopStatement */
+            //visitForLoopStatement(forLoopStatement) {
+            //    //let's create a new scope here so that const or let variables will be vanished after we're done
+            //    this.state.variables.push(new Map());
+            //    for(const tdz of forLoopStatement.tdzStatements) {
+            //        tdz.accept(this); //should be fine
+            //    }
+            //    forLoopStatement.initialization.accept(this); //because we don't gaf about the return value we won't use evaluate
+            //    let last;
+            //    while(HostLanguage.isJavascriptTruthy(this.evaluate(forLoopStatement.condition))) {
+            //        last = this.evaluate(forLoopStatement.body);
+            //        forLoopStatement.afterthought.accept(this); //because we don't gaf about the return value we won't use evaluate
+            //    }
+            //    this.state.variables.pop();
+            //    return last;
+            //}
+
+            //https://tc39.es/ecma262/multipage/ecmascript-language-statements-and-declarations.html#sec-runtime-semantics-forloopevaluation
             /** @param {ForLoopStatement} forLoopStatement */
             visitForLoopStatement(forLoopStatement) {
-                //let's create a new scope here so that const or let variables will be vanished after we're done
-                // this.state.variables.push(new Map());
-                for(const tdz of forLoopStatement.tdzStatements) {
-                    tdz.accept(this); //should be fine
+                const labelSet = [];
+                let isLexical, oldEnv, loopEnv, perIterationLets;
+                if(forLoopStatement.initialization instanceof VariableDeclarationStatement) {
+                    //wait this won't happen! i forgot that var is replaced with assignment
+                    /*if(forLoopStatement.initialization.qualifier.value == "var") {
+                        //ForStatement: for ( var VariableDeclarationList ; Expressionopt ; Expressionopt ) Statement
+                        forLoopStatement.initialization.accept(this);
+                    }else {*/
+                        //ForStatement : for ( LexicalDeclaration Expressionopt ; Expressionopt ) Statement
+                        isLexical = true;
+                        oldEnv = this.executionContext.lexicalEnvironment;
+                        loopEnv = new DeclarativeEnvironmentRecord(oldEnv);
+                        const isConst = forLoopStatement.initialization.qualifier.value == "const";
+                        const boundNames = [forLoopStatement.initialization];
+                        for(const boundName of boundNames) {
+                            const name = boundName.name;
+                            if(isConst) {
+                                loopEnv.CreateImmutableBinding(name, true);
+                            }else {
+                                loopEnv.CreateMutableBinding(name, false);
+                            }
+                        }
+                        this.executionContext.lexicalEnvironment = loopEnv;
+                        let forDecl = this.Completion(()=>this.evaluate(forLoopStatement.initialization));
+                        if(forDecl["[[Type]]"] != CompletionKind.NORMAL) {
+                            //forDecl is an abrupt completion
+                            forDecl = this.Completion(()=>this.DisposeResources(loopEnv["[[DisposableResourceStack]]"], forDecl));
+                            //Assert: forDecl["[[Type]]"] != CompletionKind.NORMAL
+                            this.executionContext.lexicalEnvironment = oldEnv;
+                            //? forDecl
+                            throw forDecl;
+                        }
+                        if(!isConst) {
+                            perIterationLets = boundNames;
+                        }else {
+                            perIterationLets = [];
+                        }
+                    //}
+                }else {
+                    //ForStatement : for ( Expressionopt ; Expressionopt ; Expressionopt ) Statement
+                    forLoopStatement.initialization.accept(this);
                 }
-                forLoopStatement.initialization.accept(this); //because we don't gaf about the return value we won't use evaluate
-                let last;
-                while(HostLanguage.isJavascriptTruthy(this.evaluate(forLoopStatement.condition))) {
-                    last = this.evaluate(forLoopStatement.body);
-                    forLoopStatement.afterthought.accept(this); //because we don't gaf about the return value we won't use evaluate
+                
+                if(isLexical) {
+                    //we might not actually need to use this.Completion and we could probably just rely on either of these functions just throwing on their own but i can't be bothered to think about it that hard rn
+                    let bodyResult = this.Completion(()=>this.ForBodyEvaluation(forLoopStatement.condition, forLoopStatement.afterthought, forLoopStatement.body, perIterationLets, labelSet));
+                    bodyResult = this.Completion(()=>this.DisposeResources(loopEnv["[[DisposableResourceStack]]"], bodyResult));
+                    //Assert: if(bodyResult["[[Type]]"] == CompletionKind.NORMAL) bodyResult["[[Value]]"] != EMPTY
+                    return ECMAScript["?"](bodyResult);
+                    //return ? bodyResult;
+                    //return this["?"](bodyResult);
+                    //if(bodyResult["[[Type]]"] == CompletionKind.NORMAL) {
+                    //    return bodyResult["[[Value]]"];
+                    //}
+                    //throw bodyResult;
+                }else {
+                    //we don't need to use ? Completion ForBodyEvaluation because ForBodyEvaluation doesn't return a completion record lol (it may throw one though)
+                    return /*?*/ this.ForBodyEvaluation(forLoopStatement.condition, forLoopStatement.afterthought, forLoopStatement.body, [], labelSet);
                 }
-                this.state.variables.pop();
-                return last;
             }
 
             ///** @param {ForOfStatement} forOfStatement */
@@ -11052,61 +11355,6 @@
             //    this.state.variables.pop();
             //    return last;
             //}
-            
-            //https://tc39.es/ecma262/multipage/ecmascript-language-statements-and-declarations.html#sec-runtime-semantics-forinofheadevaluation
-            ForInOfHeadEvaluation(uninitializedBoundNames, expr, iterationKind) {
-                const oldEnv = this.executionContext.lexicalEnvironment;
-                if(uninitializedBoundNames.length) {
-                    //Assert: uninitializedBoundNames has no duplicate entries
-                    const newEnv = new DeclarativeEnvironmentRecord(oldEnv);
-                    for(const name of uninitializedBoundNames) {
-                        newEnv.CreateMutableBinding(name, false);
-                    }
-                    this.executionContext.lexicalEnvironment = newEnv;
-                }
-                const exprRef = this.evaluate(expr, false);
-                this.executionContext.lexicalEnvironment = oldEnv;
-                const iterable /*exprValue*/ = this.GetValue(exprRef);
-                if(typeof iterable == "object" && !(iterable instanceof JavascriptObjectWrapper)) {
-                    return iterable;
-                }
-                if(iterationKind == IterationKind.ENUMERATE) {
-                    if(iterable == undefined || iterable == null) {
-                        //return CompletionRecord(CompletionKind.BREAK, undefined, undefined)
-                    }
-                    const obj = ECMAScript.ToObject(iterable);
-                    //if(!(obj instanceof JavascriptObjectWrapper)) {
-                    //    return obj;
-                    //}
-                    const iterator = ECMAScript.EnumerateObjectProperties(obj);
-                    const temp = ECMAScript.ToObject(iterator);
-                    const nextMethod = temp["[[Get]]"]("next", temp); //GetV
-                    //return {"[[Iterator]]": iterator, "[[NextMethod]]": nextMethod, "[[Done]]": false};
-                    return new IteratorRecord(iterator, nextMethod, false);
-                }
-                //Assert: iterationKind == IterationKind.ITERATE || iterationKind == IterationKind.ASYNC_ITERATE
-                let iteratorKind;
-                if(iterationKind == IterationKind.ASYNC_ITERATE) {
-                    iteratorKind = IteratorKind.ASYNC;
-                }else {
-                    iteratorKind = IteratorKind.SYNC;
-                }
-                return /*?*/ ECMAScript.GetIterator(iterable, iteratorKind);
-            }
-
-            /** 
-             * @param {VariableDeclarationStatement} identifierDeclaration
-             * @param {EnvironmentRecord} envRecord
-             */
-            ForDeclarationBindingInstantiation(identifierDeclaration, envRecord) {
-                //for(const name of identifierDeclaration...)
-                if(identifierDeclaration.qualifier.value == "const" /*&& also if using or await using*/) {
-                    envRecord.CreateImmutableBinding(identifierDeclaration.name, true);
-                }else {
-                    envRecord.CreateMutableBinding(name, false);
-                }
-                return undefined; //UNUSED
-            }
 
             /** @param {ForOfStatement} forOfStatement */
             visitForOfStatement(forOfStatement) {
@@ -11115,12 +11363,12 @@
                 let lhsKind;
                 let keyResult;
                 let iteratorKind = forOfStatement.doAwait ? IteratorKind.ASYNC : IteratorKind.SYNC;
-                if(forOfStatement.identifierDeclaration instanceof VariableDeclarationStatement && forOfStatement.identifierDeclaration.qualifier.value != "var") {
+                if(forOfStatement.identifierDeclaration instanceof VariableDeclarationStatement) { //oops i forgot var was replaced by an assignment...
                     //ForDeclaration
                     keyResult = /*?*/ this.ForInOfHeadEvaluation([forOfStatement.identifierDeclaration.name], forOfStatement.iterableExpr, iterationKind);
                     lhsKind = ForLHSKind.LEXICAL_BINDING;
                 }else {
-                    if(forOfStatement.identifierDeclaration instanceof VariableDeclarationStatement) {
+                    if(forOfStatement.identifierDeclaration instanceof AssignmentExpression && forOfStatement.identifierDeclaration.wasVar) {
                         lhsKind = ForLHSKind.VAR_BINDING;
                     }else {
                         lhsKind = ForLHSKind.ASSIGNMENT;
@@ -11253,7 +11501,7 @@
                     if(abrupt) {
                         return abrupt; //we return AFTER setting the lexical environment back!!
                     }
-                    if(result != undefined /*EMPTY*/) {
+                    if(result != EMPTY) {
                         iterationResult = result;
                     }
                 }
@@ -11267,6 +11515,9 @@
                                 //break;
                                 throw result;
                             }
+                            if(this.executionContext.comprehensionEnvironment != null && iterationResult != undefined) {
+                                this.executionContext.comprehensionEnvironment["[[Values]]"].push(iterationResult);
+                            }
                         }
                     }else {
                         for(const nextValue in iteratorRecord) {
@@ -11275,8 +11526,13 @@
                                 // break;
                                 throw result;
                             }
+                            if(this.executionContext.comprehensionEnvironment != null && iterationResult != undefined) {
+                                this.executionContext.comprehensionEnvironment["[[Values]]"].push(iterationResult);
+                            }
                         }
                     }
+                    if(this.executionContext.comprehensionEnvironment != null) iterationResult = undefined; // the for statement shouldn't actually return anything in array comprehension (i guess lol)
+                    return iterationResult; //bruv i forgort
                 }else {
                     for(;;) {
                         const nextResult = ECMAScript.Call(iteratorRecord["[[NextMethod]]"], iteratorRecord["[[Iterator]]"], []);
@@ -11303,6 +11559,7 @@
                         //? IteratorComplete
                         const done = ECMAScript.ToBoolean(/*?*/ nextResult["[[Get]]"]("done", nextResult)); //Get
                         if(done) {
+                            if(this.executionContext.comprehensionEnvironment != null) iterationResult = undefined; // the for statement shouldn't actually return anything in array comprehension (i guess lol)
                             return iterationResult;
                         }else {
                             //? IteratorValue
@@ -11311,6 +11568,9 @@
                             if(result) {
                                 // break;
                                 throw result;
+                            }
+                            if(this.executionContext.comprehensionEnvironment != null && iterationResult != undefined) {
+                                this.executionContext.comprehensionEnvironment["[[Values]]"].push(iterationResult);
                             }
                         }
                     }
@@ -11331,9 +11591,13 @@
 
             /** @param {ArrayComprehensionExpression} arrayComprehensionExpression */
             visitArrayComprehensionExpression(arrayComprehensionExpression) {
-                const result = ECMAScript.ArrayCreate(0);
+                const oldEnv = this.executionContext.comprehensionEnvironment;
+                const comprehensionEnv = new ArrayComprehensionEnvironmentRecord(oldEnv);
+                this.executionContext.comprehensionEnvironment = comprehensionEnv;
                 arrayComprehensionExpression.topMostStatementTree.accept(this);
-                return result;
+                const array = ECMAScript.CreateArrayFromList(comprehensionEnv["[[Values]]"]);
+                this.executionContext.comprehensionEnvironment = oldEnv;
+                return array;
             }
 
             CreateFunction(functionStatement, proto = ECMAScript["%Function.prototype%"]) {
