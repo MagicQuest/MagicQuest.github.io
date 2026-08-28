@@ -67,13 +67,16 @@
             <option value="consistent16">crazy syntax consistent error</option>
             <option value="consistent17">crazy syntax 3</option>
             <option value="consistent18">consistent class expressions</option>
+            <option value="consistent19">new.target</option>
+            <option value="whereinthespec?">error in v8 but not in specification?</option>
             <option value="while">while statement</option>
             <option value="iterator">iterator</option>
             <option value="classes">every class property</option>
             <option value="classes2">allowed class field names</option>
             <option value="objectliteralproto">object literal prototype</option>
             <option value="COMPREHENSION">ARRAY COMPREHENSION?!</option>
-            <option value="COMPREHENSION2">COMPREHENSIVE COMPREHENSION</option>
+            <option value="COMPREHENSION2">my array comprehension examples</option>
+            <option value="COMPREHENSION3">COMPREHENSIVE COMPREHENSION</option>
             <option value="closures">closures</option>
             <option value="operators">operators</option>
             <option value="alltokens">all token kinds</option>
@@ -121,6 +124,8 @@
             "consistent16": "(class {\nstatic {\n(function funcName() {\n    funcName = 2;\n})();\n}\n});",
             "consistent17": "if(!(\"larp\" in console)) {\n    console.larp = console.log;\n}\n\nclass Test extends Object {\n    constructor() {\n        //calling super in immediately invoked arrow expression!\n        (()=>super())();\n        const func = ()=>super.hasOwnProperty;\n        console.larp(func.toString());\n        console.larp(func());\n    }\n}\n//debugger;\nnew Test;",
             "consistent18": "if(!(\"larp\" in console)) {\n    console.larp = console.log;\n}\nconst clazz = class {\n    property = super.hasOwnProperty;\n};\nconsole.larp(clazz);\nconsole.larp(clazz.name);\nconsole.larp(clazz.length);\nnew clazz;",
+            "consistent19": "if(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\n\nfunction MiscObject() {\n    const λ = ()=>new.target;\n    console.larp(new.target, λ.name, λ());\n}\n\nMiscObject();\nnew MiscObject;\nnew MiscObject(3.14159265358979323846264338327950);",
+            "whereinthespec?": "// Duplicate parameter name not allowed in this context\n((x, x, y) => {\n    /*...*/\n});",
             "while": "class Test extends Object {\n    constructor() {\n        while(true) super();\n    }\n}\nnew Test;",
             "iterator": "const iterator = {\n    list: [1, 2, 3],\n    i: 0,\n    next() {\n        return {value: this.list[this.i], done: ++this.i > this.list.length};\n    },\n    [Symbol.iterator]() {\n        return this;\n    },\n};\nfor(const value of iterator) {\n    console.log(value);\n}",
             "objectliterals": "let variable = \"variable\";\nlet another_obj = {\"another_obj_key\": \"another_obj_value\"};\nlet x = {\n    variable,\n    y: \"identifier name property\",\n    \"string\": \"string property\",\n    0: \"numeric property\",\n    [\"computed property\"]: \"what the key said.\",\n    method() {\n    },\n    get [\"x\"]() {\n        return 421;\n    },\n    *generator() {\n    },\n    async 5() {\n    },\n    async* \"hello_generator\"() {\n    },\n    set x(newValue) {\n        console.log(newValue);\n    },\n    ...another_obj\n};\nconsole.larp(x, x.x, x=21);",
@@ -128,7 +133,8 @@
             "classes2": "class test {\n    async = 2; //async prefix\n    class = 3; //reserved\n    get = 4;   //getter prefix\n    set = 5;   //setter prefix\n    static prototype = 34; //error\n}",
             "objectliteralproto": "const fakenum = {__proto__: Number.prototype, value: 21};\nconsole.larp(fakenum);",
             "COMPREHENSION": "let split = [for (const x of \"string\") x];",
-            "COMPREHENSION2": `//examples from\n//https://lia.disi.unibo.it/materiale/JS/developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Array_comprehensions.html\n\nvar numbers = [ 1, 2, 3 ];\nvar letters = [ "a", "b", "c" ];\n\nconsole.larp([for (i of numbers) for (j of letters) i+j]);\n// [ "1a", "1b", "1c", "2a", "2b", "2c", "3a", "3b", "3c" ]\n\nconsole.larp([for (i of numbers) [for (j of letters) i+j]]);\n// [\n//  ["1a", "1b", "1c"],\n//  ["2a", "2b", "2c"],\n//  ["3a", "3b", "3c"]\n// ]\n\nconsole.larp([for (i of numbers) if (i > 1) for (j of letters) if(j > "a") i+j]);\n// ["2b", "2c", "3b", "3c"], the same as below:\n\nconsole.larp([for (i of numbers) for (j of letters) if (i > 1) if(j > "a") i+j]);\n// ["2b", "2c", "3b", "3c"]\n\nconsole.larp([for (i of numbers) if (i > 1) [for (j of letters) if(j > "a") i+j]]);\n// [["2b", "2c"], ["3b", "3c"]], not the same as below:\n\nconsole.larp([for (i of numbers) [for (j of letters) if (i > 1) if(j > "a") i+j]]);\n// [[], ["2b", "2c"], ["3b", "3c"]]\n\n//at the bottom of the link, there's an example showing how\n//[for (x of [0, 1, 2]) ()=>x][1]() should return 1\n//this won't work in my implementation, because x will be a property of globalThis! (you know, unqualified identifiers, when assigned to, become properties of globalThis in non strict mode)\n//i could make it work, but in the modern day if you want x to be scoped, use let or const!\n\n[for (const x of [0, 1, 2]) ()=>x][1](); // 1`,
+            "COMPREHENSION2": `const names = ["x", "y", "z"];\n\nconst test1 = [for (const str of names) for(const prefix of ["get ", "set "]) prefix+str];\n\n//my failed attempt at trying to create an array like [["x", 1], ["y", 2], ["x", 3]] (this isn't possible with array comprehension in the way i was trying)\n\nconst test2 = [for (const name of names) [for (const value of [1,2,3]) name+ value]];\n\nconsole.larp(test1);\nconsole.larp(test2);`,
+            "COMPREHENSION3": `//examples from\n//https://lia.disi.unibo.it/materiale/JS/developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Array_comprehensions.html\n\nvar numbers = [ 1, 2, 3 ];\nvar letters = [ "a", "b", "c" ];\n\nconsole.larp([for (i of numbers) for (j of letters) i+j]);\n// [ "1a", "1b", "1c", "2a", "2b", "2c", "3a", "3b", "3c" ]\n\nconsole.larp([for (i of numbers) [for (j of letters) i+j]]);\n// [\n//  ["1a", "1b", "1c"],\n//  ["2a", "2b", "2c"],\n//  ["3a", "3b", "3c"]\n// ]\n\nconsole.larp([for (i of numbers) if (i > 1) for (j of letters) if(j > "a") i+j]);\n// ["2b", "2c", "3b", "3c"], the same as below:\n\nconsole.larp([for (i of numbers) for (j of letters) if (i > 1) if(j > "a") i+j]);\n// ["2b", "2c", "3b", "3c"]\n\nconsole.larp([for (i of numbers) if (i > 1) [for (j of letters) if(j > "a") i+j]]);\n// [["2b", "2c"], ["3b", "3c"]], not the same as below:\n\nconsole.larp([for (i of numbers) [for (j of letters) if (i > 1) if(j > "a") i+j]]);\n// [[], ["2b", "2c"], ["3b", "3c"]]\n\n//at the bottom of the link, there's an example showing how\n//[for (x of [0, 1, 2]) ()=>x][1]() should return 1\n//this won't work in my implementation, because x will be a property of globalThis! (you know, unqualified identifiers, when assigned to, become properties of globalThis in non strict mode)\n//i could make it work, but in the modern day if you want x to be scoped, use let or const!\n\n[for (const x of [0, 1, 2]) ()=>x][1](); // 1`,
             "closures": "function makeCounter() {\n  let i = 0;\n  function count() {\n    i = i + 1;\n    console.log(i);\n  }\n\n  return count;\n}\n\nlet counter = makeCounter();\ncounter(); // \"1\".\ncounter(); // \"2\".",
         };
         //devtools is tricking!
@@ -1405,6 +1411,8 @@
                 return expression.nameToken.value != "this"; //this is not assignable!
             }else if(expression instanceof SuperPropertyExpression) {
                 return true;
+            }else if(expression instanceof NewTargetExpression) {
+                return false;
             }
             return depth != 0; //return false if depth == 0
         }
@@ -1847,6 +1855,12 @@
             }
         }
 
+        class NewTargetExpression extends Expression {
+            accept(visitor) /*override*/ {
+                return visitor.visitNewTargetExpression(this);
+            }
+        }
+
         class EmptyStatement extends Statement {
             accept(visitor) /*override*/ {
                 return visitor.visitEmptyStatement();
@@ -2141,8 +2155,25 @@
                 this.sourceText = sourceText;
             }
 
-            accept(visitor) {
+            accept(visitor) /*override*/ {
                 return visitor.visitClassStatement(this);
+            }
+        }
+
+        class WithStatement extends Statement {
+            /** @type {Expression} */
+            object;
+            /** @type {Statement} */
+            stmt;
+
+            constructor(object, stmt) {
+                super();
+                this.object = object;
+                this.stmt = stmt;
+            }
+
+            accept(visitor) /*override*/ {
+                return visitor.visitWithStatement(this);
             }
         }
 
@@ -5256,6 +5287,22 @@
             new_operator($new) {
                 if(this.peekReserved("new")) {
                     const token = this.tokens[this.i++];
+                    if(this.peek(TokenKind.DOT) && this.peekNext(TokenKind.IDENTIFIER) && this.tokens[this.i+1].value == "target") {
+                        this.i+=2; //consume
+                        //new.target
+                        //https://tc39.es/ecma262/#sec-scripts-static-semantics-early-errors
+                        let index = this.scope.length-1;
+                        let scope = this.scope[index];
+                        //loop until function scope that's not an arrow
+                        while(scope && (scope.kind != "function" || scope.subkind == FunctionKind.ARROW)) { //hmm i can't find explicitly where it says new.target is only allowed in functions... this and that arrow function duplicate parameter stuff eludes me
+                            scope = this.scope[--index];
+                        }
+                        //if we don't find one it's a syntax error!
+                        if(!scope) {
+                            throw new ParseError(token.line, token.char, "new.target expression is not allowed here"); //SyntaxError
+                        }
+                        return new NewTargetExpression();
+                    }
                     const unary = new UnaryExpression(false, token, undefined);
                     return this.new_operator(unary);
                 }else {
@@ -5599,6 +5646,9 @@
                     }
                     else if(this.peek(TokenKind.OPEN_PARENTHESIS)) {
                         const parenthesisIndex = this.i++; // for parameters reparse
+                        //if(this.peekReserved("for")) {
+                        //  generator comprehension???
+                        //}else {
                         const expr = this.expression();
                         this.consume(TokenKind.CLOSING_PARENTHESIS, "grouping expression doesn't end with parenthesis? the lexer should probably not allow this?");
                         //this could still be an arrow function!
@@ -5608,7 +5658,7 @@
                             //const body = this.block();
                             //uh oh, we'll have to translate expr so that it's actually usable as parameters!
                             //the only allowed operators are the equal sign and the comma!
-                            //OR i could lazily reparse it... (we could also skip parsing by looking ahead to see if the arrow comes after the closing parenthesis (but then we'd have to keep track of the parenthesis))
+                            //OR i could lazily reparse it... (we could also skip parsing it as an expression by looking ahead to see if the arrow comes after the closing parenthesis (but then we'd have to keep track of the parenthesis))
                             this.i = parenthesisIndex;
                             const beginningToken = this.tokens[this.i];
                             const parameters = this.parameters(true);
@@ -5627,6 +5677,7 @@
                             throw new ParseError(async.line, async.char, "Async not expected here!");
                         }
                         return expr;
+                        //}
                     }
                 }
                 // const cur = this.tokens[this.i];
@@ -5998,7 +6049,7 @@
 
                 const directivePrologueIndex = this.i+1; //we need to check this again to see if this function is strict so we can reparse the name (if it's an expression or function declaration) and parameters (+1 to skip the open curly bracket)
                 const functionBody = this.block(BlockKind.FUNCTION); //purrhaps i could just pass inFunction to block lol
-                const endingToken = this.tokens[this.i]; //Assert: endingToken.kind == TokenKind.CLOSING_CURLY_BRACKET
+                const endingToken = this.tokens[this.i-1]; //Assert: endingToken.kind == TokenKind.CLOSING_CURLY_BRACKET (-1 so endingToken is actually the closing curly bracket lol i forgot why i did that and then changed it)
                 
                 scopeRef.blockStatementArray = functionBody.statements;
                 this.pushHoistedDeclarations();
@@ -6020,7 +6071,7 @@
                 //    sourceText += $var.statement.accept(p);
                 //}
                 //$var.statement.sourceText = sourceText;
-                $var.statement.sourceText = this.sourceText.substring(indexFromToken(beginningToken, this.sourceText), indexFromToken(endingToken, this.sourceText));
+                $var.statement.sourceText = this.sourceText.substring(indexFromToken(beginningToken, this.sourceText), indexFromToken(endingToken, this.sourceText)+1); //+1 because length of curly bracket "}"
                 
                 return $var.statement;
             }
@@ -6750,11 +6801,16 @@
                     // }
                 }else if(this.matchReserved("switch")) {
 
-                }else if(this.peekReserved("with")) {
+                }else if(this.matchReserved("with")) {
+                    //LEGACY
+                    //https://tc39.es/ecma262/multipage/ecmascript-language-statements-and-declarations.html#sec-with-statement
                     if(this.useStrict) {
                         throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Strict mode code may not include a with statement");
                     }
-                    //...
+                    this.consume(TokenKind.OPEN_PARENTHESIS, "Open parenthesis expected after 'with'");
+                    const expr = this.expression();
+                    this.consume(TokenKind.CLOSING_PARENTHESIS, "Closing parenthesis expected after with object expression");
+                    return new WithStatement(expr, this.statement());
                 }else if(this.matchReserved("throw")) {
 
                 }else if(this.matchReserved("debugger")) {
@@ -7191,7 +7247,7 @@
             }
         }
 
-        //for the with statement
+        //for the with statement (and the global environment record apparently)
         class ObjectEnvironmentRecord extends EnvironmentRecord {
             ["[[BindingObject]]"];
             ["[[IsWithEnvironment]]"];
@@ -8532,6 +8588,7 @@
                         },
                         1, "endsWith", [], this
                     ));
+                    //https://tc39.es/ecma262/multipage/text-processing.html#sec-string.prototype-%symbol.iterator%
                     stringProto.SetDataProperty(ECMAScript["%Symbol.iterator%"], true, false, true, ECMAScript.CreateBuiltinFunction(
                         function(thisArg, argList, newTarget) {
                             //const string = thisArg;
@@ -8540,8 +8597,16 @@
                                 throw TypeError(`String.prototype[Symbol.iterator] called on null or undefined`);
                             }
                             const string = ECMAScript.ToString(thisArg);
-                            //...
-                            
+                            //what's all this "generator" stuff he's talking about
+                            //i know javascript is single threaded so this async and generator stuff shouldn't be too hard but i'm lowkey scared.
+                            const closure = ECMAScript.CreateBuiltinFunction(
+                                function(thisArg, argList, newTarget) {
+                                    let length = string.length;
+                                    let position = 0;
+                                    
+                                },
+
+                            );
                         },
                         0, "[Symbol.iterator]", [], this
                     ));
@@ -11049,6 +11114,29 @@
                 return result;
             }
 
+            /** @param {NewTargetExpression} newTargetExpression */
+            visitNewTargetExpression(newTargetExpression) {
+                const envRecord = this.GetThisEnvironment();
+                //Assert: "[[NewTarget]]" in envRecord
+                return envRecord["[[NewTarget]]"];
+            }
+
+            /** @param {WithStatement} withStatement */
+            visitWithStatement(withStatement) {
+                const obj = /*?*/ ECMAScript.ToObject(this.evaluate(withStatement.object));
+                const oldEnv = this.executionContext.lexicalEnvironment;
+                const newEnv = new ObjectEnvironmentRecord(obj, true, oldEnv);
+                this.executionContext.lexicalEnvironment = newEnv;
+                const stmtCompletion = this.Completion(()=>this.evaluate(withStatement.stmt));
+                this.executionContext.lexicalEnvironment = oldEnv;
+                // return ECMAScript.UpdateEmpty(stmtCompletion, undefined)["[[Value]]"];
+                // return ECMAScript["?"](ECMAScript.UpdateEmpty(stmtCompletion, undefined));
+                if(stmtCompletion["[[Value]]"] != EMPTY) {
+                    return ECMAScript["?"](stmtCompletion);
+                }
+                return undefined;
+            }
+
             visitEmptyStatement() {};
 
             visitDebuggerStatement(debuggerStatement) {
@@ -12361,6 +12449,16 @@
             /** @param {SuperCallExpression} superCallExpression */
             visitSuperCallExpression(superCallExpression) {
                 return `(super(${superCallExpression.argumentsExprArr.map(v=>v.accept(this))}))`;
+            }
+
+            /** @param {NewTargetExpression} newTargetExpression */
+            visitNewTargetExpression(newTargetExpression) {
+                return `(new.target)`;
+            }
+
+            /** @param {WithStatement} withStatement */
+            visitWithStatement(withStatement) {
+                return `with(${withStatement.object.accept(this)}) ${withStatement.stmt.accept(this)}`;
             }
         }
 
