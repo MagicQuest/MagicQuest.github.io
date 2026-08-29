@@ -68,9 +68,12 @@
             <option value="consistent17">crazy syntax 3</option>
             <option value="consistent18">consistent class expressions</option>
             <option value="consistent19">new.target</option>
-            <option value="whereinthespec?">error in v8 but not in specification?</option>
+            <option value="consistent20">Array.prototype.find</option>
+            <option value="foundinthespec">no duplicate params in arrow</option>
             <option value="while">while statement</option>
             <option value="iterator">iterator</option>
+            <option value="compvsfilter">comp vs Array.prototype.filter</option>
+            <option value="spreadwithiteratorcameobutnotactuallyallofthembecausewedonthavedestructuring">all spread operator uses (minus destructuring)</option>
             <option value="classes">every class property</option>
             <option value="classes2">allowed class field names</option>
             <option value="objectliteralproto">object literal prototype</option>
@@ -92,7 +95,7 @@
             "forloop": "for(let x = 0; x < 10; x++) {\n    console.log(x);\n    x;\n}",
             "operators": "?.\n++\n--\n+\n-\n~\n!\n**\n*\n/\n%\n<\n>\n<=\n>=\n==\n!=\n===\n!==\n<<\n>>\n>>>\n&\n|\n^\n&&\n||\n??\n=\n*=\n/=\n%=\n+=\n-=\n<<=\n>>=\n>>>=\n&=\n^=\n|=\n**=\n&&=\n||=\n??=\n,\n...",
             "alltokens": "var\nlet\n#private\n\"hi\"\n5\n5n\ntrue\nundefined\nnull\n// template expression...\nfemale\n[\n]\n.\n(\n)\n+\n-\n*\n/\n!\n--\n++\n?.\n~\n**\n%\n<\n>\n<=\n>=\n==\n!=\n===\n!==\n<<\n>>\n>>>\n&\n|\n^\n&&\n||\n??\n? :\n=\n*=\n/=\n%=\n+=\n-=\n<<=\n>>=\n>>>=\n&=\n^=\n|=\n**=\n&&=\n||=\n??=\n,\n...\n;\n{\n}\n=>",
-            "customobjectkeys": "let x = new Object;\nx.hello = 2;\nx[0] = false;\nx[-1] = \"undefined\";\nx[1] = true;\nconsole.larp(Object.keys(x));\n// should be ['0', '1', 'hello', '-1']\n// numbers greater than 0 are first, then string keys (and numbers), then symbols",
+            "customobjectkeys": "if(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\n\nlet x = new Object;\nx.hello = 2;\nx[\"-0\"] = \"special\";\nx[0] = false;\nx[-1] = \"undefined\";\nx[1] = true;\nconsole.larp(Object.keys(x));",
             "boundfuncs!": `function abc(x, y) {\n    console.log(this, x, y);\n    return 5;\n}\n\nlet temp = abc.bind(true, "x");\n\nconsole.log(temp.length, temp.name, temp("temp y"));`,
             "symbolstuff": "const x = {\n    [Symbol.toPrimitive](x, y) {\n        console.log(x, y);\n        return 4;\n    }\n};\nconst y = {};\ny[x] = 2; // x is coerced!\nconsole.larp(Object.keys(y)); // [\"4\"]",
             //"functionclasses": "function abc(x) {\n    console.log(this);\n    this.x = 2;\n}\n\nconsole.log(Object.keys(new abc));",
@@ -111,23 +114,27 @@
             "consistent4": "let x = {\n    toString() {\n        console.log(\"got!\", this);\n        return \"hello world\";\n    }\n};\n\n// Cannot convert hello world to a BigInt\nBigInt(x);",
             "consistent5": "const x = Object();\nx.valueOf = function() {return NaN;};\nconsole.log(Number.isNaN(x)); // false\nconsole.log(isNaN(x)); // true",
             "consistent6": `"use strict";\nconst obj = {};\nObject.defineProperty(obj, "property", {value: "don't delete me", configurable: false, enumerable: false, writable: false});\n\n//deleting unqualified identifier\n//error in strict mode\n//comment to see the next error\ndelete obj;\n\n//deleting non configurable property\n//also error in strict mode\ndelete obj.property;`,
-            "consistent7": `"use strict";\n//in strict mode, 'this' is undefined (globalThis in non strict mode) unless the function is a property of an object (in which case the object would be 'this')\nfunction abc(x) {\n    console.larp(arguments, this);\n    return x;\n}\nabc(5); //'this' == undefined\n({abc}).abc(5); //'this' == ({abc})`,
-            "consistent8": "//super.hasOwnProperty == obj.__proto__.hasOwnProperty\nconst obj = {x(y = super.hasOwnProperty) {\n    //assigning xyz to super will actually add xyz to obj instead!\n    super.xyz = this;\n    return y;\n}};\nconsole.larp(obj.x(), obj);",
+            "consistent7": `"use strict";\n//in strict mode, 'this' is undefined (globalThis in non strict mode) unless the function is a property of an object (in which case the object would be 'this')\n\nif(!("__NEO__" in Object.prototype)) {\n    console.larp = console.log;\n}\n\nfunction abc(x) {\n    console.larp(arguments);\n    console.larp(this);\n    return x;\n}\nabc(5); //'this' == undefined\n({abc}).abc(5); //'this' == ({abc})`,
+            "consistent8": "if(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\n\n//super.hasOwnProperty == obj.__proto__.hasOwnProperty\nconst obj = {x(y = super.hasOwnProperty) {\n    //assigning xyz to super will actually add xyz to obj instead!\n    super.xyz = this;\n    return y;\n}};\nconsole.larp(obj.x(), obj);",
             "consistent9": "class $clazz {\n    //the name of the class is immutable!\n    static bruh = ($clazz = 2);\n};",
-            "consistent10": "//for testing in the browser!\nif(!(\"larp\" in console)) {\n    console.larp = console.log;\n}\n\n//testing class computed keys\nconst real3 = \"real3\";\n\nclass ScreenObject {\n    static #p = \"#p\";\n    static get property() {\n        return this.#p;\n    };\n    static set property(newValue) {\n        return this.#p = newValue;\n    };\n    static get #prop() {\n        console.log(\"get #prop\");\n    };\n    static set #prop(newValue) {\n        console.log(\"set #prop =\", newValue);\n    };\n    static {\n        //property getter returns ScreenObject.#p\n        console.log(this.property);\n        //property setter sets ScreenObject.#p\n        this.property = \"hai\";\n        console.log(this.property);\n        //setting ScreenObject.#p directly\n        this.#p = \"direct\";\n        console.log(this.property, this.#p);\n        //getting/setting private accessor\n        this.#prop;\n        this.#prop = 2;\n    };\n    get property() {\n        console.log(\"get property\");\n    };\n    set property(newValue) {\n        console.log(\"set property =\", newValue);\n    };\n    real = 2;\n    \"real2\" = 3; //string literal\n    0o50n = 5;   //numeric literal\n    [real3] = 4; //computed\n    #kobi = Math.PI;\n    method() {\n        //getting private instance field\n        return this.#kobi;\n    };\n    //testing custom constructor\n    constructor(x) {\n        this.newProperty = x;\n    };\n}\nconst instance = new ScreenObject(\"constructor parameter\");\n\n//testing instance accessors\ninstance.property;\ninstance.property = 2;\n\nconsole.larp(Object.keys(instance));\nconsole.larp(instance.method());\nconsole.larp(instance.newProperty);",
+            "consistent10": "//for testing in the browser!\nif(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\n\n//testing class computed keys\nconst real3 = \"real3\";\n\nclass ScreenObject {\n    static #p = \"#p\";\n    static get property() {\n        return this.#p;\n    };\n    static set property(newValue) {\n        return this.#p = newValue;\n    };\n    static get #prop() {\n        console.log(\"get #prop\");\n    };\n    static set #prop(newValue) {\n        console.log(\"set #prop =\", newValue);\n    };\n    static {\n        //property getter returns ScreenObject.#p\n        console.log(this.property);\n        //property setter sets ScreenObject.#p\n        this.property = \"hai\";\n        console.log(this.property);\n        //setting ScreenObject.#p directly\n        this.#p = \"direct\";\n        console.log(this.property, this.#p);\n        //getting/setting private accessor\n        this.#prop;\n        this.#prop = 2;\n    };\n    get property() {\n        console.log(\"get property\");\n    };\n    set property(newValue) {\n        console.log(\"set property =\", newValue);\n    };\n    real = 2;\n    \"real2\" = 3; //string literal\n    0o50n = 5;   //numeric literal\n    [real3] = 4; //computed\n    #kobi = Math.PI;\n    method() {\n        //getting private instance field\n        return this.#kobi;\n    };\n    //testing custom constructor\n    constructor(x) {\n        this.newProperty = x;\n    };\n}\nconst instance = new ScreenObject(\"constructor parameter\");\n\n//testing instance accessors\ninstance.property;\ninstance.property = 2;\n\nconsole.larp(Object.keys(instance));\nconsole.larp(instance.method());\nconsole.larp(instance.newProperty);",
             "consistent10.1": "class x {\n    #private = \"private stuff\";\n    do_stuff() {\n        const temp = class {\n            do_stuff(obj) {\n                return obj.#private;\n            }\n        };\n        return (new temp).do_stuff(this);\n    }\n}\n(new x).do_stuff();",
             "consistent11": `class $super {\n    property = "super";\n    constructor() {\n        console.log("$super instantiated!");\n    }\n    get propertyGetter() {\n        return "rizz";\n    }\n    //static properties are not on the prototype lol they're set on the constructor function (which is $super!)\n    static thing = "whatevvs";\n}\n\nclass foo extends $super {\n    //the super property access gets properties from this.__proto__ (methods are set on the prototype for classes)\n    //we can't say super.property because it's not on the prototype (it's a property of all instances)\n    skibidi = super.propertyGetter;\n    constructor() {\n        super(); //$super instantiated!\n        console.log(this.skibidi, super.thing); // "rizz" undefined\n    }\n}\n\ndebugger;\nconst instance = new foo;`,
-            "consistent12": "if(!(\"larp\" in console)) {\n    console.larp = console.log;\n}\n\nclass Vector2 {\n    x;\n    y;\n    get magnitude() {\n        return Math.sqrt(this.x ** 2 + this.y ** 2);\n    }\n    set magnitude(newMag) {\n        const ratio = newMag/this.magnitude;\n        this.x *= ratio;\n        this.y *= ratio;\n    }\n    constructor(x, y) {\n        this.x = x;\n        this.y = y;\n    }\n}\n\nconst position = new Vector2(1, 1);\nconsole.larp(position, position.magnitude);\nposition.magnitude = 1;\nconsole.larp(position, position.magnitude);",
+            "consistent12": "if(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\n\nclass Vector2 {\n    x;\n    y;\n    get magnitude() {\n        return Math.sqrt(this.x ** 2 + this.y ** 2);\n    }\n    set magnitude(newMag) {\n        const ratio = newMag/this.magnitude;\n        this.x *= ratio;\n        this.y *= ratio;\n    }\n    constructor(x, y) {\n        this.x = x;\n        this.y = y;\n    }\n}\n\nconst position = new Vector2(1, 1);\nconsole.larp(position, position.magnitude);\nposition.magnitude = 1;\nconsole.larp(position, position.magnitude);",
             "consistent13": "class $super {\n    #private = 2;\n    getPrivate() {return this.#private;};\n}\n\nclass derived extends $super {\n    constructor() {\n        super();\n        this.hawk = super.getPrivate();\n    }\n}\n\nnew derived;",
-            "consistent14": "if(!(\"larp\" in console)) {\n    console.larp = console.log;\n}\n\nclass ScreenObject {\n    static field;\n    static initField = ScreenObject;\n    static NaNField = +this.initField;\n    static #priv = this.NaNField;\n    static #getPriv() {\n        return this.#priv;\n    };\n    //static bad = (ScreenObject = 2);\n    static method() {\n        return this.#priv;\n    };\n    static {\n        console.log(\"Hello from static\");\n        console.larp(this);\n        console.larp(this.NaNField);\n        this.another_static = \"toby\";\n    };\n}\nconsole.larp(Object.keys(ScreenObject));\n/*debugger;*/\nScreenObject.method();",
-            "consistent15": "if(!(\"larp\" in console)) {\n    console.larp = console.log;\n}\n\n//class expression extends class expression!\nconst ScreenObject = class extends class {\n    super_property = \"hello!\";\n} {\n    derived_property = \"hullo\";\n};\n\nconsole.larp(ScreenObject);\nconsole.larp(new ScreenObject);",
+            "consistent14": "if(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\n\nclass ScreenObject {\n    static field;\n    static initField = ScreenObject;\n    static NaNField = +this.initField;\n    static #priv = this.NaNField;\n    static #getPriv() {\n        return this.#priv;\n    };\n    //static bad = (ScreenObject = 2);\n    static method() {\n        return this.#priv;\n    };\n    static {\n        console.log(\"Hello from static\");\n        console.larp(this);\n        console.larp(this.NaNField);\n        this.another_static = \"toby\";\n    };\n}\nconsole.larp(Object.keys(ScreenObject));\n/*debugger;*/\nScreenObject.method();",
+            "consistent15": "if(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\n\n//class expression extends class expression!\nconst ScreenObject = class extends class {\n    super_property = \"hello!\";\n} {\n    derived_property = \"hullo\";\n};\n\nconsole.larp(ScreenObject);\nconsole.larp(new ScreenObject);",
             "consistent16": "(class {\nstatic {\n(function funcName() {\n    funcName = 2;\n})();\n}\n});",
-            "consistent17": "if(!(\"larp\" in console)) {\n    console.larp = console.log;\n}\n\nclass Test extends Object {\n    constructor() {\n        //calling super in immediately invoked arrow expression!\n        (()=>super())();\n        const func = ()=>super.hasOwnProperty;\n        console.larp(func.toString());\n        console.larp(func());\n    }\n}\n//debugger;\nnew Test;",
-            "consistent18": "if(!(\"larp\" in console)) {\n    console.larp = console.log;\n}\nconst clazz = class {\n    property = super.hasOwnProperty;\n};\nconsole.larp(clazz);\nconsole.larp(clazz.name);\nconsole.larp(clazz.length);\nnew clazz;",
+            "consistent17": "if(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\n\nclass Test extends Object {\n    constructor() {\n        //calling super in immediately invoked arrow expression!\n        (()=>super())();\n        const func = ()=>super.hasOwnProperty;\n        console.larp(func.toString());\n        console.larp(func());\n    }\n}\n//debugger;\nnew Test;",
+            "consistent18": "if(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\nconst clazz = class {\n    property = super.hasOwnProperty;\n};\nconsole.larp(clazz);\nconsole.larp(clazz.name);\nconsole.larp(clazz.length);\nnew clazz;",
             "consistent19": "if(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\n\nfunction MiscObject() {\n    const λ = ()=>new.target;\n    console.larp(new.target, λ.name, λ());\n}\n\nMiscObject();\nnew MiscObject;\nnew MiscObject(3.14159265358979323846264338327950);",
-            "whereinthespec?": "// Duplicate parameter name not allowed in this context\n((x, x, y) => {\n    /*...*/\n});",
+            // "consistent20": "//var in 2026 lawl!\n//this one is already testable in the browser!\n\nvar i = 0;\nconsole.log([1,2,3,4,5,6].find(x=>(i++, x==6)), i); // 6 6\n\nvar i = 0;\nconsole.log([1,2,3,4,5,6].findIndex(x=>(i++, x==6)), i); // 5 6\n\nvar i = 0;\nconsole.log([1,2,3,4,5,6].findLast(x=>(i++, x==6)), i); // 6 1\n\nvar i = 0;\nconsole.log([1,2,3,4,5,6].findLastIndex(x=>(i++, x==6)), i); // 5 1",
+            "consistent20": "//var in 2026 lawl!\n//this one is already testable in the browser!\n\n//i (the second number printed each time) is the amount of times predicate was called\n\nconst arr = [1,2,3,4,5,6];\nconst predicate = x=>(i++, x==6);\n\nvar i = 0;\nconsole.log(arr.find(predicate), i); // 6 6\n\nvar i = 0;\nconsole.log(arr.findIndex(predicate), i); // 5 6\n\nvar i = 0;\nconsole.log(arr.findLast(predicate), i); // 6 1\n\nvar i = 0;\nconsole.log(arr.findLastIndex(predicate), i); // 5 1",
+            "foundinthespec": "// Duplicate parameter name not allowed in this context\n((x, x, y) => {\n    /*...*/\n});",
             "while": "class Test extends Object {\n    constructor() {\n        while(true) super();\n    }\n}\nnew Test;",
             "iterator": "const iterator = {\n    list: [1, 2, 3],\n    i: 0,\n    next() {\n        return {value: this.list[this.i], done: ++this.i > this.list.length};\n    },\n    [Symbol.iterator]() {\n        return this;\n    },\n};\nfor(const value of iterator) {\n    console.log(value);\n}",
+            "compvsfilter": "const arr = [1,2,3,4,5,6];\n\nconst comp = [for (const v of arr) if(v%2) v];\nconst filter = arr.filter(v=>v%2);\n\nconsole.larp(comp);\nconsole.larp(filter);",
+            "spreadwithiteratorcameobutnotactuallyallofthembecausewedonthavedestructuring": "if(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\n\nfunction doRestStuff(...rest) {\n    console.larp(rest);\n}\n\nconst iterator = {\n    list: [1, 2, 3],\n    i: 0,\n    next() {\n        return {value: this.list[this.i], done: ++this.i > this.list.length};\n    },\n    [Symbol.iterator]() {\n        //reset so we can keep spreading lol (Symbol.iterator is only accessed at the very beginning of iteration!)\n        this.i = 0;\n        return this;\n    },\n};\n\nconsole.larp([...iterator]);\nconsole.log(...iterator);\nconsole.larp({...iterator});\ndoRestStuff(1, 2, 3, \"hello world!\",);",
             "objectliterals": "let variable = \"variable\";\nlet another_obj = {\"another_obj_key\": \"another_obj_value\"};\nlet x = {\n    variable,\n    y: \"identifier name property\",\n    \"string\": \"string property\",\n    0: \"numeric property\",\n    [\"computed property\"]: \"what the key said.\",\n    method() {\n    },\n    get [\"x\"]() {\n        return 421;\n    },\n    *generator() {\n    },\n    async 5() {\n    },\n    async* \"hello_generator\"() {\n    },\n    set x(newValue) {\n        console.log(newValue);\n    },\n    ...another_obj\n};\nconsole.larp(x, x.x, x=21);",
             "classes": "class all_class_properties {\n#private_field = \"private_field\";\n// #private_field; // Identifier #private_field has already been declared\n#private_method() {\n    return this.#private_field;\n};\n\nstatic #private_static_field = \"???\";\n// static #private_field; // Identifier #private_field has already been declared\nstatic #private_static_method() {\n    return \"is this even callable?\";\n};\n\nfield = \"access instance field\";\nmethod() {\n    return this.field;\n};\n\nstatic field = \"access constructor (static) field\";\nstatic method() {\n    return this.field;\n};\n\nstatic {\n    this.another_static_field = \"Hello World from this static initialization block!\";\n};\n\nconstructor() {\n    console.log(this.constructor.name, \"instantiated\");\n};\n}",
             "classes2": "class test {\n    async = 2; //async prefix\n    class = 3; //reserved\n    get = 4;   //getter prefix\n    set = 5;   //setter prefix\n    static prototype = 34; //error\n}",
@@ -145,7 +152,7 @@
                 static prop3 = this.prop2;
                 static bad = xyz.prop2; //in devtools outside of blocks or functions, this produces an "is not defined" reference error, otherwise it's "cannot access before initialization" !
             };
-            //uncomment this block and you'll see the real error is supposed to be cannot access before initialization! devtools is doing something... (which is something you gotta look out for) (i assume this is the real error because this is the topmost scope of a script)
+            //uncomment this block and you'll see the real error is supposed to be cannot access before initialization! devtools is doing something... (which is something you gotta look out for) (i assume this is the real error because (when you uncomment these lines) we're in the topmost scope of the script)
         */
 		function selectExample(/** @type {InputEvent} */ event) {
 			letext.value = examples[event.target.value];
@@ -639,9 +646,10 @@
                                     this.i++; //consume whatever character that was
                                 }else if(char == '`' && str[this.i] == '$') {
                                     if(str[this.i+1] == '{') {
-                                        const templateCharNumber = this.i - lineIndex;
+                                        const templateCharNumber = this.i+1 - lineIndex;
                                         this.i+=2; //consume dollar and curly bracket
                                         //template
+                                        return Unexpected(new ParseError(lineNumber, templateCharNumber, "Template string substitution not implemented (correctly) yet!"))
                                         const result = this.lex(str, true); // who knew making the lexer its own object would come in handy (i'm actually talking about using this.i)
                                         if(!result.has_value()) {
                                             return result;
@@ -2248,7 +2256,16 @@
             }
         }
 
+        //these could be unique symbols instead of objects lol i just realized
         class EMPTY {}
+
+        class DONE {}
+
+        //for FindViaPredicate
+        class FindIterationDirection {
+            static ASCENDING = 1;
+            static DESCENDING = 2;
+        }
 
         //helper
         function GetConstructorName(/** @type {JavascriptObjectWrapper} */ obj) {
@@ -2273,6 +2290,17 @@
         function Number_isNaN(value) {
             if(typeof value != "number") return false;
             return value != value; //or isNaN(value);
+        }
+
+        //to get the error message right
+        function ThrowIsCallableTypeError(func) {
+            let err;
+            if(typeof func == "object" || typeof func == "undefined") {
+                err = `${typeof func} is not a function`;
+            }else {
+                err = `${typeof func} ${func} is not a function`;
+            }
+            throw TypeError(err);
         }
 
         //important abstract operations
@@ -2541,20 +2569,25 @@
 
                 const calleeContext = func.interpreter.executionContext;
 
-                const hasParamExprs = func.formalParameters.filter(p=>p.default).length != 0;
+                // const hasParamExprs = func.formalParameters.filter(p=>p.default).length != 0;
+                const simpleParamList = func.formalParameters.simple;
+                // const hasParamExprs = func.formalParameters.some(p=>p.default); //boy slow down!
+                const hasParamExprs = func.formalParameters.exprs;
 
-                let hasDuplicates = false;
-                {
-                    const seen = new Map();
-                    for(const {identifier, default: $default} of func.formalParameters) {
-                        const name = identifier.nameToken.value;
-                        if(seen.has(name)) {
-                            hasDuplicates = true;
-                            break;
-                        }
-                        seen.set(name, true);
-                    }
-                }
+                const hasDuplicates = func.formalParameters.hasDuplicates;
+
+                //let hasDuplicates = false;
+                //{
+                //    const seen = new Map();
+                //    for(const {identifier, default: $default} of func.formalParameters) {
+                //        const name = identifier.nameToken.value;
+                //        if(seen.has(name)) {
+                //            hasDuplicates = true;
+                //            break;
+                //        }
+                //        seen.set(name, true);
+                //    }
+                //}
 
                 let argumentsObjNeeded = true;
 
@@ -2609,7 +2642,7 @@
                 let argumentsObj;
 
                 if(argumentsObjNeeded) {
-                    if(func.strict || hasParamExprs) {
+                    if(func.strict || !simpleParamList) {
                         argumentsObj = ECMAScript.CreateUnmappedArgumentsObject(argList);
                     }else {
                         //NOTE: A mapped argument object is only provided for non-strict functions that don't have a rest parameter, any parameter default value initializers, or any destructured parameters.
@@ -2632,30 +2665,42 @@
                 //    usedEnv = envRecord;
                 //}
 
+                //https://tc39.es/ecma262/multipage/syntax-directed-operations.html#sec-runtime-semantics-iteratorbindinginitialization
                 //IteratorBindingInitialization(..., usedEnv) (which i assume initializes the parameters?)
                 //ah yes, SingleNameBinding seems to be doing what i expected!
                 for(let i = 0; i < func.formalParameters.length; i++) {
-                    const {identifier, default: $default} = func.formalParameters[i];
+                    const {identifier, default: $default, rest} = func.formalParameters[i];
                     // const ref = identifier.accept(this.interpreter);
                     const ref = func.interpreter.ResolveBinding(identifier.nameToken.value, envRecord);
                     let value = undefined;
-                    if(i < argList.length) {
-                        value = argList[i];
-                    }else if($default) {
-                        //oh my god i wasn't calling evaluate here!
-                        // value = $default?.accept(this.interpreter);
+                    if(rest) {
+                        value = /*!*/ ECMAScript.ArrayCreate(0);
+                        let diff = i;
+                        for(let n = i; n < argList.length; n++) {
+                            const propertyKey = /*!*/ (n-diff).toString(); //ECMAScript.ToString(𝔽(n));
+                            /*!*/ ECMAScript.CreateDataPropertyOrThrow(value, propertyKey, argList[n]);
+                        }
+                    }else {
+                        //                       this was in the specification but i didn't understand that part lol
+                        if(i < argList.length && argList[i] != undefined) { //ouu shi i forgot that part, in my implementation, the following would produce the wrong result! ((x="default")=>x)(undefined); // Should return the value of the initializer
+                            value = argList[i];
+                        }else if($default) {
+                            //oh my god i wasn't calling evaluate here!
+                            // value = $default?.accept(this.interpreter);
 
-                        //hmm this is getting weird calling evaluate though...
-                        value = func.interpreter.evaluate($default);
+                            //hmm this is getting weird calling evaluate though...
+                            value = /*?*/ func.interpreter.evaluate($default);
+                        }
                     }
+                    //envRecord would be undefined if hasDuplicates
                     if(hasDuplicates) {
                         //PutValue
-                        func.interpreter.PutValue(ref, value);
+                        /*?*/ func.interpreter.PutValue(ref, value);
                     }else {
                         //InitializeReferencedBinding
                         //Assert: ref.base != undefined
                         //Assert: ref.base instanceof EnvironmentRecord
-                        ref.base.InitializeBinding(ref.referencedName, value);
+                        /*?*/ ref.base.InitializeBinding(ref.referencedName, value);
                     }
                 }
 
@@ -2844,7 +2889,8 @@
                     obj["[[Construct]]"] = ExoticBoundFunction["[[Construct]]"];
                 }
                 obj["[[BoundTargetFunction]]"] = targetFunc;
-                obj["[[BoundThis]]"] = ECMAScript.ToObject(boundThis); //the specification doesn't actually say to use ToObject here but for some reason in regular javascript this seems to happen
+                // obj["[[BoundThis]]"] = ECMAScript.ToObject(boundThis); //the specification doesn't actually say to use ToObject here but for some reason in regular javascript this seems to happen (oh wow, when i wrote this i don't think i knew that it's [[Call]]'s job to do this! (specifically, in ECMAScript.OrdinaryCallBindThis))
+                obj["[[BoundThis]]"] = boundThis;
                 /*
                 function abc(x, y) {
                     console.log(this, x, y);
@@ -2873,6 +2919,58 @@
                 //OrdinaryDefineOwnProperty(array, "length", new JavascriptDataProperty());
                 JavascriptObjectWrapper.prototype["[[DefineOwnProperty]]"].call(array, "length", new JavascriptDataProperty(true, false, false, length));
                 return array;
+            }
+
+            static ValidateNonRevokedProxy(proxy, message) {
+                if(proxy["[[ProxyTarget]]"] == null) throw TypeError(message);
+                //Assert: proxy["[[ProxyTarget]]"] != null
+                return undefined; //UNUSED
+            }
+
+            static IsArray(arg) {
+                //is not an object
+                if(!(arg instanceof JavascriptObjectWrapper)) {
+                    return false;
+                }
+                //is an Array exotic object
+                if(arg["[[DefineOwnProperty]]"] == ExoticArrayObject["[[DefineOwnProperty]]"]) {
+                    return true;
+                }
+                //is a Proxy exotic object
+                if(arg["[[Get]]"] == ExoticProxyObject["[[Get]]"]) {
+                    //const revocable = Proxy.revocable({}, {});
+                    //revocable.revoke();
+                    //Array.isArray(revocable.proxy);
+                    /*?*/ ECMAScript.ValidateNonRevokedProxy(arg, "Cannot perform 'IsArray' on proxy that has been revoked");
+                    return /*?*/ ECMAScript.IsArray(arg["[[ProxyTarget]]"]);
+                }
+                return false;
+            }
+
+            //https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-arrayspeciescreate
+            static ArraySpeciesCreate(originalArray, length) {
+                if(!/*?*/ ECMAScript.IsArray(originalArray)) return /*?*/ ECMAScript.ArrayCreate(length);
+                let ctor = /*?*/ originalArray["[[Get]]"]("constructor", originalArray) //Get
+                const isCtor = "[[Construct]]" in ctor;
+                if(isCtor) {
+                    //https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-arrayspeciescreate
+                    //...
+                }
+                if(ctor instanceof JavascriptObjectWrapper) {
+                    ctor = /*?*/ ctor["[[Get]]"](ECMAScript["%Symbol.species%"], ctor); //Get
+                    if(ctor == null) ctor = undefined;
+                }
+                if(ctor == undefined) return /*?*/ ECMAScript.ArrayCreate(length);
+                if(!isCtor) {
+                    // throw TypeError("ArraySpeciesCreate ctor is not a constructor!"); //how can i make this happen?
+                    //class MyArray extends Array {
+                    //    static [Symbol.species] = "notaconstructor";
+                    //}
+                    //const arr = new MyArray;
+                    //arr.filter(x=>x);
+                    throw TypeError("object.constructor[Symbol.species] is not a constructor");
+                }
+                return /*?*/ ctor["[[Construct]]"]([length], ctor); //Construct(ctor, [length])
             }
             
             static StringCreate(value, proto) {
@@ -3090,13 +3188,13 @@
                     }
                     if(IsCurrentAccess) {
                         //                                            !SameValue
-                        if("getter" in propertyDesc && propertyDesc.getter != current.getter) return false;
+                        if("getter" in propertyDesc && !ECMAScript.SameValue(propertyDesc.getter, current.getter)) return false;
                         //                                            !SameValue
-                        if("setter" in propertyDesc && propertyDesc.setter != current.setter) return false;
+                        if("setter" in propertyDesc && !ECMAScript.SameValue(propertyDesc.setter, current.setter)) return false;
                     }else if(!current.writable) {
                         if("writable" in propertyDesc && propertyDesc.writable) return false;
                         //lowkey it has a note about SameValue returning true for NaN but let's be honest... that's not what i wrote
-                        if("value" in propertyDesc) return propertyDesc.value == current.value;
+                        if("value" in propertyDesc) return ECMAScript.SameValue(propertyDesc.value, current.value);
                     }
                 }
                 if(obj != undefined) {
@@ -3142,11 +3240,11 @@
                 return undefined;
             }
 
-            static CreateArrayIterator(array, kind) {
+            static CreateArrayIterator(array, enumerateKind) {
                 const iterator = ECMAScript.OrdinaryObjectCreate(ECMAScript["%ArrayIteratorPrototype%"], "[[IteratedArrayLike]]", "[[ArrayLikeNextIndex]]", "[[ArrayLikeIterationKind]]");
                 iterator["[[IteratedArrayLike]]"] = array;
                 iterator["[[ArrayLikeNextIndex]]"] = 0;
-                iterator["[[ArrayLikeIterationKind]]"] = kind;
+                iterator["[[ArrayLikeIterationKind]]"] = enumerateKind;
                 return iterator;
             }
 
@@ -3176,7 +3274,8 @@
                 for(const nextKey of keys) {
                     //let excluded = false;
                     for(const element of excludedItems) {
-                        if(element == nextKey) {
+                        // if(element == nextKey) {
+                        if(ECMAScript.SameValue(element, nextKey) == true) {
                             //excluded = true;
                             continue;
                         }
@@ -3201,6 +3300,28 @@
 
             static EnumerateObjectProperties(obj) {
                 return ECMAScript.CreateForInIterator(obj);
+            }
+
+            static FindViaPredicate(obj, length, direction, predicate, thisArg) {
+                if(!ECMAScript.IsCallable(predicate)) {
+                    ThrowIsCallableTypeError(predicate);
+                }
+                let indices;
+                if(direction == FindIterationDirection.ASCENDING) {
+                    indices = "".padStart(length).split("").map((_,i)=>i);
+                }else {
+                    indices = "".padStart(length).split("").map((_,i)=>(length-1)-i);
+                }
+                for(const k of indices) {
+                    const propertyKey = /*!*/ k.toString(); //ECMAScript.ToString(𝔽(k));
+                    //NOTE: If obj is a TypedArray, the following invocation of Get will return a normal completion.
+                    const kValue = /*?*/ obj["[[Get]]"](propertyKey, obj); //Get
+                    // const testResult = /*?*/ predicate["[[Call]]"](thisArg, [kValue, k, obj]);
+                    if(ECMAScript.ToBoolean(/*?*/ predicate["[[Call]]"](thisArg, [kValue, k, obj]))) {
+                        return {"[[Index]]": k, "[[Value]]": kValue};
+                    }
+                }
+                return {"[[Index]]": -1, "[[Value]]": undefined};
             }
 
             static BuiltinCallOrConstruct(func, thisArg, argList, newTarget) {
@@ -3348,13 +3469,38 @@
             static SameValueNonNumber(x, y) {
                 //Assert: ECMAScript.SameType(x, y)
                 if(x === undefined || x === null) return true;
-                return x===y; //basically
+                //bigint, string, boolean, object
+                return x===y; //basically, this would be fine in probably all normal languages lol
+            }
+
+            //probably should've had this a while ago but i couldn't be bothered!!
+            static SameValue(x, y) {
+                if(ECMAScript.SameType(x, y) == false) return false;
+                if(typeof x == "number") {
+                    //Number::sameValue(x, y)
+                    //if(Number_isNaN(x) && Number_isNaN(y)) return true;
+                    //oh my god i don't even have to worry about -0 == +0, Object.is already calls SameValue >:[
+                    //return x == y;
+                    return Object.is(x, y);
+                }
+                return ECMAScript.SameValueNonNumber(x, y);
+            }
+
+            static SameValueZero(x, y) {
+                if(ECMAScript.SameType(x, y) == false) return false;
+                if(typeof x == "number") {
+                    //Number::sameValueZero(x, y)
+                    if(Number_isNaN(x) && Number_isNaN(y)) return true;
+                    //SameValueZero differs from SameValue only in that it treats +0𝔽 and -0𝔽 as equivalent.
+                    return x == y;
+                }
+                return ECMAScript.SameValueNonNumber(x, y);
             }
 
             static IsStrictlyEqual(x, y) {
                 if(!ECMAScript.SameType(x, y)) return false;
                 if(typeof x == "number") {
-                    return x === y;
+                    return x === y; //this is genuinely the analogue here
                 }
                 return ECMAScript.SameValueNonNumber(x, y);
             }
@@ -3514,13 +3660,7 @@
                     special[Symbol.toPrimitive] = 5;
                     Number(special); // number 5 is not a function
                     */
-                    let err;
-                    if(typeof func == "object") {
-                        err = `${typeof func} is not a function`;
-                    }else {
-                        err = `${typeof func} ${func} is not a function`;
-                    }
-                    throw TypeError(err);
+                    ThrowIsCallableTypeError(func);
                 }
                 return func;
             }
@@ -3530,6 +3670,19 @@
                 //return Math.min(Math.max(Math.trunc(ECMAScript.ToNumber(obj["[[Get]]"]("length", obj))), 0), 2**53-1);
                 const length = ECMAScript.ToIntegerOrInfinity(obj["[[Get]]"]("length", obj));
                 return Math.min(Math.max(length), 2**53-1);
+            }
+
+            static ToAbsoluteIndex(value, length) {
+                const int = /*?*/ ECMAScript.ToIntegerOrInfinity(value);
+                if(Number_isFinite(int) && int < 0) {
+                    return length+int;
+                }
+                return int;
+            }
+
+            static ToClampedIndex(value, length) {
+                const index = /*?*/ ECMAScript.ToAbsoluteIndex(value, length);
+                return Math.min(Math.max(index, 0), length);
             }
 
             //https://tc39.es/ecma262/#sec-toprimitive
@@ -3699,12 +3852,12 @@
                 return ECMAScript.ToString(primitiveValue);
             }
 
-            static IsArray(arg) {
-                if(!(arg instanceof JavascriptObjectWrapper)) return false;
-                if(arg["[[DefineOwnProperty]]"] == ExoticArrayObject["[[DefineOwnProperty]]"]) return true;
-                //arg is a proxy exotic object...
-                return false;
-            }
+            // static IsArray(arg) {
+            //     if(!(arg instanceof JavascriptObjectWrapper)) return false;
+            //     if(arg["[[DefineOwnProperty]]"] == ExoticArrayObject["[[DefineOwnProperty]]"]) return true;
+            //     //arg is a proxy exotic object...
+            //     return false;
+            // }
 
             static IsRegExp(arg) {
                 if(!(arg instanceof JavascriptObjectWrapper)) return false;
@@ -3737,7 +3890,8 @@
                 for(;;) {
                     instance = instance["[[GetPrototypeOf]]"]();
                     if(instance == null) return false;
-                    if(proto == instance) return true;
+                    // if(proto == instance) return true;
+                    if(ECMAScript.SameValue(proto, instance) == true) return true;
                 }
             }
 
@@ -3801,6 +3955,13 @@
                 return array;
             }
 
+            static CanonicalNumericIndexString(arg) {
+                if(arg == "-0") return -0;
+                const n = /*!*/ ECMAScript.ToNumber(arg);
+                if(/*!*/ ECMAScript.ToString(n) == arg) return n;
+                return undefined;
+            }
+
             //first time i've ever used this!
             //aw nevermind... i access JavascriptObjectWrapper before it's initialized
             //static {
@@ -3820,7 +3981,8 @@
             static ["[[SetPrototypeOf]]"](proto) {
                 //return SetImmutablePrototype(obj, proto);
                 //SameValue
-                return (proto == this["[[GetPrototypeOf]]"]());
+                // return (proto == this["[[GetPrototypeOf]]"]());
+                return ECMAScript.SameValue(proto, this["[[GetPrototypeOf]]"]()) == true;
             }
         }
 
@@ -3963,7 +4125,8 @@
             ["[[SetPrototypeOf]]"](proto) {
                 //return OrdinarySetPrototypeOf(this, proto);
                 //SameValue
-                if(this["[[Prototype]]"] == proto) return true;
+                // if(this["[[Prototype]]"] == proto) return true;
+                if(ECMAScript.SameValue(this["[[Prototype]]"], proto) == true) return true;
                 if(!this["[[Extensible]]"]) return false;
                 let cursor = proto;
                 let done = false;
@@ -4134,10 +4297,15 @@
                 for(const key of this.properties.keys()) {
                     if(typeof key == "symbol") {
                         symbols.push(key);
-                    }else if(isFinite(key) && key >= 0) { //isFinite threw an error if key was a symbol lol
-                        arrayindices.push(key);
                     }else {
-                        strings.push(key);
+                        //what the hell was i doing lol, i was reading the specification with my eyes closed
+                        const temp = ECMAScript.CanonicalNumericIndexString(key);
+                        if(temp != undefined && ((temp == 0 && Object.is(temp, 0)) || (temp > 0 && temp <= 2**32-2))) {
+                            //if temp is a number, make sure it's between +0 and 2**32 - 2
+                            arrayindices.push(key);
+                        }else {
+                            strings.push(key);
+                        }
                     }
                 }
                 return [...arrayindices.toSorted(), ...strings, ...symbols]; //brug
@@ -4158,11 +4326,15 @@
                 this.properties.set(key, new JavascriptDataProperty(writable, enumerable, configurable, value));
             }
             SetAccessorProperty(key, enumerable, configurable, getter, setter) {
+                holyshitlikegotobreakoutofifstatementhowdidinotknowyoucouldlabelanystatementbeforeqwq:
                 if(getter && getter.initialName != `get ${key.toString()}`) {
+                    if(typeof key == "symbol" && getter.initialName == `get [${key.description}]`) break holyshitlikegotobreakoutofifstatementhowdidinotknowyoucouldlabelanystatementbeforeqwq;
                     debugger;
                     throw Error("getter was set to function with different name, was this intended?");
                 }
+                holyshitlikegotobreakoutofifstatementhowdidinotknowyoucouldlabelanystatementbeforeqwq:
                 if(setter && setter.initialName != `set ${key.toString()}`) {
+                    if(typeof key == "symbol" && setter.initialName == `set [${key.description}]`) break holyshitlikegotobreakoutofifstatementhowdidinotknowyoucouldlabelanystatementbeforeqwq;
                     debugger;
                     throw Error("setter was set to function with different name, was this intended?");
                 }
@@ -4346,10 +4518,11 @@
             }
 
             static ["[[Construct]]"](argList, newTarget) {
-                //Assert: IsConstructor(this["[[BoundTargetFunction]]"]);
+                //Assert: "[[Construct]]" in this["[[BoundTargetFunction]]"];
                 const args = [...this["[[BoundArguments]]"], ...argList];
-                if(this == newTarget || newTarget == undefined) {
-                    newTarget = this["[[BoundTargetFunction]]"];
+                // if(this == newTarget || newTarget == undefined) {
+                if(ECMAScript.SameValue(this, newTarget) || newTarget == undefined) { //oh wait newTarget == undefined is for the Construct abstract operation wherein newTarget, if not specified, is equal to the constructor
+                    newTarget = this["[[BoundTargetFunction]]"]; //target
                 }
                 return this["[[BoundTargetFunction]]"]["[[Construct]]"](args, newTarget);   
             }
@@ -4539,9 +4712,15 @@
             static StringGetOwnProperty(string, propertyKey) {
                 if(typeof propertyKey != "string") return undefined;
                 //CanonicalNumericIndexString
-                let numericIndex;
-                numericIndex = propertyKey == "-0" ? "bad" : (numericIndex=ECMAScript.ToNumber(propertyKey), ECMAScript.ToString(numericIndex)==propertyKey ? numericIndex : undefined);
-                if(numericIndex == "bad" || !Number_isInteger(numericIndex) || numericIndex < -0) return undefined;
+                
+                //let numericIndex;
+                //numericIndex = propertyKey == "-0" ? "bad" : (numericIndex=ECMAScript.ToNumber(propertyKey), ECMAScript.ToString(numericIndex)==propertyKey ? numericIndex : undefined);
+                //if(numericIndex == "bad" || !Number_isInteger(numericIndex) || numericIndex < -0) return undefined;
+                
+                const numericIndex = ECMAScript.CanonicalNumericIndexString(propertyKey);
+                if(typeof numericIndex != "number") return undefined;
+                if(!Object.is(numericIndex, 0) || numericIndex < 0) return undefined;
+
                 const stringData = string["[[StringData]]"];
                 //Assert: typeof stringData == "string";
                 if(numericIndex >= stringData.length) return undefined;
@@ -4600,7 +4779,8 @@
 
             static ["[[Set]]"](propertyKey, value, receiver) {
                 let isMapped;
-                if(this != receiver) {
+                // if(this != receiver) {
+                if(!ECMAScript.SameValue(this, receiver)) {
                     isMapped = false;
                 }else {
                     isMapped = this["[[ParameterMap]]"]["[[GetOwnProperty]]"](propertyKey) != undefined; //! HasOwnProperty
@@ -4621,6 +4801,10 @@
                 }
                 return result;
             }
+        }
+
+        class ExoticProxyObject {
+
         }
 
         //see JavascriptFunctionWrapper for the "real" implementation
@@ -4916,13 +5100,17 @@
                 let args = [];
                 this.consume(TokenKind.OPEN_PARENTHESIS, "Arguments start with open parenthesis (this error should not happen but i'm using consume just in case!)");
                 while(this.i < this.tokens.length && !this.peek(TokenKind.CLOSING_PARENTHESIS)) {
-                    const arg = this.unary_misc(); //using unary_misc instead of expression because we need to manage commas ourselves
+                    const spread = this.match(TokenKind.SPREAD);
+                    let arg = this.unary_misc(); //using unary_misc instead of expression because we need to manage commas ourselves
                     if(!this.match(TokenKind.COMMA) && !this.peek(TokenKind.CLOSING_PARENTHESIS)) {
                         if(this.i < this.tokens.length) {
                             throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Expected comma in arguments!!");
                         }else {
                             throw new ParseError(this.tokens[this.i-1].line, this.tokens[this.i-1].char, "Expected comma in arguments!! (also the file shouldn't just end here lol)");
                         }
+                    }
+                    if(spread) {
+                        arg = new SpreadExpressionToBeEvaluatedManuallyBecauseContextIsImportant(arg);
                     }
                     args.push(arg);
                 }
@@ -5067,8 +5255,9 @@
             }
 
             unary_misc() {
-                if(this.match(TokenKind.SPREAD)) {
+                if(this.peek(TokenKind.SPREAD)) {
                     //...
+                    throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Spread operator not expected here!!");
                 }else if(this.matchReserved("yield")) { //uhh yield is only reserved in strict mode
                     if(this.match(TokenKind.ASTERISK)) {
                         //yield*
@@ -5431,6 +5620,7 @@
 
                                     array.value.length++; //das right
                                 }else {
+                                    const spread = this.match(TokenKind.SPREAD);
                                     let expr = this.unary_misc(); //can't use expression because commas are used for the array
                                     
                                     //this.consume(TokenKind.COMMA, "Comma expected in array literal!");
@@ -5440,6 +5630,10 @@
                                         }else {
                                             throw new ParseError(this.tokens[this.i-1].line, this.tokens[this.i-1].char, "Comma expected in array literal! (line ended unexpectedly!)");
                                         }
+                                    }
+
+                                    if(spread) {
+                                        expr = new SpreadExpressionToBeEvaluatedManuallyBecauseContextIsImportant(expr);
                                     }
 
                                     //array.value[index] = expr;
@@ -6109,9 +6303,10 @@
                 if(this.useStrict) {
                     //we need to make sure the parameter list is "simple" otherwise throw
                     for(const parameter of parameters) {
-                        if(parameter.default) {
+                        if(parameter.default || parameter.rest) {
                             //maybe that's why this is an error lol, we'd have to reparse parameters now that we're in strict mode!
-                            throw new ParseError(parameter.identifier.nameToken.line, parameter.identifier.nameToken.char, "Illegal 'use strict' directive in function with non-simple parameter list");
+                            const token = parameter.rest ? parameter.rest : parameter.identifier.nameToken;
+                            throw new ParseError(token.line, token.char, "Illegal 'use strict' directive in function with non-simple parameter list");
                         }
                     }
 
@@ -6472,25 +6667,45 @@
             /** @returns {{identifier: IdentifierExpression, default: Expression | undefined}} */
             parameters(forArrowExpr = false) {
                 //for some reason, arrow functions can't have duplicate parameter names at all in devtools, but i haven't found this rule in the specification ? https://tc39.es/ecma262/multipage/ecmascript-language-functions-and-classes.html#sec-arrow-function-definitions-static-semantics-early-errors
+                //oh my god i found it. https://tc39.es/ecma262/multipage/ecmascript-language-functions-and-classes.html#sec-parameter-lists-static-semantics-early-errors
+                //15.1.1 (#1) says UniqueFormalParameters cannot have duplicate parameter names, arrow functions with parenthesized args are converted to ( UniqueFormalParameters ) via https://tc39.es/ecma262/multipage/ecmascript-language-functions-and-classes.html#sec-arrow-function-definitions
 
                 let hasDuplicates = false;
-                let hasDefaults = false;
+                let hasParamExprs = false;
+                let simpleParamList = true;
+                let hasRestLol = false;
                 const duplicateMap = new Map();
                 const parameters = [];
                 this.consume(TokenKind.OPEN_PARENTHESIS, "Expected parameters but didn't find open parenthesis?!");
                 while(this.i < this.tokens.length && !this.peek(TokenKind.CLOSING_PARENTHESIS)) {
+                    if(hasRestLol) {
+                        throw new ParseError(hasRestLol.line, hasRestLol.char, "Rest parameter must be last formal parameter");
+                    }
+                    const rest = this.match(TokenKind.SPREAD);
+                    if(rest) {
+                        simpleParamList = false;
+                        if(hasDuplicates) {
+                            throw new ParseError(hasDuplicates.nameToken.line, hasDuplicates.nameToken.char, "Duplicate parameter name not allowed in this context");
+                        }
+                        hasRestLol = rest;
+                    }
                     const identifier = this.identifier();
                     let $default;
                     if(this.match(TokenKind.EQUALS)) {
-                        this.hasDefaults = true;
+                        // this.hasDefaults = true; //bruh what?
+                        simpleParamList = false;
+                        hasParamExprs = true;
                         if(hasDuplicates) {
-                            throw new ParseError(identifier.nameToken.line, identifier.nameToken.char, "Duplicate parameter name not allowed in this context");
+                            throw new ParseError(hasDuplicates.nameToken.line, hasDuplicates.nameToken.char, "Duplicate parameter name not allowed in this context");
+                        }
+                        if(rest) {
+                            throw new ParseError(rest.line, rest.char, "Rest parameter may not have a default initializer"); //i'm not sure if this is explicitly in the specification but i think, as an incorrect grammatical production, this doesn't need to be (i suppose just like how the rest parameter is only specified in the grammar to be at the end of the parameter list, yet v8 gives an error too)
                         }
                         $default = this.unary_misc();
                     }
                     if(duplicateMap.has(identifier.nameToken.value)) {
-                        hasDuplicates = true;
-                        if(hasDefaults || forArrowExpr) {
+                        hasDuplicates = identifier;
+                        if(!simpleParamList || forArrowExpr) {
                             throw new ParseError(identifier.nameToken.line, identifier.nameToken.char, "Duplicate parameter name not allowed in this context");
                         }
                         //const $$default = duplicateMap.get(identifier.nameToken.value);
@@ -6504,12 +6719,15 @@
                         //}
                     }
                     duplicateMap.set(identifier.nameToken.value, $default);
-                    parameters.push({identifier, default: $default}); //uh oh i don't think in my implementation you are allowed to access properties with reserved names like i did here with default!
+                    parameters.push({identifier, default: $default, rest}); //uh oh i don't think in my implementation you are allowed to access properties with reserved names like i did here with default!
                     if(!this.match(TokenKind.COMMA) && !this.peek(TokenKind.CLOSING_PARENTHESIS)) {
                         throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Expected comma in parameters!");
                     }
                 }
                 this.consume(TokenKind.CLOSING_PARENTHESIS, "Expected closing parenthesis!");
+                parameters.simple = simpleParamList;
+                parameters.exprs = hasParamExprs;
+                parameters.hasDuplicates = hasDuplicates;
                 return parameters;
             }
 
@@ -7770,7 +7988,7 @@
                     if(abrupt instanceof CompletionRecord) {
                         return abrupt;
                     }else {
-                        return new CompletionRecord(CompletionKind.THROW, undefined, undefined);
+                        return new CompletionRecord(CompletionKind.THROW, abrupt, undefined);
                     }
                 }
                 return new CompletionRecord(CompletionKind.NORMAL, result, undefined);
@@ -7920,6 +8138,63 @@
                 return undefined; //UNUSED
             }
 
+            IteratorNext(iteratorRecord, value) {
+                let result;
+                if(value == undefined) {
+                    result = this.Completion(()=>ECMAScript.Call(iteratorRecord["[[NextMethod]]"], iteratorRecord["[[Iterator]]"]));
+                }else {
+                    result = this.Completion(()=>ECMAScript.Call(iteratorRecord["[[NextMethod]]"], iteratorRecord["[[Iterator]]"], [value]));
+                }
+                if(result["[[Type]]"] == CompletionKind.THROW) {
+                    iteratorRecord["[[Done]]"] = true;
+                    //return ? result
+                    throw result;
+                }
+                result = /*!*/ result["[[Value]]"];
+                if(!(result instanceof JavascriptObjectWrapper)) {
+                    iteratorRecord["[[Done]]"] = true;
+                    //const iterator = {[Symbol.iterator]() {return this;}, next() {}};
+                    //[...iterator];
+                    throw TypeError(`Iterator result ${result} is not an object`);
+                }
+                return result;
+            }
+
+            IteratorComplete(iteratorRecord) {
+                return ECMAScript.ToBoolean(/*?*/ iteratorRecord["[[Get]]"]("done", iteratorRecord));
+            }
+
+            IteratorStep(iteratorRecord) {
+                const result = /*?*/ this.IteratorNext(iteratorRecord);
+                let done = this.Completion(()=>this.IteratorComplete(result));
+                if(done["[[Type]]"] == CompletionKind.THROW) {
+                    iteratorRecord["[[Done]]"] = true;
+                    //return ? done
+                    throw done;
+                }
+                done = /*!*/ done["[[Value]]"];
+                if(done == true) {
+                    iteratorRecord["[[Done]]"] = true;
+                    return DONE;
+                }
+                return result;
+            }
+
+            //this doesn't HAVE to be its own function
+            IteratorValue(iteratorResult) {
+                return /*?*/ iteratorResult["[[Get]]"]("value", iteratorResult); //Get
+            }
+
+            IteratorStepValue(iteratorRecord) {
+                const result = /*?*/ this.IteratorStep(iteratorRecord);
+                if(result == DONE) return DONE;
+                let value = this.Completion(()=>this.IteratorValue(result));
+                if(value["[[Type]]"] == CompletionKind.THROW) {
+                    iteratorRecord["[[Done]]"] = true;
+                }
+                return ECMAScript["?"](value);
+            }
+
             constructor() {
                 super();
                 //this.scope = {};
@@ -8008,7 +8283,8 @@
                             for(;;) {
                                 value = value["[[GetPropertyOf]]"]();
                                 if(value == null) return false;
-                                if(value == obj) return true;
+                                // if(value == obj) return true;
+                                if(ECMAScript.SameValue(value, obj) == true) return true;
                             }
                         },
                         1, "isPrototypeOf", [], this
@@ -8632,10 +8908,193 @@
                             1, "at", [], this
                         );
 
+                        const $entries = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                return ECMAScript.CreateArrayIterator(/*?*/ ECMAScript.ToObject(thisArg), EnumerateKind.KEY_VALUE);
+                            },
+                            0, "entries", [], this
+                        );
+
+                        const $every = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                                const callback = argList[0];
+                                if(!ECMAScript.IsCallable(callback)) {
+                                    ThrowIsCallableTypeError(callback);
+                                }
+                                for(let k = 0; k < length; k++) {
+                                    //const propertyKey = /*!*/ ECMAScript.ToString(𝔽(k));
+                                    const propertyKey = k.toString(); //no point in calling ECMAScript.ToString because nothing special happens, we just need k as a string here!
+                                    //const kPresent = /*?*/ obj["[[HasProperty]]"](propertyKey);
+                                    if(obj["[[HasProperty]]"](propertyKey)) {
+                                        const kValue = /*?*/ obj["[[Get]]"](propertyKey, obj);
+                                        if(!ECMAScript.ToBoolean(/*?*/ callback["[[Call]]"](thisArg, [kValue, k, obj]))) { //not using ECMAScript.Call since it will again check if callback is callable!
+                                            return false;
+                                        }
+                                    }
+                                }
+                                return true;
+                            },
+                            1, "every", [], this
+                        );
+
+                        const $fill = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Array.prototype.fill(value, start = +0, end = this.length)
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                                let k = /*?*/ ECMAScript.ToClampedIndex(argList[1] == undefined ? 0 : argList[1], length);
+                                const final = argList[2] == undefined ? length : /*?*/ ECMAScript.ToClampedIndex(argList[2], length);
+                                while(k < final) {
+                                    const propertyKey = /*!*/ k.toString(); //ECMAScript.ToString(𝔽(k));
+                                    if(!obj["[[Set]]"](propertyKey, argList[0], obj)) {
+                                        //const obj = {length: 1}; //i could've used the __proto__ method and "directly" call fill on obj! (yet this produces a slightly different error message and it's not the one i expected...)
+                                        //Object.defineProperty(obj, 0, {writable: false, enumerable: 1, configurable: true, value: "nanana"});
+                                        //Array.prototype.fill.call(obj, 1); //Cannot assign to read only property '0' of object '#<Object>'
+                                        throw new TypeError(`Cannot assign to read only property '${propertyKey}' of '#<${GetConstructorName(obj)}>'`);
+                                    }
+                                    k++;
+                                }
+                                return obj;
+                            },
+                            1, "fill", [], this
+                        );
+
+                        const $filter = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Array.prototype.filter(callback, thisArg = )
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                                const callback = argList[0];
+                                if(!ECMAScript.IsCallable(callback)) {
+                                    ThrowIsCallableTypeError(callback);
+                                }
+                                const array = /*?*/ ECMAScript.ArraySpeciesCreate(obj, 0);
+                                let to = 0;
+                                for(let k = 0; k < length; k++) {
+                                    const propertyKey = /*!*/ k.toString(); //ECMAScript.ToString(𝔽(k));
+                                    // const kPresent = /*?*/ obj["[[HasProperty]]"](propertyKey);
+                                    if(/*?*/ obj["[[HasProperty]]"](propertyKey)) {
+                                        const kValue = /*?*/ obj["[[Get]]"](propertyKey, obj); //Get
+                                        if(ECMAScript.ToBoolean(/*?*/ callback["[[Call]]"](thisArg, [kValue, k, obj]))) {
+                                            /*?*/ ECMAScript.CreateDataPropertyOrThrow(array, to.toString(), kValue);
+                                            to++;
+                                        }
+                                    }
+                                }
+                                return array;
+                            },
+                            1, "filter", [], this
+                        );
+
+                        const $find = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Array.prototype.find(predicate, thisArg = undefined)
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                                const findRecord = /*?*/ ECMAScript.FindViaPredicate(obj, length, FindIterationDirection.ASCENDING, argList[0], argList[1]);
+                                return findRecord["[[Value]]"];
+                            },
+                            1, "find", [], this
+                        );
+
+                        const $findIndex = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Array.prototype.findIndex(predicate, thisArg = undefined)
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                                const findRecord = /*?*/ ECMAScript.FindViaPredicate(obj, length, FindIterationDirection.ASCENDING, argList[0], argList[1]);
+                                return findRecord["[[Index]]"];
+                            },
+                            1, "findIndex", [], this
+                        );
+
+                        const $findLast = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Array.prototype.findLast(predicate, thisArg = undefined)
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                                const findRecord = /*?*/ ECMAScript.FindViaPredicate(obj, length, FindIterationDirection.DESCENDING, argList[0], argList[1]);
+                                return findRecord["[[Value]]"];
+                            },
+                            1, "findLast", [], this
+                        );
+
+                        const $findLastIndex = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Array.prototype.findLastIndex(predicate, thisArg = undefined)
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                                const findRecord = /*?*/ ECMAScript.FindViaPredicate(obj, length, FindIterationDirection.DESCENDING, argList[0], argList[1]);
+                                return findRecord["[[Index]]"];
+                            },
+                            1, "findLastIndex", [], this
+                        );
+
+                        // const $flat;
+                        // const $flatMap;
+
+                        const $forEach = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Array.prototype.forEach(callback, thisArg = undefined)
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                                const callback = argList[0];
+                                if(!ECMAScript.IsCallable(callback)) {
+                                    ThrowIsCallableTypeError(callback);
+                                }
+                                for(let k = 0; k < length; k++) {
+                                    const propertyKey = /*!*/ k.toString() //ECMAScript.ToString(𝔽(k));
+                                    if(/*?*/ obj["[[HasProperty]]"](propertyKey) == true) {
+                                        const kValue = /*?*/ obj["[[Get]]"](propertyKey, obj); //Get
+                                        /*?*/ callback["[[Call]]"](argList[1], [kValue, k, obj]);
+                                    }
+                                }
+                                return undefined;
+                            },
+                            1, "forEach", [], this
+                        );
+
+                        const $includes = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Array.prototype.includes(searchElement, fromIndex = +0)
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                                if(length == 0) return false;
+                                let k = /*?*/ ECMAScript.ToClampedIndex(argList[1] == undefined ? 0 : argList[1], length);
+                                for(k; k < length; k++) {
+                                    //what the hell?! the fact that we don't check if k is present in obj means passing undefined will return true for holes!!
+                                    //this means includes and indexOf may not have the expected result when using undefined! (THIS is the kind of niche ass shit you find when reading the specification)
+                                    //const arr = [0,,2];
+                                    //console.log(arr.includes(undefined), arr.indexOf(undefined)); // true -1
+                                    //in (probably?) all other cases, if includes returned true, indexOf wouldn't return -1!
+                                    const elementK = /*?*/ obj["[[Get]]"](/*!*/ k.toString() /*ECMAScript.ToString(𝔽(k))*/, obj) //Get
+                                    if(ECMAScript.SameValueZero(argList[0], elementK) == true) {
+                                        return true;
+                                    }
+                                }
+                                return false;
+                            },
+                            1, "includes", [], this
+                        );
+
+                        const $indexOf = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Array.prototype.indexOf(searchElement, fromIndex = +0)
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                                if(length == 0) return -1;
+                                let k = /*?*/ ECMAScript.ToClampedIndex(argList[1] == undefined ? 0 : argList[1], length);
+                                for(k; k < length; k++) {
+                                    const propertyKey = /*!*/ k.toString(); /*ECMAScript.ToString(𝔽(k))*/
+                                    if(/*?*/ obj["[[HasProperty]]"](propertyKey) == true) {
+                                        const elementK = /*?*/ obj["[[Get]]"](propertyKey, obj) //Get
+                                        if(ECMAScript.IsStrictlyEqual(argList[0], elementK) == true) {
+                                            return k;
+                                        }
+                                    }
+                                }
+                                return -1;
+                            },
+                            1, "indexOf", [], this
+                        );
+
                         const $join = ECMAScript.CreateBuiltinFunction(
                             function(thisArg, argList, newTarget) { //Array.prototype.join(separator);
-                                const obj = ECMAScript.ToObject(thisArg);
-                                const length = ECMAScript.LengthOfArrayLike(obj);
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
                                 const sep = argList[0] == undefined ? "," : ECMAScript.ToString(argList[0]);
                                 let result = "";
                                 for(let k = 0; k < length; k++) {
@@ -8690,66 +9149,104 @@
                         ECMAScript["%Array.prototype.values%"] = $values; //for use with the Arguments object
 
                         const $$iterator = $values; //Array.prototype[Symbol.iterator].name == "values" !!
-                        const $$unscopables = ECMAScript.CreateBuiltinFunction(
-                            function(thisArg, argList, newTarget) {
-                                const unscopableList = ECMAScript.OrdinaryObjectCreate(null);
-                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "at", true);
-                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "copyWithin", true);
-                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "entries", true);
-                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "fill", true);
-                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "find", true);
-                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "findIndex", true);
-                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "findLast", true);
-                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "findLastIndex", true);
-                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "flat", true);
-                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "flatMap", true);
-                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "includes", true);
-                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "keys", true);
-                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "toReversed", true);
-                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "toSorted", true);
-                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "toSpliced", true);
-                                //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "values", true);
+                        
+                        //wait this isn't a function lol, we do this right now
+                        //const $$unscopables = ECMAScript.CreateBuiltinFunction(
+                        //    function(thisArg, argList, newTarget) {
+                        //        const unscopableList = ECMAScript.OrdinaryObjectCreate(null);
+                        //        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "at", true);
+                        //        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "copyWithin", true);
+                        //        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "entries", true);
+                        //        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "fill", true);
+                        //        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "find", true);
+                        //        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "findIndex", true);
+                        //        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "findLast", true);
+                        //        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "findLastIndex", true);
+                        //        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "flat", true);
+                        //        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "flatMap", true);
+                        //        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "includes", true);
+                        //        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "keys", true);
+                        //        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "toReversed", true);
+                        //        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "toSorted", true);
+                        //        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "toSpliced", true);
+                        //        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "values", true);
+                        //
+                        //        //lowkey what are we doing man, i don't think these can even fail (oh yeah that's probably why they used the ! shorthand instead of the ?)
+                        //        unscopableList["[[DefineOwnProperty]]"]("at", new JavascriptDataProperty(true, true, true, true));
+                        //        unscopableList["[[DefineOwnProperty]]"]("copyWithin", new JavascriptDataProperty(true, true, true, true));
+                        //        unscopableList["[[DefineOwnProperty]]"]("entries", new JavascriptDataProperty(true, true, true, true));
+                        //        unscopableList["[[DefineOwnProperty]]"]("fill", new JavascriptDataProperty(true, true, true, true));
+                        //        unscopableList["[[DefineOwnProperty]]"]("find", new JavascriptDataProperty(true, true, true, true));
+                        //        unscopableList["[[DefineOwnProperty]]"]("findIndex", new JavascriptDataProperty(true, true, true, true));
+                        //        unscopableList["[[DefineOwnProperty]]"]("findLast", new JavascriptDataProperty(true, true, true, true));
+                        //        unscopableList["[[DefineOwnProperty]]"]("findLastIndex", new JavascriptDataProperty(true, true, true, true));
+                        //        unscopableList["[[DefineOwnProperty]]"]("flat", new JavascriptDataProperty(true, true, true, true));
+                        //        unscopableList["[[DefineOwnProperty]]"]("flatMap", new JavascriptDataProperty(true, true, true, true));
+                        //        unscopableList["[[DefineOwnProperty]]"]("includes", new JavascriptDataProperty(true, true, true, true));
+                        //        unscopableList["[[DefineOwnProperty]]"]("keys", new JavascriptDataProperty(true, true, true, true));
+                        //        unscopableList["[[DefineOwnProperty]]"]("toReversed", new JavascriptDataProperty(true, true, true, true));
+                        //        unscopableList["[[DefineOwnProperty]]"]("toSorted", new JavascriptDataProperty(true, true, true, true));
+                        //        unscopableList["[[DefineOwnProperty]]"]("toSpliced", new JavascriptDataProperty(true, true, true, true));
+                        //        unscopableList["[[DefineOwnProperty]]"]("values", new JavascriptDataProperty(true, true, true, true));
+                        //        return unscopableList;
+                        //    },
+                        //    0, "[Symbol.unscopables]", [], this
+                        //);
 
-                                //lowkey what are we doing man, i don't think these can even fail (oh yeah that's probably why they used the ! shorthand instead of the ?)
-                                unscopableList["[[DefineOwnProperty]]"]("at", new JavascriptDataProperty(true, true, true, true));
-                                unscopableList["[[DefineOwnProperty]]"]("copyWithin", new JavascriptDataProperty(true, true, true, true));
-                                unscopableList["[[DefineOwnProperty]]"]("entries", new JavascriptDataProperty(true, true, true, true));
-                                unscopableList["[[DefineOwnProperty]]"]("fill", new JavascriptDataProperty(true, true, true, true));
-                                unscopableList["[[DefineOwnProperty]]"]("find", new JavascriptDataProperty(true, true, true, true));
-                                unscopableList["[[DefineOwnProperty]]"]("findIndex", new JavascriptDataProperty(true, true, true, true));
-                                unscopableList["[[DefineOwnProperty]]"]("findLast", new JavascriptDataProperty(true, true, true, true));
-                                unscopableList["[[DefineOwnProperty]]"]("findLastIndex", new JavascriptDataProperty(true, true, true, true));
-                                unscopableList["[[DefineOwnProperty]]"]("flat", new JavascriptDataProperty(true, true, true, true));
-                                unscopableList["[[DefineOwnProperty]]"]("flatMap", new JavascriptDataProperty(true, true, true, true));
-                                unscopableList["[[DefineOwnProperty]]"]("includes", new JavascriptDataProperty(true, true, true, true));
-                                unscopableList["[[DefineOwnProperty]]"]("keys", new JavascriptDataProperty(true, true, true, true));
-                                unscopableList["[[DefineOwnProperty]]"]("toReversed", new JavascriptDataProperty(true, true, true, true));
-                                unscopableList["[[DefineOwnProperty]]"]("toSorted", new JavascriptDataProperty(true, true, true, true));
-                                unscopableList["[[DefineOwnProperty]]"]("toSpliced", new JavascriptDataProperty(true, true, true, true));
-                                unscopableList["[[DefineOwnProperty]]"]("values", new JavascriptDataProperty(true, true, true, true));
-                                return unscopableList;
-                            },
-                            0, "[Symbol.unscopables]", [], this
-                        );
+                        const $$unscopables = ECMAScript.OrdinaryObjectCreate(null);
+                        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "at", true);
+                        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "copyWithin", true);
+                        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "entries", true);
+                        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "fill", true);
+                        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "find", true);
+                        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "findIndex", true);
+                        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "findLast", true);
+                        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "findLastIndex", true);
+                        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "flat", true);
+                        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "flatMap", true);
+                        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "includes", true);
+                        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "keys", true);
+                        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "toReversed", true);
+                        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "toSorted", true);
+                        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "toSpliced", true);
+                        //*Perform !*/ ECMAScript.CreateDataPropertyOrThrow(unscopableList, "values", true);
+
+                        //lowkey what are we doing man, i don't think these can even fail (oh yeah that's probably why they used the ! shorthand instead of the ?)
+                        $$unscopables["[[DefineOwnProperty]]"]("at", new JavascriptDataProperty(true, true, true, true));
+                        $$unscopables["[[DefineOwnProperty]]"]("copyWithin", new JavascriptDataProperty(true, true, true, true));
+                        $$unscopables["[[DefineOwnProperty]]"]("entries", new JavascriptDataProperty(true, true, true, true));
+                        $$unscopables["[[DefineOwnProperty]]"]("fill", new JavascriptDataProperty(true, true, true, true));
+                        $$unscopables["[[DefineOwnProperty]]"]("find", new JavascriptDataProperty(true, true, true, true));
+                        $$unscopables["[[DefineOwnProperty]]"]("findIndex", new JavascriptDataProperty(true, true, true, true));
+                        $$unscopables["[[DefineOwnProperty]]"]("findLast", new JavascriptDataProperty(true, true, true, true));
+                        $$unscopables["[[DefineOwnProperty]]"]("findLastIndex", new JavascriptDataProperty(true, true, true, true));
+                        $$unscopables["[[DefineOwnProperty]]"]("flat", new JavascriptDataProperty(true, true, true, true));
+                        $$unscopables["[[DefineOwnProperty]]"]("flatMap", new JavascriptDataProperty(true, true, true, true));
+                        $$unscopables["[[DefineOwnProperty]]"]("includes", new JavascriptDataProperty(true, true, true, true));
+                        $$unscopables["[[DefineOwnProperty]]"]("keys", new JavascriptDataProperty(true, true, true, true));
+                        $$unscopables["[[DefineOwnProperty]]"]("toReversed", new JavascriptDataProperty(true, true, true, true));
+                        $$unscopables["[[DefineOwnProperty]]"]("toSorted", new JavascriptDataProperty(true, true, true, true));
+                        $$unscopables["[[DefineOwnProperty]]"]("toSpliced", new JavascriptDataProperty(true, true, true, true));
+                        $$unscopables["[[DefineOwnProperty]]"]("values", new JavascriptDataProperty(true, true, true, true));
 
                         //holy FUCK there's too many array methods
                         arrayProto.SetDataProperty("at", true, false, true, $at);
                         //arrayProto.SetDataProperty("concat", true, false, true, $concat);
                         arrayProto.SetDataProperty("constructor", true, false, true, "Array() {}");
                         //arrayProto.SetDataProperty("copyWithin", true, false, true, $copyWithin);
-                        //arrayProto.SetDataProperty("entries", true, false, true, $entries);
-                        //arrayProto.SetDataProperty("every", true, false, true, $every);
-                        //arrayProto.SetDataProperty("fill", true, false, true, $fill);
-                        //arrayProto.SetDataProperty("filter", true, false, true, $filter);
-                        //arrayProto.SetDataProperty("find", true, false, true, $find);
-                        //arrayProto.SetDataProperty("findIndex", true, false, true, $findIndex);
-                        //arrayProto.SetDataProperty("findLast", true, false, true, $findLast);
-                        //arrayProto.SetDataProperty("findLastIndex", true, false, true, $findLastIndex);
+                        arrayProto.SetDataProperty("entries", true, false, true, $entries);
+                        arrayProto.SetDataProperty("every", true, false, true, $every);
+                        arrayProto.SetDataProperty("fill", true, false, true, $fill);
+                        arrayProto.SetDataProperty("filter", true, false, true, $filter);
+                        arrayProto.SetDataProperty("find", true, false, true, $find);
+                        arrayProto.SetDataProperty("findIndex", true, false, true, $findIndex);
+                        arrayProto.SetDataProperty("findLast", true, false, true, $findLast);
+                        arrayProto.SetDataProperty("findLastIndex", true, false, true, $findLastIndex);
                         //arrayProto.SetDataProperty("flat", true, false, true, $flat);
                         //arrayProto.SetDataProperty("flatMap", true, false, true, $flatMap);
-                        //arrayProto.SetDataProperty("forEach", true, false, true, $forEach);
-                        //arrayProto.SetDataProperty("includes", true, false, true, $includes);
-                        //arrayProto.SetDataProperty("indexOf", true, false, true, $indexOf);
+                        arrayProto.SetDataProperty("forEach", true, false, true, $forEach);
+                        arrayProto.SetDataProperty("includes", true, false, true, $includes);
+                        arrayProto.SetDataProperty("indexOf", true, false, true, $indexOf);
                         arrayProto.SetDataProperty("join", true, false, true, $join);
                         arrayProto.SetDataProperty("keys", true, false, true, $keys);
                         //arrayProto.SetDataProperty("lastIndexOf", true, false, true, $lastIndexOf);
@@ -8794,7 +9291,8 @@
                             //[][Symbol.iterator]().__proto__.__proto__.__lookupSetter__("constructor").call(5);
                             throw TypeError("set Iterator.prototype.constructor called on non-object");
                         }
-                        if(thisValue == home) {
+                        // if(thisValue == home) {
+                        if(ECMAScript.SameValue(thisValue, home) == true) {
                             //[][Symbol.iterator]().__proto__.__proto__.constructor = [][Symbol.iterator]().__proto__.__proto__;
                             throw TypeError(`Cannot assign to read only property 'constructor' of object '${ECMAScript.Call(ECMAScript["%Object.prototype%"]["[[Get]]"]("toString", ECMAScript["%Object.prototype%"]), thisValue, [])}'`);
                         }
@@ -8847,6 +9345,9 @@
                     ));
 
                     ECMAScript["%Iterator.prototype%"] = iteratorProto;
+
+                    //const generatorProto = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Iterator.prototype%"]);
+                    //damn this generator shit complicated, they had to make a whole diagram!
 
                     const internalForInIteratorProto = ECMAScript.OrdinaryObjectCreate(iteratorProto);
                     internalForInIteratorProto.SetDataProperty("next", true, false, true, ECMAScript.CreateBuiltinFunction(
@@ -8971,13 +9472,14 @@
                 //do remember that by default, function properties are only writable and configurable
                 globalObj.SetDataProperty("eval", true, false, true, ECMAScript["%eval%"]);
 
-                globalObj.SetDataProperty("isFinite", true, false, true, ECMAScript.CreateBuiltinFunction(
+                ECMAScript["%isFinite%"] = ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
                         return Number_isFinite(ECMAScript.ToNumber(argList[0]));
                     },
                     1, "isFinite", [], this
-                ));
-                globalObj.SetDataProperty("isNaN", true, false, true, ECMAScript.CreateBuiltinFunction(
+                );
+                globalObj.SetDataProperty("isFinite", true, false, true, ECMAScript["%isFinite%"]);
+                ECMAScript["%isNaN%"] = ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
                         //return isNaN(ECMAScript.ToNumber(argList[0]));
 
@@ -8990,7 +9492,8 @@
                         return Number_isNaN(ECMAScript.ToNumber(argList[0]));
                     },
                     1, "isNaN", [], this
-                ));
+                );
+                globalObj.SetDataProperty("isNaN", true, false, true, ECMAScript["%isNaN%"]);
 
                 globalObj.SetDataProperty("parseFloat", true, false, true, $parseFloat);
                 globalObj.SetDataProperty("parseInt", true, false, true, $parseInt);
@@ -9161,15 +9664,9 @@
                 //    },
                 //    1, "freeze", [], this
                 //));
-                $Object.SetDataProperty("keys", true, false, true, ECMAScript.CreateBuiltinFunction(
-                    function(thisArg, argList, newTarget) {
-                        const coerced = ECMAScript.ToObject(argList[0]);
-                        const keyList = ECMAScript.EnumerableOwnProperties(coerced, EnumerateKind.KEY);
-                        return ECMAScript.CreateArrayFromList(keyList);
-                    },
-                    1, "keys", [], this
-                ));
-
+                //$Object.SetDataProperty("fromEntries", true, false, true, ECMAScript.CreateBuiltinFunction(
+                //
+                //));
                 $Object.SetDataProperty("getOwnPropertyDescriptor", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) { //Object.getOwnPropertyDescriptor(obj, key);
                         const coerced = ECMAScript.ToObject(argList[0]);
@@ -9194,12 +9691,29 @@
                     },
                     1, "getOwnPropertyDescriptors", [], this
                 ));
+                $Object.SetDataProperty("keys", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        const coerced = ECMAScript.ToObject(argList[0]);
+                        const keyList = ECMAScript.EnumerableOwnProperties(coerced, EnumerateKind.KEY);
+                        return ECMAScript.CreateArrayFromList(keyList);
+                    },
+                    1, "keys", [], this
+                ));
+
+                
 
                 $Object.SetDataProperty("getPrototypeOf", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function lmaonamedfunctionexpressionfornoreason(thisArg, argList, newTarget) {
                         return ECMAScript.ToObject(argList[0])["[[GetPrototypeOf]]"]();
                     },
                     1, "getPrototypeOf", [], this
+                ));
+
+                $Object.SetDataProperty("is", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return ECMAScript.SameValue(argList[0], argList[1]);
+                    },
+                    2, "is", [], this
                 ));
 
                 $Object.SetDataProperty("isExtensible", true, false, true, ECMAScript.CreateBuiltinFunction(
@@ -9871,7 +10385,20 @@
                 //    1, "from", [], this
                 //));
 
+                $Array.SetDataProperty("isArray", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return /*?*/ ECMAScript.IsArray(argList[0]);
+                    },
+                    1, "isArray", [], this
+                ));
+
                 $Array.SetDataProperty("prototype", false, false, false, ECMAScript["%Array.prototype%"]);
+                $Array.SetAccessorProperty(ECMAScript["%Symbol.species%"], false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return thisArg;
+                    },
+                    0, "get [Symbol.species]", [], this,
+                ), undefined);
                 ECMAScript["%Array.prototype%"].properties.get("constructor").value = $Array;
                 // this.state.variables[0].set("Array", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Array"}, $Array));
                 globalObj.SetDataProperty("Array", true, false, true, $Array);
@@ -9923,6 +10450,91 @@
                         }
                         return Console.Formatter([target, ...args.slice(2)]);
                     }
+                    static TurnThisIntoPrettyStringKTHXBAI(arg, depth = 0) {
+                        if(arg == EMPTY) {
+                            return "(...)"; //for accessor properties lol
+                        }
+                        let result = "";
+                        if(arg instanceof JavascriptObjectWrapper) {
+                            const isFunc = "[[Call]]" in arg;
+                            if(depth == 0) {
+                                //if(isFunc) {
+                                //    const temp = Console.FunctionToString["[[Call]]"](arg, []);
+                                //    if(temp.startsWith("function")) {
+                                //        result += `ƒ ${temp.substring(8)}`;
+                                //    }else {
+                                //        result += temp;
+                                //    }
+                                //}else {
+                                //    const temp = arg["[[OwnPropertyKeys]]"]();
+                                //    let entries;
+                                //    {
+                                //        const arrayindices = [];
+                                //        const strings = [];
+                                //        const symbols = [];
+                                //        for(const key of temp) {
+                                //            const descriptor = arg.properties.get(key);
+                                //            let value;
+                                //            if("getter" in descriptor || "setter" in descriptor) {
+                                //                value = "(...)"; //because of the arguments object i had to finally add this lol
+                                //            }else {
+                                //                value = arg["[[Get]]"](key, arg);
+                                //            }
+                                //            if(typeof key == "symbol") {
+                                //                symbols.push([key, value]);
+                                //            }else if(isFinite(key) && key >= 0) {
+                                //                arrayindices.push([key, value]);
+                                //            }else {
+                                //                strings.push([key, value]);
+                                //            }
+                                //        }
+                                //        entries = [...arrayindices, ...strings, ...symbols];
+                                //    }
+                                //    if(ECMAScript.IsArray(arg)) {
+                                //
+                                //    }else {
+                                //
+                                //    }
+                                //}
+                            }else {
+                                if(isFunc) {
+                                    result += "ƒ";
+                                }else if(ECMAScript.IsArray(arg)) {
+                                    result += `Array(${ECMAScript.LengthOfArrayLike(arg)})`;
+                                }else {
+                                    // const toString = ECMAScript["%Object.prototype%"].properties.get("toString");
+                                    // if(!ECMAScript.IsCallable()) {
+                                    //     return "[object Object]";
+                                    // }else {
+                                    //     return toString["[[Call]]"](arg, []);
+                                    // }
+
+                                    result += Console.ObjectToString["[[Call]]"](arg, []);
+                                }
+                            }
+                        }else {
+                            if(depth > 0) {
+                                //this can be observed with
+                                //["", "'", "'\"", "'\"`"];
+                                if(typeof arg == "string") {
+                                    let quote = "'";
+                                    if(arg.includes("'")) {
+                                        quote = "\"";
+                                        if(arg.includes('"')) {
+                                            quote = "`";
+                                            if(arg.includes("`")) {
+                                                quote = "'";
+                                                arg = arg.replaceAll("'", "\\'");
+                                            }
+                                        }
+                                    }
+                                    return result + `${quote}${arg}${quote}`;
+                                }
+                            }
+                            result += arg.toString();
+                        }
+                        return result;
+                    }
                     static Printer(logLevel, args, options) {
                         //for(const night of nights) {};
                         for(const arg of args) {
@@ -9946,7 +10558,7 @@
                                             const descriptor = arg.properties.get(key);
                                             let value;
                                             if("getter" in descriptor || "setter" in descriptor) {
-                                                value = "(...)"; //because of the arguments object i had to finally add this lol
+                                                value = EMPTY; //because of the arguments object i had to finally add this lol
                                             }else {
                                                 value = arg["[[Get]]"](key, arg);
                                             }
@@ -9962,40 +10574,77 @@
                                     }
                                     //oh noes, entries is a wrapper array object...
                                     //aw damn devtools also prints properties that aren't enumerable...
-                                    if(ECMAScript.IsArray(arg)) {
+                                    if(ECMAScript.IsArray(arg) || "[[ParameterMap]]" in arg) { //Array or Arguments
                                         // const length = entries["[[Get]]"]("length", entries);
                                         const arrayLength = arg["[[Get]]"]("length", arg);
                                         let result = "[";
-                                        // const iterable = Console.ArrayExoticToIterable(entries); //sigh... rarely when using generator functions do i actually use them in the final product... i need to know i so i can omit the comma for the last element
+                                        let actualElementCount = 0;
+                                        for(let i = 0; i < arrayLength; i++) {
+                                            if(arg["[[HasProperty]]"](i.toString())) {
+                                                const value = arg["[[Get]]"](i.toString(), arg);
+                                                result += Console.TurnThisIntoPrettyStringKTHXBAI(value, 1);
+                                                actualElementCount++;
+                                            }else {
+                                                result += "empty";
+                                            }
+                                            if(i+1 != arrayLength || actualElementCount != entries.length-1) {
+                                                result += ", ";
+                                            }
+                                        }
+                                        // const iterable = Console.ArrayExoticToIterable(entries); //sigh... rarely when using generator functions do i actually use them in the final product... i need to know the index so i can omit the comma for the last element
                                         for(let i = 0; i < entries.length; i++) { //hmm how the hell will i do holes
-                                            // const innerArrayObject = entries["[[Get]]"](i+"", entries);
-                                            // const key = innerArrayObject["[[Get]]"]("0", innerArrayObject);
-                                            // const value = innerArrayObject["[[Get]]"]("1", innerArrayObject);
+                                            //// const innerArrayObject = entries["[[Get]]"](i+"", entries);
+                                            //// const key = innerArrayObject["[[Get]]"]("0", innerArrayObject);
+                                            //// const value = innerArrayObject["[[Get]]"]("1", innerArrayObject);
+                                            //let [key, value] = entries[i];
+                                            //if(typeof key == "number" && Number_isFinite(key) && key >= 0) {
+                                            //    continue;
+                                            //}
+                                            //if(key == "length") continue; //skip lol
+                                            ////if(ECMAScript.IsCallable(value)) {
+                                            ////    value = "ƒ";
+                                            ////}else if(typeof value == "string") {
+                                            ////    value = `"${value}"`;
+                                            ////}else if(value instanceof JavascriptObjectWrapper) {
+                                            ////    value = value["[[Get]]"]("toString", value)["[[Call]]"](value, []);
+                                            ////}else {
+                                            ////    value = value?.toString();
+                                            ////}
+                                            //value = Console.TurnThisIntoPrettyStringKTHXBAI(value, 1);
+                                            //if(key >= 0 && Number_isFinite(key)) {
+                                            //    result += value;
+                                            //}else {
+                                            //    if(typeof key == "symbol") {
+                                            //        key = `[${key.toString()}]`;
+                                            //    }
+                                            //    result += key+": "+value;
+                                            //}
+                                            //if(i+1 != entries.length-1) {
+                                            //    result += ", ";
+                                            //}
                                             let [key, value] = entries[i];
-                                            if(key == "length") continue; //skip lol
-                                            if(ECMAScript.IsCallable(value)) {
-                                                value = "ƒ";
-                                            }else if(typeof value == "string") {
-                                                value = `"${value}"`;
-                                            }else if(value instanceof JavascriptObjectWrapper) {
-                                                value = value["[[Get]]"]("toString", value)["[[Call]]"](value, []);
+                                            if(typeof key == "symbol") {
+                                                key = `[${key.toString()}]`;
                                             }else {
-                                                value = value?.toString();
-                                            }
-                                            if(key >= 0 && isFinite(key)) {
-                                                result += value;
-                                            }else {
-                                                if(typeof key == "symbol") {
-                                                    key = `[${key.toString()}]`;
+                                                const temp = ECMAScript.CanonicalNumericIndexString(key);
+                                                if(temp != undefined && ((temp == 0 && Object.is(temp, 0)) || (temp > 0 && temp <= 2**32-2))) {
+                                                    continue;
                                                 }
-                                                result += key+": "+value;
                                             }
-                                            if(i+1 != entries.length-1) {
+                                            if(key == "length") continue; //skip lol
+                                            value = Console.TurnThisIntoPrettyStringKTHXBAI(value, 1);
+                                            //else if(typeof key == "string") { //wait no
+                                            //     key = `"${key}"`;
+                                            // }
+                                            result += key+": "+value;
+                                            if(i+1 != entries.length) {
                                                 result += ", ";
                                             }
                                         }
                                         result += "]";
-                                        if(arrayLength) {
+                                        if(("[[ParameterMap]]" in arg)) {
+                                            console.log(`%cArguments %c${result}`, "color: darkgrey; font-style: italic;", "font-style: italic;");
+                                        }else if(arrayLength) {
                                             console.log(`%c(${arrayLength}) %c${result}`, "color: darkgrey; font-style: italic;", "font-style: italic;");
                                         }else {
                                             console.log("%c"+result, "font-style: italic;");
@@ -10030,17 +10679,18 @@
                                             //const key = innerArrayObject["[[Get]]"]("0", innerArrayObject);
                                             //const value = innerArrayObject["[[Get]]"]("1", innerArrayObject);
                                             let [key, value] = entries[i];
-                                            if(ECMAScript.IsCallable(value)) {
-                                                value = "ƒ";
-                                            }else if(typeof value == "string") {
-                                                value = `"${value}"`;
-                                            }
+                                            //if(ECMAScript.IsCallable(value)) {
+                                            //    value = "ƒ";
+                                            //}else if(typeof value == "string") {
+                                            //    value = `"${value}"`;
+                                            //}
+                                            value = Console.TurnThisIntoPrettyStringKTHXBAI(value, 1);
                                             if(typeof key == "symbol") {
                                                 key = `[${key.toString()}]`;
                                             }//else if(typeof key == "string") { //wait no
                                             //     key = `"${key}"`;
                                             // }
-                                            result += key+": "+value?.toString();
+                                            result += key+": "+value;
                                             if(i+1 != length) {
                                                 result += ", ";
                                             }
@@ -10066,6 +10716,7 @@
                         }
                     }
                     static {
+                        Console.ObjectToString = ECMAScript["%Object.prototype%"].properties.get("toString").value;
                         Console.FunctionToString = ECMAScript["%Function.prototype%"].properties.get("toString").value;
                         Console.ObjectEntries = $Object.properties.get("entries").value;
                     }
@@ -10996,7 +11647,8 @@
                 if(ref instanceof ReferenceRecord) {
                     if(ref.base instanceof EnvironmentRecord) { //!IsPropertyReference
                         if(ref.referencedName == "eval") {
-                            if(func == ECMAScript["%eval%"]) {
+                            // if(func == ECMAScript["%eval%"]) {
+                            if(ECMAScript.SameValue(func, ECMAScript["%eval%"])) {
                                 //direct eval
                                 //return...
                             }
@@ -11012,7 +11664,24 @@
                     thisValue = undefined; //2.a
                 }
 
-                const argList = funcCallExpression.argumentsExprArr.map(v=>this.evaluate(v));
+                //const argList = funcCallExpression.argumentsExprArr.map(v=>this.evaluate(v));
+                const argList = [];
+                for(const v of funcCallExpression.argumentsExprArr) {
+                    if(v instanceof SpreadExpressionToBeEvaluatedManuallyBecauseContextIsImportant) {
+                        //copied from visitArrayLiteralExpression
+                        const spreadObj = /*?*/ this.evaluate(v.rhs);
+                        const iteratorRecord = /*?*/ ECMAScript.GetIterator(spreadObj, IteratorKind.SYNC);
+                        for(;;) {
+                            const next = /*?*/ this.IteratorStepValue(iteratorRecord);
+                            if(next == DONE) {
+                                break;
+                            }
+                            argList.push(next);
+                        }
+                    }else {
+                        argList.push(this.evaluate(v));
+                    }
+                }
 
                 //duktape
                 //if(func instanceof FunctionWrapper) {
@@ -11823,7 +12492,66 @@
             /** @param {ArrayLiteralExpression} arrayLiteralExpression */
             visitArrayLiteralExpression(arrayLiteralExpression) {
                 //return arrayLiteralExpression.value.map(v=>this.evaluate(v));
-                return ECMAScript.CreateArrayFromList(arrayLiteralExpression.value.map(v=>this.evaluate(v)));
+                //this is certainly not how this works in the specification but i've already written it so we're just gonna adapt it
+                const elements = (arrayLiteralExpression.value.map(v=>{
+                    if(v instanceof SpreadExpressionToBeEvaluatedManuallyBecauseContextIsImportant) {
+                        //SpreadElement
+                        const arr = [];
+                        const spreadObj = /*?*/ this.evaluate(v.rhs);
+                        const iteratorRecord = /*?*/ ECMAScript.GetIterator(spreadObj, IteratorKind.SYNC);
+                        for(;;) {
+                            const next = /*?*/ this.IteratorStepValue(iteratorRecord);
+                            if(next == DONE) {
+                                break;
+                            }
+                            arr.push(next);
+                        }
+                        return arr;
+                    }else {
+                        return this.evaluate(v);
+                    }
+                }));
+                //return ECMAScript.CreateArrayFromList(elements);
+                //this started getting a little too crazy for CreateArrayFromList so here's a unique instantiation
+                const array = ECMAScript.ArrayCreate(0); //why don't we set the length right here?
+                let i = 0;
+                //for(let n = 0; n < elements.length; n++, i++) {
+                //    const element = elements[n];
+                //    if(n in elements) { //to skip holes!
+                //        if(element instanceof Array) {
+                //            //from the spread operator
+                //            
+                //        }
+                //        if(!array["[[DefineOwnProperty]]"](i.toString(), new JavascriptDataProperty(true, true, true, element))) {
+                //            throw TypeError("Yet again how the fuck could this error actually be reached..."); //i wonder what v8's error message is
+                //        }
+                //    }
+                //}
+                //POOF! an iterative solution out of thin air!
+                const stack = [{n: 0, arr: elements}]; //i'm sure there's some theory about this, too. "how to design the best iterative solution book"
+                let cur = stack[stack.length-1];
+                while(stack.length) {
+                    while(cur.n < cur.arr.length) {
+                        const element = cur.arr[cur.n];
+                        if(cur.n++ in cur.arr) { //postfix incrementing cur.n so if this element is an array we don't try to evaluate it again
+                            if(element instanceof Array) {
+                                //from the spread operator
+                                stack.push({n: 0, arr: element});
+                                cur = stack[stack.length-1];
+                                continue;
+                            }
+                            if(!array["[[DefineOwnProperty]]"](i.toString(), new JavascriptDataProperty(true, true, true, element))) {
+                                throw TypeError("Yet again how the fuck could this error actually be reached..."); //i wonder what v8's error message is
+                            }
+                        }else {
+                            array["[[Set]]"]("length", i+1, array);
+                        }
+                        i++;
+                    }
+                    stack.pop();
+                    stack.length && (cur = stack[stack.length-1]); //we check stack length here out of optimization paranoia as i read (somewhere) that v8 will be chuffed if you ever attempt to read outside of the bounds of an array (here it is! https://v8.dev/blog/elements-kinds#avoid-reading-beyond-the-length-of-the-array ) (reading this again, it seems like it might not be a problem here + if stack.length == 0 we won't ever read this array again)
+                }
+                return array;
             }
 
             PropertiesPropertyToString(key) {
@@ -12256,7 +12984,13 @@
 
             /** @param {FunctionCallExpression} funcCallExpression */
             visitFunctionCallExpression(funcCallExpression) {
-                return `${funcCallExpression.functionExpr.accept(this)}(${funcCallExpression.argumentsExprArr.map(v=>v.accept(this))})`;
+                return `${funcCallExpression.functionExpr.accept(this)}(${funcCallExpression.argumentsExprArr.map(v=>{
+                    if(v instanceof SpreadExpressionToBeEvaluatedManuallyBecauseContextIsImportant) {
+                        return `...${v.rhs.accept(this)}`;
+                    }else {
+                        return v.accept(this);
+                    }
+                })})`;
             }
 
             /** @param {ArrayComprehensionExpression} arrayComprehensionExpression */
@@ -12369,7 +13103,10 @@
             parameters(parameters) {
                 let result = "(";
                 for(let i = 0; i < parameters.length; i++) {
-                    const {identifier, default: $default} = parameters[i];
+                    const {identifier, default: $default, rest} = parameters[i];
+                    if(rest) {
+                        result += "...";
+                    }
                     result += identifier.nameToken.value;
                     if($default) {
                         result += " = " + $default.accept(this);
@@ -12383,13 +13120,17 @@
 
             /** @param {FunctionStatement} functionStatement */
             visitFunctionStatement(functionStatement) {
-                let prefix = "function";
-                if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.GETTER) {
-                    prefix = "get";
-                }else if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.SETTER) {
-                    prefix = "set";
+                if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.ARROW) {
+                    return `${this.parameters(functionStatement.parameters)}=>${functionStatement.body.accept(this)}`;
+                }else {
+                    let prefix = "function";
+                    if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.GETTER) {
+                        prefix = "get";
+                    }else if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.SETTER) {
+                        prefix = "set";
+                    }
+                    return `${functionStatement.genderToken ? functionStatement.genderToken.value+" " : ""}${functionStatement.isAsync ? "async " : ""}${prefix}${functionStatement.isGenerator ? "*" : ""}${functionStatement.nameToken.value ? " "+functionStatement.nameToken.value : ""}${this.parameters(functionStatement.parameters)} ${functionStatement.body.accept(this)}`;
                 }
-                return `${functionStatement.genderToken ? functionStatement.genderToken.value+" " : ""}${functionStatement.isAsync ? "async " : ""}${prefix}${functionStatement.isGenerator ? "*" : ""}${functionStatement.nameToken.value ? " "+functionStatement.nameToken.value : ""}${this.parameters(functionStatement.parameters)} ${functionStatement.body.accept(this)}`;
             }
 
             /** @param {ReturnStatement} returnStatement */
@@ -12404,7 +13145,37 @@
 
             /** @param {ArrayLiteralExpression} arrayLiteralExpression */
             visitArrayLiteralExpression(arrayLiteralExpression) {
-                return `[${arrayLiteralExpression.value.map(v=>v.accept(this))}]`;
+                //return `[${arrayLiteralExpression.value.reduce(v=>{
+                //    if(v instanceof SpreadExpressionToBeEvaluatedManuallyBecauseContextIsImportant) {
+                //        return `...${v.rhs.accept(this)}`;
+                //    }else {
+                //        return v.accept(this);
+                //    }
+                //})}]`;
+                //return `[${arrayLiteralExpression.value.reduce((acc, v)=>{
+                //    if(v instanceof SpreadExpressionToBeEvaluatedManuallyBecauseContextIsImportant) {
+                //        return acc + `...${v.rhs.accept(this)}`;
+                //    }else {
+                //        return acc + v.accept(this);
+                //    }
+                //}, "")}]`;
+                let result = "[";
+                for(let i = 0; i < arrayLiteralExpression.value.length; i++) {
+                    if(i in arrayLiteralExpression.value) {
+                        const v = arrayLiteralExpression.value[i];
+                        if(v instanceof SpreadExpressionToBeEvaluatedManuallyBecauseContextIsImportant) {
+                            result += `...${v.rhs.accept(this)}`;
+                        }else {
+                            result += v.accept(this);
+                        }
+                    }else if(i+1 == arrayLiteralExpression.value.length) {
+                        result += ",";
+                    }
+                    if(i+1 < arrayLiteralExpression.value.length) {
+                        result += ",";
+                    }
+                }
+                return result + "]";
             }
 
             /** @param {ObjectLiteralExpression} objectLiteralExpression */
