@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>coulomb's law</title>
+    <style>
+        canvas {
+            border: 2px solid red;
+        }
+        body>div {
+            position: absolute;
+            display: inline-block;
+            background-color: grey;
+            padding: 10px;
+        }
+        body>div>p {
+            margin: 10px 0 10px 0;
+        }
+        .withhorizontalbars {
+            position: relative;
+        }
+        .withhorizontalbars::before {
+            position: absolute;
+            left: -1px; /* -1 because of border size */
+            top: -11px; /* -1 because of border size */
+            content: "";
+            border: 1px solid black;
+            height: 20px;
+            width: 0px;
+        }
+        .withhorizontalbars::after {
+            position: absolute;
+            left: calc(100%); /* +1 because of border size (actually for some reason it looks off with +1) */
+            top: -11px; /* -10 - 1 because of border size */
+            content: "";
+            border: 1px solid black;
+            height: 20px;
+            width: 0px;
+        }
+        .withhorizontalbars>p::before, .okwaitwelljustdotheallpmethod>p::before {
+            position: absolute;
+            left: -1px;
+            right: 0;
+            top: -6px;
+            margin: auto;
+            content: "";
+            border: 1px solid black;
+            height: 10px;
+            width: 0px;
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <p>Controls</p>
+        <label>micro coulombs <input id="pcoulombs" type="number" value="3" step="1"></label>
+    </div>
+    <center>
+        <canvas id="canvas" width="512" height="512">fairs</canvas>
+        <!--div class="withhorizontalbars" style="margin: 10px 0 10px 0; height: 0px; border: 1px solid black;"-->
+        <div class="okwaitwelljustdotheallpmethod" style="position: relative; margin: 10px 0 10px 0; height: 0px; border: 1px solid black;">
+            <p id="minwidthp" style="position: absolute; left: 0; margin: auto; width:0">
+                
+            </p>
+            <p style="position: absolute; left: 0; right: 0; margin: auto; width: 21px"> <!--+21 px so the line doesn't intersect with 0-->
+                0.0m
+            </p>
+            <p id="maxwidthp" style="position: absolute; right: 0; margin: auto; width:0">
+                
+            </p>
+        </div>
+    </center>
+    <script>
+        const canvas = document.getElementById("canvas");
+        //finally with this jsdoc shit i can finally have good autocomplete
+        /** @type {CanvasRenderingContext2D} */
+        const context = canvas.getContext("2d");
+
+        const width = 512;
+        const height = 512;
+        canvas.width = width;
+        canvas.height = height;
+        canvas.nextElementSibling.style.width = width+"px";
+
+        context.fillStyle = "red";
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+
+        const physScale = 100;
+        document.getElementById("minwidthp").innerText = `-${physScale.toLocaleString("en-US", {minimumFractionDigits: 1, maximumFractionDigits: 1})}m`;
+        document.getElementById("maxwidthp").innerText = `${physScale.toLocaleString("en-US", {minimumFractionDigits: 1, maximumFractionDigits: 1})}m`;
+
+        class Vector2 {
+            x;
+            y;
+            constructor(x = 0, y = 0) {
+                this.x = x;
+                this.y = y;
+            }
+            getMagnitude() {
+                return Math.sqrt(this.x**2 + this.y**2);
+            }
+            setMagnitude(newMag) {
+                const ratio = newMag/this.getMagnitude();
+                this.x *= ratio;
+                this.y *= ratio;
+            }
+        }
+
+        class Particle {
+            /** @type {Number} in microcoulombs */
+            charge;
+            /** @type {Vector2} */
+            position;
+            /** @type {Vector2} */
+            velocity;
+
+            /** @param {Number} charge in microcoulombs @param {Vector2} position */
+            constructor(charge, position) {
+                this.charge = charge;
+                this.position = position;
+                this.velocity = new Vector2;
+            }
+
+            update() {
+                const friction = 0.8;
+                this.position.x += this.velocity.x;
+                this.position.y += this.velocity.y;
+                if(this.position.x < -physScale) {
+                    this.position.x = -physScale;
+                    this.velocity.x *= -friction;
+                }else if(this.position.x > physScale) {
+                    this.position.x = physScale;
+                    this.velocity.x *= -friction;
+                }
+                if(this.position.y < -physScale) {
+                    this.position.y = -physScale;
+                    this.velocity.y *= -friction;
+                }else if(this.position.y > physScale) {
+                    this.position.y = physScale;
+                    this.velocity.y *= -friction;
+                }
+            }
+        }
+
+        const particles = [];
+
+        function fillArrow(origin, offset) {
+            context.strokeStyle = "blue";
+            context.beginPath();
+            context.moveTo(origin.x, origin.y);
+            context.lineTo(origin.x+offset.x, origin.y+offset.y);
+            context.stroke();
+            context.closePath();
+        }
+
+        function fromNormalized(x, y) {
+            //ok it was so much easier when i got x, y to range of 0 - 1
+            //that's how you solve this kind of problem >:[
+            return new Vector2((x/width - 0.5)*2*physScale, (y/height - 0.5)*2*physScale);
+        }
+
+        function toNormalized(vec) {
+            return new Vector2((vec.x/physScale) * width/2 + width/2, (vec.y/physScale) * height/2 + height/2);
+        }
+
+        /*
+        for(let i = 0; i < width; i += width/20) {
+            for(let j = 0; j < height; j += height/20) {
+                particles.push(new Particle(3, fromNormalized(i + (width/40), j + (height/40))));
+            }
+        }
+        */
+
+        //coulomb's law
+        //F = kq1q2/r**2
+        //k = 8.99 * 10 ** 9
+
+        const k = 8.99 * 10 ** 9;
+
+        function draw() {
+            context.clearRect(0, 0, width, height);
+            for(const particle of particles) {
+                particle.update();
+                for(const particle2 of particles) {
+                    if(particle == particle2) continue;
+                    const diff = new Vector2(particle2.position.x - particle.position.x, particle2.position.y - particle.position.y);
+                    // const r = Math.sqrt((particle2.x - particle.x) ** 2 + (particle2.y - particle.y) ** 2);
+                    // console.assert(r == diff.getMagnitude(), "wtf am i doing lol");
+                    const r = diff.getMagnitude();
+                    if(r == 0) continue;
+                    const q1 = particle.charge * 10 ** -6; //remember, they're in micro coulombs!
+                    const q2 = particle2.charge * 10 ** -6; //remember, they're in micro coulombs!
+                    const F = Math.abs((k*q1*q2)/r**2); //FAWK this is just the magnitude
+                    const repel = Math.sign(q1) == Math.sign(q2);
+                    //we need the direction!
+                    //no matter, though! the direction is diff!
+                    //hmm i fear this model might be incorrect, as F is the force in NEWTONS
+                    //how can we get this in like, meters per second?
+                    diff.setMagnitude(F);
+                    //console.assert(!isNaN(diff.x), "bad "+F);
+                    if(!repel) {
+                        particle.velocity.x += diff.x;
+                        particle.velocity.y += diff.y;
+                        //particle.velocity.x = diff.x;
+                        //particle.velocity.y = diff.y;
+                    }else {
+                        particle.velocity.x -= diff.x; //subtract instead
+                        particle.velocity.y -= diff.y; //subtract instead
+                        //particle.velocity.x = -diff.x;
+                        //particle.velocity.y = -diff.y;
+                    }
+                }
+                context.fillStyle = "red";
+                context.beginPath();
+                const normalized = toNormalized(particle.position);
+                context.arc(normalized.x, normalized.y, 5, 0, Math.PI*2, false); // 20
+                context.fill();
+                context.closePath();
+                context.fillStyle = "black";
+                context.fillText(particle.charge, normalized.x, normalized.y);
+                fillArrow(normalized, particle.velocity);
+            }
+            requestAnimationFrame(draw);
+        }
+
+        canvas.addEventListener("click", function(event) {
+            // particles.push(new Particle(pcoulombs.value, new Vector2(event.offsetX, event.offsetY)));
+            particles.push(new Particle(+pcoulombs.value, fromNormalized(event.offsetX, event.offsetY)));
+        });
+
+        draw();
+    </script>
+</body>
+</html>

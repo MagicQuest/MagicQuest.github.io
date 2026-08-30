@@ -69,11 +69,13 @@
             <option value="consistent18">consistent class expressions</option>
             <option value="consistent19">new.target</option>
             <option value="consistent20">Array.prototype.find</option>
+            <option value="consistent21">notable results from deep in specification</option>
             <option value="foundinthespec">no duplicate params in arrow</option>
             <option value="while">while statement</option>
             <option value="iterator">iterator</option>
             <option value="compvsfilter">comp vs Array.prototype.filter</option>
             <option value="spreadwithiteratorcameobutnotactuallyallofthembecausewedonthavedestructuring">all spread operator uses (minus destructuring)</option>
+            <option value="concattest">concat spreadable</option>
             <option value="classes">every class property</option>
             <option value="classes2">allowed class field names</option>
             <option value="objectliteralproto">object literal prototype</option>
@@ -130,11 +132,13 @@
             "consistent19": "if(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\n\nfunction MiscObject() {\n    const λ = ()=>new.target;\n    console.larp(new.target, λ.name, λ());\n}\n\nMiscObject();\nnew MiscObject;\nnew MiscObject(3.14159265358979323846264338327950);",
             // "consistent20": "//var in 2026 lawl!\n//this one is already testable in the browser!\n\nvar i = 0;\nconsole.log([1,2,3,4,5,6].find(x=>(i++, x==6)), i); // 6 6\n\nvar i = 0;\nconsole.log([1,2,3,4,5,6].findIndex(x=>(i++, x==6)), i); // 5 6\n\nvar i = 0;\nconsole.log([1,2,3,4,5,6].findLast(x=>(i++, x==6)), i); // 6 1\n\nvar i = 0;\nconsole.log([1,2,3,4,5,6].findLastIndex(x=>(i++, x==6)), i); // 5 1",
             "consistent20": "//var in 2026 lawl!\n//this one is already testable in the browser!\n\n//i (the second number printed each time) is the amount of times predicate was called\n\nconst arr = [1,2,3,4,5,6];\nconst predicate = x=>(i++, x==6);\n\nvar i = 0;\nconsole.log(arr.find(predicate), i); // 6 6\n\nvar i = 0;\nconsole.log(arr.findIndex(predicate), i); // 5 6\n\nvar i = 0;\nconsole.log(arr.findLast(predicate), i); // 6 1\n\nvar i = 0;\nconsole.log(arr.findLastIndex(predicate), i); // 5 1",
+            "consistent21": "//if an array is holey, includes(undefined) will return true when it encounters said hole\n//indexOf, however, skips holes!\n\n//i assume this is one of the few situations where an array seems to include a value, yet indexOf is -1!\n\nconst arr = [0,,2];\nconsole.log(arr.includes(undefined), arr.indexOf(undefined)); // true -1",
             "foundinthespec": "// Duplicate parameter name not allowed in this context\n((x, x, y) => {\n    /*...*/\n});",
             "while": "class Test extends Object {\n    constructor() {\n        while(true) super();\n    }\n}\nnew Test;",
             "iterator": "const iterator = {\n    list: [1, 2, 3],\n    i: 0,\n    next() {\n        return {value: this.list[this.i], done: ++this.i > this.list.length};\n    },\n    [Symbol.iterator]() {\n        return this;\n    },\n};\nfor(const value of iterator) {\n    console.log(value);\n}",
             "compvsfilter": "const arr = [1,2,3,4,5,6];\n\nconst comp = [for (const v of arr) if(v%2) v];\nconst filter = arr.filter(v=>v%2);\n\nconsole.larp(comp);\nconsole.larp(filter);",
             "spreadwithiteratorcameobutnotactuallyallofthembecausewedonthavedestructuring": "if(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\n\nfunction doRestStuff(...rest) {\n    console.larp(rest);\n}\n\nconst iterator = {\n    list: [1, 2, 3],\n    i: 0,\n    next() {\n        return {value: this.list[this.i], done: ++this.i > this.list.length};\n    },\n    [Symbol.iterator]() {\n        //reset so we can keep spreading lol (Symbol.iterator is only accessed at the very beginning of iteration!)\n        this.i = 0;\n        return this;\n    },\n};\n\nconsole.larp([...iterator]);\nconsole.log(...iterator);\nconsole.larp({...iterator});\ndoRestStuff(1, 2, 3, \"hello world!\",);",
+            "concattest": "const spreadable = {\n    0: 1,\n    1: 2,\n    2: 3,\n    length: 3,\n    [Symbol.isConcatSpreadable]: true\n};\n[].concat(spreadable);",
             "objectliterals": "let variable = \"variable\";\nlet another_obj = {\"another_obj_key\": \"another_obj_value\"};\nlet x = {\n    variable,\n    y: \"identifier name property\",\n    \"string\": \"string property\",\n    0: \"numeric property\",\n    [\"computed property\"]: \"what the key said.\",\n    method() {\n    },\n    get [\"x\"]() {\n        return 421;\n    },\n    *generator() {\n    },\n    async 5() {\n    },\n    async* \"hello_generator\"() {\n    },\n    set x(newValue) {\n        console.log(newValue);\n    },\n    ...another_obj\n};\nconsole.larp(x, x.x, x=21);",
             "classes": "class all_class_properties {\n#private_field = \"private_field\";\n// #private_field; // Identifier #private_field has already been declared\n#private_method() {\n    return this.#private_field;\n};\n\nstatic #private_static_field = \"???\";\n// static #private_field; // Identifier #private_field has already been declared\nstatic #private_static_method() {\n    return \"is this even callable?\";\n};\n\nfield = \"access instance field\";\nmethod() {\n    return this.field;\n};\n\nstatic field = \"access constructor (static) field\";\nstatic method() {\n    return this.field;\n};\n\nstatic {\n    this.another_static_field = \"Hello World from this static initialization block!\";\n};\n\nconstructor() {\n    console.log(this.constructor.name, \"instantiated\");\n};\n}",
             "classes2": "class test {\n    async = 2; //async prefix\n    class = 3; //reserved\n    get = 4;   //getter prefix\n    set = 5;   //setter prefix\n    static prototype = 34; //error\n}",
@@ -2267,6 +2271,12 @@
             static DESCENDING = 2;
         }
 
+        //for SortIndexProperties
+        class HoleMode {
+            static SKIP_HOLES = 1;
+            static READ_THROUGH_HOLES = 2;
+        }
+
         //helper
         function GetConstructorName(/** @type {JavascriptObjectWrapper} */ obj) {
             const ctor = obj["[[Get]]"]("constructor", obj);
@@ -2972,6 +2982,50 @@
                 }
                 return /*?*/ ctor["[[Construct]]"]([length], ctor); //Construct(ctor, [length])
             }
+
+            static CompareArrayElements(x, y, comparator) {
+                if(x == undefined && y == undefined) return 0;
+                if(x == undefined) return 1;
+                if(y == undefined) return -1;
+                if(comparator != undefined) {
+                    const result = /*?*/ ECMAScript.ToNumber(/*?*/ comparator["[[Call]]"](undefined, [x, y]));
+                    if(Number_isNaN(result)) return 0;
+                    return result;
+                }
+                const xString = /*?*/ ECMAScript.ToString(x);
+                const yString = /*?*/ ECMAScript.ToString(y);
+                if(/*!*/ ECMAScript.IsLessThan(xString, yString, true)) {
+                    return -1;
+                }
+                if(/*!*/ ECMAScript.IsLessThan(yString, xString, true)) {
+                    return 1;
+                }
+                return 0;
+            }
+
+            static SortIndexedProperties(obj, length, sortCompare, holes) {
+                const items = [];
+                for(let k = 0; k < length; k++) {
+                    const propertyKey = /*!*/ k.toString(); //ECMAScript.ToString(𝔽(k));
+                    let kRead;
+                    if(holes == HoleMode.SKIP_HOLES) {
+                        kRead = /*?*/ obj["[[HasProperty]]"](propertyKey);
+                    }else {
+                        //Assert: holes == HoleMode.READ_THROUGH_HOLES
+                        kRead = true;
+                    }
+                    if(kRead) {
+                        const kValue = /*?*/ obj["[[Get]]"](propertyKey, obj);
+                        items.push(kValue);
+                    }
+                }
+                //Sort items using an implementation-defined sequence of calls to sortCompare.
+                //If any such call returns an abrupt completion,
+                //stop before performing any further calls to sortCompare and return that Completion Record.
+                // items.sort((x, y)=>/*?*/ sortCompare["[[Call]]"](undefined, [x, y])); //sure...
+                items.sort(sortCompare); //sure...
+                return items;
+            }
             
             static StringCreate(value, proto) {
                 const string = ECMAScript.MakeBasicObject(["[[Prototype]]", "[[Extensible]]", "[[StringData]]"]);
@@ -3153,6 +3207,15 @@
                 return new CompletionRecord(completionRecord["[[Type]]"], value, completionRecord["[[Target]]"]);
             }
 
+            static IsConcatSpreadable(obj) {
+                if(!(obj instanceof JavascriptObjectWrapper)) return false;
+                let spreadable = /*?*/ obj["[[Get]]"](ECMAScript["%Symbol.isConcatSpreadable%"], obj); //Get
+                if(spreadable != undefined) {
+                    return ECMAScript.ToBoolean(spreadable);
+                }
+                return /*?*/ ECMAScript.IsArray(obj);
+            }
+
             static ValidateAndApplyPropertyDescriptor(obj, propertyKey, extensible, propertyDesc, current) {
                 //Assert: propertyKey is a property key.
                 if(current == undefined) {
@@ -3232,12 +3295,33 @@
                 return true;
             }
 
+            static Set(obj, propertyKey, value, $throw) {
+                if(!obj["[[Set]]"](propertyKey, value, obj) && $throw) {
+                    throw TypeError(`Cannot assign to read only property '${propertyKey}' of '#<${GetConstructorName(obj)}>'`);
+                }
+                return undefined; //UNUSED
+            }
+
             static CreateDataPropertyOrThrow(obj, propertyKey, value) {
                 if(!obj["[[DefineOwnProperty]]"](propertyKey, new JavascriptDataProperty(true, true, true, value))) {
                     throw TypeError(`Cannot redefine property: ${propertyKey}`);
                 }
                 //UNUSED
                 return undefined;
+            }
+
+            static DeletePropertyOrThrow(obj, propertyKey) {
+                if(!obj["[[Delete]]"](propertyKey)) {
+                    //let spreadable = {
+                    //    0: 1,
+                    //    1: 2,
+                    //    length: 3,
+                    //};
+                    //Object.defineProperty(spreadable, "2", {value: 3, configurable: false, enumerable: true, writable: true});
+                    //Array.prototype.pop.call(spreadable); //Cannot delete property '2' of #<Object>
+                    throw TypeError(`Cannot delete property '${propertyKey}' of #<${GetConstructorName(obj)}>`);
+                }
+                return undefined; //UNUSED
             }
 
             static CreateArrayIterator(array, enumerateKind) {
@@ -8195,6 +8279,29 @@
                 return ECMAScript["?"](value);
             }
 
+            IteratorClose(iteratorRecord, completion) {
+                //Assert: iteratorRecord["[[Iterator]]"] instanceof JavascriptObjectWrapper
+                const iterator = iteratorRecord["[[Iterator]]"];
+                let innerResult = this.Completion(()=>ECMAScript.GetMethod(iterator, "return"));
+                if(innerResult["[[Type]]"] == CompletionKind.NORMAL) {
+                    let $return = innerResult["[[Value]]"];
+                    if($return == undefined) return ECMAScript["?"](completion);
+                    innerResult = this.Completion(()=>ECMAScript.Call($return, iterator));
+                }
+                if(completion["[[Type]]"] == CompletionKind.THROW) {
+                    return ECMAScript["?"](completion);
+                }
+                if(innerResult["[[Type]]"] == CompletionKind.THROW) {
+                    return ECMAScript["?"](innerResult);
+                }
+                if(!(innerResult["[[Value]]"] instanceof JavascriptObjectWrapper)) {
+                    //this isn't even reached in any code i've written so far so until i make async generators i wont know how to throw this one lol
+                    //https://tc39.es/ecma262/multipage/ecmascript-language-functions-and-classes.html#sec-generator-function-definitions-runtime-semantics-evaluation
+                    throw TypeError();
+                }
+                return ECMAScript["?"](completion);
+            }
+
             constructor() {
                 super();
                 //this.scope = {};
@@ -8908,6 +9015,82 @@
                             1, "at", [], this
                         );
 
+                        const $concat = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Array.prototype.concat(...items)
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const array = /*?*/ ECMAScript.ArraySpeciesCreate(obj, 0);
+                                let nextIndex = 0;
+                                argList.push(obj);
+                                for(const item of argList) {
+                                    let spreadable = /*?*/ ECMAScript.IsConcatSpreadable(item);
+                                    if(spreadable == true) {
+                                        const length = /*?*/ ECMAScript.LengthOfArrayLike(item);
+                                        if(nextIndex + length > 2**53 - 1) {
+                                            throw TypeError("Too many elements will be added to the array!");
+                                        }
+                                        for(let sourceIndex = 0; sourceIndex < length; nextIndex++, sourceIndex++) {
+                                            const propertyKey = /*!*/ sourceIndex.toString(); //ECMAScript.ToString(𝔽(sourceIndex));
+                                            if(/*?*/ item["[[HasProperty]]"](propertyKey) == true) {
+                                                const subElement = /*?*/ item["[[Get]]"](propertyKey, item); //Get
+                                                /*?*/ ECMAScript.CreateDataPropertyOrThrow(array, /*!*/ nextIndex.toString() /*ECMAScript.ToString(𝔽(nextIndex))*/, subElement);
+                                            }
+                                        }
+                                    }else {
+                                        //NOTE: item is added as a single item rather than spread.
+                                        if(nextIndex >= 2**53 - 1) {
+                                            throw TypeError("Too many elements will be added to the array!");
+                                        }
+                                        /*?*/ ECMAScript.CreateDataPropertyOrThrow(array, /*!*/ nextIndex.toString() /*ECMAScript.ToString(𝔽(nextIndex))*/, item);
+                                        nextIndex++;
+                                    }
+                                }
+                                if(!/*?*/ array["[[Set]]"]("length", nextIndex, array)) { //Set
+                                    throw TypeError(`Cannot assign to read only property '${nextIndex}' of '#<${GetConstructorName(array)}>'`);
+                                }
+                                return array;
+                            },
+                            1, "concat", [], this
+                        );
+
+                        const $copyWithin = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Array.prototype.copyWithin(target, start, end = this.length)
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                                let to = /*?*/ ECMAScript.ToClampedIndex(argList[0], length);
+                                let from = /*?*/ ECMAScript.ToClampedIndex(argList[1], length);
+                                const final = argList[2] == undefined ? length : /*?*/ ECMAScript.ToClampedIndex(argList[2], length);
+                                let count = Math.min(final - from, length - to);
+                                let direction;
+                                if(from < to && to < from + count) {
+                                    direction = -1;
+                                    from = from + count - 1;
+                                    to = to + count - 1;
+                                }else {
+                                    direction = 1;
+                                }
+                                while(count > 0) {
+                                    const fromKey = /*!*/ from.toString(); //ECMAScript.ToString(𝔽(from));
+                                    const toKey = /*!*/ to.toString(); //ECMAScript.ToString(𝔽(to));
+                                    if(/*?*/ obj["[[HasProperty]]"](fromKey) == true) {
+                                        const fromValue = /*?*/ obj["[[Get]]"](fromKey, obj);
+                                        //? Set
+                                        if(!obj["[[Set]]"](toKey, fromValue, obj)) {
+                                            throw TypeError(`Cannot assign to read only property '${toKey}' of '#<${GetConstructorName(obj)}>'`);
+                                        }
+                                    }else {
+                                        //Assert: obj["[[HasProperty]]"](fromKey) == false
+                                        //Perform ? DeletePropertyOrThrow(obj, toKey)
+                                        /*?*/ ECMAScript.DeletePropertyOrThrow(obj, toKey);
+                                    }
+                                    from += direction;
+                                    to += direction;
+                                    count--;
+                                }
+                                return obj;
+                            },
+                            2, "copyWithin", [], this
+                        )
+
                         const $entries = ECMAScript.CreateBuiltinFunction(
                             function(thisArg, argList, newTarget) {
                                 return ECMAScript.CreateArrayIterator(/*?*/ ECMAScript.ToObject(thisArg), EnumerateKind.KEY_VALUE);
@@ -8928,7 +9111,7 @@
                                     const propertyKey = k.toString(); //no point in calling ECMAScript.ToString because nothing special happens, we just need k as a string here!
                                     //const kPresent = /*?*/ obj["[[HasProperty]]"](propertyKey);
                                     if(obj["[[HasProperty]]"](propertyKey)) {
-                                        const kValue = /*?*/ obj["[[Get]]"](propertyKey, obj);
+                                        const kValue = /*?*/ obj["[[Get]]"](propertyKey, obj); //Get
                                         if(!ECMAScript.ToBoolean(/*?*/ callback["[[Call]]"](thisArg, [kValue, k, obj]))) { //not using ECMAScript.Call since it will again check if callback is callable!
                                             return false;
                                         }
@@ -9119,6 +9302,330 @@
                             0, "keys", [], this
                         );
 
+                        const $lastIndexOf = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Array.prototype.lastIndexOf(searchElement, fromIndex = this.length-1)
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                                if(length == 0) return -1;
+                                let k = argList[1] == undefined ? length - 1 : Math.min(/*?*/ ECMAScript.ToAbsoluteIndex(argList[1], length), length-1);
+                                for(k; k >= 0; k--) {
+                                    const propertyKey = /*!*/ k.toString(); /*ECMAScript.ToString(𝔽(k))*/
+                                    if(/*?*/ obj["[[HasProperty]]"](propertyKey) == true) {
+                                        const elementK = /*?*/ obj["[[Get]]"](propertyKey, obj) //Get
+                                        if(ECMAScript.IsStrictlyEqual(argList[0], elementK) == true) {
+                                            return k;
+                                        }
+                                    }
+                                }
+                                return -1;
+                            },
+                            1, "lastIndexOf", [], this
+                        );
+
+                        const $map = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Array.prototype.map(callback, thisArg = undefined)
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                                const callback = argList[0];
+                                if(!ECMAScript.IsCallable(callback)) {
+                                    ThrowIsCallableTypeError(callback);
+                                }
+                                const array = /*?*/ ECMAScript.ArraySpeciesCreate(obj, length);
+                                for(let k = 0; k < length; k++) {
+                                    const propertyKey = /*!*/ k.toString(); //ECMAScript.ToString(𝔽(k));
+                                    //const kPresent = /*?*/ obj["[[HasProperty]]"](propertyKey);
+                                    if(obj["[[HasProperty]]"](propertyKey) == true) {
+                                        const kValue = /*?*/ obj["[[Get]]"](propertyKey, obj); //Get
+                                        const mappedValue = /*?*/ callback["[[Call]]"](thisArg, [kValue, k, obj]); //not using ECMAScript.Call since it will again check if callback is callable!
+                                        /*?*/ ECMAScript.CreateDataPropertyOrThrow(array, propertyKey, mappedValue);
+                                    }
+                                }
+                                return array;
+                            },
+                            1, "map", [], this
+                        );
+
+                        const $pop = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                                if(length == 0) {
+                                    if(!obj["[[Set]]"]("length", +0, obj)) { //? Set
+                                        throw TypeError(`Cannot assign to read only property '0' of '#<${GetConstructorName(obj)}>'`);
+                                    }
+                                    return undefined;
+                                }
+                                //Assert: length > 0
+                                const newLength = length - 1;
+                                const index = /*!*/ newLength.toString(); //ECMAScript.ToString(newLength);
+                                const element = /*?*/ obj["[[Get]]"](index, obj); //Get
+                                /*?*/ ECMAScript.DeletePropertyOrThrow(obj, index);
+                                if(!obj["[[Set]]"]("length", newLength, obj)) { //? Set
+                                    throw TypeError(`Cannot assign to read only property '${newLength}' of '#<${GetConstructorName(obj)}>'`);
+                                }
+                                return element;
+                            },
+                            0, "pop", [], this
+                        );
+
+                        const $push = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                let length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                                if(length + argList.length > 2**53 - 1) {
+                                    throw TypeError("Too many elements will be added to the array!");
+                                }
+                                for(const item of argList) {
+                                    if(!obj["[[Set]]"](/*!*/ length.toString() /*ECMAScript.ToString(𝔽(length))*/, item, obj)) { //? Set
+                                        throw TypeError(`Cannot assign to read only property '${length.toString()}' of '#<${GetConstructorName(obj)}>'`);
+                                    }
+                                    length++;
+                                }
+                                return length;
+                            },
+                            1, "push", [], this
+                        );
+
+                        const $reduce = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Array.prototype.reduce(callback, initialValue = undefined)
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                                const callback = argList[0];
+                                if(!ECMAScript.IsCallable(callback)) {
+                                    ThrowIsCallableTypeError(callback);
+                                }
+                                if(length == 0 && argList[1] == undefined) {
+                                    //[].reduce(x=>x);
+                                    throw TypeError("Reduce of empty array with no initial value");
+                                }
+                                let k = 0;
+                                let accumulator = undefined;
+                                if(argList[1] != undefined) {
+                                    accumulator = argList[1];
+                                }else {
+                                    let kPresent = false;
+                                    while(!kPresent && k < length) {
+                                        const propertyKey = /*!*/ k.toString(); //ECMAScript.ToString(𝔽(k));
+                                        kPresent = /*?*/ obj["[[HasProperty]]"](propertyKey);
+                                        if(kPresent) {
+                                            accumulator = /*?*/ obj["[[Get]]"](propertyKey, obj); //Get
+                                        }
+                                        k++;
+                                    }
+                                    if(kPresent == false) {
+                                        //this should be the same error
+                                        //[,,].reduce(x=>x);
+                                        throw TypeError("Reduce of empty array with no initial value");
+                                    }
+                                }
+                                while(k < length) {
+                                    const propertyKey = /*!*/ k.toString(); //ECMAScript.ToString(𝔽(k));
+                                    if(/*?*/ obj["[[HasProperty]]"](propertyKey)) {
+                                        const kValue = /*?*/ obj["[[Get]]"](propertyKey, obj); //Get
+                                        accumulator = /*?*/ callback["[[Call]]"](undefined, [accumulator, kValue, k, obj]); //not using ECMAScript.Call since it will again check if callback is callable!
+                                    }
+                                    k++;
+                                }
+                                return accumulator;
+                            },
+                            1, "reduce", [], this
+                        );
+
+                        const $reduceRight = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Array.prototype.reduceRight(callback, initialValue = undefined)
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                                const callback = argList[0];
+                                if(!ECMAScript.IsCallable(callback)) {
+                                    ThrowIsCallableTypeError(callback);
+                                }
+                                if(length == 0 && argList[1] == undefined) {
+                                    //[].reduce(x=>x);
+                                    throw TypeError("Reduce of empty array with no initial value");
+                                }
+                                let k = length - 1;
+                                let accumulator = undefined;
+                                if(argList[1] != undefined) {
+                                    accumulator = argList[1];
+                                }else {
+                                    let kPresent = false;
+                                    while(!kPresent && k >= 0) {
+                                        const propertyKey = /*!*/ k.toString(); //ECMAScript.ToString(𝔽(k));
+                                        kPresent = /*?*/ obj["[[HasProperty]]"](propertyKey);
+                                        if(kPresent) {
+                                            accumulator = /*?*/ obj["[[Get]]"](propertyKey, obj); //Get
+                                        }
+                                        k--;
+                                    }
+                                    if(kPresent == false) {
+                                        //this should be the same error
+                                        //[,,].reduce(x=>x);
+                                        throw TypeError("Reduce of empty array with no initial value");
+                                    }
+                                }
+                                while(k >= 0) {
+                                    const propertyKey = /*!*/ k.toString(); //ECMAScript.ToString(𝔽(k));
+                                    if(/*?*/ obj["[[HasProperty]]"](propertyKey)) {
+                                        const kValue = /*?*/ obj["[[Get]]"](propertyKey, obj); //Get
+                                        accumulator = /*?*/ callback["[[Call]]"](undefined, [accumulator, kValue, k, obj]); //not using ECMAScript.Call since it will again check if callback is callable!
+                                    }
+                                    k--;
+                                }
+                                return accumulator;
+                            },
+                            1, "reduceRight", [], this
+                        );
+
+                        const $reverse = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Array.prototype.reverse()
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                                const middle = Math.floor(length/2);
+                                let lower = 0;
+                                while(lower != middle) {
+                                    const upper = length - lower - 1;
+                                    const upperP = /*!*/ upper.toString() //ECMAScript.ToString(𝔽(upper));
+                                    const lowerP = /*!*/ lower.toString() //ECMAScript.ToString(𝔽(lower));
+                                    const lowerExists = /*?*/ obj["[[HasProperty]]"](lowerP);
+                                    let lowerValue, upperValue;
+                                    if(lowerExists) {
+                                        lowerValue = /*?*/ obj["[[Get]]"](lowerP, obj); //Get
+                                    }
+                                    const upperExists = /*?*/ obj["[[HasProperty]]"](upperP);
+                                    if(upperExists) {
+                                        upperValue = /*?*/ obj["[[Get]]"](upperP, obj);
+                                    }
+                                    if(lowerExists && upperExists) {
+                                        /*?*/ ECMAScript.Set(obj, lowerP, upperValue, true);
+                                        /*?*/ ECMAScript.Set(obj, upperP, lowerValue, true);
+                                    }else if(!lowerExists && upperExists) {
+                                        /*?*/ ECMAScript.Set(obj, lowerP, upperValue, true);
+                                        /*?*/ ECMAScript.DeletePropertyOrThrow(obj, upperP);
+                                    }else if(lowerExists && !upperExists) {
+                                        /*?*/ ECMAScript.DeletePropertyOrThrow(obj, lowerP);
+                                        /*?*/ ECMAScript.Set(obj, upperP, lowerValue, true);
+                                    }else {
+                                        //Assert: !lowerExists && !upperExists
+                                        //NOTE: No action is required.
+                                    }
+                                    lower++;
+                                }
+                                return obj;
+                            },
+                            0, "reverse", [], this
+                        );
+
+                        const $shift = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                                if(length == 0) {
+                                    /*?*/ ECMAScript.Set(obj, "length", +0, true);
+                                    return undefined;
+                                }
+                                const first = /*?*/ obj["[[Get]]"]("0", obj); //Get
+                                for(let k = 1; k < length; k++) {
+                                    const from = /*!*/ k.toString() //ECMAScript.ToString(𝔽(k));
+                                    const to = /*!*/ (k-1).toString() //ECMAScript.ToString(𝔽(k-1));
+                                    if(/*?*/ obj["[[HasProperty]]"](from, obj)) {
+                                        const fromValue = /*?*/ obj["[[Get]]"](from, obj); //Get
+                                        /*?*/ ECMAScript.Set(obj, to, fromValue, true);
+                                    }else {
+                                        //Assert: obj["[[HasProperty]]"](from, obj) == false
+                                        /*?*/ ECMAScript.DeletePropertyOrThrow(obj, to);
+                                    }
+                                }
+                                /*?*/ ECMAScript.DeletePropertyOrThrow(obj, /*!*/ (length-1).toString() /*ECMAScript.ToString(𝔽(length-1))*/);
+                                /*?*/ ECMAScript.Set(obj, "length", length-1, true);
+                                return first;
+                            },
+                            0, "shift", [], this
+                        );
+
+                        const $slice = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Array.prototype.slice(start, end)
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                                let k = /*?*/ ECMAScript.ToClampedIndex(argList[0], length);
+                                const final = argList[1] == undefined ? length : /*?*/ ECMAScript.ToClampedIndex(argList[1], length);
+                                const count = Math.max(final - k, 0);
+                                const array = /*?*/ ECMAScript.ArraySpeciesCreate(obj, count);
+                                let resultIndex = 0;
+                                while(k < final) {
+                                    const propertyKey = /*!*/ k.toString(); //ECMAScript.ToString(𝔽(k));
+                                    if(/*?*/ obj["[[HasProperty]]"](propertyKey, obj)) {
+                                        const kValue = /*?*/ obj["[[Get]]"](propertyKey, obj);
+                                        /*?*/ ECMAScript.CreateDataPropertyOrThrow(array, /*!*/ resultIndex.toString() /*ECMAScript.ToString(𝔽(resultIndex))*/, kValue);
+                                    }
+                                    k++;
+                                    resultIndex++;
+                                }
+                                /*?*/ ECMAScript.Set(array, "length", resultIndex, true);
+                                return array;
+                            },
+                            2, "slice", [], this
+                        );
+
+                        const $some = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                                const callback = argList[0];
+                                if(!ECMAScript.IsCallable(callback)) {
+                                    ThrowIsCallableTypeError(callback);
+                                }
+                                for(let k = 0; k < length; k++) {
+                                    //const propertyKey = /*!*/ ECMAScript.ToString(𝔽(k));
+                                    const propertyKey = k.toString(); //no point in calling ECMAScript.ToString because nothing special happens, we just need k as a string here!
+                                    //const kPresent = /*?*/ obj["[[HasProperty]]"](propertyKey);
+                                    if(/*?*/ obj["[[HasProperty]]"](propertyKey)) {
+                                        const kValue = /*?*/ obj["[[Get]]"](propertyKey, obj); //Get
+                                        if(ECMAScript.ToBoolean(/*?*/ callback["[[Call]]"](thisArg, [kValue, k, obj]))) { //not using ECMAScript.Call since it will again check if callback is callable!
+                                            return true;
+                                        }
+                                    }
+                                }
+                                return false;
+                            },
+                            1, "some", [], this
+                        );
+
+                        const $sort = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Array.prototype.sort(comparator)
+                                const comparator = argList[0];
+                                if(comparator != undefined && !ECMAScript.IsCallable(comparator)) {
+                                    //ThrowIsCallableTypeError(comparator);
+                                    throw TypeError(`The comparison function must either be a function or undefined: ${ECMAScript.ToString(comparator)}`); //the real error message doesn't call ToString but i can't be bothered to do exactly what it does because the error messages are so inconsistent! some of them say stuff like #<Object> yet also [object Array]
+                                }
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                                //new abstract closure with parameters (x, y)
+                                //const sortCompare = ECMAScript.CreateBuiltinFunction(
+                                //    function(thisArg, argList, newTarget) {
+                                //        return /*?*/ ECMAScript.CompareArrayElements(argList[0], argList[1], comparator);
+                                //    },
+                                //    2, "", [], this
+                                //);
+                                //wait they might've meant in the host language lol
+                                function sortCompare(x, y) {
+                                    return /*?*/ ECMAScript.CompareArrayElements(x, y, comparator);
+                                }
+                                //5.
+                                const sortedList = /*?*/ ECMAScript.SortIndexedProperties(obj, length, sortCompare, HoleMode.SKIP_HOLES);
+                                let j = 0;
+                                for(j; j < sortedList.length; j++) {
+                                    /*?*/ ECMAScript.Set(obj, /*!*/ j.toString() /*ECMAScript.ToString(𝔽(j))*/, sortedList[j], true);
+                                }
+                                //NOTE: The call to SortIndexedProperties in step 5 uses skip-holes. The remaining indices are deleted to preserve the number of holes that were detected and excluded from the sort.
+                                while(j < length) {
+                                    /*?*/ ECMAScript.DeletePropertyOrThrow(obj, /*!*/ j.toString() /*ECMAScript.ToString(𝔽(j))*/);
+                                    j++;
+                                }
+                                return obj;
+                            },
+                            1, "sort", [], this
+                        );
+
                         const $toString = ECMAScript.CreateBuiltinFunction(
                             function(thisArg, argList, newTarget) {
                                 const array = ECMAScript.ToObject(thisArg);
@@ -9231,9 +9738,9 @@
 
                         //holy FUCK there's too many array methods
                         arrayProto.SetDataProperty("at", true, false, true, $at);
-                        //arrayProto.SetDataProperty("concat", true, false, true, $concat);
+                        arrayProto.SetDataProperty("concat", true, false, true, $concat);
                         arrayProto.SetDataProperty("constructor", true, false, true, "Array() {}");
-                        //arrayProto.SetDataProperty("copyWithin", true, false, true, $copyWithin);
+                        arrayProto.SetDataProperty("copyWithin", true, false, true, $copyWithin);
                         arrayProto.SetDataProperty("entries", true, false, true, $entries);
                         arrayProto.SetDataProperty("every", true, false, true, $every);
                         arrayProto.SetDataProperty("fill", true, false, true, $fill);
@@ -9249,17 +9756,17 @@
                         arrayProto.SetDataProperty("indexOf", true, false, true, $indexOf);
                         arrayProto.SetDataProperty("join", true, false, true, $join);
                         arrayProto.SetDataProperty("keys", true, false, true, $keys);
-                        //arrayProto.SetDataProperty("lastIndexOf", true, false, true, $lastIndexOf);
-                        //arrayProto.SetDataProperty("map", true, false, true, $map);
-                        //arrayProto.SetDataProperty("pop", true, false, true, $pop);
-                        //arrayProto.SetDataProperty("push", true, false, true, $push);
-                        //arrayProto.SetDataProperty("reduce", true, false, true, $reduce);
-                        //arrayProto.SetDataProperty("reduceRight", true, false, true, $reduceRight);
-                        //arrayProto.SetDataProperty("reverse", true, false, true, $reverse);
-                        //arrayProto.SetDataProperty("shift", true, false, true, $shift);
-                        //arrayProto.SetDataProperty("slice", true, false, true, $slice);
-                        //arrayProto.SetDataProperty("some", true, false, true, $some);
-                        //arrayProto.SetDataProperty("sort", true, false, true, $sort);
+                        arrayProto.SetDataProperty("lastIndexOf", true, false, true, $lastIndexOf);
+                        arrayProto.SetDataProperty("map", true, false, true, $map);
+                        arrayProto.SetDataProperty("pop", true, false, true, $pop);
+                        arrayProto.SetDataProperty("push", true, false, true, $push);
+                        arrayProto.SetDataProperty("reduce", true, false, true, $reduce);
+                        arrayProto.SetDataProperty("reduceRight", true, false, true, $reduceRight);
+                        arrayProto.SetDataProperty("reverse", true, false, true, $reverse);
+                        arrayProto.SetDataProperty("shift", true, false, true, $shift);
+                        arrayProto.SetDataProperty("slice", true, false, true, $slice);
+                        arrayProto.SetDataProperty("some", true, false, true, $some);
+                        arrayProto.SetDataProperty("sort", true, false, true, $sort);
                         //arrayProto.SetDataProperty("splice", true, false, true, $splice);
                         //arrayProto.SetDataProperty("toLocaleString", true, false, true, $toLocaleString);
                         //arrayProto.SetDataProperty("toReversed", true, false, true, $toReversed);
@@ -10196,12 +10703,77 @@
                     1, "sqrt", [], this
                 ));
                 //uh oh sumPrecise is special
-                //$Math.SetDataProperty("sumPrecise", true, false, true, ECMAScript.CreateBuiltinFunction(
-                //    function(thisArg, argList, newTarget) {
-                //        return Math.sumPrecise(argList[0]);
-                //    },
-                //    1, "sumPrecise", [], this
-                //));
+                $Math.SetDataProperty("sumPrecise", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) { //Math.sumPrecise(items)
+                        //return Math.sumPrecise(argList[0]);
+                        //Perform ? RequireObjectCoercible
+                        if(argList[0] == null || argList[0] == undefined) {
+                            throw TypeError("Math.sumPrecise called on null or undefined");
+                        }
+                        const iteratorRecord = /*?*/ ECMAScript.GetIterator(argList[0], IteratorKind.SYNC);
+                        class State {
+                            static MINUS_ZERO = 1;
+                            static NOT_A_NUMBER = 2;
+                            static MINUS_INFINITY = 3;
+                            static PLUS_INFINITY = 4;
+                            static FINITE = 5;
+                        }
+                        let state = State.MINUS_ZERO;
+                        let sum = 0;
+                        let count = 0;
+                        let next = undefined;
+                        while(next != DONE) {
+                            next = /*?*/ this.realm.IteratorStepValue(iteratorRecord);
+                            if(next != DONE) {
+                                if(count >= 2**53 - 1) {
+                                    //NOTE: This step is not expected to be reached in practice and is included only so that implementations may rely on inputs being “reasonably sized” without violating this specification.
+                                    let error = new CompletionRecord(CompletionKind.THROW, new RangeError("Less than 2**53 values may be supplied to Math.sumPrecise"), undefined); //i'm not gonna attempt to replicate this error lol
+                                    return /*?*/ this.realm.IteratorClose(iteratorRecord, error);
+                                }
+                                if(typeof next != "number") {
+                                    let error = new CompletionRecord(CompletionKind.THROW, new TypeError(`Type of 'Iterator value' must be 'number', found '${typeof next}'`), undefined);
+                                    return /*?*/ this.realm.IteratorClose(iteratorRecord, error);
+                                }
+                                let n = next;
+                                if(state != State.NOT_A_NUMBER) {
+                                    if(Number_isNaN(n)) {
+                                        state = State.NOT_A_NUMBER;
+                                    }else if(n == HostLanguage.Infinity) {
+                                        if(state == State.MINUS_INFINITY) {
+                                            state = State.NOT_A_NUMBER;
+                                        }else {
+                                            state = State.PLUS_INFINITY;
+                                        }
+                                    }else if(n == -HostLanguage.Infinity) {
+                                        if(state == State.PLUS_INFINITY) {
+                                            state = State.NOT_A_NUMBER;
+                                        }else {
+                                            state = State.MINUS_INFINITY;
+                                        }
+                                    }else if((n > 0 || n < 0 || (n == 0 && Object.is(n, 0))) && (state == State.MINUS_ZERO || state == State.FINITE)) {
+                                        state = State.FINITE;
+                                        sum = sum + n;
+                                    }
+                                }
+                                count++;
+                            }
+                        }
+                        if(state == State.NOT_A_NUMBER) {
+                            return HostLanguage.NaN;
+                        }
+                        if(state == State.PLUS_INFINITY) {
+                            return HostLanguage.Infinity;
+                        }
+                        if(state == State.MINUS_INFINITY) {
+                            return -HostLanguage.Infinity;
+                        }
+                        if(state == State.MINUS_ZERO) {
+                            return -0;
+                        }
+                        return sum;
+                    },
+                    1, "sumPrecise", [], this
+                ));
                 $Math.SetDataProperty("tan", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
                         const x = ECMAScript.ToNumber(argList[0]);
