@@ -189,7 +189,7 @@
                     // const r = Math.sqrt((particle2.x - particle.x) ** 2 + (particle2.y - particle.y) ** 2);
                     // console.assert(r == diff.getMagnitude(), "wtf am i doing lol");
                     const r = diff.getMagnitude();
-                    if(r == 0) continue;
+                    if(r == 0) continue; //NaN propagation go CRAZY without this line
                     const q1 = particle.charge * 10 ** -6; //remember, they're in micro coulombs!
                     const q2 = particle2.charge * 10 ** -6; //remember, they're in micro coulombs!
                     const F = Math.abs((k*q1*q2)/r**2); //FAWK this is just the magnitude

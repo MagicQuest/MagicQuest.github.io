@@ -137,7 +137,7 @@
             "while": "class Test extends Object {\n    constructor() {\n        while(true) super();\n    }\n}\nnew Test;",
             "iterator": "const iterator = {\n    list: [1, 2, 3],\n    i: 0,\n    next() {\n        return {value: this.list[this.i], done: ++this.i > this.list.length};\n    },\n    [Symbol.iterator]() {\n        return this;\n    },\n};\nfor(const value of iterator) {\n    console.log(value);\n}",
             "compvsfilter": "const arr = [1,2,3,4,5,6];\n\nconst comp = [for (const v of arr) if(v%2) v];\nconst filter = arr.filter(v=>v%2);\n\nconsole.larp(comp);\nconsole.larp(filter);",
-            "spreadwithiteratorcameobutnotactuallyallofthembecausewedonthavedestructuring": "if(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\n\nfunction doRestStuff(...rest) {\n    console.larp(rest);\n}\n\nconst iterator = {\n    list: [1, 2, 3],\n    i: 0,\n    next() {\n        return {value: this.list[this.i], done: ++this.i > this.list.length};\n    },\n    [Symbol.iterator]() {\n        //reset so we can keep spreading lol (Symbol.iterator is only accessed at the very beginning of iteration!)\n        this.i = 0;\n        return this;\n    },\n};\n\nconsole.larp([...iterator]);\nconsole.log(...iterator);\nconsole.larp({...iterator});\ndoRestStuff(1, 2, 3, \"hello world!\",);",
+            "spreadwithiteratorcameobutnotactuallyallofthembecausewedonthavedestructuring": "if(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\n\nconst doRestStuff = (...rest) => {\n    console.larp(rest);\n};\n\nconst iterator = {\n    list: [1, 2, 3],\n    i: 0,\n    next() {\n        return {value: this.list[this.i], done: ++this.i > this.list.length};\n    },\n    [Symbol.iterator]() {\n        //reset so we can keep spreading lol (Symbol.iterator is only accessed at the very beginning of iteration!)\n        this.i = 0;\n        return this;\n    },\n};\n\nconsole.larp([...iterator]);\nconsole.log(...iterator);\nconsole.larp({...iterator});\ndoRestStuff(1, 2, 3, \"hello world!\",);",
             "concattest": "const spreadable = {\n    0: 1,\n    1: 2,\n    2: 3,\n    length: 3,\n    [Symbol.isConcatSpreadable]: true\n};\n[].concat(spreadable);",
             "objectliterals": "let variable = \"variable\";\nlet another_obj = {\"another_obj_key\": \"another_obj_value\"};\nlet x = {\n    variable,\n    y: \"identifier name property\",\n    \"string\": \"string property\",\n    0: \"numeric property\",\n    [\"computed property\"]: \"what the key said.\",\n    method() {\n    },\n    get [\"x\"]() {\n        return 421;\n    },\n    *generator() {\n    },\n    async 5() {\n    },\n    async* \"hello_generator\"() {\n    },\n    set x(newValue) {\n        console.log(newValue);\n    },\n    ...another_obj\n};\nconsole.larp(x, x.x, x=21);",
             "classes": "class all_class_properties {\n#private_field = \"private_field\";\n// #private_field; // Identifier #private_field has already been declared\n#private_method() {\n    return this.#private_field;\n};\n\nstatic #private_static_field = \"???\";\n// static #private_field; // Identifier #private_field has already been declared\nstatic #private_static_method() {\n    return \"is this even callable?\";\n};\n\nfield = \"access instance field\";\nmethod() {\n    return this.field;\n};\n\nstatic field = \"access constructor (static) field\";\nstatic method() {\n    return this.field;\n};\n\nstatic {\n    this.another_static_field = \"Hello World from this static initialization block!\";\n};\n\nconstructor() {\n    console.log(this.constructor.name, \"instantiated\");\n};\n}",
@@ -190,11 +190,12 @@
             return new Expected(undefined, error);
         }
 
-        class ParseError {
+        class ParseError extends Error {
             line;
             char;
             reason;
             constructor(line, char, reason) {
+                super(reason);
                 this.line = line;
                 this.char = char;
                 this.reason = reason;
@@ -2142,7 +2143,7 @@
 
         class ClassStatement extends Statement {
             /** @type {Token | false} */
-            gender;
+            genderToken;
             /** @type {Expression} */
             classHeritage;
             /** @type {Map<any, any>} */
@@ -2156,9 +2157,9 @@
             /** @type {String} */
             sourceText;
 
-            constructor(gender, classHeritage, properties, constructor, classBinding, className, sourceText) {
+            constructor(genderToken, classHeritage, properties, constructor, classBinding, className, sourceText) {
                 super();
-                this.gender = gender;
+                this.genderToken = genderToken;
                 this.classHeritage = classHeritage;
                 this.properties = properties;
                 this.$constructor = constructor;
@@ -2277,6 +2278,11 @@
             static READ_THROUGH_HOLES = 2;
         }
 
+        class ValidElementTypes {
+            static ALL = 1;
+            static PROPERTY_KEY = 2;
+        }
+
         //helper
         function GetConstructorName(/** @type {JavascriptObjectWrapper} */ obj) {
             const ctor = obj["[[Get]]"]("constructor", obj);
@@ -2311,6 +2317,41 @@
                 err = `${typeof func} ${func} is not a function`;
             }
             throw TypeError(err);
+        }
+
+        function ThrowArrayLengthSafeIntegerError() {
+            throw TypeError("Too many elements will be added to the array!");
+        }
+
+        //to get the error message righter
+        //i was worried about the placement of this function because i reference ECMAScript before it's defined, however, since we don't call the function before then, it's all good :) (temporal dead zone and all that)
+        function SpecialErrorToString(value) {
+            if(value instanceof JavascriptObjectWrapper) {
+                const toString = value["[[Get]]"]("toString", value);
+                //if(toString) {
+                //    //i just put Completion as a static method of ECMAScript just to realize that v8 doesn't even do that lol
+                //    //if you throw here it just shows THAT error
+                //    //[].with({toString() {throw Error()}}); //Uncaught Error
+                //    //or maybe that was ECMAScript.ToNumber...
+                //}else {
+                //    return ECMAScript["%Object.prototype.toString%"]["[[Call]]"](arg, []);
+                //}
+
+                if(toString != ECMAScript["%Object.prototype.toString%"]) {
+                    return ECMAScript["%Object.prototype.toString%"]["[[Call]]"](value, []);
+                }else {
+                    return `#<${GetConstructorName(value)}>`;
+                }
+            }else if(typeof value == "symbol") {
+                return value.toString();
+            }else {
+                return ECMAScript.ToString(value);
+            }
+        }
+
+        function IsProxy(arg) {
+            // return arg["[[Get]]"] == ExoticProxyObject.prototype["[[GetPrototypeOf]]"];
+            return "[[ProxyHandler]]" in arg;
         }
 
         //important abstract operations
@@ -2421,7 +2462,7 @@
                 //DefineOwnProperty
                 let length;
                 for(length = 0; length < paramList.length; length++) {
-                    if(paramList[length].default) { //parameters with default values don't count
+                    if(paramList[length].default || paramList[length].rest) { //parameters with default values (AND REST PARAMETERS) don't count (anything after parameters with default values are assumed to be optional with their default being undefined)
                         break;
                     }
                 }
@@ -2947,7 +2988,8 @@
                     return true;
                 }
                 //is a Proxy exotic object
-                if(arg["[[Get]]"] == ExoticProxyObject["[[Get]]"]) {
+                //if(arg["[[Get]]"] == ExoticProxyObject.prototype["[[GetPrototypeOf]]"]) {
+                if(IsProxy(arg)) {
                     //const revocable = Proxy.revocable({}, {});
                     //revocable.revoke();
                     //Array.isArray(revocable.proxy);
@@ -3026,6 +3068,41 @@
                 items.sort(sortCompare); //sure...
                 return items;
             }
+
+            static FlattenIntoArray(target, source, sourceLength, start, depth, mapperFunc = undefined, thisArg = undefined) {
+                //mapperFunc && Assert: ECMAScript.IsCallable(mapperFunc) && thisArg && depth == 1
+                let targetIndex = start;
+                for(let sourceIndex = 0; sourceIndex < sourceLength; sourceIndex++) {
+                    const propertyKey = /*!*/ sourceIndex.toString(); //ECMAScript.ToString(𝔽(sourceIndex));
+                    if(/*?*/ source["[[HasProperty]]"](propertyKey)) {
+                        let element = /*?*/ source["[[Get]]"](propertyKey, source);
+                        if(mapperFunc) {
+                            element = /*?*/ mapperFunc["[[Call]]"](thisArg, [element, sourceIndex, source]);
+                        }
+                        let shouldFlatten = false;
+                        if(depth > 0) {
+                            shouldFlatten = /*?*/ ECMAScript.IsArray(element);
+                        }
+                        if(shouldFlatten) {
+                            let newDepth;
+                            if(depth == HostLanguage.Infinity) {
+                                newDepth = HostLanguage.Infinity;
+                            }else {
+                                newDepth = depth - 1;
+                            }
+                            const elementLength = /*?*/ ECMAScript.LengthOfArrayLike(element);
+                            targetIndex = /*?*/ ECMAScript.FlattenIntoArray(target, element, elementLength, targetIndex, newDepth);
+                        }else {
+                            if(targetIndex >= 2**53 - 1) {
+                                ThrowArrayLengthSafeIntegerError();
+                            }
+                            /*?*/ ECMAScript.CreateDataPropertyOrThrow(target, /*!*/ targetIndex.toString() /*ECMAScript.ToString(𝔽(targetIndex))*/, element);
+                            targetIndex++;
+                        }
+                    }
+                }
+                return targetIndex;
+            }
             
             static StringCreate(value, proto) {
                 const string = ECMAScript.MakeBasicObject(["[[Prototype]]", "[[Extensible]]", "[[StringData]]"]);
@@ -3039,6 +3116,26 @@
                     throw TypeError(`Cannot redefine property: length`);
                 }
                 return string;
+            }
+
+            static ProxyCreate(target, handler) {
+                if(!(target instanceof JavascriptObjectWrapper)) {
+                    throw TypeError("Cannot create proxy with a non-object as target or handler");
+                }
+                if(!(handler instanceof JavascriptObjectWrapper)) {
+                    throw TypeError("Cannot create proxy with a non-object as target or handler");
+                }
+                const proxy = ECMAScript.MakeBasicObject(["[[ProxyHandler]]", "[[ProxyTarget]]"], ExoticProxyObject);
+                //Step 4. is handled by ExoticProxyObject
+                if(ECMAScript.IsCallable(target)) {
+                    proxy["[[Call]]"] = ExoticProxyObject["[[Call]]"];
+                    if("[[Construct]]" in target) {
+                        proxy["[[Construct]]"] = ExoticProxyObject["[[Construct]]"];
+                    }
+                }
+                proxy["[[ProxyTarget]]"] = target;
+                proxy["[[ProxyHandler]]"] = handler;
+                return proxy;
             }
 
             static CreateUnmappedArgumentsObject(argList) {
@@ -3191,6 +3288,21 @@
                 return labelSet.indexOf(completion["[[Target]]"]) != -1;
             }
 
+            //in the specification, this abstract operation only asserts that the first parameter is, in fact, a completion record, unlike what i've written
+            static Completion(lambda) {
+                let result;
+                try {
+                    result = lambda();
+                }catch(abrupt) {
+                    if(abrupt instanceof CompletionRecord) {
+                        return abrupt;
+                    }else {
+                        return new CompletionRecord(CompletionKind.THROW, abrupt, undefined);
+                    }
+                }
+                return new CompletionRecord(CompletionKind.NORMAL, result, undefined);
+            }
+
             static ["?"](record) {
                 if(record["[[Type]]"] == CompletionKind.NORMAL) {
                     return record["[[Value]]"];
@@ -3205,6 +3317,100 @@
                     return ECMAScript["?"](completionRecord);
                 }
                 return new CompletionRecord(completionRecord["[[Type]]"], value, completionRecord["[[Target]]"]);
+            }
+
+            /** 
+             * @param {VariableDeclarationStatement} identifierDeclaration
+             * @param {EnvironmentRecord} envRecord
+             */
+            static ForDeclarationBindingInstantiation(identifierDeclaration, envRecord) {
+                //for(const name of identifierDeclaration...)
+                if(identifierDeclaration.qualifier.value == "const" /*&& also if using or await using*/) {
+                    envRecord.CreateImmutableBinding(identifierDeclaration.name, true);
+                }else {
+                    envRecord.CreateMutableBinding(name, false);
+                }
+                return undefined; //UNUSED
+            }
+
+            static IteratorNext(iteratorRecord, value) {
+                let result;
+                if(value == undefined) {
+                    result = ECMAScript.Completion(()=>ECMAScript.Call(iteratorRecord["[[NextMethod]]"], iteratorRecord["[[Iterator]]"]));
+                }else {
+                    result = ECMAScript.Completion(()=>ECMAScript.Call(iteratorRecord["[[NextMethod]]"], iteratorRecord["[[Iterator]]"], [value]));
+                }
+                if(result["[[Type]]"] == CompletionKind.THROW) {
+                    iteratorRecord["[[Done]]"] = true;
+                    //return ? result
+                    throw result;
+                }
+                result = /*!*/ result["[[Value]]"];
+                if(!(result instanceof JavascriptObjectWrapper)) {
+                    iteratorRecord["[[Done]]"] = true;
+                    //const iterator = {[Symbol.iterator]() {return this;}, next() {}};
+                    //[...iterator];
+                    throw TypeError(`Iterator result ${result} is not an object`);
+                }
+                return result;
+            }
+
+            static IteratorComplete(iteratorRecord) {
+                return ECMAScript.ToBoolean(/*?*/ iteratorRecord["[[Get]]"]("done", iteratorRecord));
+            }
+
+            static IteratorStep(iteratorRecord) {
+                const result = /*?*/ ECMAScript.IteratorNext(iteratorRecord);
+                let done = ECMAScript.Completion(()=>ECMAScript.IteratorComplete(result));
+                if(done["[[Type]]"] == CompletionKind.THROW) {
+                    iteratorRecord["[[Done]]"] = true;
+                    //return ? done
+                    throw done;
+                }
+                done = /*!*/ done["[[Value]]"];
+                if(done == true) {
+                    iteratorRecord["[[Done]]"] = true;
+                    return DONE;
+                }
+                return result;
+            }
+
+            //this doesn't HAVE to be its own function
+            static IteratorValue(iteratorResult) {
+                return /*?*/ iteratorResult["[[Get]]"]("value", iteratorResult); //Get
+            }
+
+            static IteratorStepValue(iteratorRecord) {
+                const result = /*?*/ ECMAScript.IteratorStep(iteratorRecord);
+                if(result == DONE) return DONE;
+                let value = ECMAScript.Completion(()=>ECMAScript.IteratorValue(result));
+                if(value["[[Type]]"] == CompletionKind.THROW) {
+                    iteratorRecord["[[Done]]"] = true;
+                }
+                return ECMAScript["?"](value);
+            }
+
+            static IteratorClose(iteratorRecord, completion) {
+                //Assert: iteratorRecord["[[Iterator]]"] instanceof JavascriptObjectWrapper
+                const iterator = iteratorRecord["[[Iterator]]"];
+                let innerResult = ECMAScript.Completion(()=>ECMAScript.GetMethod(iterator, "return"));
+                if(innerResult["[[Type]]"] == CompletionKind.NORMAL) {
+                    let $return = innerResult["[[Value]]"];
+                    if($return == undefined) return ECMAScript["?"](completion);
+                    innerResult = ECMAScript.Completion(()=>ECMAScript.Call($return, iterator));
+                }
+                if(completion["[[Type]]"] == CompletionKind.THROW) {
+                    return ECMAScript["?"](completion);
+                }
+                if(innerResult["[[Type]]"] == CompletionKind.THROW) {
+                    return ECMAScript["?"](innerResult);
+                }
+                if(!(innerResult["[[Value]]"] instanceof JavascriptObjectWrapper)) {
+                    //this isn't even reached in any code i've written so far so until i make async generators i wont know how to throw this one lol
+                    //https://tc39.es/ecma262/multipage/ecmascript-language-functions-and-classes.html#sec-generator-function-definitions-runtime-semantics-evaluation
+                    throw TypeError();
+                }
+                return ECMAScript["?"](completion);
             }
 
             static IsConcatSpreadable(obj) {
@@ -3871,12 +4077,14 @@
                 if(obj["[[HasProperty]]"]("get")) {
                     const getter = obj["[[Get]]"]("get", obj);
                     //Object.prototype.toString.call([]); // [object Array]
-                    if(!ECMAScript.IsCallable(getter) && getter != undefined) throw TypeError(`Getter must be a function: ${ECMAScript["%Object.prototype%"].properties.get("toString").value["[[Call]]"](getter, [])}`); //Object.create(Object.prototype, {x: {enumerable: true, configurable: true, get: 2, set: undefined}});
+                    //ECMAScript["%Object.prototype%"].properties.get("toString").value["[[Call]]"](getter, [])
+                    if(!ECMAScript.IsCallable(getter) && getter != undefined) throw TypeError(`Getter must be a function: ${SpecialErrorToString(getter)}`); //Object.create(Object.prototype, {x: {enumerable: true, configurable: true, get: 2, set: undefined}});
                     propertyDesc.getter = getter;
                 }
                 if(obj["[[HasProperty]]"]("set")) {
                     const setter = obj["[[Get]]"]("get", obj);
-                    if(!ECMAScript.IsCallable(setter) && setter != undefined) throw TypeError(`Setter must be a function: ${ECMAScript["%Object.prototype%"].properties.get("toString").value["[[Call]]"](setter, [])}`); //Object.create(Object.prototype, {x: {enumerable: true, configurable: true, get: undefined, set: 2}});
+                    //ECMAScript["%Object.prototype%"].properties.get("toString").value["[[Call]]"](setter, [])
+                    if(!ECMAScript.IsCallable(setter) && setter != undefined) throw TypeError(`Setter must be a function: ${SpecialErrorToString(setter)}`); //Object.create(Object.prototype, {x: {enumerable: true, configurable: true, get: undefined, set: 2}});
                     propertyDesc.setter = setter;
                 }
                 if(("getter" in propertyDesc || "setter" in propertyDesc) && ("value" in propertyDesc || "writable" in propertyDesc)) {
@@ -3912,6 +4120,40 @@
                 return obj;
             }
 
+            static CompletePropertyDescriptor(propertyDesc) {
+                const like = {value: undefined, writable: false, getter: undefined, setter: undefined, enumerable: false, configurable: false};
+                //IsGenericDescriptor
+                const IsGenericDescriptor = !("writable" in propertyDesc || "value" in propertyDesc || "getter" in propertyDesc || "setter" in propertyDesc);
+                if(IsGenericDescriptor || "writable" in propertyDesc || "value" in propertyDesc) { //IsDataDescriptor
+                    if(!("value" in propertyDesc)) {
+                        propertyDesc.value = like.value;
+                    }
+                    if(!("writable" in propertyDesc)) {
+                        propertyDesc.writable = like.writable;
+                    }
+                }else {
+                    if(!("getter" in propertyDesc)) {
+                        propertyDesc.getter = like.getter;
+                    }
+                    if(!("setter" in propertyDesc)) {
+                        propertyDesc.setter = like.setter;
+                    }
+                }
+                if(!("enumerable" in propertyDesc)) {
+                    propertyDesc.enumerable = like.enumerable;
+                }
+                if(!("configurable" in propertyDesc)) {
+                    propertyDesc.configurable = like.configurable;
+                }
+                return undefined; //UNUSED
+            }
+
+            //sure man.
+            static IsCompatiblePropertyDescriptor(extensible, propertyDesc, current) {
+                return ECMAScript.ValidateAndApplyPropertyDescriptor(undefined, "", extensible, propertyDesc, current);
+            }
+
+            //apparently equivalent to ""+arg (it's true it's true look at the + operator)
             static ToString(arg) {
                 if(typeof arg == "string") {
                     return arg;
@@ -4037,6 +4279,24 @@
                     }
                 }
                 return array;
+            }
+
+            static CreateListFromArrayLike(obj, validElementTypes = ValidElementTypes.ALL) {
+                if(!(obj instanceof JavascriptObjectWrapper)) {
+                    //Reflect.apply(()=>{}, globalThis, false);
+                    throw TypeError("CreateListFromArrayLike called on non-object"); //wow what a unique error, it reveals the name of this abstract operation!
+                }
+                const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                const list = [];
+                for(let index = 0; index < length; index++) {
+                    const indexName = /*!*/ index.toString() /*ECMAScript.ToString(𝔽(index))*/;
+                    const next = /*?*/ obj["[[Get]]"](indexName, obj);
+                    if(validElementTypes == ValidElementTypes.PROPERTY_KEY && (typeof next != "string" && typeof next != "symbol")) {
+                        throw TypeError(); // i need to finish implementing proxy to know how to trigger this lol
+                    }
+                    list.push(next);
+                }
+                return list;
             }
 
             static CanonicalNumericIndexString(arg) {
@@ -4646,7 +4906,8 @@
                     //console.log(newLength, numberLength);
                     //newLength != numberLength && !(Math.abs(newLength) == 0 && Math.abs(numberLength) == 0)
                     // if(newLength != numberLength && !(Math.abs(newLength) == 0 && Math.abs(numberLength) == 0)) {
-                    if(newLength != numberLength) {
+                    //if(newLength != numberLength) {
+                    if(!ECMAScript.SameValueZero(newLength, numberLength)) {
                         throw RangeError("Failed to set the 'length' property on 'Array': Invalid array length");
                     }
                     newLengthDesc.value = newLength;
@@ -4887,8 +5148,282 @@
             }
         }
 
-        class ExoticProxyObject {
+        //https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-proxy-object-internal-methods-and-internal-slots
+        class ExoticProxyObject extends JavascriptObjectWrapper {
+            //these methods were going to be static but yeah i'm not manually setting them in ProxyCreate (besides [[Call]] and [[Construct]] because they're optional)
 
+            //i suppose these aren't required as proxy create sets them anyways
+            ["[[ProxyTarget]]"];
+            "[[ProxyHandler]]";
+
+            //https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-proxy-object-internal-methods-and-internal-slots-getprototypeof
+            ["[[GetPrototypeOf]]"]() {
+                //const {proxy, revoke} = Proxy.revocable({}, {}); revoke(); Object.getPrototypeOf(proxy);
+                /*?*/ ECMAScript.ValidateNonRevokedProxy(this, "Cannot perform 'getPrototypeOf' on a proxy that has been revoked");
+                const target = this["[[ProxyTarget]]"];
+                const handler = this["[[ProxyHandler]]"];
+                //Assert: handler instanceof JavascriptObjectWrapper
+                const trap = /*?*/ ECMAScript.GetMethod(handler, "getPrototypeOf");
+                if(trap == undefined) {
+                    return /*?*/ target["[[GetPrototypeOf]]"]();
+                }
+                const handlerProto = /*?*/ trap["[[Call]]"](handler, [target]);
+                if(!(handlerProto instanceof JavascriptObjectWrapper) && handlerProto !== null) { //strict!!
+                    //this is one of those errors you genuinely have to try to throw
+                    //this is the first time i've seen this one!
+                    //const handler = {
+                    //    getPrototypeOf() {
+                    //        return true;
+                    //    }
+                    //};
+                    //const p = new Proxy({}, handler);
+                    //Object.getPrototypeOf(p); //'getPrototypeOf' on proxy: trap returned neither object nor null
+                    throw TypeError("'getPrototypeOf' on proxy: trap returned neither object nor null");
+                }
+                if(/*?*/ target["[[IsExtensible]]"]()) { //IsExtensible
+                    return handlerProto;
+                }
+                if(ECMAScript.SameValue(/*?*/ target["[[GetPrototypeOf]]"](), handlerProto) == false) {
+                    //const notExtensible = {};
+                    //Object.preventExtensions(notExtensible);
+                    //
+                    //const handler = {
+                    //    getPrototypeOf() {
+                    //        return {};
+                    //    }
+                    //};
+                    //
+                    //const p = new Proxy(notExtensible, handler);
+                    //Object.getPrototypeOf(p);
+
+                    //as if the last error wasn't niche!
+                    throw TypeError("'getPrototypeOf' on proxy: proxy target is non-extensible but the trap did not return its actual prototype");
+                }
+                return handlerProto;
+            }
+
+            ["[[SetPrototypeOf]]"](proto) {
+                //const {proxy, revoke} = Proxy.revocable({}, {}); revoke(); Object.setPrototypeOf(proxy, {});
+                /*?*/ ECMAScript.ValidateNonRevokedProxy(this, "Cannot perform 'setPrototypeOf' on a proxy that has been revoked");
+                const target = this["[[ProxyTarget]]"];
+                const handler = this["[[ProxyHandler]]"];
+                //Assert: handler instanceof JavascriptObjectWrapper
+                const trap = /*?*/ ECMAScript.GetMethod(handler, "setPrototypeOf");
+                if(trap == undefined) {
+                    return /*?*/ target["[[SetPrototypeOf]]"](proto);
+                }
+                const boolTrapResult = ECMAScript.ToBoolean(/*?*/ trap["[[Call]]"](handler, [target, proto]));
+                if(boolTrapResult == false) return false;
+                if(/*?*/ target["[[IsExtensible]]"]()) { //IsExtensible
+                    return true;
+                }
+                if(ECMAScript.SameValue(proto, /*?*/ target["[[GetPrototypeOf]]"]()) == false) {
+                    //const target = {};
+                    //Object.preventExtensions(target);
+                    //
+                    //const handler = {
+                    //    setPrototypeOf() {
+                    //        return true;
+                    //    }
+                    //};
+                    //
+                    //const proxy = new Proxy(target, handler);
+                    //Object.setPrototypeOf(proxy, Object); //'setPrototypeOf' on proxy: trap returned truish for setting a new prototype on the non-extensible proxy target
+                    throw TypeError("'setPrototypeOf' on proxy: trap returned truish for setting a new prototype on the non-extensible proxy target");
+                }
+                return true;
+            }
+
+            ["[[IsExtensible]]"]() {
+                //const {proxy, revoke} = Proxy.revocable({}, {}); revoke(); Object.isExtensible(proxy);
+                /*?*/ ECMAScript.ValidateNonRevokedProxy(this, "Cannot perform 'isExtensible' on a proxy that has been revoked");
+                const target = this["[[ProxyTarget]]"];
+                const handler = this["[[ProxyHandler]]"];
+                //Assert: handler instanceof JavascriptObjectWrapper
+                const trap = /*?*/ ECMAScript.GetMethod(handler, "isExtensible");
+                if(trap == undefined) {
+                    return /*?*/ target["[[IsExtensible]]"](); //IsExtensible
+                }
+                const boolTrapResult = ECMAScript.ToBoolean(/*?*/ trap["[[Call]]"](handler, [target]));
+                if(boolTrapResult != /*?*/ target["[[IsExtensible]]"]()) {
+                    throw TypeError(`'isExtensible' on proxy: trap result does not reflect extensibility of proxy target (which is '${boolTrapResult}')`);
+                }
+                return boolTrapResult;
+            }
+
+            ["[[PreventExtensions]]"]() {
+                //const {proxy, revoke} = Proxy.revocable({}, {}); revoke(); Object.preventExtensions(proxy);
+                /*?*/ ECMAScript.ValidateNonRevokedProxy(this, "Cannot perform 'preventExtensions' on a proxy that has been revoked");
+                const target = this["[[ProxyTarget]]"];
+                const handler = this["[[ProxyHandler]]"];
+                //Assert: handler instanceof JavascriptObjectWrapper
+                const trap = /*?*/ ECMAScript.GetMethod(handler, "preventExtensions");
+                if(trap == undefined) {
+                    return /*?*/ target["[[PreventExtensions]]"]();
+                }
+                const boolTrapResult = ECMAScript.ToBoolean(/*?*/ trap["[[Call]]"](handler, [target]));
+                if(boolTrapResult == true) {
+                    if(/*?*/ target["[[IsExtensible]]"]()) { //IsExtensible
+                        //const handler = {
+                        //    preventExtensions() {
+                        //        return true;
+                        //    }
+                        //};
+                        //const proxy = new Proxy({}, handler);
+                        //Object.preventExtensions(proxy); //'preventExtensions' on proxy: trap returned truish but the proxy target is extensible
+                        throw TypeError("'preventExtensions' on proxy: trap returned truish but the proxy target is extensible");
+                    }
+                }
+                return boolTrapResult;
+            }
+
+            ["[[GetOwnProperty]]"](propertyKey) {
+                //const {proxy, revoke} = Proxy.revocable({}, {}); revoke(); Object.prototype.__lookupGetter__.call(proxy, "property"); //lookup getter will call [[GetOwnProperty]]
+                /*?*/ ECMAScript.ValidateNonRevokedProxy(this, "Cannot perform 'getOwnPropertyDescriptor' on a proxy that has been revoked"); //oh? a unique error...
+                const target = this["[[ProxyTarget]]"];
+                const handler = this["[[ProxyHandler]]"];
+                //Assert: handler instanceof JavascriptObjectWrapper
+                const trap = /*?*/ ECMAScript.GetMethod(handler, "getOwnPropertyDescriptor");
+                if(trap == undefined) {
+                    return /*?*/ target["[[GetOwnProperty]]"](propertyKey);
+                }
+                const trapResultObj = /*?*/ trap["[[Call]]"](handler, [target, propertyKey]);
+                if(!(trapResultObj instanceof JavascriptObjectWrapper) && trapResultObj !== undefined) { //strict!!
+                    //const handler = {
+                    //    getOwnPropertyDescriptor() {
+                    //        console.log(arguments);
+                    //        return null;
+                    //    }
+                    //};
+                    //const proxy = new Proxy({}, handler);
+                    //Object.getOwnPropertyDescriptor(proxy, "hawktuah");
+                    throw TypeError(`'getOwnPropertyDescriptor' on proxy: trap returned neither object nor undefined for property '${propertyKey.toString()}'`); //toString because symbols! the template string uses ECMAScript.ToString! (which is actually true https://tc39.es/ecma262/multipage/ecmascript-language-expressions.html#sec-runtime-semantics-substitutionevaluation )
+                }
+                const targetDesc = /*?*/ target["[[GetOwnProperty]]"](propertyKey);
+                if(trapResultObj == undefined) {
+                    if(targetDesc == undefined) return undefined;
+                    if(targetDesc.configurable == false) {
+                        //const target = {};
+                        //Object.defineProperty(target, "property", {configurable: false, enumerable: true, writable: true, value: true});
+                        //const handler = {
+                        //    getOwnPropertyDescriptor() {
+                        //        console.log(arguments);
+                        //        return undefined;
+                        //    }
+                        //};
+                        //const proxy = new Proxy(target, handler);
+                        //Object.getOwnPropertyDescriptor(proxy, "property");
+                        throw TypeError(`'getOwnPropertyDescriptor' on proxy: trap returned undefined for property '${propertyKey.toString()}' which is non-configurable in the proxy target`); //toString because symbols! the template string uses ECMAScript.ToString! (which is actually true https://tc39.es/ecma262/multipage/ecmascript-language-expressions.html#sec-runtime-semantics-substitutionevaluation )
+                    }
+                    if(/*?*/ target["[[IsExtensible]]"]() == false) { //IsExtensible
+                        //const target = {};
+                        //Object.defineProperty(target, "property", {configurable: true, enumerable: true, writable: true, value: true});
+                        //Object.preventExtensions(target);
+                        //const handler = {
+                        //    getOwnPropertyDescriptor() {
+                        //        console.log(arguments);
+                        //        return undefined;
+                        //    }
+                        //};
+                        //const proxy = new Proxy(target, handler);
+                        //Object.getOwnPropertyDescriptor(proxy, "property");
+                        throw TypeError(`'getOwnPropertyDescriptor' on proxy: trap returned undefined for property '${propertyKey.toString()}' which exists in the non-extensible proxy target`);
+                    }
+                    return undefined;
+                }
+                const extensibleTarget = /*?*/ target["[[IsExtensible]]"]() == false;
+                const resultDesc = /*?*/ ECMAScript.ToPropertyDescriptor(trapResultObj);
+                ECMAScript.CompletePropertyDescriptor(resultDesc);
+                if(!ECMAScript.IsCompatiblePropertyDescriptor(extensibleTarget, resultDesc, targetDesc)) {
+                    //const target = {};
+                    //Object.defineProperty(target, "property", {configurable: false, enumerable: true, writable: true, value: true});
+                    //const handler = {
+                    //    getOwnPropertyDescriptor() {
+                    //        console.log(arguments);
+                    //        return {enumerable: true, configurable: true, get() {}};
+                    //    }
+                    //};
+                    //const proxy = new Proxy(target, handler);
+                    //Object.getOwnPropertyDescriptor(proxy, "property");
+                    throw TypeError(`'getOwnPropertyDescriptor' on proxy: trap returned descriptor for property '${propertyKey.toString()}' that is incompatible with the existing property in the proxy target`);
+                }
+                if(resultDesc.configurable == false) {
+                    if(targetDesc == undefined || targetDesc.configurable == true) {
+                        //const target = {};
+                        //Object.defineProperty(target, "property", {configurable: true, enumerable: true, writable: true, value: true});
+                        //const handler = {
+                        //    getOwnPropertyDescriptor() {
+                        //        console.log(arguments);
+                        //        return {enumerable: true, configurable: false, get() {}};
+                        //    }
+                        //};
+                        //const proxy = new Proxy(target, handler);
+                        //Object.getOwnPropertyDescriptor(proxy, "property");
+                        throw TypeError(`'getOwnPropertyDescriptor' on proxy: trap reported non-configurability for property '${propertyKey.toString()}' which is either non-existent or configurable in the proxy target`);
+                    }
+                    if("writable" in resultDesc && resultDesc.writable == false) {
+                        //Assert: "writable" in targetDesc
+                        if(targetDesc.writable == true) {
+                            //const target = {};
+                            //Object.defineProperty(target, "property", {configurable: false, enumerable: true, writable: true, value: true});
+                            //const handler = {
+                            //    getOwnPropertyDescriptor() {
+                            //        console.log(arguments);
+                            //        return {writable: false, configurable: false, enumerable: true, value: "fella"};
+                            //    }
+                            //};
+                            //const proxy = new Proxy(target, handler);
+                            //Object.getOwnPropertyDescriptor(proxy, "property");
+                            throw TypeError(`'getOwnPropertyDescriptor' on proxy: trap reported non-configurable and non-writable for property '${propertyKey.toString()}' which is non-configurable, writable in the proxy target`);
+                        }
+                    }
+                }
+                return resultDesc;
+            }
+
+            ["[[DefineOwnProperty]]"](propertyKey, propertyDesc) {
+                //const {proxy, revoke} = Proxy.revocable({}, {}); revoke(); Object.defineProperty(proxy, "property", {value: true, enumerable: true, writable: true, configurable: true});
+                /*?*/ ECMAScript.ValidateNonRevokedProxy(this, "Cannot perform 'defineProperty' on a proxy that has been revoked");
+                const target = this["[[ProxyTarget]]"];
+                const handler = this["[[ProxyHandler]]"];
+                //Assert: handler instanceof JavascriptObjectWrapper
+                const trap = /*?*/ ECMAScript.GetMethod(handler, "defineProperty");
+                if(trap == undefined) {
+                    return /*?*/ target["[[DefineOwnProperty]]"](propertyKey, propertyDesc);
+                }
+                const propertyDescObj = ECMAScript.FromPropertyDescriptor(propertyDesc);
+                const boolTrapResult = ECMAScript.ToBoolean(/*?*/ trap["[[Call]]"](handler, [target, propertyKey, propertyDescObj]));
+                if(boolTrapResult == false) return false;
+                const targetDesc = /*?*/ target["[[GetOwnProperty]]"](propertyKey);
+                const extensibleTarget = /*?*/ target["[[IsExtensible]]"]() //IsExtensible
+                let settingConfigFalse;
+                if("configurable" in propertyDesc && propertyDesc.configurable == false) {
+                    settingConfigFalse = true;
+                }else {
+                    settingConfigFalse = false;
+                }
+                if(targetDesc === undefined) { //is it required to be strict lol
+                    if(extensibleTarget == false) {
+                        throw TypeError();
+                    }
+                    if(settingConfigFalse == true) {
+                        throw TypeError();
+                    }
+                }else {
+                    if(ECMAScript.IsCompatiblePropertyDescriptor(extensibleTarget, propertyDesc, targetDesc) == false) {
+                        throw TypeError();
+                    }
+                    if(settingConfigFalse == true && targetDesc.configurable == true) {
+                        throw TypeError();
+                    }
+                    if(("value" in targetDesc || "writable" in targetDesc) && targetDesc.configurable == false && targetDesc.writable == true) {
+                        if("writable" in propertyDesc && propertyDesc.writable == false) {
+                            throw TypeError();
+                        }
+                    }
+                }
+                return true;
+            }
         }
 
         //see JavascriptFunctionWrapper for the "real" implementation
@@ -5185,7 +5720,13 @@
                 this.consume(TokenKind.OPEN_PARENTHESIS, "Arguments start with open parenthesis (this error should not happen but i'm using consume just in case!)");
                 while(this.i < this.tokens.length && !this.peek(TokenKind.CLOSING_PARENTHESIS)) {
                     const spread = this.match(TokenKind.SPREAD);
+                    const tempForErr = this.tokens[this.i];
                     let arg = this.unary_misc(); //using unary_misc instead of expression because we need to manage commas ourselves
+                    if(arg == undefined) {
+                        //ok yeah this shouldn't happen
+                        //console.log(2,,3);
+                        throw new ParseError(tempForErr.line, tempForErr.char, "Arguments can't have holes!!!");
+                    }
                     if(!this.match(TokenKind.COMMA) && !this.peek(TokenKind.CLOSING_PARENTHESIS)) {
                         if(this.i < this.tokens.length) {
                             throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Expected comma in arguments!!");
@@ -5927,10 +6468,25 @@
                         //if(this.peekReserved("for")) {
                         //  generator comprehension???
                         //}else {
-                        const expr = this.expression();
-                        this.consume(TokenKind.CLOSING_PARENTHESIS, "grouping expression doesn't end with parenthesis? the lexer should probably not allow this?");
+
+                        //oh god it's getting bad
+                        //back tracking nightmare
+                        let rest = false;
+                        let expr;
+                        try {
+                            //if we find the spread operator that is bad lol but it means this is very likely a parameter list!
+                            expr = this.expression();
+                        }catch(err) {
+                            if(err.reason != "Spread operator not expected here!!") {
+                                throw err;
+                            }
+                            rest = true;
+                        }
+                        if(!rest) {
+                            this.consume(TokenKind.CLOSING_PARENTHESIS, "grouping expression doesn't end with parenthesis? the lexer should probably not allow this?");
+                        }
                         //this could still be an arrow function!
-                        if(this.match(TokenKind.ARROW)) {
+                        if(this.match(TokenKind.ARROW) || rest) {
                             
                             //arrow!
                             //const body = this.block();
@@ -8063,21 +8619,6 @@
                 }
             }
 
-            //in the specification, this abstract operation only asserts that the first parameter is, in fact, a completion record, unlike what i've written
-            Completion(lambda) {
-                let result;
-                try {
-                    result = lambda();
-                }catch(abrupt) {
-                    if(abrupt instanceof CompletionRecord) {
-                        return abrupt;
-                    }else {
-                        return new CompletionRecord(CompletionKind.THROW, abrupt, undefined);
-                    }
-                }
-                return new CompletionRecord(CompletionKind.NORMAL, result, undefined);
-            }
-
             DisposeResources(disposableResourceStack, completion) {
                 let needsAwait = false;
                 let hasAwaited = false;
@@ -8091,9 +8632,9 @@
                         needsAwait = false;
                     }
                     if(resource["[[DisposeMethod]]"] != undefined) {
-                        const result = this.Completion(()=>ECMAScript.Call(resource["[[DisposeMethod]]"], resource["[[ResourceValue]]"]));
+                        const result = ECMAScript.Completion(()=>ECMAScript.Call(resource["[[DisposeMethod]]"], resource["[[ResourceValue]]"]));
                         if(result["[[Type]]"] == CompletionKind.NORMAL && resource["[[Kind]]"] == DisposableResourceKind.ASYNC_DISPOSE) {
-                            result = this.Completion(()=>this.Await(result["[[Value]]"]));
+                            result = ECMAScript.Completion(()=>this.Await(result["[[Value]]"]));
                             hasAwaited = true;
                         }else if(result["[[Type]]"] == CompletionKind.THROW) {
                             if(outputCompletion["[[Type]]"] == CompletionKind.THROW) {
@@ -8149,7 +8690,7 @@
                         const testValue = /*?*/ this.evaluate(test);
                         if(ECMAScript.ToBoolean(testValue) == false) return iterationResult;
                     }
-                    const result = this.Completion(()=>this.evaluate(stmt));
+                    const result = ECMAScript.Completion(()=>this.evaluate(stmt));
                     if(!ECMAScript.LoopContinues(result, labelSet)) {
                         return ECMAScript["?"](ECMAScript.UpdateEmpty(result, iterationResult));
                     }
@@ -8206,100 +8747,6 @@
                     iteratorKind = IteratorKind.SYNC;
                 }
                 return /*?*/ ECMAScript.GetIterator(iterable, iteratorKind);
-            }
-
-            /** 
-             * @param {VariableDeclarationStatement} identifierDeclaration
-             * @param {EnvironmentRecord} envRecord
-             */
-            ForDeclarationBindingInstantiation(identifierDeclaration, envRecord) {
-                //for(const name of identifierDeclaration...)
-                if(identifierDeclaration.qualifier.value == "const" /*&& also if using or await using*/) {
-                    envRecord.CreateImmutableBinding(identifierDeclaration.name, true);
-                }else {
-                    envRecord.CreateMutableBinding(name, false);
-                }
-                return undefined; //UNUSED
-            }
-
-            IteratorNext(iteratorRecord, value) {
-                let result;
-                if(value == undefined) {
-                    result = this.Completion(()=>ECMAScript.Call(iteratorRecord["[[NextMethod]]"], iteratorRecord["[[Iterator]]"]));
-                }else {
-                    result = this.Completion(()=>ECMAScript.Call(iteratorRecord["[[NextMethod]]"], iteratorRecord["[[Iterator]]"], [value]));
-                }
-                if(result["[[Type]]"] == CompletionKind.THROW) {
-                    iteratorRecord["[[Done]]"] = true;
-                    //return ? result
-                    throw result;
-                }
-                result = /*!*/ result["[[Value]]"];
-                if(!(result instanceof JavascriptObjectWrapper)) {
-                    iteratorRecord["[[Done]]"] = true;
-                    //const iterator = {[Symbol.iterator]() {return this;}, next() {}};
-                    //[...iterator];
-                    throw TypeError(`Iterator result ${result} is not an object`);
-                }
-                return result;
-            }
-
-            IteratorComplete(iteratorRecord) {
-                return ECMAScript.ToBoolean(/*?*/ iteratorRecord["[[Get]]"]("done", iteratorRecord));
-            }
-
-            IteratorStep(iteratorRecord) {
-                const result = /*?*/ this.IteratorNext(iteratorRecord);
-                let done = this.Completion(()=>this.IteratorComplete(result));
-                if(done["[[Type]]"] == CompletionKind.THROW) {
-                    iteratorRecord["[[Done]]"] = true;
-                    //return ? done
-                    throw done;
-                }
-                done = /*!*/ done["[[Value]]"];
-                if(done == true) {
-                    iteratorRecord["[[Done]]"] = true;
-                    return DONE;
-                }
-                return result;
-            }
-
-            //this doesn't HAVE to be its own function
-            IteratorValue(iteratorResult) {
-                return /*?*/ iteratorResult["[[Get]]"]("value", iteratorResult); //Get
-            }
-
-            IteratorStepValue(iteratorRecord) {
-                const result = /*?*/ this.IteratorStep(iteratorRecord);
-                if(result == DONE) return DONE;
-                let value = this.Completion(()=>this.IteratorValue(result));
-                if(value["[[Type]]"] == CompletionKind.THROW) {
-                    iteratorRecord["[[Done]]"] = true;
-                }
-                return ECMAScript["?"](value);
-            }
-
-            IteratorClose(iteratorRecord, completion) {
-                //Assert: iteratorRecord["[[Iterator]]"] instanceof JavascriptObjectWrapper
-                const iterator = iteratorRecord["[[Iterator]]"];
-                let innerResult = this.Completion(()=>ECMAScript.GetMethod(iterator, "return"));
-                if(innerResult["[[Type]]"] == CompletionKind.NORMAL) {
-                    let $return = innerResult["[[Value]]"];
-                    if($return == undefined) return ECMAScript["?"](completion);
-                    innerResult = this.Completion(()=>ECMAScript.Call($return, iterator));
-                }
-                if(completion["[[Type]]"] == CompletionKind.THROW) {
-                    return ECMAScript["?"](completion);
-                }
-                if(innerResult["[[Type]]"] == CompletionKind.THROW) {
-                    return ECMAScript["?"](innerResult);
-                }
-                if(!(innerResult["[[Value]]"] instanceof JavascriptObjectWrapper)) {
-                    //this isn't even reached in any code i've written so far so until i make async generators i wont know how to throw this one lol
-                    //https://tc39.es/ecma262/multipage/ecmascript-language-functions-and-classes.html#sec-generator-function-definitions-runtime-semantics-evaluation
-                    throw TypeError();
-                }
-                return ECMAScript["?"](completion);
             }
 
             constructor() {
@@ -8451,6 +8898,7 @@
                         },
                         0, "toString", [], this
                     );
+                    ECMAScript["%Object.prototype.toString%"] = objProto$toString; // this is used by me in Console and SpecialErrorToString lol
                     objProto.SetDataProperty("toString", true, false, true, objProto$toString);
                     objProto.SetDataProperty("valueOf", true, false, true, ECMAScript.CreateBuiltinFunction(
                         function(thisArg, argList, newTarget) { //Object.prototype.valueOf()
@@ -8648,7 +9096,16 @@
                                 if(!ECMAScript.IsCallable(func)) {
                                     //Function.prototype.call.apply({})
                                     //const name = func["[[Get]]"]("constructor", func)["[[Get]]"]("name", func);
-                                    throw TypeError(`Function.prototype.call was called on #<${GetConstructorName(func)}>, which is an object and not a function`);
+                                    let type = typeof func;
+                                    let prefix = "";
+                                    if(func === null) { //we actually need the strict equals here
+                                        type = "null";
+                                    }else if(type == "object") {
+                                        prefix = " an";
+                                    }else if(type != "undefined") {
+                                        prefix = " a";
+                                    }
+                                    throw TypeError(`Function.prototype.call was called on #<${SpecialErrorToString(func)}>, which is${prefix} ${type} and not a function`);
                                 }
                                 //PrepareForTailCall
                                 return func["[[Call]]"](argList[0], argList.slice(1));//ECMAScript.Call but that would be redundant
@@ -8999,10 +9456,10 @@
                     {
                         const $at = ECMAScript.CreateBuiltinFunction(
                             function(thisArg, argList, newTarget) {
-                                const obj = ECMAScript.ToObject(thisArg);
-                                const length = ECMAScript.LengthOfArrayLike(obj);
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
                                 // const relativeIndex = Math.trunc(ECMAScript.ToNumber(argList[0])); //ToIntegerOrInfinity
-                                const relativeIndex = ECMAScript.ToIntegerOrInfinity(argList[0]);
+                                const relativeIndex = /*?*/ ECMAScript.ToIntegerOrInfinity(argList[0]);
                                 let k;
                                 if(relativeIndex >= 0) {
                                     k = relativeIndex;
@@ -9026,7 +9483,7 @@
                                     if(spreadable == true) {
                                         const length = /*?*/ ECMAScript.LengthOfArrayLike(item);
                                         if(nextIndex + length > 2**53 - 1) {
-                                            throw TypeError("Too many elements will be added to the array!");
+                                            ThrowArrayLengthSafeIntegerError();
                                         }
                                         for(let sourceIndex = 0; sourceIndex < length; nextIndex++, sourceIndex++) {
                                             const propertyKey = /*!*/ sourceIndex.toString(); //ECMAScript.ToString(𝔽(sourceIndex));
@@ -9038,7 +9495,7 @@
                                     }else {
                                         //NOTE: item is added as a single item rather than spread.
                                         if(nextIndex >= 2**53 - 1) {
-                                            throw TypeError("Too many elements will be added to the array!");
+                                            ThrowArrayLengthSafeIntegerError();
                                         }
                                         /*?*/ ECMAScript.CreateDataPropertyOrThrow(array, /*!*/ nextIndex.toString() /*ECMAScript.ToString(𝔽(nextIndex))*/, item);
                                         nextIndex++;
@@ -9209,8 +9666,36 @@
                             1, "findLastIndex", [], this
                         );
 
-                        // const $flat;
-                        // const $flatMap;
+                        const $flat = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Array.prototype.flat(depth = undefined)
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const sourceLength = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                                let depthNumber = 1;
+                                if(argList[0] != undefined) {
+                                    depthNumber = /*?*/ ECMAScript.ToIntegerOrInfinity(argList[0]);
+                                    if(depthNumber < 0) depthNumber = 0;
+                                }
+                                const array = /*?*/ ECMAScript.ArraySpeciesCreate(obj, 0);
+                                /*?*/ ECMAScript.FlattenIntoArray(array, obj, sourceLength, 0, depthNumber);
+                                return array;
+                            },
+                            0, "flat", [], this
+                        );
+
+                        const $flatMap = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Array.prototype.flatMap(mapperFunc, thisArg = undefined)
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const sourceLength = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                                const mapperFunc = argList[0];
+                                if(!ECMAScript.IsCallable(mapperFunc)) {
+                                    ThrowIsCallableTypeError(mapperFunc);
+                                }
+                                const array = /*?*/ ECMAScript.ArraySpeciesCreate(obj, 0);
+                                /*?*/ ECMAScript.FlattenIntoArray(array, obj, sourceLength, 0, 1, mapperFunc, argList[1]);
+                                return array;
+                            },
+                            1, "flatMap", [], this
+                        );
 
                         const $forEach = ECMAScript.CreateBuiltinFunction(
                             function(thisArg, argList, newTarget) { //Array.prototype.forEach(callback, thisArg = undefined)
@@ -9373,7 +9858,7 @@
                                 const obj = /*?*/ ECMAScript.ToObject(thisArg);
                                 let length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
                                 if(length + argList.length > 2**53 - 1) {
-                                    throw TypeError("Too many elements will be added to the array!");
+                                    ThrowArrayLengthSafeIntegerError();
                                 }
                                 for(const item of argList) {
                                     if(!obj["[[Set]]"](/*!*/ length.toString() /*ECMAScript.ToString(𝔽(length))*/, item, obj)) { //? Set
@@ -9595,7 +10080,7 @@
                                 const comparator = argList[0];
                                 if(comparator != undefined && !ECMAScript.IsCallable(comparator)) {
                                     //ThrowIsCallableTypeError(comparator);
-                                    throw TypeError(`The comparison function must either be a function or undefined: ${ECMAScript.ToString(comparator)}`); //the real error message doesn't call ToString but i can't be bothered to do exactly what it does because the error messages are so inconsistent! some of them say stuff like #<Object> yet also [object Array]
+                                    throw TypeError(`The comparison function must either be a function or undefined: ${SpecialErrorToString(comparator)}`); //the real error message doesn't call ToString but i can't be bothered to do exactly what it does because the error messages are so inconsistent! some of them say stuff like #<Object> yet also [object Array]
                                 }
                                 const obj = /*?*/ ECMAScript.ToObject(thisArg);
                                 const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
@@ -9626,6 +10111,169 @@
                             1, "sort", [], this
                         );
 
+                        const $splice = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Array.prototype.splice(start, deleteCount, ...items)
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                                const actualStart = /*?*/ ECMAScript.ToClampedIndex(argList[0], length);
+                                const itemCount = Math.max(argList.length - 2, 0); // oh yeah this shouldn't be negative lol
+                                let actualDeleteCount;
+                                if(argList[0] == undefined) {
+                                    actualDeleteCount = 0;
+                                }else if(argList[1] == undefined) {
+                                    actualDeleteCount = length - actualStart; //wait calling splice with only the first param will delete the rest of the array? (yes.) [1,2,3].splice(0)
+                                    //Assert: actualDeleteCount >= 0
+                                }else {
+                                    actualDeleteCount = Math.min(Math.max(/*?*/ ECMAScript.ToIntegerOrInfinity(argList[1]), 0), length - actualStart);
+                                }
+                                if(length + itemCount - actualDeleteCount > 2**53 - 1) {
+                                    ThrowArrayLengthSafeIntegerError();
+                                }
+                                const deletedArray = /*?*/ ECMAScript.ArraySpeciesCreate(obj, actualDeleteCount);
+                                let k = 0;
+                                for(k; k < actualDeleteCount; k++) {
+                                    const from = /*!*/ (actualStart + k).toString() /*ECMAScript.ToString(𝔽(actualStart + k))*/;
+                                    if(/*?*/ obj["[[HasProperty]]"](from)) {
+                                        const fromValue = /*?*/ obj["[[Get]]"](from, obj); //Get
+                                        /*?*/ ECMAScript.CreateDataPropertyOrThrow(deletedArray, /*!*/ k.toString() /*ECMAScript.ToString(𝔽(k))*/, fromValue);
+                                    }
+                                }
+                                /*?*/ ECMAScript.Set(deletedArray, "length", actualDeleteCount, true);
+                                if(itemCount < actualDeleteCount) {
+                                    k = actualStart;
+                                    // while(k < length - actualDeleteCount) {
+                                    for(k; k < length - actualDeleteCount; k++) {
+                                        const from = /*!*/ (k + actualDeleteCount).toString() /*ECMAScript.ToString(𝔽(k + actualDeleteCount))*/;
+                                        const to = /*!*/ (k + itemCount).toString() /*ECMAScript.ToString(𝔽(k + itemCount))*/;
+                                        if(/*?*/ obj["[[HasProperty]]"](from)) {
+                                            const fromValue = /*?*/ obj["[[Get]]"](from, obj); //Get
+                                            /*?*/ ECMAScript.Set(obj, to, fromValue, true);
+                                        }else {
+                                            /*?*/ ECMAScript.DeletePropertyOrThrow(obj, to);
+                                        }
+                                        // k++;
+                                    }
+                                    k = length;
+                                    for(k; k > length - actualDeleteCount + itemCount; k--) {
+                                        /*?*/ ECMAScript.DeletePropertyOrThrow(obj, /*!*/ (k - 1).toString() /*ECMAScript.ToString(𝔽(k - 1))*/);
+                                    }
+                                }else if(itemCount > actualDeleteCount) {
+                                    k = length - actualDeleteCount;
+                                    for(k; k > actualStart; k--) {
+                                        const from = /*!*/ (k + actualDeleteCount - 1).toString() /*ECMAScript.ToString(𝔽(k + actualDeleteCount - 1))*/;
+                                        const to = /*!*/ (k + itemCount - 1).toString() /*ECMAScript.ToString(𝔽(k + itemCount - 1))*/;
+                                        if(/*?*/ obj["[[HasProperty]]"](from)) {
+                                            const fromValue = /*?*/ obj["[[Get]]"](from, obj); //Get
+                                            /*?*/ ECMAScript.Set(obj, to, fromValue, true);
+                                        }else {
+                                            /*?*/ ECMAScript.DeletePropertyOrThrow(obj, to);
+                                        }
+                                    }
+                                }
+                                k = actualStart;
+                                //for item of items
+                                //                          do note the k++
+                                for(let i = 2; i < argList.length; i++, k++) {
+                                    /*?*/ ECMAScript.Set(obj, /*!*/ k.toString() /*ECMAScript.ToString(𝔽(k))*/, argList[i], true);
+                                }
+                                /*?*/ ECMAScript.Set(obj, "length", length - actualDeleteCount + itemCount, true);
+                                return deletedArray;
+                            },
+                            2, "splice", [], this
+                        );
+
+                        const $toLocaleString = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                throw Error("We're not doing that fancy locale string stuff, use toString or (if you're lazy) write Array.prototype.toLocaleString = Array.prototype.toString; (rip the formatting tho)");
+                            },
+                            0, "toLocaleString", [], this
+                        );
+
+                        const $toReversed = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                                const array = /*?*/ ECMAScript.ArrayCreate(length);
+                                for(let k = 0; k < length; k++) {
+                                    const from = /*!*/ (length - k - 1).toString() /*ECMAScript.ToString(𝔽(length - k - 1))*/;
+                                    const propertyKey = /*!*/ (k).toString() /*ECMAScript.ToString(𝔽(k))*/;
+                                    const fromValue = /*?*/ obj["[[Get]]"](from, obj); //Get
+                                    /*!*/ ECMAScript.CreateDataPropertyOrThrow(array, propertyKey, fromValue);
+                                }
+                                return array;
+                            },
+                            0, "toReversed", [], this
+                        );
+
+                        const $toSorted = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Array.prototype.toSorted(comparator)
+                                const comparator = argList[0];
+                                if(comparator != undefined && !ECMAScript.IsCallable(comparator)) {
+                                    //ThrowIsCallableTypeError(comparator);
+                                    throw TypeError(`The comparison function must either be a function or undefined: ${SpecialErrorToString(comparator)}`); //the real error message doesn't call ToString but i can't be bothered to do exactly what it does because the error messages are so inconsistent! some of them say stuff like #<Object> yet also [object Array]
+                                }
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                                const array = /*?*/ ECMAScript.ArrayCreate(length);
+                                //new abstract closure with parameters (x, y)
+                                function sortCompare(x, y) {
+                                    return /*?*/ ECMAScript.CompareArrayElements(x, y, comparator);
+                                }
+                                const sortedList = /*?*/ ECMAScript.SortIndexedProperties(obj, length, sortCompare, HoleMode.READ_THROUGH_HOLES);
+                                for(let j = 0; j < length; j++) {
+                                    /*!*/ ECMAScript.CreateDataPropertyOrThrow(array, /*!*/ j.toString() /*ECMAScript.ToString(𝔽(j))*/, sortedList[j]);
+                                }
+                                return array;
+                            },
+                            1, "toSorted", [], this
+                        );
+
+                        const $toSpliced = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Array.prototype.toSpliced(start, skipCount, ...items)
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                                const actualStart = /*?*/ ECMAScript.ToClampedIndex(argList[0], length);
+                                const insertCount = Math.max(argList.length - 2, 0); // oh yeah this shouldn't be negative lol
+                                const maxSkipCount = length - actualStart;
+                                let actualSkipCount;
+                                if(argList[0] == undefined) {
+                                    actualSkipCount = 0;
+                                }else if(argList[1] == undefined) {
+                                    actualSkipCount = maxSkipCount;
+                                }else {
+                                    actualSkipCount = Math.min(Math.max(/*?*/ ECMAScript.ToIntegerOrInfinity(argList[1]), 0), maxSkipCount);
+                                }
+                                const newLength = length + insertCount - actualSkipCount;
+                                //Assert: newLength >= 0
+                                if(newLength > 2**53 - 1) {
+                                    ThrowArrayLengthSafeIntegerError();
+                                }
+                                const newArray = /*?*/ ECMAScript.ArrayCreate(newLength);
+                                let writeIndex = 0;
+                                let readIndex = actualStart + actualSkipCount;
+                                for(writeIndex; writeIndex < actualStart; writeIndex++) {
+                                    const propertyKey = /*!*/ writeIndex.toString(); //ECMAScript.ToString(𝔽(writeIndex));
+                                    const iValue = /*?*/ obj["[[Get]]"](propertyKey, obj); //Get
+                                    /*!*/ ECMAScript.CreateDataPropertyOrThrow(newArray, propertyKey, iValue);
+                                }
+                                //for item of items
+                                //                          do note the writeIndex++
+                                for(let i = 2; i < argList.length; i++, writeIndex++) {
+                                    const propertyKey = /*!*/ writeIndex.toString(); //ECMAScript.ToString(𝔽(writeIndex));
+                                    /*!*/ ECMAScript.CreateDataPropertyOrThrow(newArray, propertyKey, argList[i]);
+                                }
+                                //                                        do note the readIndex++
+                                for(writeIndex; writeIndex < newLength; writeIndex++, readIndex++) {
+                                    const propertyKey = /*!*/ writeIndex.toString(); //ECMAScript.ToString(𝔽(writeIndex));
+                                    const from = /*!*/ readIndex.toString(); //ECMAScript.ToString(𝔽(readIndex));
+                                    const fromValue = /*?*/ obj["[[Get]]"](from, obj); //Get
+                                    /*!*/ ECMAScript.CreateDataPropertyOrThrow(newArray, propertyKey, fromValue);
+                                }
+                                return newArray;
+                            },
+                            2, "toSpliced", [], this
+                        );
+
                         const $toString = ECMAScript.CreateBuiltinFunction(
                             function(thisArg, argList, newTarget) {
                                 const array = ECMAScript.ToObject(thisArg);
@@ -9642,18 +10290,82 @@
                                 return ECMAScript.Call(func, array);
                             },
                             0, "toString", [], this
-                        )
+                        );
+
+                        /*
+                            const arr = [1,2,3];
+                            console.larp(arr.unshift(...arr));
+                            arr;
+                        */
+                        const $unshift = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Array.prototype.unshift(...items)
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                                const argCount = argList.length;
+                                if(argCount > 0) {
+                                    if(length + argCount > 2**53 - 1) {
+                                        ThrowArrayLengthSafeIntegerError();
+                                    }
+                                    for(let k = length; k > 0; k--) {
+                                        const from = /*!*/ (k - 1).toString(); //ECMAScript.ToString(𝔽(k - 1));
+                                        const to = /*!*/ (k + argCount - 1).toString(); //ECMAScript.ToString(𝔽(k + argCount - 1));
+                                        if(/*?*/ obj["[[HasProperty]]"](from)) {
+                                            const fromValue = /*?*/ obj["[[Get]]"](from, obj); //Get
+                                            /*?*/ ECMAScript.Set(obj, to, fromValue, true);
+                                        }else {
+                                            //Assert: obj["[[HasProperty]]"](from) == false
+                                            /*?*/ ECMAScript.DeletePropertyOrThrow(obj, to);
+                                        }
+                                    }
+                                    let j = 0;
+                                    for(const item of argList) {
+                                        /*?*/ ECMAScript.Set(obj, /*!*/ j.toString() /*ECMAScript.ToString(𝔽(j))*/, item, true);
+                                        j++;
+                                        //j = j + 1;
+                                    }
+                                }
+                                /*?*/ ECMAScript.Set(obj, "length", length+argCount, true);
+                                return length+argCount;
+                            },
+                            1, "unshift", [], this
+                        );
 
                         //the specification seems to get a lot out of this one lol
                         const $values = ECMAScript.CreateBuiltinFunction(
                             function(thisArg, argList, newTarget) {
-                                const obj = ECMAScript.ToObject(thisArg);
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
                                 return ECMAScript.CreateArrayIterator(obj, EnumerateKind.VALUE);
                             },
                             0, "values", [], this
                         );
 
                         ECMAScript["%Array.prototype.values%"] = $values; //for use with the Arguments object
+
+                        const $with = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Array.prototype.with(index, value)
+                                const obj = /*?*/ ECMAScript.ToObject(thisArg);
+                                const length = /*?*/ ECMAScript.LengthOfArrayLike(obj);
+                                const actualIndex = /*?*/ ECMAScript.ToAbsoluteIndex(argList[0], length);
+                                if(actualIndex < 0 || actualIndex >= length) {
+                                    //[].with([]); // [object Array]
+                                    //[].with({}); // #<Object>
+                                    throw RangeError(`Invalid index : ${SpecialErrorToString(argList[0])}`); //damn it! this error message follows the same weird rules as the comparator one i was mad about!
+                                }
+                                const array = /*?*/ ECMAScript.ArrayCreate(length);
+                                for(let k = 0; k < length; k++) {
+                                    const propertyKey = /*!*/ (k).toString(); //ECMAScript.ToString(𝔽(k));
+                                    let fromValue;
+                                    if(k == actualIndex) {
+                                        fromValue = argList[1];
+                                    }else {
+                                        fromValue = /*?*/ obj["[[Get]]"](propertyKey, obj); //Get
+                                    }
+                                    /*!*/ ECMAScript.CreateDataPropertyOrThrow(array, propertyKey, fromValue);
+                                }
+                                return array;
+                            },
+                            2, "with", [], this
+                        );
 
                         const $$iterator = $values; //Array.prototype[Symbol.iterator].name == "values" !!
                         
@@ -9736,7 +10448,7 @@
                         $$unscopables["[[DefineOwnProperty]]"]("toSpliced", new JavascriptDataProperty(true, true, true, true));
                         $$unscopables["[[DefineOwnProperty]]"]("values", new JavascriptDataProperty(true, true, true, true));
 
-                        //holy FUCK there's too many array methods
+                        //holy FUCK there's too many array methods (true dat.)
                         arrayProto.SetDataProperty("at", true, false, true, $at);
                         arrayProto.SetDataProperty("concat", true, false, true, $concat);
                         arrayProto.SetDataProperty("constructor", true, false, true, "Array() {}");
@@ -9749,8 +10461,8 @@
                         arrayProto.SetDataProperty("findIndex", true, false, true, $findIndex);
                         arrayProto.SetDataProperty("findLast", true, false, true, $findLast);
                         arrayProto.SetDataProperty("findLastIndex", true, false, true, $findLastIndex);
-                        //arrayProto.SetDataProperty("flat", true, false, true, $flat);
-                        //arrayProto.SetDataProperty("flatMap", true, false, true, $flatMap);
+                        arrayProto.SetDataProperty("flat", true, false, true, $flat);
+                        arrayProto.SetDataProperty("flatMap", true, false, true, $flatMap);
                         arrayProto.SetDataProperty("forEach", true, false, true, $forEach);
                         arrayProto.SetDataProperty("includes", true, false, true, $includes);
                         arrayProto.SetDataProperty("indexOf", true, false, true, $indexOf);
@@ -9767,15 +10479,15 @@
                         arrayProto.SetDataProperty("slice", true, false, true, $slice);
                         arrayProto.SetDataProperty("some", true, false, true, $some);
                         arrayProto.SetDataProperty("sort", true, false, true, $sort);
-                        //arrayProto.SetDataProperty("splice", true, false, true, $splice);
-                        //arrayProto.SetDataProperty("toLocaleString", true, false, true, $toLocaleString);
-                        //arrayProto.SetDataProperty("toReversed", true, false, true, $toReversed);
-                        //arrayProto.SetDataProperty("toSorted", true, false, true, $toSorted);
-                        //arrayProto.SetDataProperty("toSpliced", true, false, true, $toSpliced);
+                        arrayProto.SetDataProperty("splice", true, false, true, $splice);
+                        arrayProto.SetDataProperty("toLocaleString", true, false, true, $toLocaleString);
+                        arrayProto.SetDataProperty("toReversed", true, false, true, $toReversed);
+                        arrayProto.SetDataProperty("toSorted", true, false, true, $toSorted);
+                        arrayProto.SetDataProperty("toSpliced", true, false, true, $toSpliced);
                         arrayProto.SetDataProperty("toString", true, false, true, $toString);
-                        //arrayProto.SetDataProperty("unshift", true, false, true, $unshift);
+                        arrayProto.SetDataProperty("unshift", true, false, true, $unshift);
                         arrayProto.SetDataProperty("values", true, false, true, $values);
-                        //arrayProto.SetDataProperty("with", true, false, true, $with);
+                        arrayProto.SetDataProperty("with", true, false, true, $with);
                         arrayProto.SetDataProperty(ECMAScript["%Symbol.iterator%"], true, false, true, $$iterator);
                         arrayProto.SetDataProperty(ECMAScript["%Symbol.unscopables%"], false, false, true, $$unscopables);
                     }
@@ -10207,7 +10919,25 @@
                     1, "keys", [], this
                 ));
 
-                
+                $Object.SetDataProperty("preventExtensions", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        const obj = argList[0];
+                        if(!(obj instanceof JavascriptObjectWrapper)) return obj;
+                        if(! /*?*/ obj["[[PreventExtensions]]"]()) {
+                            //damn this is a hard error to find...
+                            //const buf = new ArrayBuffer(10, {maxByteLength: 20});
+                            //const typedArr = new Uint8Array(buf); //TypedArray with resizable array buffer must be extensible
+                            //Object.preventExtensions(typedArr);
+                            //bruv, i did all that for "Cannot prevent extensions"
+                            if(IsProxy(obj)) {
+                                throw TypeError("'preventExtensions' on proxy: trap returned falsish");
+                            }
+                            throw TypeError("Cannot prevent extensions");
+                        }
+                        return obj;
+                    },
+                    1, "preventExtensions", [], this
+                ));
 
                 $Object.SetDataProperty("getPrototypeOf", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function lmaonamedfunctionexpressionfornoreason(thisArg, argList, newTarget) {
@@ -10231,12 +10961,42 @@
                     1, "isExtensible", [], this
                 ));
 
-                //$Object.SetDataProperty("setPrototypeOf", true, false, true, ECMAScript.CreateBuiltinFunction(
-                //    function(thisArg, argList, newTarget) {
-                //        
-                //    },
-                //    2, "setPrototypeOf", [], this
-                //));
+                $Object.SetDataProperty("setPrototypeOf", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) { //Object.setPrototypeOf(obj, proto)
+                        const obj = argList[0];
+                        //? RequireObjectCoercible(obj)
+                        if(obj == null || obj == undefined) {
+                            throw TypeError("Object.setPrototypeOf called on null or undefined");
+                        }
+                        const proto = argList[1];
+                        if(!(proto instanceof JavascriptObjectWrapper) && proto !== null) { //strict!!
+                            throw TypeError(`Object prototype may only be an Object or null: ${SpecialErrorToString(proto)}`); //we're only using SpecialErrorToString so we can get le symbols right lol
+                        }
+                        if(!(obj instanceof JavascriptObjectWrapper)) return obj;
+                        if(! /*?*/ obj["[[SetPrototypeOf]]"](proto)) {
+                            //maybe this error?
+                            //Object.setPrototypeOf(Object.prototype, {});
+                            //Immutable prototype object 'Object.prototype' cannot have their prototype set
+                            if(IsProxy(obj)) {
+                                //const target = {};
+                                //Object.preventExtensions(target);
+                                //
+                                //const handler = {
+                                //    setPrototypeOf() {
+                                //        return false;
+                                //    }
+                                //};
+                                //
+                                //const proxy = new Proxy(target, handler);
+                                //Object.setPrototypeOf(proxy, Object); // 'setPrototypeOf' on proxy: trap returned falsish for property 'undefined'
+                                throw TypeError("'setPrototypeOf' on proxy: trap returned falsish for property 'undefined'");
+                            }
+                            throw TypeError("Immutable prototype object 'Object.prototype' cannot have their prototype set");
+                        }
+                        return obj;
+                    },
+                    2, "setPrototypeOf", [], this
+                ));
 
                 // this.state.variables[0].set("Object", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Object"}, $Object));
                 globalObj.SetDataProperty("Object", true, false, true, $Object);
@@ -10723,16 +11483,19 @@
                         let count = 0;
                         let next = undefined;
                         while(next != DONE) {
-                            next = /*?*/ this.realm.IteratorStepValue(iteratorRecord);
+                            // next = /*?*/ this.realm.IteratorStepValue(iteratorRecord);
+                            next = /*?*/ ECMAScript.IteratorStepValue(iteratorRecord);
                             if(next != DONE) {
                                 if(count >= 2**53 - 1) {
                                     //NOTE: This step is not expected to be reached in practice and is included only so that implementations may rely on inputs being “reasonably sized” without violating this specification.
                                     let error = new CompletionRecord(CompletionKind.THROW, new RangeError("Less than 2**53 values may be supplied to Math.sumPrecise"), undefined); //i'm not gonna attempt to replicate this error lol
-                                    return /*?*/ this.realm.IteratorClose(iteratorRecord, error);
+                                    // return /*?*/ this.realm.IteratorClose(iteratorRecord, error);
+                                    return /*?*/ ECMAScript.IteratorClose(iteratorRecord, error);
                                 }
                                 if(typeof next != "number") {
                                     let error = new CompletionRecord(CompletionKind.THROW, new TypeError(`Type of 'Iterator value' must be 'number', found '${typeof next}'`), undefined);
-                                    return /*?*/ this.realm.IteratorClose(iteratorRecord, error);
+                                    // return /*?*/ this.realm.IteratorClose(iteratorRecord, error);
+                                    return /*?*/ ECMAScript.IteratorClose(iteratorRecord, error);
                                 }
                                 let n = next;
                                 if(state != State.NOT_A_NUMBER) {
@@ -10974,7 +11737,242 @@
                 ECMAScript["%Array.prototype%"].properties.get("constructor").value = $Array;
                 // this.state.variables[0].set("Array", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Array"}, $Array));
                 globalObj.SetDataProperty("Array", true, false, true, $Array);
-                    
+                
+                const $Reflect = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]);
+                
+                $Reflect.SetDataProperty("apply", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(_thisArg, _argList, newTarget) { //Reflect.apply(target, thisArg, args)
+                        const target = _argList[0];
+                        const thisArg = _argList[1];
+                        const args = _argList[2];
+                        if(!ECMAScript.IsCallable(target)) {
+                            let type = typeof target;
+                            let prefix = "";
+                            if(target === null) { //we actually need the strict equals here
+                                type = "null";
+                            }else if(type == "object") {
+                                prefix = " an";
+                            }else if(type != "undefined") {
+                                prefix = " a";
+                            }
+                            throw TypeError(`Function.prototype.apply was called on ${SpecialErrorToString(target)}, which is${prefix} ${type} and not a function`);
+                        }
+                        const argList = /*?*/ ECMAScript.CreateListFromArrayLike(args);
+                        //Perform PrepareForTailCall()
+                        return /*?*/ target["[[Call]]"](thisArg, argList);
+                    },
+                    3, "apply", [], this
+                ));
+
+                $Reflect.SetDataProperty("construct", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, _argList, _newTarget) { //Reflect.construct(target, args, newTarget = target)
+                        const target = _argList[0];
+                        const args = _argList[1];
+                        let newTarget = _argList[2];
+                        //!IsConstructor(target)
+                        if(!("[[Construct]]" in target)) {
+                            throw TypeError(`${SpecialErrorToString(target)} is not a constructor`);
+                        }
+                        if(newTarget == undefined) {
+                            newTarget = target;
+                        }else if(!("[[Construct]]" in newTarget)) {
+                            throw TypeError(`${SpecialErrorToString(newTarget)} is not a constructor`);
+                        }
+                        const argList = /*?*/ ECMAScript.CreateListFromArrayLike(args);
+                        return /*?*/ target["[[Construct]]"](argList, newTarget);
+                    },
+                    2, "construct", [], this
+                ));
+
+                $Reflect.SetDataProperty("defineProperty", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) { //Reflect.defineProperty(target, key, attrs)
+                        const target = argList[0];
+                        if(!(target instanceof JavascriptObjectWrapper)) {
+                            throw TypeError("Reflect.defineProperty called on non-object");
+                        }
+                        const propertyKey = /*?*/ ECMAScript.ToPropertyKey(argList[1]);
+                        const propertyDesc = /*?*/ ECMAScript.ToPropertyDescriptor(argList[2]);
+                        return /*?*/ target["[[DefineOwnProperty]]"](propertyKey, propertyDesc);
+                    },
+                    3, "defineProperty", [], this
+                ));
+
+                $Reflect.SetDataProperty("deleteProperty", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) { //Reflect.deleteProperty(target, key)
+                        const target = argList[0];
+                        if(!(target instanceof JavascriptObjectWrapper)) {
+                            throw TypeError("Reflect.deleteProperty called on non-object");
+                        }
+                        const propertyKey = /*?*/ ECMAScript.ToPropertyKey(argList[1]);
+                        return /*?*/ target["[[Delete]]"](propertyKey);
+                    },
+                    2, "deleteProperty", [], this
+                ));
+
+                $Reflect.SetDataProperty("get", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) { //Reflect.get(target, key, receiver = target)
+                        const target = argList[0];
+                        if(!(target instanceof JavascriptObjectWrapper)) {
+                            throw TypeError("Reflect.get called on non-object");
+                        }
+                        const propertyKey = /*?*/ ECMAScript.ToPropertyKey(argList[1]);
+                        let receiver = argList[2];
+                        if(receiver == undefined) {
+                            receiver = target;
+                        }
+                        return /*?*/ target["[[Get]]"](propertyKey, receiver);
+                    },
+                    2, "get", [], this
+                ));
+
+                $Reflect.SetDataProperty("getOwnPropertyDescriptor", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) { //Reflect.getOwnPropertyDescriptor(target, key)
+                        const target = argList[0];
+                        if(!(target instanceof JavascriptObjectWrapper)) {
+                            throw TypeError("Reflect.getOwnPropertyDescriptor called on non-object");
+                        }
+                        const propertyKey = /*?*/ ECMAScript.ToPropertyKey(argList[1]);
+                        const propertyDesc = /*?*/ target["[[GetOwnProperty]]"](propertyKey);
+                        return ECMAScript.FromPropertyDescriptor(propertyDesc);
+                    },
+                    2, "getOwnPropertyDescriptor", [], this
+                ));
+
+                $Reflect.SetDataProperty("getPrototypeOf", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) { //Reflect.getPrototypeOf(target)
+                        const target = argList[0];
+                        if(!(target instanceof JavascriptObjectWrapper)) {
+                            throw TypeError("Reflect.getPrototypeOf called on non-object");
+                        }
+                        return /*?*/ target["[[GetPrototypeOf]]"]();
+                    },
+                    1, "getPrototypeOf", [], this
+                ));
+
+                $Reflect.SetDataProperty("has", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) { //Reflect.has(target, key)
+                        const target = argList[0];
+                        if(!(target instanceof JavascriptObjectWrapper)) {
+                            throw TypeError("Reflect.has called on non-object");
+                        }
+                        const propertyKey = /*?*/ ECMAScript.ToPropertyKey(argList[1]);
+                        return /*?*/ target["[[HasProperty]]"](propertyKey);
+                    },
+                    2, "has", [], this
+                ));
+
+                $Reflect.SetDataProperty("isExtensible", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) { //Reflect.isExtensible(target)
+                        const target = argList[0];
+                        if(!(target instanceof JavascriptObjectWrapper)) {
+                            throw TypeError("Reflect.isExtensible called on non-object");
+                        }
+                        return /*?*/ target["[[IsExtensible]]"]();
+                    },
+                    1, "isExtensible", [], this
+                ));
+
+                $Reflect.SetDataProperty("ownKeys", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) { //Reflect.ownKeys(target)
+                        const target = argList[0];
+                        if(!(target instanceof JavascriptObjectWrapper)) {
+                            throw TypeError("Reflect.ownKeys called on non-object");
+                        }
+                        return ECMAScript.CreateArrayFromList(/*?*/ target["[[OwnPropertyKeys]]"]());
+                    },
+                    1, "ownKeys", [], this
+                ));
+
+                $Reflect.SetDataProperty("preventExtensions", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) { //Reflect.preventExtensions(target)
+                        const target = argList[0];
+                        if(!(target instanceof JavascriptObjectWrapper)) {
+                            throw TypeError("Reflect.preventExtensions called on non-object");
+                        }
+                        return /*?*/ target["[[PreventExtensions]]"]();
+                    },
+                    1, "preventExtensions", [], this
+                ));
+
+                $Reflect.SetDataProperty("set", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) { //Reflect.set(target, key, value, receiver = target)
+                        const target = argList[0];
+                        if(!(target instanceof JavascriptObjectWrapper)) {
+                            throw TypeError("Reflect.set called on non-object");
+                        }
+                        const propertyKey = /*?*/ ECMAScript.ToPropertyKey(argList[1]);
+                        let receiver = argList[3];
+                        if(receiver == undefined) {
+                            receiver = target;
+                        }
+                        return /*?*/ target["[[Set]]"](propertyKey, argList[2], receiver);
+                    },
+                    3, "set", [], this
+                ));
+
+                $Reflect.SetDataProperty("setPrototypeOf", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) { //Reflect.setPrototypeOf(target, proto)
+                        const target = argList[0];
+                        if(!(target instanceof JavascriptObjectWrapper)) {
+                            throw TypeError("Reflect.setPrototypeOf called on non-object");
+                        }
+                        const proto = argList[1];
+                        if(!(proto instanceof JavascriptObjectWrapper) && proto !== null) { //strict!! undefined == null for some reason
+                            throw TypeError(`Object prototype may only be an Object or null: ${SpecialErrorToString(proto)}`); //we're only using SpecialErrorToString so we can get le symbols right lol
+                        }
+                        return /*?*/ target["[[SetPrototypeOf]]"](proto);
+                    },
+                    1, "setPrototypeOf", [], this
+                ));
+
+                $Reflect.SetDataProperty(ECMAScript["%Symbol.toStringTag%"], false, false, true, "Reflect");
+
+                globalObj.SetDataProperty("Reflect", true, false, true, $Reflect);
+
+                const $Proxy = ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        if(newTarget == undefined) {
+                            throw TypeError("Constructor Proxy requires 'new'");
+                        }
+                        return /*?*/ ECMAScript.ProxyCreate(argList[0], argList[1]);
+                    },
+                    2, "Proxy", [], this, ECMAScript["%Function.prototype%"]
+                );
+
+                //unfortunately i thought this happened automagically
+                $Proxy["[[Construct]]"] = BuiltInFunction["[[Construct]]"];
+                $Proxy.constructorKind = ConstructorKind.BASE;
+                //we're not using ECMAScript.MakeConstructor because it will set the prototype property which is explicitly stated to be undefined
+
+                $Proxy.SetDataProperty("revocable", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        const proxy = /*?*/ ECMAScript.ProxyCreate(argList[0], argList[1]);
+                        const revoker = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                const activeFunc = revoker; //basically
+                                const revocableProxy = activeFunc["[[RevocableProxy]]"];
+                                if(revocableProxy == null) {
+                                    return undefined; //NormalCompletion(undefined)
+                                }
+                                activeFunc["[[RevocableProxy]]"] = null;
+                                //Assert: revocableProxy["[[Get]]"] == ExoticProxyObject.prototype["[[GetPrototypeOf]]"]
+                                revocableProxy["[[ProxyTarget]]"] = null;
+                                revocableProxy["[[ProxyHandler]]"] = null;
+                                return undefined; //NormalCompletion(undefined)
+                            },
+                            0, "", ["[[RevocableProxy]]"], this.realm
+                        );
+                        revoker["[[RevocableProxy]]"] = proxy;
+                        const result = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]);
+                        /*!*/ ECMAScript.CreateDataPropertyOrThrow(result, "proxy", proxy);
+                        /*!*/ ECMAScript.CreateDataPropertyOrThrow(result, "revoke", revoker);
+                        return result;
+                    },
+                    2, "revocable", [], this
+                ));
+
+                globalObj.SetDataProperty("Proxy", true, false, true, $Proxy);
+
                 //the console object is not included in the ECMAScript specification!! (also i was surprised to see that Temporal wasn't either!)
                 //https://console.spec.whatwg.org/
                 //for some reason, the console object's prototype is an ordinary object that then has the %Object.prototype% prototype
@@ -11081,7 +12079,8 @@
                                     //     return toString["[[Call]]"](arg, []);
                                     // }
 
-                                    result += Console.ObjectToString["[[Call]]"](arg, []);
+                                    // result += Console.ObjectToString["[[Call]]"](arg, []);
+                                    result += ECMAScript["%Object.prototype.toString%"]["[[Call]]"](arg, []);
                                 }
                             }
                         }else {
@@ -11103,20 +12102,49 @@
                                     return result + `${quote}${arg}${quote}`;
                                 }
                             }
-                            result += arg.toString();
+                            if(typeof arg == "undefined" || arg == null) {
+                                result += ""+arg; //you can't do the ole string coersion trick with symbols so thats why we only do it here
+                            }else {
+                                result += arg.toString();
+                            }
                         }
                         return result;
                     }
                     static Printer(logLevel, args, options) {
                         //for(const night of nights) {};
+                        let result = undefined;
+                        //normally, console.log prints every argument to the same line
+                        //i can't be bothered to allow color if we're printing multiple things because that would get complicated IMMEDIATELY, so we'll just use larplog to help us out
+                        let doLog;
+                        if(args.length == 1) {
+                            doLog = console.log; // i was going to bind log to console since 'this' would be undefined when we called doLog but we know, from the console specification, that log doesn't need 'this' anyways!
+                        }else {
+                            //we're sacrificing the fancy colors and italics for putting the arguments on the same line like console.log does (unless i feel like trying to cobble together something that could do all the styles together in a single console.log)
+                            let i = 0;
+                            result = "";
+                            doLog = function(arg) {
+                                if(i > 0) {
+                                    result += " ";
+                                }
+                                if(typeof arg == "string") {
+                                    //we gotta get rid of the format specifiers if applicable, lol
+                                    result += arg.replaceAll("%c", "");
+                                }else {
+                                    result += arg;
+                                }
+                                i++;
+                            };
+                        }
                         for(const arg of args) {
                             if(arg instanceof JavascriptObjectWrapper) {
                                 if("[[Call]]" in arg) {
                                     const temp = Console.FunctionToString["[[Call]]"](arg, []);
                                     if(temp.startsWith("function")) {
-                                        console.log(`%cƒ %c${temp.substring(8)}`, "color: steelblue; font-style: italic;", "font-style: italic;");
+                                        doLog(`%cƒ%c${temp.substring(8)}`, "color: steelblue; font-style: italic;", "font-style: italic;");
+                                    }else if(temp.startsWith("class")) {
+                                        doLog(`%cclass%c${temp.substring(5)}`, "color: steelblue; font-style: italic;", "font-style: italic;");
                                     }else {
-                                        console.log("%c"+temp, "font-style: italic;");
+                                        doLog("%c"+temp, "font-style: italic;");
                                     }
                                 }else {
                                     // const entries = Console.ObjectEntries["[[Call]]"]($Object, [arg]); //->Call();
@@ -11215,11 +12243,11 @@
                                         }
                                         result += "]";
                                         if(("[[ParameterMap]]" in arg)) {
-                                            console.log(`%cArguments %c${result}`, "color: darkgrey; font-style: italic;", "font-style: italic;");
+                                            doLog(`%cArguments %c${result}`, "color: darkgrey; font-style: italic;", "font-style: italic;");
                                         }else if(arrayLength) {
-                                            console.log(`%c(${arrayLength}) %c${result}`, "color: darkgrey; font-style: italic;", "font-style: italic;");
+                                            doLog(`%c(${arrayLength}) %c${result}`, "color: darkgrey; font-style: italic;", "font-style: italic;");
                                         }else {
-                                            console.log("%c"+result, "font-style: italic;");
+                                            doLog("%c"+result, "font-style: italic;");
                                         }
                                     }else {
                                         let tag = arg["[[Get]]"](ECMAScript["%Symbol.toStringTag%"], arg);
@@ -11270,15 +12298,18 @@
                                         
                                         result += "}";
                                         if(tag) {
-                                            console.log(`%c${tag} %c${result}`, "color: darkgrey; font-style: italic;", "font-style: italic;");
+                                            doLog(`%c${tag} %c${result}`, "color: darkgrey; font-style: italic;", "font-style: italic;");
                                         }else {
-                                            console.log("%c"+result, "font-style: italic;");
+                                            doLog("%c"+result, "font-style: italic;");
                                         }
                                     }
                                 }
                             }else {
-                                console.log(arg);
+                                doLog(arg);
                             }
+                        }
+                        if(result) {
+                            console.log(result);
                         }
                     }
                     static *ArrayExoticToIterable(array) {
@@ -11288,7 +12319,7 @@
                         }
                     }
                     static {
-                        Console.ObjectToString = ECMAScript["%Object.prototype%"].properties.get("toString").value;
+                        // Console.ObjectToString = ECMAScript["%Object.prototype%"].properties.get("toString").value;
                         Console.FunctionToString = ECMAScript["%Function.prototype%"].properties.get("toString").value;
                         Console.ObjectEntries = $Object.properties.get("entries").value;
                     }
@@ -11345,6 +12376,7 @@
                     temp[temp.length-1] = "(this font isn't monospace so see the console for the correct character position)";
                     letext.setAttribute("title", temp.join("\n"));
                     throw err;
+                    // throw result.error;
                 }
                 letext.style.backgroundColor = "";
                 letext.removeAttribute("title");
@@ -12244,7 +13276,7 @@
                         const spreadObj = /*?*/ this.evaluate(v.rhs);
                         const iteratorRecord = /*?*/ ECMAScript.GetIterator(spreadObj, IteratorKind.SYNC);
                         for(;;) {
-                            const next = /*?*/ this.IteratorStepValue(iteratorRecord);
+                            const next = /*?*/ ECMAScript.IteratorStepValue(iteratorRecord);
                             if(next == DONE) {
                                 break;
                             }
@@ -12368,7 +13400,7 @@
                 const oldEnv = this.executionContext.lexicalEnvironment;
                 const newEnv = new ObjectEnvironmentRecord(obj, true, oldEnv);
                 this.executionContext.lexicalEnvironment = newEnv;
-                const stmtCompletion = this.Completion(()=>this.evaluate(withStatement.stmt));
+                const stmtCompletion = ECMAScript.Completion(()=>this.evaluate(withStatement.stmt));
                 this.executionContext.lexicalEnvironment = oldEnv;
                 // return ECMAScript.UpdateEmpty(stmtCompletion, undefined)["[[Value]]"];
                 // return ECMAScript["?"](ECMAScript.UpdateEmpty(stmtCompletion, undefined));
@@ -12523,10 +13555,10 @@
                             }
                         }
                         this.executionContext.lexicalEnvironment = loopEnv;
-                        let forDecl = this.Completion(()=>this.evaluate(forLoopStatement.initialization));
+                        let forDecl = ECMAScript.Completion(()=>this.evaluate(forLoopStatement.initialization));
                         if(forDecl["[[Type]]"] != CompletionKind.NORMAL) {
                             //forDecl is an abrupt completion
-                            forDecl = this.Completion(()=>this.DisposeResources(loopEnv["[[DisposableResourceStack]]"], forDecl));
+                            forDecl = ECMAScript.Completion(()=>this.DisposeResources(loopEnv["[[DisposableResourceStack]]"], forDecl));
                             //Assert: forDecl["[[Type]]"] != CompletionKind.NORMAL
                             this.executionContext.lexicalEnvironment = oldEnv;
                             //? forDecl
@@ -12544,9 +13576,9 @@
                 }
                 
                 if(isLexical) {
-                    //we might not actually need to use this.Completion and we could probably just rely on either of these functions just throwing on their own but i can't be bothered to think about it that hard rn
-                    let bodyResult = this.Completion(()=>this.ForBodyEvaluation(forLoopStatement.condition, forLoopStatement.afterthought, forLoopStatement.body, perIterationLets, labelSet));
-                    bodyResult = this.Completion(()=>this.DisposeResources(loopEnv["[[DisposableResourceStack]]"], bodyResult));
+                    //we might not actually need to use ECMAScript.Completion and we could probably just rely on either of these functions just throwing on their own but i can't be bothered to think about it that hard rn
+                    let bodyResult = ECMAScript.Completion(()=>this.ForBodyEvaluation(forLoopStatement.condition, forLoopStatement.afterthought, forLoopStatement.body, perIterationLets, labelSet));
+                    bodyResult = ECMAScript.Completion(()=>this.DisposeResources(loopEnv["[[DisposableResourceStack]]"], bodyResult));
                     //Assert: if(bodyResult["[[Type]]"] == CompletionKind.NORMAL) bodyResult["[[Value]]"] != EMPTY
                     return ECMAScript["?"](bodyResult);
                     //return ? bodyResult;
@@ -12754,7 +13786,7 @@
                             //Assert: lhsKind == ForLHSKind.LEXICAL_BINDING
                             //Assert: lhs.qualifier.value != "var"
                             iterationEnv = new DeclarativeEnvironmentRecord(oldEnv);
-                            this.ForDeclarationBindingInstantiation(lhs, iterationEnv);
+                            ECMAScript.ForDeclarationBindingInstantiation(lhs, iterationEnv);
                             this.executionContext.lexicalEnvironment = iterationEnv;
                             if(destructuring) {
                                 //status = this.ForDeclarationBindingInitialization(lhs, nextValue, iterationEnv);
@@ -13072,7 +14104,7 @@
                         const spreadObj = /*?*/ this.evaluate(v.rhs);
                         const iteratorRecord = /*?*/ ECMAScript.GetIterator(spreadObj, IteratorKind.SYNC);
                         for(;;) {
-                            const next = /*?*/ this.IteratorStepValue(iteratorRecord);
+                            const next = /*?*/ ECMAScript.IteratorStepValue(iteratorRecord);
                             if(next == DONE) {
                                 break;
                             }
@@ -13490,9 +14522,9 @@
         }
 
         class Printer {
-            tabs;
+            spaces;
             constructor() {
-                this.tabs = 0;
+                this.spaces = 0;
             }
 
             print(statement) {
@@ -13501,13 +14533,14 @@
 
             /** @param {BlockStatement} blockStatement */
             visitBlockStatement(blockStatement) {
+                if(blockStatement.statements.length == 0) return "{}";
                 let block = "{\n";
-                this.tabs += 4;
+                this.spaces += 4;
                 for(const statement of blockStatement.statements) {
-                    block += "".padStart(this.tabs) + statement.accept(this) + "\n";
+                    block += "".padStart(this.spaces) + statement.accept(this) + "\n";
                 }
-                this.tabs -= 4;
-                return block + "".padStart(this.tabs) + "}\n";
+                this.spaces -= 4;
+                return block + "".padStart(this.spaces) + "}\n";
             }
 
             /** @param {IfStatement} ifStatement */
@@ -13692,16 +14725,28 @@
 
             /** @param {FunctionStatement} functionStatement */
             visitFunctionStatement(functionStatement) {
-                if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.ARROW) {
-                    return `${this.parameters(functionStatement.parameters)}=>${functionStatement.body.accept(this)}`;
-                }else {
-                    let prefix = "function";
-                    if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.GETTER) {
-                        prefix = "get";
-                    }else if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.SETTER) {
-                        prefix = "set";
-                    }
-                    return `${functionStatement.genderToken ? functionStatement.genderToken.value+" " : ""}${functionStatement.isAsync ? "async " : ""}${prefix}${functionStatement.isGenerator ? "*" : ""}${functionStatement.nameToken.value ? " "+functionStatement.nameToken.value : ""}${this.parameters(functionStatement.parameters)} ${functionStatement.body.accept(this)}`;
+                switch(functionStatement.kindSoThatICanDoThisStuffCorrectly) {
+                    case FunctionKind.ARROW:
+                        return `${this.parameters(functionStatement.parameters)}=>${functionStatement.body.accept(this)}`;
+                        break;
+                    //never mind methods are handled by visitObjectLiteralExpression directly (this will probably change though)
+                    //damn i don't even need this switch statement anymore!
+                    //case FunctionKind.METHOD:
+                    //case FunctionKind.GETTER:
+                    //case FunctionKind.SETTER: {
+                    //    let prefix = "";
+                    //    if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.GETTER) {
+                    //        prefix = "get ";
+                    //    }else if(functionStatement.kindSoThatICanDoThisStuffCorrectly == FunctionKind.SETTER) {
+                    //        prefix = "set ";
+                    //    }
+                    //    let space = functionStatement.isAsync || functionStatement.isGenerator || prefix;
+                    //    return `${functionStatement.isAsync ? "async" : ""}${functionStatement.isGenerator ? "*" : ""}${space ? " " : ""}${prefix}${functionStatement.nameToken.value}${this.parameters(functionStatement.parameters)} ${functionStatement.body.accept(this)}`;
+                    //    break;
+                    //}
+                    default:
+                        return `${functionStatement.genderToken ? functionStatement.genderToken.value+" " : ""}${functionStatement.isAsync ? "async " : ""}function${functionStatement.isGenerator ? "*" : ""}${functionStatement.nameToken.value ? " "+functionStatement.nameToken.value : ""}${this.parameters(functionStatement.parameters)} ${functionStatement.body.accept(this)}`;
+                        break;
                 }
             }
 
@@ -13752,31 +14797,110 @@
 
             /** @param {ObjectLiteralExpression} objectLiteralExpression */
             visitObjectLiteralExpression(objectLiteralExpression) {
-                let result = "{";
+                if(objectLiteralExpression.properties.size == 0) return "{}";
+                let result = "{\n";
                 const entries = objectLiteralExpression.properties.entries();
+                this.spaces += 4;
                 let i = 0;
                 for(const [key, value] of entries) {
                     if(i > 0) {
-                        result += ", ";
+                        result += ",\n";
                     }
+                    result += "".padStart(this.spaces);
                     if(key instanceof Token) {
                         result += key.value;
                     }else if(key instanceof SpreadExpressionToBeEvaluatedManuallyBecauseContextIsImportant) {
                         result += `...${key.rhs.accept(this)}`;
-                    }else if((key instanceof IdentifierExpression || (key instanceof LiteralExpression && (typeof key.value == "number" || typeof key.value == "string"))) && !key.computed) {
-                        result += `${key.accept(this)}: ${value.accept(this)}`; //omit the brackets (even though it's still valid javascript)
+                    //}else if((key instanceof IdentifierExpression || (key instanceof LiteralExpression && (typeof key.value == "number" || typeof key.value == "string"))) && !key.computed) {
                     }else {
-                        result += `[${key.accept(this)}]: ${value.accept(this)}`;
+                        let bl = "";
+                        let br = "";
+                        if(key.computed) {
+                            bl = "[";
+                            br = "]";
+                        }
+                        if(key.method) {
+                            let prefix = "";
+                            if(value.kindSoThatICanDoThisStuffCorrectly == FunctionKind.GETTER) {
+                                prefix = "get ";
+                            }
+                            if(value.kindSoThatICanDoThisStuffCorrectly == FunctionKind.SETTER) {
+                                prefix = "set ";
+                            }
+                            const space = !!(value.isAsync || value.isGenerator);
+                            result += `${value.isAsync ? "async" : ""}${value.isGenerator ? "*" : ""}${space ? " " : ""}${prefix}${bl}${key.accept(this)}${br}${this.parameters(value.parameters)} ${value.body.accept(this)}`;
+                            if(result[result.length-1] == "\n") { //non empty block statements add a newline after the closing curly bracket but we don't want that here!
+                                result = result.substring(0, result.length-1);
+                            }
+                        }else {
+                            result += `${bl}${key.accept(this)}${br}: ${value.accept(this)}`;
+                        }
+                        /*if(key.computed) {
+                            if(key.method) {
+                                
+                            }else {
+                                result += `[${key.accept(this)}]: ${value.accept(this)}`;
+                            }
+                        }else {
+                            result += `${key.accept(this)}: ${value.accept(this)}`; //omit the brackets (even though it's still valid javascript)
+                        }*/
                     }
                     i++;
                 }
-                return result + "}";
+                this.spaces -= 4;
+                return result + "\n}";
             }
 
             /** @param {ClassStatement} classStatement */
             visitClassStatement(classStatement) {
                 //throw error;
-                return `class${classStatement.classBinding ? " "+classStatement.classBinding : ""}${classStatement.classHeritage ? ` extends (${classStatement.classHeritage.accept(this)})` : ""} {...}`;
+                // return `${classStatement.genderToken ? classStatement.genderToken.value+" " : ""}class${classStatement.classBinding ? " "+classStatement.classBinding : ""}${classStatement.classHeritage ? ` extends (${classStatement.classHeritage.accept(this)})` : ""} {...}`;
+                let result = `${classStatement.genderToken ? classStatement.genderToken.value+" " : ""}class${classStatement.classBinding ? " "+classStatement.classBinding : ""}${classStatement.classHeritage ? ` extends (${classStatement.classHeritage.accept(this)})` : ""} {`;
+                if(classStatement.properties.size == 0 && !classStatement.$constructor) return result + "}";
+                result += "\n"; //let's get to work
+                this.spaces += 4;
+                for(const [key, value] of classStatement.properties) {
+                    result += "".padStart(this.spaces); //or we could do result = result.padEnd(this.spaces)
+                    if(key.static) {
+                        result += "static ";
+                    }
+                    if(key instanceof BlockStatement) {
+                        //static block
+                        //oh... i didn't bother setting key.static on the static block when i parsed it...
+                        //oh... i'm worried if i change it now something might break...
+                        result += "static " + key.accept(this);
+                    }else if(key instanceof Token) {
+                        result += key.value + ";";
+                    }else {
+                        let bl = "";
+                        let br = "";
+                        if(key.computed) {
+                            bl = "[";
+                            br = "]";
+                        }
+                        if(key.method) {
+                            let prefix = "";
+                            if(value.kindSoThatICanDoThisStuffCorrectly == FunctionKind.GETTER) {
+                                prefix = "get ";
+                            }
+                            if(value.kindSoThatICanDoThisStuffCorrectly == FunctionKind.SETTER) {
+                                prefix = "set ";
+                            }
+                            const space = !!(value.isAsync || value.isGenerator);
+                            result += `${value.isAsync ? "async" : ""}${value.isGenerator ? "*" : ""}${space ? " " : ""}${prefix}${bl}${key.accept(this)}${br}${this.parameters(value.parameters)} ${value.body.accept(this)}`;
+                        }else {
+                            result += `${bl}${key.accept(this)}${br} = ${value.accept(this)};`;
+                        }
+                    }
+                    result += "\n";
+                }
+                //we'll do the constructor now i guess lol
+                //lawl forgot the $
+                if(classStatement.$constructor) {
+                    result += `${"".padStart(this.spaces)}constructor${this.parameters(classStatement.$constructor.parameters)} ${classStatement.$constructor.body.accept(this)}\n`;
+                }
+                this.spaces -= 4;
+                return result + "}";
             }
 
             /** @param {AssignmentExpression} assignmentExpression */
