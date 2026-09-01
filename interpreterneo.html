@@ -70,8 +70,10 @@
             <option value="consistent19">new.target</option>
             <option value="consistent20">Array.prototype.find</option>
             <option value="consistent21">notable results from deep in specification</option>
+            <option value="consistent22">symbol for and proxy consistent error</option>
             <option value="foundinthespec">no duplicate params in arrow</option>
             <option value="while">while statement</option>
+            <option value="proxytest">simple proxy test</option>
             <option value="iterator">iterator</option>
             <option value="compvsfilter">comp vs Array.prototype.filter</option>
             <option value="spreadwithiteratorcameobutnotactuallyallofthembecausewedonthavedestructuring">all spread operator uses (minus destructuring)</option>
@@ -133,8 +135,10 @@
             // "consistent20": "//var in 2026 lawl!\n//this one is already testable in the browser!\n\nvar i = 0;\nconsole.log([1,2,3,4,5,6].find(x=>(i++, x==6)), i); // 6 6\n\nvar i = 0;\nconsole.log([1,2,3,4,5,6].findIndex(x=>(i++, x==6)), i); // 5 6\n\nvar i = 0;\nconsole.log([1,2,3,4,5,6].findLast(x=>(i++, x==6)), i); // 6 1\n\nvar i = 0;\nconsole.log([1,2,3,4,5,6].findLastIndex(x=>(i++, x==6)), i); // 5 1",
             "consistent20": "//var in 2026 lawl!\n//this one is already testable in the browser!\n\n//i (the second number printed each time) is the amount of times predicate was called\n\nconst arr = [1,2,3,4,5,6];\nconst predicate = x=>(i++, x==6);\n\nvar i = 0;\nconsole.log(arr.find(predicate), i); // 6 6\n\nvar i = 0;\nconsole.log(arr.findIndex(predicate), i); // 5 6\n\nvar i = 0;\nconsole.log(arr.findLast(predicate), i); // 6 1\n\nvar i = 0;\nconsole.log(arr.findLastIndex(predicate), i); // 5 1",
             "consistent21": "//if an array is holey, includes(undefined) will return true when it encounters said hole\n//indexOf, however, skips holes!\n\n//i assume this is one of the few situations where an array seems to include a value, yet indexOf is -1!\n\nconst arr = [0,,2];\nconsole.log(arr.includes(undefined), arr.indexOf(undefined)); // true -1",
+            "consistent22": "if(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\n\nconst handler = {\n    ownKeys() {\n        console.larp(...arguments);\n        return [Symbol.for(\"unique\"), Symbol.for(\"unique\")];\n    }\n};\n\nconst proxy = new Proxy({}, handler);\nObject.keys(proxy);",
             "foundinthespec": "// Duplicate parameter name not allowed in this context\n((x, x, y) => {\n    /*...*/\n});",
             "while": "class Test extends Object {\n    constructor() {\n        while(true) super();\n    }\n}\nnew Test;",
+            "proxytest": "if(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\n\nconst proxy = new Proxy(function(x, y) {this.x = x; this.y = y;}, {\n    apply(target, thisArg, argList) {\n        console.larp(target, thisArg, argList);\n    }\n});\n\nproxy(\"x\", \"y\", \"z\"); //caught by trap\n\nconsole.larp(new proxy(100, 100)); //passed through onto function target",
             "iterator": "const iterator = {\n    list: [1, 2, 3],\n    i: 0,\n    next() {\n        return {value: this.list[this.i], done: ++this.i > this.list.length};\n    },\n    [Symbol.iterator]() {\n        return this;\n    },\n};\nfor(const value of iterator) {\n    console.log(value);\n}",
             "compvsfilter": "const arr = [1,2,3,4,5,6];\n\nconst comp = [for (const v of arr) if(v%2) v];\nconst filter = arr.filter(v=>v%2);\n\nconsole.larp(comp);\nconsole.larp(filter);",
             "spreadwithiteratorcameobutnotactuallyallofthembecausewedonthavedestructuring": "if(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\n\nconst doRestStuff = (...rest) => {\n    console.larp(rest);\n};\n\nconst iterator = {\n    list: [1, 2, 3],\n    i: 0,\n    next() {\n        return {value: this.list[this.i], done: ++this.i > this.list.length};\n    },\n    [Symbol.iterator]() {\n        //reset so we can keep spreading lol (Symbol.iterator is only accessed at the very beginning of iteration!)\n        this.i = 0;\n        return this;\n    },\n};\n\nconsole.larp([...iterator]);\nconsole.log(...iterator);\nconsole.larp({...iterator});\ndoRestStuff(1, 2, 3, \"hello world!\",);",
@@ -157,6 +161,18 @@
                 static bad = xyz.prop2; //in devtools outside of blocks or functions, this produces an "is not defined" reference error, otherwise it's "cannot access before initialization" !
             };
             //uncomment this block and you'll see the real error is supposed to be cannot access before initialization! devtools is doing something... (which is something you gotta look out for) (i assume this is the real error because (when you uncomment these lines) we're in the topmost scope of the script)
+        */
+        //we don't have Symbol.for yet so i'm just gonna to leave this here (nevermind we have it now lol see consistent22)
+        /*
+        const target = {};
+        const handler = {
+            ownKeys() {
+                console.log(...arguments);
+                return [Symbol.iterator, Symbol.for("iterator"), Symbol.iterator];
+            }
+        };
+        const proxy = new Proxy(target, handler);
+        Object.keys(proxy);
         */
 		function selectExample(/** @type {InputEvent} */ event) {
 			letext.value = examples[event.target.value];
@@ -2733,7 +2749,8 @@
                         }
                     }else {
                         //                       this was in the specification but i didn't understand that part lol
-                        if(i < argList.length && argList[i] != undefined) { //ouu shi i forgot that part, in my implementation, the following would produce the wrong result! ((x="default")=>x)(undefined); // Should return the value of the initializer
+                        // oh my god also it needs to be strict since null won't be replaced by the initializer!
+                        if(i < argList.length && argList[i] !== undefined) { //ouu shi i forgot that part, in my implementation, the following would produce the wrong result! ((x="default")=>x)(undefined); // Should return the value of the initializer
                             value = argList[i];
                         }else if($default) {
                             //oh my god i wasn't calling evaluate here!
@@ -3801,13 +3818,17 @@
                 }
                 if(x === null && y === undefined) {
                     return true;
-                }else if(x === undefined && y === null) {
+                }
+                if(x === undefined && y === null) {
                     return true;
-                }else if(x instanceof JavascriptObjectWrapper && "[[IsHTMLDDA]]" in x && (y === undefined || y === null)) {
+                }
+                if(x instanceof JavascriptObjectWrapper && "[[IsHTMLDDA]]" in x && (y === undefined || y === null)) {
                     return true;
-                }else if((x === undefined || x === null) && y instanceof JavascriptObjectWrapper && "[[IsHTMLDDA]]" in y) {
+                }
+                if((x === undefined || x === null) && y instanceof JavascriptObjectWrapper && "[[IsHTMLDDA]]" in y) {
                     return true;
-                }else {
+                }
+                {
                     const typeX = typeof x;
                     const typeY = typeof y;
                     if(typeX == "number" && typeY == "string") {
@@ -3827,7 +3848,7 @@
                     }else if(typeY == "boolean") {
                         return ECMAScript.IsLooselyEqual(x, ECMAScript.ToNumber(y));
                     }else if((typeX == "string" || typeX == "number" || typeX == "bigint" || typeX == "symbol") && typeY == "object") {
-                        return ECMAScript.IsLooselyEqual(x, ECMAScript.ToPrimitive(y));
+                        return ECMAScript.IsLooselyEqual(x, /*?*/ ECMAScript.ToPrimitive(y));
                     }else if(typeX == "object" && (typeY == "string" || typeY == "number" || typeY == "bigint" || typeY == "symbol")) {
                         return ECMAScript.IsLooselyEqual(ECMAScript.ToPrimitive(x), y);
                     }else if((typeX == "bigint" && typeY == "number")) {
@@ -3842,6 +3863,7 @@
                         return HostLanguage.BigInt(x) == y;
                     }
                 }
+                return false; //bruh i forgot this :/
             }
 
             static IsLessThan(x, y, leftFirst) {
@@ -4292,7 +4314,21 @@
                     const indexName = /*!*/ index.toString() /*ECMAScript.ToString(𝔽(index))*/;
                     const next = /*?*/ obj["[[Get]]"](indexName, obj);
                     if(validElementTypes == ValidElementTypes.PROPERTY_KEY && (typeof next != "string" && typeof next != "symbol")) {
-                        throw TypeError(); // i need to finish implementing proxy to know how to trigger this lol
+                        // throw TypeError(); // i need to finish implementing proxy to know how to trigger this lol
+
+                        //well that was easy!
+
+                        //const target = {};
+                        //const handler = {
+                        //    ownKeys() {
+                        //        console.log(...arguments);
+                        //        return ["valid", Symbol.iterator, {}];
+                        //    }
+                        //};
+                        //const proxy = new Proxy(target, handler);
+                        //Object.keys(proxy);
+
+                        throw TypeError(`${SpecialErrorToString(next)} is not a valid property name`);
                     }
                     list.push(next);
                 }
@@ -5402,27 +5438,480 @@
                 }else {
                     settingConfigFalse = false;
                 }
-                if(targetDesc === undefined) { //is it required to be strict lol
+                if(targetDesc == undefined) { //targetDesc will only ever be undefined or a property descriptor lol
                     if(extensibleTarget == false) {
-                        throw TypeError();
+                        //the double space lol 8/31/26
+                        //const target = {};
+                        //Object.preventExtensions(target);
+                        //const handler = {
+                        //    defineProperty() {
+                        //        console.log(arguments);
+                        //        return true; //signal success while target does not have this property and is not extensible
+                        //    }
+                        //};
+                        //const proxy = new Proxy(target, handler);
+                        //Object.defineProperty(proxy, "property", {value: true, writable: true, enumerable: true, configurable: true});
+                        throw TypeError(`'defineProperty' on proxy: trap returned truish for adding property '${propertyKey.toString()}'  to the non-extensible proxy target`);
                     }
                     if(settingConfigFalse == true) {
-                        throw TypeError();
+                        //const target = {};
+                        //const handler = {
+                        //    defineProperty() {
+                        //        console.log(arguments);
+                        //        return true; //signal success while target doesn't have property and new property is not configurable
+                        //    }
+                        //};
+                        //const proxy = new Proxy(target, handler);
+                        //Object.defineProperty(proxy, "property", {value: true, writable: true, enumerable: true, configurable: false});
+                        throw TypeError(`'defineProperty' on proxy: trap returned truish for defining non-configurable property '${propertyKey.toString()}' which is either non-existent or configurable in the proxy target`);
                     }
                 }else {
                     if(ECMAScript.IsCompatiblePropertyDescriptor(extensibleTarget, propertyDesc, targetDesc) == false) {
-                        throw TypeError();
+                        //there are actually a few ways we could get this error to happen
+                        //in ValidateAndApplyPropertyDescriptor, current cannot be undefined because we already check if targetDesc was undefined earlier
+                        //when IsCompatiblePropertyDescriptor calls ValidateAndApplyPropertyDescriptor, obj is undefined, so that leaves only the third if statement to give us the false we're looking for
+                        //we could have a non configurable property on target and attempt to define a configurable property of the same name on proxy (like what i did)
+                        //we could have a non configurable and non enumerable property on target and attempt to define a non configurable enumerable property of the same name on proxy
+                        //and so on lol i'm not writing anymore of these
+                        
+                        //const target = {};
+                        //Object.defineProperty(target, "property", {configurable: false, enumerable: true, writable: true, value: true});
+                        //Object.preventExtensions(target);
+                        //const handler = {
+                        //    defineProperty() {
+                        //        console.log(arguments);
+                        //        return true; //signal success while target has non configurable property and target is not extensible
+                        //    }
+                        //};
+                        //const proxy = new Proxy(target, handler);
+                        //Object.defineProperty(proxy, "property", {configurable: true, enumerable: true, writable: true, value: true});
+                        throw TypeError(`'defineProperty' on proxy: trap returned truish for adding property '${propertyKey.toString()}'  that is incompatible with the existing property in the proxy target`); //the double space strikes again!
                     }
                     if(settingConfigFalse == true && targetDesc.configurable == true) {
-                        throw TypeError();
+                        //const target = {};
+                        //Object.defineProperty(target, "property", {configurable: true, enumerable: true, get() {}});
+                        //const handler = {
+                        //    defineProperty() {
+                        //        console.log(arguments);
+                        //        return true; //signal success while target has configurable property and we attempt to define the same property on the proxy that is not configurable
+                        //    }
+                        //};
+                        //const proxy = new Proxy(target, handler);
+                        //Object.defineProperty(proxy, "property", {configurable: false, enumerable: true, get() {}});
+                        //the same error lol
+                        throw TypeError(`'defineProperty' on proxy: trap returned truish for defining non-configurable property '${propertyKey.toString()}' which is either non-existent or configurable in the proxy target`);
                     }
                     if(("value" in targetDesc || "writable" in targetDesc) && targetDesc.configurable == false && targetDesc.writable == true) {
                         if("writable" in propertyDesc && propertyDesc.writable == false) {
-                            throw TypeError();
+                            //1. trap has to return true,
+                            //2. target must already have this property (and it must be a writable non configurable data property)
+                            //3. new property descriptor must match the old one (mostly)
+                            //4. finally, new property descriptor must not be writable to throw this error
+
+                            //const target = {};
+                            //Object.defineProperty(target, "property", {configurable: false, enumerable: true, writable: true, value: true}); //2
+                            //const handler = {
+                            //    defineProperty() {
+                            //        console.log(arguments);
+                            //        return true; //1
+                            //    }
+                            //};
+                            //const proxy = new Proxy(target, handler);
+                            //Object.defineProperty(proxy, "property", {configurable: false, enumerable: true, writable: false, value: true}); //3, 4
+                            throw TypeError(`'defineProperty' on proxy: trap returned truish for defining non-configurable property '${propertyKey.toString()}' which cannot be non-writable, unless there exists a corresponding non-configurable, non-writable own property of the target object.`);
                         }
                     }
                 }
                 return true;
+            }
+
+            ["[[HasProperty]]"](propertyKey) {
+                //const {proxy, revoke} = Proxy.revocable({}, {}); revoke(); "property" in proxy;
+                /*?*/ ECMAScript.ValidateNonRevokedProxy(this, "Cannot perform 'has' on a proxy that has been revoked");
+                const target = this["[[ProxyTarget]]"];
+                const handler = this["[[ProxyHandler]]"];
+                //Assert: handler instanceof JavascriptObjectWrapper
+                const trap = /*?*/ ECMAScript.GetMethod(handler, "has");
+                if(trap == undefined) {
+                    return /*?*/ target["[[HasProperty]]"](propertyKey);
+                }
+                const boolTrapResult = ECMAScript.ToBoolean(/*?*/ trap["[[Call]]"](handler, [target, propertyKey]));
+                if(boolTrapResult == false) {
+                    const targetDesc = /*?*/ target["[[GetOwnProperty]]"](propertyKey);
+                    if(targetDesc != undefined) {
+                        if(targetDesc.configurable == false) {
+                            //const target = {};
+                            //Object.defineProperty(target, "property", {configurable: false, enumerable: true, writable: true, value: true});
+                            //const handler = {
+                            //    has() {
+                            //        console.log(...arguments);
+                            //        return false;
+                            //    }
+                            //};
+                            //const proxy = new Proxy(target, handler);
+                            //"property" in proxy;
+                            throw TypeError(`'has' on proxy: trap returned falsish for property '${propertyKey.toString()}' which exists in the proxy target as non-configurable`);
+                        }
+                        if(/*?*/ target["[[IsExtensible]]"]() == false) { //IsExtensible
+                            //const target = {};
+                            //Object.defineProperty(target, "property", {configurable: true, enumerable: true, writable: true, value: true});
+                            //Object.preventExtensions(target);
+                            //const handler = {
+                            //    has() {
+                            //        console.log(...arguments);
+                            //        return false;
+                            //    }
+                            //};
+                            //const proxy = new Proxy(target, handler);
+                            //"property" in proxy;
+                            throw TypeError(`'has' on proxy: trap returned falsish for property '${propertyKey.toString()}' but the proxy target is not extensible`);
+                        }
+                    }
+                }
+                return boolTrapResult;
+            }
+
+            ["[[Get]]"](propertyKey, receiver) {
+                //const {proxy, revoke} = Proxy.revocable({}, {}); revoke(); proxy.property;
+                /*?*/ ECMAScript.ValidateNonRevokedProxy(this, "Cannot perform 'get' on a proxy that has been revoked");
+                const target = this["[[ProxyTarget]]"];
+                const handler = this["[[ProxyHandler]]"];
+                //Assert: handler instanceof JavascriptObjectWrapper
+                const trap = /*?*/ ECMAScript.GetMethod(handler, "get");
+                if(trap == undefined) {
+                    return /*?*/ target["[[Get]]"](propertyKey, receiver);
+                }
+                const trapResult = /*?*/ trap["[[Call]]"](handler, [target, propertyKey, receiver]);
+                const targetDesc = /*?*/ target["[[GetOwnProperty]]"](propertyKey);
+                if(targetDesc != undefined && targetDesc.configurable == false) {
+                    if(("value" in targetDesc || "writable" in targetDesc) && targetDesc.writable == false) {
+                        if(ECMAScript.SameValue(trapResult, targetDesc.value) == false) {
+                            //1. target must have this property and it must not be configurable
+                            //2. the property must also be a non writable data property
+                            //3. the result of get() cannot be equal to the original property's value
+
+                            //const target = {};
+                            //Object.defineProperty(target, "property", {configurable: false, enumerable: true, writable: false, value: {}}); //1, 2
+                            //const handler = {
+                            //    get() {
+                            //        console.log(...arguments);
+                            //        return []; //target has a non configurable non writable property "property" and we return a different value (3)
+                            //    }
+                            //};
+                            //const proxy = new Proxy(target, handler);
+                            //proxy.property; //'get' on proxy: property 'property' is a read-only and non-configurable data property on the proxy target but the proxy did not return its actual value (expected '#<Object>' but got '[object Array]')
+
+                            //here's a fun spin on this error
+                            //since we use SameValue, -0 and 0 are not equal!
+
+                            //const target = {};
+                            //Object.defineProperty(target, "property", {configurable: false, enumerable: true, writable: false, value: -0}); //1, 2
+                            //const handler = {
+                            //    get() {
+                            //        console.log(...arguments);
+                            //        return 0; //3
+                            //    }
+                            //};
+                            //const proxy = new Proxy(target, handler);
+                            //proxy.property; //'get' on proxy: property 'property' is a read-only and non-configurable data property on the proxy target but the proxy did not return its actual value (expected '0' but got '0')
+                            
+                            throw TypeError(`'get' on proxy: property '${propertyKey.toString()}' is a read-only and non-configurable data property on the proxy target but the proxy did not return its actual value (expected '${SpecialErrorToString(targetDesc.value)}' but got '${SpecialErrorToString(trapResult)}')`);
+                        }
+                    }
+                    if(("getter" in targetDesc || "setter" in targetDesc) && targetDesc.getter == undefined) {
+                        if(trapResult !== undefined) { //strict!! if we pass null it will still throw lol
+                            //1. target must have this property and it must not be configurable
+                            //2. the property must also be an accessor property without a getter
+                            //3. we must not return undefined from get()
+
+                            //const target = {};
+                            //Object.defineProperty(target, "property", {configurable: false, enumerable: true, get: undefined, set: undefined}); //1, 2
+                            //const handler = {
+                            //    get() {
+                            //        console.log(...arguments);
+                            //        return null; //3
+                            //    }
+                            //};
+                            //const proxy = new Proxy(target, handler);
+                            //proxy.property;
+
+                            throw TypeError(`'get' on proxy: property '${propertyKey.toString()}' is a non-configurable accessor property on the proxy target and does not have a getter function, but the trap did not return 'undefined' (got '${SpecialErrorToString(trapResult)}')`);
+                        }
+                    }
+                }
+                return trapResult;
+            }
+
+            ["[[Set]]"](propertyKey, value, receiver) {
+                //const {proxy, revoke} = Proxy.revocable({}, {}); revoke(); proxy.property = 2;
+                /*?*/ ECMAScript.ValidateNonRevokedProxy(this, "Cannot perform 'set' on a proxy that has been revoked");
+                const target = this["[[ProxyTarget]]"];
+                const handler = this["[[ProxyHandler]]"];
+                //Assert: handler instanceof JavascriptObjectWrapper
+                const trap = /*?*/ ECMAScript.GetMethod(handler, "set");
+                if(trap == undefined) {
+                    return /*?*/ target["[[Set]]"](propertyKey, value, receiver);
+                }
+                const boolTrapResult = ECMAScript.ToBoolean(/*?*/ trap["[[Call]]"](handler, [target, propertyKey, value, receiver]));
+                if(boolTrapResult == false) return false;
+                const targetDesc = /*?*/ target["[[GetOwnProperty]]"](propertyKey);
+                if(targetDesc != undefined && targetDesc.configurable == false) {
+                    if(("value" in targetDesc || "writable" in targetDesc) && targetDesc.writable == false) {
+                        if(ECMAScript.SameValue(value, targetDesc.value) == false) {
+                            //1. set() must return true
+                            //2. target must have this property and it must not be configurable
+                            //3. the property must also be a non writable data property
+                            //4. the value we attempt to set this property must not be equal to the original property's value
+                            
+                            //const target = {};
+                            //Object.defineProperty(target, "property", {configurable: false, enumerable: true, writable: false, value: true}); //2, 3
+                            //const handler = {
+                            //    set() {
+                            //        console.log(...arguments);
+                            //        return true; //1
+                            //    }
+                            //};
+                            //const proxy = new Proxy(target, handler);
+                            //proxy.property = 2; //4
+
+                            //this one is also subject to the -0, 0 thing
+
+                            throw TypeError(`'set' on proxy: trap returned truish for property '${propertyKey.toString()}' which exists in the proxy target as a non-configurable and non-writable data property with a different value`);
+                        }
+                    }
+                    if(("getter" in targetDesc || "setter" in targetDesc)) {
+                        if(targetDesc.setter == undefined) {
+                            //1. set() must return true
+                            //2. target must have this property and it must not be configurable
+                            //3. the property must also be an accessor property without a setter
+
+                            //const target = {};
+                            //Object.defineProperty(target, "property", {configurable: false, enumerable: true, get: undefined, set: undefined}); //2, 3
+                            //const handler = {
+                            //    set() {
+                            //        console.log(...arguments);
+                            //        return true; //1
+                            //    }
+                            //};
+                            //const proxy = new Proxy(target, handler);
+                            //proxy.property = 2;
+
+                            throw TypeError(`'set' on proxy: trap returned truish for property '${propertyKey.toString()}' which exists in the proxy target as a non-configurable and non-writable accessor property without a setter`);
+                        }
+                    }
+                }
+                return trapResult;
+            }
+
+            ["[[Delete]]"](propertyKey) {
+                //const {proxy, revoke} = Proxy.revocable({}, {}); revoke(); delete proxy.property;
+                /*?*/ ECMAScript.ValidateNonRevokedProxy(this, "Cannot perform 'deleteProperty' on a proxy that has been revoked");
+                const target = this["[[ProxyTarget]]"];
+                const handler = this["[[ProxyHandler]]"];
+                //Assert: handler instanceof JavascriptObjectWrapper
+                const trap = /*?*/ ECMAScript.GetMethod(handler, "deleteProperty");
+                if(trap == undefined) {
+                    return /*?*/ target["[[Delete]]"](propertyKey);
+                }
+                const boolTrapResult = ECMAScript.ToBoolean(/*?*/ trap["[[Call]]"](handler, [target, propertyKey]));
+                if(boolTrapResult == false) return false;
+                const targetDesc = /*?*/ target["[[GetOwnProperty]]"](propertyKey);
+                if(targetDesc == undefined) return true;
+                if(targetDesc.configurable == false) {
+                    //1. deleteProperty() must return true
+                    //2. the property must exist on target
+                    //3. the property on target must be non configurable
+                    
+                    //const target = {};
+                    //Object.defineProperty(target, "property", {configurable: false, enumerable: true, writable: true, value: true}); //2, 3
+                    //const handler = {
+                    //    deleteProperty() {
+                    //        console.log(...arguments);
+                    //        return true; //1
+                    //    }
+                    //};
+                    //const proxy = new Proxy(target, handler);
+                    //delete proxy.property;
+
+                    throw TypeError(`'deleteProperty' on proxy: trap returned truish for property '${propertyKey.toString()}' which is non-configurable in the proxy target`);
+                }
+                if(/*?*/ target["[[IsExtensible]]"]() == false) {
+                    //1. deleteProperty() must return true
+                    //2. the property must exist on target
+                    //3. target must not be extensible
+
+                    //const target = {};
+                    //target.property = true; //2
+                    //Object.preventExtensions(target); //3
+                    //const handler = {
+                    //    deleteProperty() {
+                    //        console.log(...arguments);
+                    //        return true; //1
+                    //    }
+                    //};
+                    //const proxy = new Proxy(target, handler);
+                    //delete proxy.property;
+
+                    throw TypeError(`'deleteProperty' on proxy: trap returned truish for property '${propertyKey.toString()}' but the proxy target is non-extensible`);
+                }
+                return true;
+            }
+
+            ["[[OwnPropertyKeys]]"]() {
+                //fawk...
+                //const {proxy, revoke} = Proxy.revocable({}, {}); revoke(); Object.keys(proxy);
+                /*?*/ ECMAScript.ValidateNonRevokedProxy(this, "Cannot perform 'ownKeys' on a proxy that has been revoked");
+                const target = this["[[ProxyTarget]]"];
+                const handler = this["[[ProxyHandler]]"];
+                //Assert: handler instanceof JavascriptObjectWrapper
+                const trap = /*?*/ ECMAScript.GetMethod(handler, "ownKeys");
+                if(trap == undefined) {
+                    return /*?*/ target["[[OwnPropertyKeys]]"]();
+                }
+                const trapResultArray = /*?*/ trap["[[Call]]"](handler, [target]);
+                const trapResult = /*?*/ ECMAScript.CreateListFromArrayLike(trapResultArray, ValidElementTypes.PROPERTY_KEY); //we can finally figure out that error now...
+                {
+                    const duplicateMap = new Map();
+                    for(const value of trapResult) { //O(n)
+                        if(duplicateMap.has(value)) {
+                            //const target = {};
+                            //const handler = {
+                            //    ownKeys() {
+                            //        console.log(...arguments);
+                            //        return ["x", "x", "y"];
+                            //    }
+                            //};
+                            //const proxy = new Proxy(target, handler);
+                            //Object.keys(proxy);
+
+                            throw TypeError("'ownKeys' on proxy: trap returned duplicate entries");
+                        }
+                        duplicateMap.set(value, true);
+                    }
+                }
+                const extensibleTarget = /*?*/ target["[[IsExtensible]]"]();
+                const targetKeys = /*?*/ target["[[OwnPropertyKeys]]"]();
+                //Assert: targetKeys is a list of property keys
+                //Assert: targetKeys contains no duplicate entries
+                const targetConfigurableKeys = [];
+                const targetNonconfigurableKeys = [];
+                for(const key of targetKeys) {
+                    const propertyDesc = /*?*/ target["[[GetOwnProperty]]"](key);
+                    if(propertyDesc != undefined && propertyDesc.configurable == false) {
+                        targetNonconfigurableKeys.push(key);
+                    }else {
+                        targetConfigurableKeys.push(key);
+                    }
+                }
+                if(extensibleTarget == true && targetNonconfigurableKeys.length == 0) {
+                    return trapResult;
+                }
+                const uncheckedResultKeys = [...trapResult];
+                for(const key of targetNonconfigurableKeys) {
+                    if(uncheckedResultKeys.includes(key) == false) {
+                        //1. target must have one or more non configurable properties
+                        //2. the array returned from ownKeys() must not contain all of the names of those non configurable properties
+                        
+                        //const target = {};
+                        //Object.defineProperty(target, "property", {configurable: false, enumerable: true, writable: true, value: true}); //1
+                        //const handler = {
+                        //    ownKeys() {
+                        //        console.log(...arguments);
+                        //        return []; //2
+                        //    }
+                        //};
+                        //const proxy = new Proxy(target, handler);
+                        //Object.keys(proxy);
+
+                        throw TypeError(`'ownKeys' on proxy: trap result did not include '${key.toString()}'`);
+                    }
+                    uncheckedResultKeys.splice(uncheckedResultKeys.indexOf(key), 1);
+                }
+                if(extensibleTarget == true) {
+                    return trapResult;
+                }
+                for(const key of targetConfigurableKeys) {
+                    if(uncheckedResultKeys.includes(key) == false) {
+                        //1. target must not be extensible
+                        //2. target must have one or more configurable properties
+                        //3. the array returned from ownKeys() must not contain all of the names of said configurable properties
+
+                        //const target = {};
+                        //target.property = 2; //2
+                        //Object.preventExtensions(target); //1
+                        //const handler = {
+                        //    ownKeys() {
+                        //        console.log(...arguments);
+                        //        return []; //3
+                        //    }
+                        //};
+                        //const proxy = new Proxy(target, handler);
+                        //Object.keys(proxy);
+
+                        throw TypeError(`'ownKeys' on proxy: trap result did not include '${key.toString()}'`);
+                    }
+                    uncheckedResultKeys.splice(uncheckedResultKeys.indexOf(key), 1);
+                }
+                if(uncheckedResultKeys.length != 0) {
+                    //1. target must not be extensible
+                    //2. if target has configurable properties, their names must appear in the array returned from ownKeys()
+                    //3. finally, put random names in the returned array
+
+                    //const target = {};
+                    //target.property = 2;
+                    //Object.preventExtensions(target); //1
+                    //const handler = {
+                    //    ownKeys() {
+                    //        console.log(...arguments);
+                    //        return ["property", "skibidi"]; //2, 3
+                    //    }
+                    //};
+                    //const proxy = new Proxy(target, handler);
+                    //Object.keys(proxy);
+
+                    throw TypeError("'ownKeys' on proxy: trap returned extra keys but proxy target is non-extensible");
+                }
+                return trapResult;
+            }
+
+            //static because optional, these are installed in ECMAScript.ProxyCreate
+            static ["[[Call]]"](thisArg, argList) {
+                //const {proxy, revoke} = Proxy.revocable(function(){}, {}); revoke(); proxy();
+                /*?*/ ECMAScript.ValidateNonRevokedProxy(this, "Cannot perform 'apply' on a proxy that has been revoked");
+                const target = this["[[ProxyTarget]]"];
+                const handler = this["[[ProxyHandler]]"];
+                //Assert: handler instanceof JavascriptObjectWrapper
+                const trap = /*?*/ ECMAScript.GetMethod(handler, "apply");
+                if(trap == undefined) {
+                    return /*?*/ target["[[Call]]"](thisArg, argList);
+                }
+                const argArray = ECMAScript.CreateArrayFromList(argList);
+                return /*?*/ trap["[[Call]]"](handler, [target, thisArg, argArray]);
+            }
+
+            static ["[[Construct]]"](argList, newTarget) {
+                //const {proxy, revoke} = Proxy.revocable(function(){}, {}); revoke(); new proxy();
+                /*?*/ ECMAScript.ValidateNonRevokedProxy(this, "Cannot perform 'construct' on a proxy that has been revoked");
+                const target = this["[[ProxyTarget]]"];
+                //Assert: "[[Construct]]" in target
+                const handler = this["[[ProxyHandler]]"];
+                //Assert: handler instanceof JavascriptObjectWrapper
+                const trap = /*?*/ ECMAScript.GetMethod(handler, "construct");
+                if(trap == undefined) {
+                    return /*?*/ target["[[Construct]]"](argList, newTarget === undefined ? target : newTarget); //Construct (strict equals here since default parameters )
+                }
+                const argArray = ECMAScript.CreateArrayFromList(argList);
+                const newObj = /*?*/ trap["[[Call]]"](handler, [target, argArray, newTarget]);
+                if(!(newObj instanceof JavascriptObjectWrapper)) {
+                    //const proxy = new Proxy(function(){}, {
+                    //    construct() {
+                    //        return true;
+                    //    }
+                    //});
+                    //new proxy();
+                    throw TypeError(`'construct' on proxy: trap returned non-object ('${SpecialErrorToString(newObj)}')`);
+                }
+                return newObj;
             }
         }
 
@@ -8456,7 +8945,7 @@
         }
 
         class JavascriptInterpreter extends Interpreter {
-            static globals = window; //lol
+            //static globals = window; //lol
 
             //runtime
             //scope;
@@ -8465,6 +8954,9 @@
             executionContext;
             ["[[GlobalObject]]"]; //does that make JavascriptInterpreter currentRealm? (yeah i think JavascriptInterpreter qualifies as a Realm)
             ["[[GlobalEnv]]"];
+
+            /** @type {Map<String, Symbol>} */
+            ["[[GlobalSymbolRegistry]]"];
 
             //the following are abstract operations that reference the current exection context
             //since only the interpreter has it, i just put them as methods of it (although they could just be static methods of the ECMAScript class and just require the interpreter be passed as an argument...)
@@ -11085,9 +11577,42 @@
                 $Symbol.SetDataProperty("asyncDispose", false, false, false, ECMAScript["%Symbol.asyncDispose%"]); //20.4.2.1
                 $Symbol.SetDataProperty("asyncIterator", false, false, false, ECMAScript["%Symbol.asyncIterator%"]);
                 $Symbol.SetDataProperty("dispose", false, false, false, ECMAScript["%Symbol.dispose%"]);
+                $Symbol.SetDataProperty("for", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        const stringKey = /*?*/ ECMAScript.ToString(argList[0]);
+                        //i guess we'll just use a map or something lol
+                        //it says agent record but best we got is interpreter/realm so...
+                        const globalSymbolRegistry = this.realm["[[GlobalSymbolRegistry]]"];
+                        if(globalSymbolRegistry.has(stringKey)) {
+                            return globalSymbolRegistry.get(stringKey);
+                        }
+                        // globalSymbolRegistry.set(stringKey, Symbol(stringKey));
+                        const newSymbol = Symbol.for(stringKey); //i'm gonna use Symbol.for here for no other reason besides the fact that it is possible to call window.Symbol.for so i want them to be equal (this won't apply in lua though lol i'll just create some custom symbol object)
+                        globalSymbolRegistry.set(stringKey, newSymbol);
+                        return newSymbol;
+                    },
+                    1, "for", [], this
+                ));
                 $Symbol.SetDataProperty("hasInstance", false, false, false, ECMAScript["%Symbol.hasInstance%"]);
                 $Symbol.SetDataProperty("isConcatSpreadable", false, false, false, ECMAScript["%Symbol.isConcatSpreadable%"]);
                 $Symbol.SetDataProperty("iterator", false, false, false, ECMAScript["%Symbol.iterator%"]);
+                $Symbol.SetDataProperty("keyFor", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        if(typeof argList[0] != "symbol") { //or "instanceof" in lua...
+                            throw TypeError(`${SpecialErrorToString(argList[0])} is not a symbol`);
+                        }
+                        // return ECMAScript.KeyForSymbol(argList[0]);
+                        const globalSymbolRegistry = this.realm["[[GlobalSymbolRegistry]]"];
+                        for(const [key, value] of globalSymbolRegistry) {
+                            if(ECMAScript.SameValue(value, argList[0]) == true) {
+                                return key;
+                            }
+                        }
+                        //Assert: globalSymbolRegistry does not currently contain an entry for symbol.
+                        return undefined;
+                    },
+                    1, "keyFor", [], this
+                ));
                 $Symbol.SetDataProperty("match", false, false, false, ECMAScript["%Symbol.match%"]);
                 $Symbol.SetDataProperty("matchAll", false, false, false, ECMAScript["%Symbol.matchAll%"]);
                 $Symbol.SetDataProperty("replace", false, false, false, ECMAScript["%Symbol.replace%"]);
@@ -12140,7 +12665,11 @@
                                 if("[[Call]]" in arg) {
                                     const temp = Console.FunctionToString["[[Call]]"](arg, []);
                                     if(temp.startsWith("function")) {
-                                        doLog(`%cƒ%c${temp.substring(8)}`, "color: steelblue; font-style: italic;", "font-style: italic;");
+                                        let optionalspace = "";
+                                        if(temp[8] != " ") {
+                                            optionalspace = " ";
+                                        }
+                                        doLog(`%cƒ${optionalspace}%c${temp.substring(8)}`, "color: steelblue; font-style: italic;", "font-style: italic;");
                                     }else if(temp.startsWith("class")) {
                                         doLog(`%cclass%c${temp.substring(5)}`, "color: steelblue; font-style: italic;", "font-style: italic;");
                                     }else {
@@ -12350,6 +12879,7 @@
                 this.executionContext = new ExecutionContext(null, this["[[GlobalEnv]]"], null, undefined);
                 this.executionContext.realm = this;
                 this.executionContext.scriptOrModule = {[Symbol.toStringTag]: "ScriptRecord"}; //fucking lol
+                this["[[GlobalSymbolRegistry]]"] = new Map();
             }
 
             parse(str) {
