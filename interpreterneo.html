@@ -174,6 +174,15 @@
         const proxy = new Proxy(target, handler);
         Object.keys(proxy);
         */
+        /* //i forgot what i was cooking so i'm just gonna leave this here too
+        class MyArray extends Array {
+            static [Symbol.species] = "whateverrrr";
+        }
+        const arr = new MyArray;
+        console.larp(arr);
+        arr.push(123);
+        arr;
+        */
 		function selectExample(/** @type {InputEvent} */ event) {
 			letext.value = examples[event.target.value];
 		}
@@ -2299,6 +2308,16 @@
             static PROPERTY_KEY = 2;
         }
 
+        class KeyCoercion {
+            static PROPERTY = 1;
+            static COLLECTION = 2;
+        }
+
+        class IntegrityLevel {
+            static SEALED = 1;
+            static FROZEN = 2;
+        }
+
         //helper
         function GetConstructorName(/** @type {JavascriptObjectWrapper} */ obj) {
             const ctor = obj["[[Get]]"]("constructor", obj);
@@ -2343,6 +2362,11 @@
         //i was worried about the placement of this function because i reference ECMAScript before it's defined, however, since we don't call the function before then, it's all good :) (temporal dead zone and all that)
         function SpecialErrorToString(value) {
             if(value instanceof JavascriptObjectWrapper) {
+                if("[[Call]]" in value) {
+                    //somehow it prints functions even if they're proxied!
+                    //const temp = new Proxy(()=>{}, {});
+                    //Map.prototype.clear.call(temp);
+                }
                 const toString = value["[[Get]]"]("toString", value);
                 //if(toString) {
                 //    //i just put Completion as a static method of ECMAScript just to realize that v8 doesn't even do that lol
@@ -2391,7 +2415,8 @@
                     //    //our version of built-in functions i suppose
                     //    return func.apply(thisValue, argList);
                     //}else {
-                        throw TypeError(func.toString() + " is not a function");
+                        throw TypeError(func.toString() + " is not a function"); //for some reason this Function.prototype.apply.call(Reflect); isn't working! (and i need to go to bed...)
+                        // throw TypeError(SpecialErrorToString(func) + " is not a function");
                     //}
                 }
                 return func["[[Call]]"](thisValue, argList);
@@ -3430,6 +3455,170 @@
                 return ECMAScript["?"](completion);
             }
 
+            //static CreateIteratorFromClosure(closure, genBrand, genProto, extraSlots = []) {
+            //    //NOTE: closure can contain uses of the Yield operation to yield an IteratorResult object.
+            //    const internalSlotsList = [...extraSlots, "[[GeneratorState]]", "[[GeneratorContext]]", "[[GeneratorBrand]]"];
+            //    const gen = ECMAScript.OrdinaryObjectCreate(genProto, internalSlotsList);
+            //    gen["[[GeneratorBrand]]"] = genBrand;
+            //    // gen["[[GeneratorState]]"] = ;
+            //    // const callerContext = 
+            //}
+
+            static IfAbruptCloseIterator(value, iteratorRecord) {
+                //Assert: value instanceof CompletionRecord
+                if(value["[[Type]]"] != CompletionKind.NORMAL) {
+                    return /*?*/ ECMAScript.IteratorClose(iteratorRecord, value);
+                }
+                return value["[[Value]]"];
+            }
+
+            static AddEntriesFromIterable(target, iterable, adder) {
+                const iteratorRecord = /*?*/ ECMAScript.GetIterator(iterable, IteratorKind.SYNC);
+                while(!false) { //avant garde
+                    const next = /*?*/ ECMAScript.IteratorStepValue(iteratorRecord);
+                    if(next == DONE) return target;
+                    if(!(next instanceof JavascriptObjectWrapper)) {
+                        const error = new CompletionRecord(CompletionKind.THROW, new TypeError(`Iterator result ${SpecialErrorToString(next)}`), undefined);
+                        return /*?*/ ECMAScript.IteratorClose(iteratorRecord, error);
+                    }
+                    //hmm...
+                    //new Map({next() {return new Object(Symbol.iterator);}, [Symbol.iterator]() {return this;}}); //Iterator value undefined is not an entry object
+                    let key = ECMAScript.Completion(()=>next["[[Get]]"]("0", next));
+                    key = ECMAScript.IfAbruptCloseIterator(key, iteratorRecord);
+                    let value = ECMAScript.Completion(()=>next["[[Get]]"]("1", next));
+                    value = ECMAScript.IfAbruptCloseIterator(value, iteratorRecord);
+                    const status = ECMAScript.Completion(()=>ECMAScript.Call(adder, target, [key, value]));
+                    ECMAScript.IfAbruptCloseIterator(status, iteratorRecord);
+                }
+            }
+
+            static CanonicalizeKeyedCollectionKey(key) {
+                if(Object.is(key, -0)) {
+                    return 0;
+                }
+                return key;
+            }
+
+            static GroupBy(items, callback, keyCoercion, callerNameForError) {
+                //Perform ? RequireObjectCoercible(items)
+                if(items === undefined || items === null) {
+                    throw TypeError(`${callerNameForError} called on null or undefined`);
+                }
+                if(!ECMAScript.IsCallable(callback)) {
+                    // ThrowIsCallableTypeError(callback);
+                    throw TypeError(`${SpecialErrorToString(callback)} is not a function`);
+                }
+                const groups = [];
+                const iteratorRecord = /*?*/ ECMAScript.GetIterator(items, IteratorKind.SYNC);
+                for(let k = 0;; k++) {
+                    if(k >= 2**53 - 1) {
+                        const error = this.Completion(ThrowArrayLengthSafeIntegerError); //lol man ts bs code
+                        return /*?*/ ECMAScript.IteratorClose(iteratorRecord, error);
+                    }
+                    const next = /*?*/ ECMAScript.IteratorStepValue(iteratorRecord);
+                    if(next == DONE) return groups;
+                    // const value = next;
+                    let key = ECMAScript.Completion(()=>ECMAScript.Call(callback, undefined, [next, k]));
+                    key = ECMAScript.IfAbruptCloseIterator(key, iteratorRecord);
+                    if(keyCoercion == KeyCoercion.PROPERTY) {
+                        key = ECMAScript.Completion(()=>ECMAScript.ToPropertyKey(key));
+                        key = ECMAScript.IfAbruptCloseIterator(key, iteratorRecord);
+                    }else {
+                        //Assert: keyCoercion == KeyCoercion.COLLECTION
+                        key = ECMAScript.CanonicalizeKeyedCollectionKey(key);
+                        // if(Object.is(key, -0)) {
+                        //     key = 0;
+                        // }
+                    }
+                    //Perform AddValueToKeyedGroup(groups, key, value)
+                    for(const group of groups) {
+                        if(ECMAScript.SameValue(group["[[Key]]"], key) == true) {
+                            //Assert: Exactly one element of groups meets this criterion.
+                            group["[[Elements]]"].push(next);
+                            break; //return undefined; //UNUSED
+                        }
+                    }
+                    const group = {"[[Key]]": key, "[[Elements]]": [next]};
+                    groups.push(group);
+                    //return undefined; //UNUSED
+                }
+            }
+
+            static RequireInternalSlot(obj, internalSlotName, methodName) {
+                if(!(obj instanceof JavascriptObjectWrapper) || !(internalSlotName in obj)) {
+                    throw TypeError(`Method ${methodName} called on incompatible receiver ${SpecialErrorToString(obj)}`);
+                }
+            }
+
+            static SetIntegrityLevel(obj, level) {
+                if(/*?*/ obj["[[PreventExtensions]]"]() == false) {
+                    return false;
+                }
+                const keys = /*?*/ obj["[[OwnPropertyKeys]]"]();
+                if(level == IntegrityLevel.SEALED) {
+                    for(const key of keys) {
+                        //Perform ? DefinePropertyOrThrow
+                        if(/*?*/ obj["[[DefineOwnProperty]]"](key, {configurable: false}) == false) {
+                            // throw TypeError(); //i'm not sure if this can even happen!
+
+                            //nevermind! if the defineProperty trap returns false, proxy just does that.
+                            //const proxy = new Proxy({property: true}, {
+                            //    defineProperty() {return false;}
+                            //});
+                            //Object.seal(proxy);
+                            throw TypeError(`'defineProperty' on proxy: trap returned falsish for property '${key.toString()}'`);
+                        }
+                    }
+                }else {
+                    //Assert: level == IntegrityLevel.FROZEN
+                    for(const key of keys) {
+                        const currentDesc = /*?*/ obj["[[GetOwnProperty]]"](key);
+                        if(currentDesc != undefined) {
+                            let propertyDesc;
+                            if(("getter" in currentDesc || "setter" in currentDesc)) {
+                                propertyDesc = {configurable: false};
+                            }else {
+                                propertyDesc = {configurable: false, writable: false};
+                            }
+                            //Perform ? DefinePropertyOrThrow
+                            if(/*?*/ obj["[[DefineOwnProperty]]"](key, propertyDesc) == false) {
+                                // throw TypeError(); //i'm not sure if this can even happen, too!
+                                //const proxy = new Proxy({property: true}, {
+                                //    defineProperty() {return false;}
+                                //});
+                                //Object.freeze(proxy);
+                                throw TypeError(`'defineProperty' on proxy: trap returned falsish for property '${key.toString()}'`);
+                            }
+                        }
+                    }
+                }
+                return true;
+            }
+
+            static TestIntegrityLevel(obj, level) {
+                const extensible = /*?*/ obj["[[IsExtensible]]"](); //IsExtensible
+                if(extensible == true) return false;
+                //NOTE: If the object is extensible, none of its properties are examined.
+                const keys = /*?*/ obj["[[OwnPropertyKeys]]"]();
+                for(const key of keys) {
+                    const currentDesc = /*?*/ obj["[[GetOwnProperty]]"](key);
+                    if(currentDesc != undefined) {
+                        if(currentDesc.configurable == true) return false;
+                        if(level == IntegrityLevel.FROZEN && ("value" in currentDesc || "writable" in currentDesc)) {
+                            if(currentDesc.writable == true) return false;
+                        }
+                    }
+                }
+                return true;
+            }
+
+            static CreateMapIterator(map, enumerateKind, methodName) {
+                /*?*/ ECMAScript.RequireInternalSlot(map, "[[MapData]]", methodName);
+                //const closure = function() {
+                //    const entries = map["[[MapData]]"];
+                //}
+            }
+
             static IsConcatSpreadable(obj) {
                 if(!(obj instanceof JavascriptObjectWrapper)) return false;
                 let spreadable = /*?*/ obj["[[Get]]"](ECMAScript["%Symbol.isConcatSpreadable%"], obj); //Get
@@ -3467,9 +3656,9 @@
                     if("configurable" in propertyDesc && propertyDesc.configurable) return false;
                     if("enumerable" in propertyDesc && propertyDesc.enumerable != current.enumerable) return false;
                     //IsGenericDescriptor
-                    const IsGenericDescriptor = "writable" in propertyDesc || "value" in propertyDesc || "getter" in propertyDesc || "setter" in propertyDesc;
+                    const IsGenericDescriptor = !("writable" in propertyDesc || "value" in propertyDesc || "getter" in propertyDesc || "setter" in propertyDesc);
                     const IsCurrentAccess = ("getter" in current || "setter" in current);
-                    if(!IsGenericDescriptor && (("getter" in propertyDesc || "setter" in propertyDesc) != IsCurrentAccess)) {
+                    if(IsGenericDescriptor == false && (("getter" in propertyDesc || "setter" in propertyDesc) != IsCurrentAccess)) {
                         return false;
                     }
                     if(IsCurrentAccess) {
@@ -9086,7 +9275,21 @@
                         //"use strict";
                         //Object.defineProperty(console, "larp", {value: "larp", writable: false,});
                         //console.larp = 2;
-                        throw new TypeError(`Cannot assign to read only property '${record.referencedName} of object '#<${GetConstructorName(baseObj)}>'`);
+
+                        //"use strict"; const obj = {property: true}; Object.seal(obj); obj.bruh = 2; //gulp
+                        if(/*?*/ baseObj["[[IsExtensible]]"]() == false) {
+                            throw TypeError(`Cannot add property ${record.referencedName.toString()}, object is not extensible`);
+                        }else if(IsProxy(baseObj)) {
+                            throw TypeError(`'defineProperty' on proxy: trap returned falsish for property '${record.referencedName.toString()}'`);
+                        }
+
+                        //"use strict";
+                        //const proxy = new Proxy({}, {
+                        //    defineProperty() {return false;}
+                        //});
+                        //proxy. x = 2; //'defineProperty' on proxy: trap returned falsish for property 'x'
+                        
+                        throw new TypeError(`Cannot assign to read only property '${record.referencedName}' of object '${SpecialErrorToString(baseObj)}'`); //sorta the correct error message, see "use strict"; Map.prototype = 2;
                     }
                 }else {
                     //for external stuff i haven't implemented yet
@@ -9309,6 +9512,15 @@
                     objProto["[[SetPrototypeOf]]"] = ImmutablePrototypeExoticObject["[[SetPrototypeOf]]"]; //wait, because we know that "this" is determined by how the function is called, this will be totally valid (also yes i just looked at jbs' divinedebugger.js and realized i wrote some bullshit in there)
                     objProto["[[Prototype]]"] = null;
                     //now the properties...
+
+                    //https://tc39.es/ecma262/#sec-properties-of-the-function-prototype-object
+                    // const funcProto = ECMAScript.OrdinaryObjectCreate(objProto);
+                    //we need func proto up here so builtin functions have the function prototype!!
+                    const funcProto = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {},
+                        0, "", [], this, objProto
+                    );
+                    ECMAScript["%Function.prototype%"] = funcProto; //without %Function.prototype% these builtin functions wouldn't have the apply, call, or whatever that other one was lol
                     
                     //objProto.properties.set("__NEO__", new JavascriptDataProperty(false, false, false, "Hello interpreterneo!"));
                     objProto.SetDataProperty("__NEO__", false, false, false, "Hello interpreted javascript!");
@@ -9503,14 +9715,21 @@
                         1, "__lookupSetter__", [], this
                     ));
 
+                    //yo this method is probably unsafe as FUCK and if this were a serious implementation OBVIOUSLY i wouldn't include this LAWL!
+                    //the only reason i stop you from accessing "properties" is because it doesn't have brackets around it haha!! (but also if you don't set the property descriptor right this whole operation is blowing smoove open)
+                    objProto.SetDataProperty("__internalSlot__", true, false, true, ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) { //Object.prototype.__internalSlot__(slotNameIncludingBrackets)
+                            const slotName = ECMAScript.ToString(argList[0]); //not ToPropertyKey because all my internal slot names are just strings!
+                            if(slotName != "properties" && slotName in thisArg) {
+                                return thisArg[slotName];
+                            }
+                            return undefined;
+                        },
+                        1, "__internalSlot__", [], this
+                    ));
+
                     ECMAScript["%Object.prototype%"] = objProto;
 
-                    //https://tc39.es/ecma262/#sec-properties-of-the-function-prototype-object
-                    // const funcProto = ECMAScript.OrdinaryObjectCreate(objProto);
-                    const funcProto = ECMAScript.CreateBuiltinFunction(
-                        function(thisArg, argList, newTarget) {},
-                        0, "", [], this, objProto
-                    );
                     // funcProto["[[Call]]"] = function(thisArg, argList) {}; //compatibility apparently
                     // funcProto.SetDataProperty("length", false, false, true, 0); //https://tc39.es/ecma262/#sec-ecmascript-standard-built-in-objects
                     // funcProto.SetDataProperty("name", false, false, true, ""); //https://tc39.es/ecma262/#sec-ecmascript-standard-built-in-objects
@@ -9597,7 +9816,7 @@
                                     }else if(type != "undefined") {
                                         prefix = " a";
                                     }
-                                    throw TypeError(`Function.prototype.call was called on #<${SpecialErrorToString(func)}>, which is${prefix} ${type} and not a function`);
+                                    throw TypeError(`Function.prototype.call was called on ${SpecialErrorToString(func)}, which is${prefix} ${type} and not a function`);
                                 }
                                 //PrepareForTailCall
                                 return func["[[Call]]"](argList[0], argList.slice(1));//ECMAScript.Call but that would be redundant
@@ -9673,7 +9892,7 @@
                         1, "arguments", [], this, undefined, "set"
                     ));
 
-                    ECMAScript["%Function.prototype%"] = funcProto;
+                    // ECMAScript["%Function.prototype%"] = funcProto;
 
                     const boolProto = ECMAScript.OrdinaryObjectCreate(objProto, "[[BooleanData]]");
                     boolProto.SetDataProperty("constructor", true, false, true, "Boolean() {}"); //we set this later when we create $Boolean!
@@ -9931,14 +10150,15 @@
                             const string = ECMAScript.ToString(thisArg);
                             //what's all this "generator" stuff he's talking about
                             //i know javascript is single threaded so this async and generator stuff shouldn't be too hard but i'm lowkey scared.
-                            const closure = ECMAScript.CreateBuiltinFunction(
-                                function(thisArg, argList, newTarget) {
-                                    let length = string.length;
-                                    let position = 0;
-                                    
-                                },
-
-                            );
+                            const closure = function*() {
+                                for(const char of string) { //lol
+                                    //this fucking cheat code man
+                                    yield ECMAScript.CreateIteratorResultObject(char, false); //how the HELL am i porting this to lua :///// (well... i know coroutines exist but do i LOOK like a nigga who has used one of those?!)
+                                }
+                                //return new CompletionRecord(CompletionKind.NORMAL, undefined /*UNUSED*/); //NormalCompletion(UNUSED)
+                                return undefined; //UNUSED
+                            };
+                            return ECMAScript.CreateIteratorFromClosure(closure, "%StringIteratorPrototype%", ECMAScript["%StringIteratorPrototype%"]);
                         },
                         0, "[Symbol.iterator]", [], this
                     ));
@@ -10985,6 +11205,337 @@
                     }
                     ECMAScript["%Array.prototype%"] = arrayProto;
 
+                    const mapProto = ECMAScript.OrdinaryObjectCreate(objProto);
+                    {
+                        const $clear = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                const map = thisArg;
+                                /*?*/ ECMAScript.RequireInternalSlot(map, "[[MapData]]", "Map.prototype.clear");
+                                
+                                //ECMAScript implementation
+                                //for(const entry of map["[[MapData]]"]) {
+                                //    entry["[[Key]]"] = EMPTY;
+                                //    entry["[[Value]]"] = EMPTY;
+                                //}
+                                
+                                //what i'd actually do
+                                //map["[[MapData]]"] = [];
+
+                                map["[[MapData]]"].clear();
+                            },
+                            0, "clear", [], this
+                        );
+
+                        const $delete = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Map.prototype.delete(key)
+                                const map = thisArg;
+                                /*?*/ ECMAScript.RequireInternalSlot(map, "[[MapData]]", "Map.prototype.delete");
+                                const key = ECMAScript.CanonicalizeKeyedCollectionKey(argList[0]);
+                                
+                                //ECMAScript implementation
+                                //for(const entry of map["[[MapData]]"]) {
+                                //    if(entry["[[Key]]"] != EMPTY && ECMAScript.SameValue(entry["[[Key]]"], key) == true) {
+                                //        entry["[[Key]]"] = EMPTY;
+                                //        entry["[[Value]]"] = EMPTY;
+                                //        return true;
+                                //    }
+                                //}
+                                //
+                                //return false;
+
+                                //i can't think of why the specification didn't remove the entry instead of setting the key to EMPTY...
+                                //by using an array you guarantee it's sorted by insertion order and removing this one won't break that
+
+                                //what i'd actually do
+                                //const maparr = map["[[MapData]]"];
+                                //for(let i = 0; i < maparr.length; i++) {
+                                //    const entry = maparr[i];
+                                //    if(ECMAScript.SameValue(entry["[[Key]]"], key) == true) {
+                                //        maparr.splice(i, 1);
+                                //        return true;
+                                //    }
+                                //}
+                                //
+                                //return false;
+
+                                return map["[[MapData]]"].delete(key);
+                            },
+                            1, "delete", [], this
+                        );
+
+                        const $entries = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                const map = thisArg;
+                                return /*?*/ ECMAScript.CreateMapIterator(map, EnumerateKind.KEY_VALUE, "Map.prototype.entries");
+                            },
+                            0, "entries", [], this
+                        );
+
+                        const $forEach = ECMAScript.CreateBuiltinFunction(
+                           function(thisArg, argList, newTarget) { //Map.prototype.forEach(callback, thisArg = undefined)
+                                const map = thisArg;
+                                /*?*/ ECMAScript.RequireInternalSlot(map, "[[MapData]]", "Map.prototype.forEach");
+                                const callback = argList[0];
+                                if(!ECMAScript.IsCallable(callback)) {
+                                    ThrowIsCallableTypeError(callback);
+                                }
+
+                                //ECMAScript implementation
+                                //const entries = map["[[MapData]]"];
+                                //let entriesCount = entries.length;
+                                //let index = 0;
+                                //while(index < entriesCount) {
+                                //    const entry = entries[index];
+                                //    index++;
+                                //    if(entry["[[Key]]"] != EMPTY) {
+                                //        /*?*/ callback["[[Call]]"](argList[1], [entry["[[Value]]"], entry["[[Key]]"], map]);
+                                //        //NOTE: The number of elements in entries may have increased during execution of callback.
+                                //        entriesCount = entries.length;
+                                //    }
+                                //}
+
+                                //what i'd actually do (omit empty keys)
+                                //const entries = map["[[MapData]]"];
+                                //let entriesCount = entries.length;
+                                //let index = 0;
+                                //while(index < entriesCount) {
+                                //    const entry = entries[index];
+                                //    index++;
+                                //    /*?*/ callback["[[Call]]"](argList[1], [entry["[[Value]]"], entry["[[Key]]"], map]);
+                                //    //NOTE: The number of elements in entries may have increased during execution of callback.
+                                //    entriesCount = entries.length;
+                                //}
+
+                                map["[[MapData]]"].forEach((value, key) => {
+                                    /*?*/ callback["[[Call]]"](argList[1], [value, key, map]);
+                                });
+
+                                return undefined;
+                           },
+                           1, "forEach", [], this
+                        );
+
+                        const $get = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Map.prototype.get(key)
+                                const map = thisArg;
+                                /*?*/ ECMAScript.RequireInternalSlot(map, "[[MapData]]", "Map.prototype.get");
+                                const key = ECMAScript.CanonicalizeKeyedCollectionKey(argList[0]);
+                                
+                                //ECMAScript implementation
+                                //for(const entry of map["[[MapData]]"]) {
+                                //    if(entry["[[Key]]"] != EMPTY && ECMAScript.SameValue(entry["[[Key]]"], key) == true) return entry["[[Value]]"];
+                                //}
+                                //return undefined;
+
+                                //what i'd actually do (omit empty keys)
+                                //for(const entry of map["[[MapData]]"]) {
+                                //    if(ECMAScript.SameValue(entry["[[Key]]"], key) == true) return entry["[[Value]]"];
+                                //}
+                                //return undefined;
+                                
+                                return map["[[MapData]]"].get(key);
+                            },
+                            1, "get", [], this
+                        );
+
+                        const $getOrInsert = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Map.prototype.getOrInsert(key, value)
+                                const map = thisArg;
+                                /*?*/ ECMAScript.RequireInternalSlot(map, "[[MapData]]", "Map.prototype.getOrInsert");
+                                const key = ECMAScript.CanonicalizeKeyedCollectionKey(argList[0]);
+                                
+                                //ECMAScript implementation
+                                //for(const entry of map["[[MapData]]"]) {
+                                //    if(entry["[[Key]]"] != EMPTY && ECMAScript.SameValue(entry["[[Key]]"], key) == true) return entry["[[Value]]"];
+                                //}
+                                //const entry = {"[[Key]]": key, "[[Value]]": argList[1]};
+                                //map["[[MapData]]"].push(entry);
+                                //return argList[1];
+
+                                //what i'd actually do (omit empty keys)
+                                //for(const entry of map["[[MapData]]"]) {
+                                //    if(ECMAScript.SameValue(entry["[[Key]]"], key) == true) return entry["[[Value]]"];
+                                //}
+                                //const entry = {"[[Key]]": key, "[[Value]]": argList[1]};
+                                //map["[[MapData]]"].push(entry);
+                                //return argList[1];
+                                
+                                return map["[[MapData]]"].getOrInsert(key, argList[1]);
+                            },
+                            2, "getOrInsert", [], this
+                        );
+
+                        const $getOrInsertComputed = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Map.prototype.getOrInsertComputed(key, callback)
+                                const map = thisArg;
+                                /*?*/ ECMAScript.RequireInternalSlot(map, "[[MapData]]", "Map.prototype.getOrInsertComputed");
+                                const callback = argList[1];
+                                if(!ECMAScript.IsCallable(callback)) {
+                                    //const map = new Map(); map.getOrInsertComputed(-0, 98742); //wow!! in microsoft edge and my 2025 v8 build (jbs3 obv), this error is incorrect!! it's always Map.prototype.getOrInsertComputed instead of the callback!!
+                                    throw TypeError("Map.prototype.getOrInsertComputed is not a function");
+                                }
+                                const key = ECMAScript.CanonicalizeKeyedCollectionKey(argList[0]);
+                                
+                                //ECMAScript implementation
+                                //for(const entry of map["[[MapData]]"]) {
+                                //    if(entry["[[Key]]"] != EMPTY && ECMAScript.SameValue(entry["[[Key]]"], key) == true) return entry["[[Value]]"];
+                                //}
+                                //const value = /*?*/ callback["[[Call]]"](undefined, [key]);
+                                ////NOTE: The Map may have been modified during execution of callback.
+                                //for(const entry of map["[[MapData]]"]) {
+                                //    if(entry["[[Key]]"] != EMPTY && ECMAScript.SameValue(entry["[[Key]]"], key) == true) {
+                                //        entry["[[Value]]"] = value;
+                                //        return value;
+                                //    }
+                                //}
+                                //const entry = {"[[Key]]": key, "[[Value]]": value};
+                                //map["[[MapData]]"].push(entry);
+                                //return value;
+                                
+                                //what i'd actually do (omit empty keys)
+                                //for(const entry of map["[[MapData]]"]) {
+                                //    if(ECMAScript.SameValue(entry["[[Key]]"], key) == true) return entry["[[Value]]"];
+                                //}
+                                //const value = /*?*/ callback["[[Call]]"](undefined, [key]);
+                                ////NOTE: The Map may have been modified during execution of callback.
+                                //for(const entry of map["[[MapData]]"]) {
+                                //    if(ECMAScript.SameValue(entry["[[Key]]"], key) == true) {
+                                //        entry["[[Value]]"] = value;
+                                //        return value;
+                                //    }
+                                //}
+                                //const entry = {"[[Key]]": key, "[[Value]]": value};
+                                //map["[[MapData]]"].push(entry);
+                                //return value;
+                                
+                                if(map["[[MapData]]"].has(key)) {
+                                    return map["[[MapData]]"].get(key);
+                                }
+
+                                const value = callback["[[Call]]"](undefined, [key]);
+                                if(map["[[MapData]]"].has(key)) {
+                                    map["[[MapData]]"].set(key, value);
+                                    return value;
+                                }
+
+                                map["[[MapData]]"].set(key, value);
+                                return value;
+                            },
+                            1, "getOrInsertComputed", [], this
+                        );
+
+                        const $has = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Map.prototype.has(key)
+                                const map = thisArg;
+                                /*?*/ ECMAScript.RequireInternalSlot(map, "[[MapData]]", "Map.prototype.has");
+                                const key = ECMAScript.CanonicalizeKeyedCollectionKey(argList[0]);
+                                
+                                //ECMAScript implementation
+                                //for(const entry of map["[[MapData]]"]) {
+                                //    if(entry["[[Key]]"] != EMPTY && ECMAScript.SameValue(entry["[[Key]]"], key) == true) return true;
+                                //}
+                                //return false;
+
+                                //what i'd actually do (omit empty keys)
+                                //for(const entry of map["[[MapData]]"]) {
+                                //    if(ECMAScript.SameValue(entry["[[Key]]"], key) == true) return true;
+                                //}
+                                //return false;
+                                
+                                return map["[[MapData]]"].has(key);
+                            },
+                            1, "has", [], this
+                        );
+
+                        const $keys = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                const map = thisArg;
+                                return /*?*/ ECMAScript.CreateMapIterator(map, EnumerateKind.KEY, "Map.prototype.keys");
+                            },
+                            0, "keys", [], this
+                        );
+
+                        const $set = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //Map.prototype.set(key, value)
+                                const map = thisArg;
+                                /*?*/ ECMAScript.RequireInternalSlot(map, "[[MapData]]", "Map.prototype.set");
+                                const key = ECMAScript.CanonicalizeKeyedCollectionKey(argList[0]);
+                                
+                                //ECMAScript implementation
+                                //for(const entry of map["[[MapData]]"]) {
+                                //    if(entry["[[Key]]"] != EMPTY && ECMAScript.SameValue(entry["[[Key]]"], key) == true) {
+                                //        entry["[[Value]]"] = argList[1];
+                                //        return map;
+                                //    }
+                                //}
+                                //const entry = {"[[Key]]": key, "[[Value]]": argList[1]};
+                                //map["[[MapData]]"].push(entry);
+                                //return map;
+
+                                //what i'd actually do (omit empty keys)
+                                //for(const entry of map["[[MapData]]"]) {
+                                //   if(ECMAScript.SameValue(entry["[[Key]]"], key) == true) {
+                                //       entry["[[Value]]"] = argList[1];
+                                //       return map;
+                                //   }
+                                //}
+                                //const entry = {"[[Key]]": key, "[[Value]]": argList[1]};
+                                //map["[[MapData]]"].push(entry);
+                                //return map;
+
+                                return map["[[MapData]]"].set(key, argList[1]);
+                            },
+                            2, "set", [], this
+                        );
+
+                        const $get_size = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                const map = thisArg;
+                                /*?*/ ECMAScript.RequireInternalSlot(map, "[[MapData]]", "get Map.prototype.size");
+                                
+                                //ECMAScript implementation
+                                //let count = 0;
+                                //for(const entry of map["[[MapData]]"]) {
+                                //    if(entry["[[Key]]"] != EMPTY) count++;
+                                //}
+                                //return count;
+
+                                //what i'd actually do
+                                //return map["[[MapData]]"].length;
+                                
+                                return map["[[MapData]]"].size;
+                            },
+                            0, "size", [], this, undefined, "get"
+                        );
+
+                        const $values = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                const map = thisArg;
+                                return /*?*/ ECMAScript.CreateMapIterator(map, EnumerateKind.VALUE, "Map.prototype.values");
+                            },
+                            0, "values", [], this
+                        );
+
+                        //@@Symbol.iterator
+                        
+                        mapProto.SetDataProperty("clear", true, false, true, $clear);
+                        mapProto.SetDataProperty("constructor", true, false, true, "Map() {}");
+                        mapProto.SetDataProperty("delete", true, false, true, $delete);
+                        mapProto.SetDataProperty("entries", true, false, true, $entries);
+                        mapProto.SetDataProperty("forEach", true, false, true, $forEach);
+                        mapProto.SetDataProperty("get", true, false, true, $get);
+                        mapProto.SetDataProperty("getOrInsert", true, false, true, $getOrInsert);
+                        mapProto.SetDataProperty("getOrInsertComputed", true, false, true, $getOrInsertComputed);
+                        mapProto.SetDataProperty("has", true, false, true, $has);
+                        mapProto.SetDataProperty("keys", true, false, true, $keys);
+                        mapProto.SetDataProperty("set", true, false, true, $set);
+                        mapProto.SetAccessorProperty("size", false, true, $get_size, undefined);
+                        mapProto.SetDataProperty("values", true, false, true, $values);
+                        mapProto.SetDataProperty(ECMAScript["%Symbol.iterator%"], true, false, true, $entries);
+                        mapProto.SetDataProperty(ECMAScript["%Symbol.toStringTag%"], false, false, true, "Map");
+                    }
+                    ECMAScript["%Map.prototype%"] = mapProto;
+
                     const $Iterator = ECMAScript.CreateBuiltinFunction(
                         function(thisArg, argList, newTarget) {
                             if(newTarget == undefined) {
@@ -11367,17 +11918,53 @@
                     },
                     1, "entries", [], this
                 ));
-                //$Object.SetDataProperty("freeze", true, false, true, ECMAScript.CreateBuiltinFunction(
-                //    function(thisArg, argList, newTarget) {
-                //        if(!(argList[0] instanceof JavascriptObjectWrapper)) return argList[0];
-                //        //SetIntegrityLevel(argList[0], IntegrityLevel.FROZEN);
-                //        
-                //    },
-                //    1, "freeze", [], this
-                //));
-                //$Object.SetDataProperty("fromEntries", true, false, true, ECMAScript.CreateBuiltinFunction(
-                //
-                //));
+                $Object.SetDataProperty("freeze", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        const obj = argList[0];
+                        if(!(obj instanceof JavascriptObjectWrapper)) return obj;
+                        if(/*?*/ ECMAScript.SetIntegrityLevel(obj, IntegrityLevel.FROZEN) == false) {
+                            if(IsProxy(obj)) {
+                                //const proxy = new Proxy({}, {
+                                //    preventExtensions() {return false;}
+                                //});
+                                //Object.freeze(proxy);
+                                throw TypeError(`'preventExtensions' on proxy: trap returned falsish`);
+                            }else {
+                                //const buf = new ArrayBuffer(10, {maxByteLength: 20});
+                                //const typedArr = new Uint8Array(buf);
+                                //Object.freeze(typedArr);
+                                throw TypeError("Cannot freeze");
+                            }
+                        }
+                        return obj;
+                    },
+                    1, "freeze", [], this
+                ));
+                $Object.SetDataProperty("fromEntries", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        const iterable = argList[0];
+                        if(iterable === null || iterable === undefined) {
+                            let err;
+                            if(typeof iterable == "object" || typeof iterable == "undefined") {
+                                err = `${typeof iterable} is not iterable (cannot read property Symbol(Symbol.iterator))`;
+                            }else {
+                                err = `${typeof iterable} ${iterable} is not iterable (cannot read property Symbol(Symbol.iterator))`;
+                            }
+                            throw TypeError(err);
+                        }
+                        const obj = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]);
+                        //Assert: obj.properties.size == 0
+                        const closure = function(thisArg, [key, value], newTarget) {
+                            const propertyKey = /*?*/ ECMAScript.ToPropertyKey(key);
+                            /*!*/ ECMAScript.CreateDataPropertyOrThrow(obj, propertyKey, value);
+                            //return new CompletionRecord(CompletionKind.NORMAL, undefined /*UNUSED*/); //NormalCompletion(UNUSED)
+                            return undefined; //UNUSED
+                        }
+                        const adder = ECMAScript.CreateBuiltinFunction(closure, 2, "", [], this);
+                        return /*?*/ ECMAScript.AddEntriesFromIterable(obj, iterable, adder);
+                    },
+                    1, "fromEntries", [], this
+                ));
                 $Object.SetDataProperty("getOwnPropertyDescriptor", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) { //Object.getOwnPropertyDescriptor(obj, key);
                         const coerced = ECMAScript.ToObject(argList[0]);
@@ -11401,6 +11988,62 @@
                         return descs;
                     },
                     1, "getOwnPropertyDescriptors", [], this
+                ));
+                $Object.SetDataProperty("getPrototypeOf", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function lmaonamedfunctionexpressionfornoreason(thisArg, argList, newTarget) {
+                        return ECMAScript.ToObject(argList[0])["[[GetPrototypeOf]]"]();
+                    },
+                    1, "getPrototypeOf", [], this
+                ));
+                $Object.SetDataProperty("groupBy", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        const groups = /*?*/ ECMAScript.GroupBy(argList[0], argList[1], KeyCoercion.PROPERTY);
+                        const obj = ECMAScript.OrdinaryObjectCreate(null);
+                        for(const group of groups) {
+                            const elements = ECMAScript.CreateArrayFromList(group["[[Elements]]"]);
+                            /*!*/ ECMAScript.CreateDataPropertyOrThrow(obj, group["[[Key]]"], elements);
+                        }
+                        return obj;
+                    },
+                    2, "groupBy", [], this
+                ));
+                $Object.SetDataProperty("hasOwn", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        const coerced = /*?*/ ECMAScript.ToObject(argList[0]);
+                        const propertyKey = /*?*/ ECMAScript.ToPropertyKey(argList[1]);
+                        return /*?*/ coerced["[[GetOwnProperty]]"](propertyKey) != undefined; //HasOwnProperty
+                    },
+                    2, "hasOwn", [], this
+                ));
+                $Object.SetDataProperty("is", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return ECMAScript.SameValue(argList[0], argList[1]);
+                    },
+                    2, "is", [], this
+                ));
+
+                $Object.SetDataProperty("isExtensible", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        if(!(argList[0] instanceof JavascriptObjectWrapper)) return false;
+                        return argList[0]["[[IsExtensible]]"]();
+                    },
+                    1, "isExtensible", [], this
+                ));
+                $Object.SetDataProperty("isFrozen", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        const obj = argList[0];
+                        if(!(obj instanceof JavascriptObjectWrapper)) return true;
+                        return /*?*/ ECMAScript.TestIntegrityLevel(obj, IntegrityLevel.FROZEN);
+                    },
+                    1, "isFrozen", [], this
+                ));
+                $Object.SetDataProperty("isSealed", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        const obj = argList[0];
+                        if(!(obj instanceof JavascriptObjectWrapper)) return true;
+                        return /*?*/ ECMAScript.TestIntegrityLevel(obj, IntegrityLevel.SEALED);
+                    },
+                    1, "isSealed", [], this
                 ));
                 $Object.SetDataProperty("keys", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
@@ -11431,26 +12074,27 @@
                     1, "preventExtensions", [], this
                 ));
 
-                $Object.SetDataProperty("getPrototypeOf", true, false, true, ECMAScript.CreateBuiltinFunction(
-                    function lmaonamedfunctionexpressionfornoreason(thisArg, argList, newTarget) {
-                        return ECMAScript.ToObject(argList[0])["[[GetPrototypeOf]]"]();
-                    },
-                    1, "getPrototypeOf", [], this
-                ));
-
-                $Object.SetDataProperty("is", true, false, true, ECMAScript.CreateBuiltinFunction(
+                $Object.SetDataProperty("seal", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return ECMAScript.SameValue(argList[0], argList[1]);
+                        const obj = argList[0];
+                        if(!(obj instanceof JavascriptObjectWrapper)) return obj;
+                        if(/*?*/ ECMAScript.SetIntegrityLevel(obj, IntegrityLevel.SEALED) == false) {
+                            if(IsProxy(obj)) {
+                                //const proxy = new Proxy({}, {
+                                //    preventExtensions() {return false;}
+                                //});
+                                //Object.seal(proxy);
+                                throw TypeError(`'preventExtensions' on proxy: trap returned falsish`);
+                            }else {
+                                //const buf = new ArrayBuffer(10, {maxByteLength: 20});
+                                //const typedArr = new Uint8Array(buf);
+                                //Object.seal(typedArr);
+                                throw TypeError("Cannot seal");
+                            }
+                        }
+                        return obj;
                     },
-                    2, "is", [], this
-                ));
-
-                $Object.SetDataProperty("isExtensible", true, false, true, ECMAScript.CreateBuiltinFunction(
-                    function(thisArg, argList, newTarget) {
-                        if(!(argList[0] instanceof JavascriptObjectWrapper)) return false;
-                        return argList[0]["[[IsExtensible]]"]();
-                    },
-                    1, "isExtensible", [], this
+                    1, "seal", [], this
                 ));
 
                 $Object.SetDataProperty("setPrototypeOf", true, false, true, ECMAScript.CreateBuiltinFunction(
@@ -11488,6 +12132,15 @@
                         return obj;
                     },
                     2, "setPrototypeOf", [], this
+                ));
+
+                $Object.SetDataProperty("values", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        const obj = /*?*/ ECMAScript.ToObject(argList[0]);
+                        const valueList = /*?*/ ECMAScript.EnumerableOwnProperties(coerced, EnumerateKind.VALUE);
+                        return ECMAScript.CreateArrayFromList(valueList);
+                    },
+                    1, "values", [], this
                 ));
 
                 // this.state.variables[0].set("Object", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Object"}, $Object));
@@ -12257,11 +12910,56 @@
                     function(thisArg, argList, newTarget) {
                         return thisArg;
                     },
-                    0, "get [Symbol.species]", [], this,
+                    0, "[Symbol.species]", [], this, undefined, "get"
                 ), undefined);
                 ECMAScript["%Array.prototype%"].properties.get("constructor").value = $Array;
                 // this.state.variables[0].set("Array", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Array"}, $Array));
                 globalObj.SetDataProperty("Array", true, false, true, $Array);
+
+                const $Map = ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) { //new Map(iterable = undefined)
+                        if(newTarget === undefined) throw TypeError("Constructor Map requires 'new'");
+                        const map = /*?*/ ECMAScript.OrdinaryCreateFromConstructor(newTarget, "%Map.prototype%", ["[[MapData]]"]);
+                        //map["[[MapData]]"] = [];
+                        map["[[MapData]]"] = new Map(); //lol
+                        if(argList[0] === undefined || argList[0] === null) {
+                            return map;
+                        }
+                        const adder = /*?*/ map["[[Get]]"]("set", map); //Get
+                        if(!ECMAScript.IsCallable(adder)) {
+                            throw TypeError(`'${SpecialErrorToString(adder)}' returned for property 'set' of object '#<Map>' is not a function`);
+                        }
+                        return /*?*/ ECMAScript.AddEntriesFromIterable(map, argList[0], adder);
+                    },
+                    0, "Map", [], this, ECMAScript["%Function.prototype%"]
+                );
+                ECMAScript.MakeConstructor($Map, false, ECMAScript["%Map.prototype%"]); //oh wait this is probably how i should've been doing it this whole time instead of $Map.SetDataProperty("prototype", false ,false, false, ...)
+                ECMAScript["%Map.prototype%"].properties.get("constructor").value = $Map;
+
+                $Map.SetDataProperty("groupBy", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        const groups = /*?*/ ECMAScript.GroupBy(argList[0], argList[1], KeyCoercion.COLLECTION, "Map.groupBy");
+                        const map = /*!*/ ECMAScript["%Map%"]["[[Construct]]"]([], ECMAScript["%Map%"]); //Construct
+                        for(const group of groups) {
+                            const elements = ECMAScript.CreateArrayFromList(group["[[Elements]]"]);
+                            // const entry = {"[[Key]]": group["[[Key]]"], "[[Value]]": elements};
+                            // map["[[MapData]]"].push(entry);
+                            map["[[MapData]]"].set(group["[[Key]]"], elements);
+                        }
+                        return map;
+                    },
+                    2, "groupBy", [], this
+                ));
+
+                $Map.SetAccessorProperty(ECMAScript["%Symbol.species%"], false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        return thisArg;
+                    },
+                    0, "[Symbol.species]", [], this, undefined, "get"
+                ), undefined);
+
+                ECMAScript["%Map%"] = $Map;
+                globalObj.SetDataProperty("Map", true, false, true, $Map);
                 
                 const $Reflect = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]);
                 
@@ -12553,6 +13251,8 @@
                         if(arg instanceof JavascriptObjectWrapper) {
                             const isFunc = "[[Call]]" in arg;
                             if(depth == 0) {
+                                //this part still happens in Console.Printer
+                                
                                 //if(isFunc) {
                                 //    const temp = Console.FunctionToString["[[Call]]"](arg, []);
                                 //    if(temp.startsWith("function")) {
@@ -12596,6 +13296,8 @@
                                     result += "ƒ";
                                 }else if(ECMAScript.IsArray(arg)) {
                                     result += `Array(${ECMAScript.LengthOfArrayLike(arg)})`;
+                                }else if("[[MapData]]" in arg) {
+                                    result += `Map(${arg["[[Get]]"]("size", arg)})`;
                                 }else {
                                     // const toString = ECMAScript["%Object.prototype%"].properties.get("toString");
                                     // if(!ECMAScript.IsCallable()) {
@@ -12627,7 +13329,7 @@
                                     return result + `${quote}${arg}${quote}`;
                                 }
                             }
-                            if(typeof arg == "undefined" || arg == null) {
+                            if(typeof arg == "undefined" || arg == null) { //i could've also just said arg == undefined lol
                                 result += ""+arg; //you can't do the ole string coersion trick with symbols so thats why we only do it here
                             }else {
                                 result += arg.toString();
@@ -12675,6 +13377,21 @@
                                     }else {
                                         doLog("%c"+temp, "font-style: italic;");
                                     }
+                                }else if("[[MapData]]" in arg) {
+                                    const size = arg["[[Get]]"]("size", arg);
+                                    //Assert: arg["[[MapData]]"] instanceof Map
+                                    let result = "";
+                                    for(const [key, value] of arg["[[MapData]]"]) {
+                                        //const map = new Map([
+                                        //    [[undefined], true]
+                                        //]);
+                                        //map; //Map(1) {Array(1) => true}
+                                        if(result.length) {
+                                            result += ", ";
+                                        }
+                                        result += `${Console.TurnThisIntoPrettyStringKTHXBAI(key, 1)} => ${Console.TurnThisIntoPrettyStringKTHXBAI(value, 1)}`;
+                                    }
+                                    doLog(`%cMap(${size}) %c{${result}}`, "color: darkgrey; font-style: italic;", "font-style: italic;");
                                 }else {
                                     // const entries = Console.ObjectEntries["[[Call]]"]($Object, [arg]); //->Call();
                                     const temp = arg["[[OwnPropertyKeys]]"]();
@@ -14805,23 +15522,23 @@
                     const superclassref = classStatement.classHeritage.accept(this);
                     this.executionContext.lexicalEnvironment = envRecord;
                     const superclass = /*?*/ this.GetValue(/*?*/ superclassref);
-                    if(superclass == null) {
+                    if(superclass === null) {
                         protoParent = null;
                         ctorParent = ECMAScript["%Function.prototype%"];
-                    }else if(!("[[Construct]]" in superclass)) {
-                        let stringvalue;
-                        if(superclass instanceof JavascriptObjectWrapper) {
-                            stringvalue = `#<${GetConstructorName(superclass)}>`;
-                        }else if(typeof stringvalue == "undefined" || typeof stringvalue == "null") {
-                            stringvalue = ""+stringvalue;
-                        }else {
-                            stringvalue = superclass.toString();
-                        }
-                        throw TypeError(`Class extends value ${stringvalue} is not a constructor or null`);
+                    }else if(superclass === undefined || !("[[Construct]]" in superclass)) {
+                        //let stringvalue;
+                        //if(superclass instanceof JavascriptObjectWrapper) {
+                        //    stringvalue = `#<${GetConstructorName(superclass)}>`;
+                        //}else if(typeof stringvalue == "undefined" || typeof stringvalue == "null") {
+                        //    stringvalue = ""+stringvalue;
+                        //}else {
+                        //    stringvalue = superclass.toString();
+                        //}
+                        throw TypeError(`Class extends value ${/*stringvalue*/ SpecialErrorToString(superclass)} is not a constructor or null`);
                     }else {
                         protoParent = /*?*/ superclass["[[Get]]"]("prototype", superclass); // Get
-                        if(!(protoParent instanceof JavascriptObjectWrapper) && protoParent != null) {
-                            throw TypeError(); //how could i even make this happen lol
+                        if(!(protoParent instanceof JavascriptObjectWrapper) && protoParent !== null) { //oh my god without the strict equals i was accidently letting through incorrect superclasses like Proxy or undefined!!
+                            throw TypeError("Class extends value does not have valid prototype property undefined"); //how could i even make this happen lol
                         }
                         ctorParent = superclass;
                     }
