@@ -71,6 +71,9 @@
             <option value="consistent20">Array.prototype.find</option>
             <option value="consistent21">notable results from deep in specification</option>
             <option value="consistent22">symbol for and proxy consistent error</option>
+            <option value="consistent23">json stringify rawJSON consistent</option>
+            <option value="JSON2">JSON parse/stringify with reviver/replacer</option>
+            <option value="JSON">stringify SLIGHT inconsistent</option>
             <option value="foundinthespec">no duplicate params in arrow</option>
             <option value="while">while statement</option>
             <option value="proxytest">simple proxy test</option>
@@ -136,6 +139,11 @@
             "consistent20": "//var in 2026 lawl!\n//this one is already testable in the browser!\n\n//i (the second number printed each time) is the amount of times predicate was called\n\nconst arr = [1,2,3,4,5,6];\nconst predicate = x=>(i++, x==6);\n\nvar i = 0;\nconsole.log(arr.find(predicate), i); // 6 6\n\nvar i = 0;\nconsole.log(arr.findIndex(predicate), i); // 5 6\n\nvar i = 0;\nconsole.log(arr.findLast(predicate), i); // 6 1\n\nvar i = 0;\nconsole.log(arr.findLastIndex(predicate), i); // 5 1",
             "consistent21": "//if an array is holey, includes(undefined) will return true when it encounters said hole\n//indexOf, however, skips holes!\n\n//i assume this is one of the few situations where an array seems to include a value, yet indexOf is -1!\n\nconst arr = [0,,2];\nconsole.log(arr.includes(undefined), arr.indexOf(undefined)); // true -1",
             "consistent22": "if(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\n\nconst handler = {\n    ownKeys() {\n        console.larp(...arguments);\n        return [Symbol.for(\"unique\"), Symbol.for(\"unique\")];\n    }\n};\n\nconst proxy = new Proxy({}, handler);\nObject.keys(proxy);",
+            "consistent23": "JSON.stringify({pi: JSON.rawJSON(\"3.14159265358979323846264338327950288419716939937510582097494459230781\")});",
+            //"JSON": "if(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\n\nconst transformedObj = JSON.parse(`[{\"id\":0,\"money\":0,\"items\":{},\"bankmoney\":12000, \"unused\": null},{\"id\":1,\"money\":0,\"items\":{\"ghost_steal\":256},\"bankmoney\":100, \"unused\": null}]`, (key, value, context)=>{\n    console.larp(key, value, context);\n    if(key == \"bankmoney\") {\n        return BigInt(context.source);\n    }else if(key == \"items\") {\n        /*const temp = {};\n        for(const key of value) {\n            temp[key] = BigInt(value[key]);\n        }*/\n    }else if(key == \"unused\") {\n        return undefined;\n    }\n    return value;\n});\nconsole.larp(...transformedObj);", //throwback!
+            // "JSON": "if(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\n\nconst transformedObj = JSON.parse(`[{\"id\":0,\"money\":0,\"items\":{},\"bankmoney\":\"12000\", \"unused\": null},{\"id\":1,\"money\":0,\"items\":{\"ghost_steal\":256},\"bankmoney\":\"100\", \"unused\": null}]`, (key, value, context)=>{\n    console.larp(key, value, context);\n    if(key == \"bankmoney\") {\n        return BigInt(context.source);\n    }else if(key == \"items\") {\n        /*const temp = {};\n        for(const key of value) {\n            temp[key] = BigInt(value[key]);\n        }*/\n    }else if(key == \"unused\") {\n        return undefined;\n    }\n    return value;\n});\n\nconsole.larp(...transformedObj);\nconsole.larp(JSON.stringify(transformedObj, (key, value)=>key == \"bankmoney\" ? value.toString() : value));", //throwback!
+            "JSON2": "if(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\n\nconst transformedObj = JSON.parse(`[{\"id\":0,\"money\":0,\"items\":{},\"bankmoney\":12000, \"unused\": null},{\"id\":1,\"money\":0,\"items\":{\"ghost_steal\":256},\"bankmoney\":100, \"unused\": null}]`, (key, value, context)=>{\n    console.larp(key, value, context);\n    if(key == \"bankmoney\") {\n        debugger;\n        return BigInt(context.source);\n    }else if(key == \"items\") {\n        /*const temp = {};\n        for(const key of value) {\n            temp[key] = BigInt(value[key]);\n        }*/\n    }else if(key == \"unused\") {\n        return undefined;\n    }\n    return value;\n});\n\nconsole.larp(...transformedObj);\n\n//using a replacer function with JSON.rawJSON to preserve the big int value as a number literal\n//if we didn\'t use JSON.rawJSON, it would stringify the big ints with quotes (and BigInt(\'\"12000\"\') will throw!)\nconsole.larp(JSON.stringify(transformedObj, (key, value)=>(console.larp(key, value), key == \"bankmoney\" ? JSON.rawJSON(value.toString()) : value), \"\\t\"));", //throwback!
+            "JSON": "const str = `{\n    \"test\": [1, -170, 3.14159265358979323846264338327950, -2e2, 5e+200, 0.1e-3, \"\\\\\"\\\\\\\\/\\\\b\\\\f\\\\n\\\\r\\\\t\\\\uD834\\\\uDD1E\\\\\"\", true, false, null],\n    \"aliens\": \"bitch\",\n    \"aliens\": \"bitch!\"\n}`;\n\nconst obj = JSON.parse(str);\nconsole.larp(obj);\n\n//v8 JSON.stringify will unescape 𝄞\nconsole.larp(JSON.stringify(obj));",
             "foundinthespec": "// Duplicate parameter name not allowed in this context\n((x, x, y) => {\n    /*...*/\n});",
             "while": "class Test extends Object {\n    constructor() {\n        while(true) super();\n    }\n}\nnew Test;",
             "proxytest": "if(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\n\nconst proxy = new Proxy(function(x, y) {this.x = x; this.y = y;}, {\n    apply(target, thisArg, argList) {\n        console.larp(target, thisArg, argList);\n    }\n});\n\nproxy(\"x\", \"y\", \"z\"); //caught by trap\n\nconsole.larp(new proxy(100, 100)); //passed through onto function target",
@@ -379,6 +387,458 @@
             /**
              * @returns {Expected<Array<Statement>, ParseError>} */
             parse() {}; // = 0;
+        }
+
+        class JSONToken {
+            static BRACKET = 1;
+            static CURLY_BRACKET = 2;
+            static RIGHT_BRACKET = 3;
+            static RIGHT_CURLY_BRACKET = 4;
+            static COLON = 5;
+            static COMMA = 6;
+
+            static BOOLEAN = 7;
+            static NULL = 8;
+
+            static STRING = 9;
+            static NUMBER = 10;
+        }
+
+        //JSONParser.staticParse("{\"test\": [1, \"string\", true, false, null], \"aliens\": \"bitch!\"}");
+        class JSONLexer extends Lexer {
+            constructor() {
+                super(undefined);
+            }
+
+            lex(str) /*override*/ {
+                debugger;
+                const JSONDigit = /[0-9]/; //for numbers
+                const JSONHexDigit = /[0-9a-fA-F]/; //for unicode escapes
+                const tokens = [];
+                let lineNumber = 1;
+                let lineIndex = 0;
+                let i = 0;
+                while(i < str.length) {
+                    const char = str[i++];
+                    const charIndex = i - lineIndex;
+                    switch(char) {
+                        case '[':
+                            tokens.push(new Token(lineNumber, charIndex, JSONToken.BRACKET, char));
+                            break;
+                        case '{':
+                            tokens.push(new Token(lineNumber, charIndex, JSONToken.CURLY_BRACKET, char));
+                            break;
+                        case ']':
+                            tokens.push(new Token(lineNumber, charIndex, JSONToken.RIGHT_BRACKET, char));
+                            break;
+                        case '}':
+                            tokens.push(new Token(lineNumber, charIndex, JSONToken.RIGHT_CURLY_BRACKET, char));
+                            break;
+                        case ':':
+                            tokens.push(new Token(lineNumber, charIndex, JSONToken.COLON, char));
+                            break;
+                        case ',':
+                            tokens.push(new Token(lineNumber, charIndex, JSONToken.COMMA, char));
+                            break;
+                        case '"': {
+                            const token = new Token(lineNumber, charIndex, JSONToken.STRING, "");
+                            let temp = str[i];
+                            while(i < str.length && temp != '"') {
+                                i++; //consume
+                                if(temp == '\\') {
+                                    const lookahead = str[i++]; //consume
+                                    switch(lookahead) {
+                                        case '"':
+                                            temp = '"';
+                                            break;
+                                        case '\\':
+                                            temp = '\\';
+                                            break;
+                                        case '/':
+                                            temp = '/';
+                                            break;
+                                        case 'b':
+                                            temp = '\b';
+                                            break;
+                                        case 'f':
+                                            temp = '\f';
+                                            break;
+                                        case 'n':
+                                            temp = '\n';
+                                            break;
+                                        case 'r':
+                                            temp = '\r';
+                                            break;
+                                        case 't':
+                                            temp = '\t';
+                                            break;
+                                        
+                                        case 'u': {
+                                            let unicode = "";
+                                            //ough
+                                            //u JSONHexDigit JSONHexDigit JSONHexDigit JSONHexDigit
+                                            for(let j = 0; j < 4; j++) {
+                                                if(JSONHexDigit.test(str[i])) {
+                                                    unicode += str[i++];
+                                                }else {
+                                                    return Unexpected(new ParseError(lineNumber, i - lineIndex, `Hexadecimal digit expected in unicode escape, found '${str[i]}' instead`));
+                                                    break;
+                                                }
+                                            }
+                                            temp = String.fromCodePoint(parseInt(unicode, 16)); //fairs
+                                            break;
+                                        }
+
+                                        default:
+                                            return Unexpected(new ParseError(lineNumber, i - lineIndex, `Bad escape character '\\${lookahead}'`));
+                                            break;
+                                    }
+                                }
+                                token.value += temp;
+                                temp = str[i];
+                            }
+                            if(temp != '"') {
+                                //unterminated string
+                                return Unexpected(new ParseError(lineNumber, i - lineIndex, "Unterminated string"));
+                            }
+                            i++; //consume closing quote
+                            tokens.push(token);
+                            break;
+                        }
+
+                        //literal name tokens
+                        case 't':
+                        case 'f':
+                        case 'n': {
+                            const token = new Token(lineNumber, charIndex, undefined, char);
+                            let temp = str[i];
+                            while(i < str.length && /[$_a-zA-Z]/.test(temp)) { // oh my god i forgot again that it will coerce undefined into a string and match it!!
+                                i++;
+                                token.value += temp;
+                                temp = str[i]; //oops i wrote i++ in here instead and i was accidently reading tokens one ahead
+                            }
+                            switch(token.value) {
+                                case "true":
+                                    token.kind = JSONToken.BOOLEAN;
+                                    token.value = true;
+                                    break;
+                                case "false":
+                                    token.kind = JSONToken.BOOLEAN;
+                                    token.value = false;
+                                    break;
+                                case "null":
+                                    token.kind = JSONToken.NULL;
+                                    token.value = null; //lol
+                                    break;
+                                default:
+                                    return Unexpected(new ParseError(lineNumber, charIndex, `Unknown literal '${token.value}'`)); //lol this means that you can write some bullshit starting with t, f, or n and it will appear in the error
+                                    break;
+                            }
+                            tokens.push(token); //forgor
+                            break;
+                        }
+
+                        //whitespace
+                        case '\t':
+                        case '\r':
+                        case ' ':
+                            break;
+                        case '\n':
+                            lineNumber++;
+                            lineIndex = i;
+                            break;
+
+                        //numbers
+                        default:
+                            if(char == '-' || JSONDigit.test(char)) {
+                                const token = new Token(lineNumber, charIndex, JSONToken.NUMBER);
+                                // let value = char == '-' ? char : ""; //- opt
+                                let value = ""; //lol
+                                if(char != '-') {
+                                    i--; //decrement i if char isnt - so that str[i] == first number regardless
+                                }else {
+                                    value = char;
+                                }
+                                //JSONInteger
+                                if(str[i] == '0') {
+                                    value += str[i++];
+                                }else {
+                                    //NonZeroDigit
+                                    let temp = str[i];
+                                    if(/[1-9]/.test(temp)) {
+                                        i++; //consume
+                                        value += temp;
+                                        temp = str[i];
+                                    }
+                                    //JSONDigits opt
+                                    while(i < str.length && JSONDigit.test(temp)) {
+                                        i++; //consume
+                                        value += temp;
+                                        temp = str[i];
+                                    }
+                                }
+                                //JSONFraction opt
+                                if(str[i] == '.') {
+                                    value += str[i++];
+                                    //JSONDigits
+                                    let temp = str[i];
+                                    while(i < str.length && JSONDigit.test(temp)) {
+                                        i++; //consume
+                                        value += temp;
+                                        temp = str[i];
+                                    }
+                                }
+                                //JSONExponent opt
+                                if(i < str.length && /[eE]/.test(str[i])) { //JSONExponentIndicator
+                                    value += str[i++];
+                                    if(/[+\-]/.test(str[i])) { //JSONSign opt
+                                        value += str[i++];
+                                    }
+                                    //JSONDigits
+                                    let temp = str[i];
+                                    while(i < str.length && JSONDigit.test(temp)) {
+                                        i++; //consume
+                                        value += temp;
+                                        temp = str[i];
+                                    }
+                                }
+                                //token.value = Number(value);
+                                token.value = value; //we delegate this part to JSONParser since numbers are allowed to be as big as they want or something lol. this way when i write this again, i'll only have to change the logic of the parser
+                                const realResult = Number(value);
+                                if(realResult !== realResult) { //confirm that i did this part right lol
+                                    return Unexpected(new ParseError(lineNumber, charIndex, "Invalid number (somehow...)"));
+                                }
+                                tokens.push(token);
+                            }else {
+                                return Unexpected(new ParseError(lineNumber, charIndex, `Unexpected character '${char}'`));
+                            }
+                            break;
+                    }
+                }
+                return new Expected(tokens);
+            }
+        }
+
+        //uhhh i wrote the Parser class with interpreters in mind so this is a little awkward
+        //we could also have a sax/event driven version of this if i wanted :smirk:
+        class JSONParser extends Parser {
+            //__proto__
+            //interpreter;
+            //tokens;
+
+            i;
+            allowTrailingCommas;
+            // saxLike;
+            forInterpreter;
+            nodesOnly;
+            constructor(tokens, options = {}) {
+                super(undefined, tokens);
+                this.i = 0;
+                const {allowTrailingCommas/*, saxLike*/, forInterpreter, nodesOnly} = options;
+                this.allowTrailingCommas = !!allowTrailingCommas; //using double bang to coerce to bool (since these variables will be undefined if options is an empty object!)
+                // this.saxLike = !!saxLike;
+                this.forInterpreter = !!forInterpreter; //using double bang to coerce to bool (since these variables will be undefined if options is an empty object!)
+                this.nodesOnly = !!nodesOnly;
+            }
+
+            peek(kind) {
+                return this.i < this.tokens.length && this.tokens[this.i].kind == kind;
+            }
+
+            peekNext(kind) {
+                return this.i+1 < this.tokens.length && this.tokens[this.i+1].kind == kind;
+            }
+
+            match(kind) {
+                if(this.i < this.tokens.length && this.tokens[this.i].kind == kind) {
+                    return this.tokens[this.i++];
+                }
+                return false;
+            }
+
+            //probably what i should've done in JavascriptParser!
+            consume(kind, message) {
+                const found = this.match(kind);
+                if(!found) {
+                    throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, message);
+                }
+                return found;
+            }
+
+            //https://tc39.es/ecma404/#sec-objects
+            JSONObject() {
+                this.consume(JSONToken.CURLY_BRACKET, "Expected opening curly bracket at beginning of JSON object");
+                let memberList = [];
+
+                //we actually could just check if the next token isn't a right curly bracket and do JSONMemberList from there
+                //if(this.peek(JSONToken.STRING)) { //JSONMemberList -> JSONMember -> JSONString
+                //    //we check first that there is, in fact, a string so that JSONMemberList can expect the next token to be valid ( which makes it easier for me to write :) )
+                //    memberList = this.JSONMemberList();
+                //}
+
+                //this way the error message will probably (?) be more accurate lol
+                //if we just check if it's a string and it's not, we'll see the "Expected closing curly bracket..." error message
+                //maybe i should've realized this when i wrote JavascriptParser lol...
+                if(!this.peek(JSONToken.RIGHT_CURLY_BRACKET)) {
+                    memberList = this.JSONMemberList();
+                }
+
+                let message = "Expected closing curly bracket at end of JSON object";
+                if(this.peek(JSONToken.STRING)) {
+                    message += " (You may have forgotten a comma here!)";
+                }
+                this.consume(JSONToken.RIGHT_CURLY_BRACKET, message);
+
+                //return memberList;
+
+                //because JSON isn't interpreter, i think i'll just "evaluate" this "node" right here and return an object (of course this would happen different in c++ etc)
+                //very very luckily, memberList is in the Object.fromEntries format!
+                //Evaluate JSONObject
+                // return Object.fromEntries(memberList);
+
+                if(this.forInterpreter) {
+                    //lol!!
+                    // return ECMAScript.Call(ECMAScript["%Object.fromEntries%"], undefined, [ECMAScript.CreateArrayFromList(memberList)]);
+                    const root = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]);
+                    for(const [key, value] of memberList) {
+                        root.SetDataProperty(key, true, true, true, value); //lol, i'd use ECMAScript.CreateDataPropertyOrThrow, but it would throw if there were duplicate keys! (and in writing this did i realize that the ECMAScript["%Object.fromEntries%"] cheese wasn't going to work anyways...)
+                    }
+                    return root;
+                }else {
+                    return Object.fromEntries(memberList);
+                }
+            }
+
+            JSONMemberList() {
+                const list = [];
+                // [for(const x of "string") x];
+                list.push(this.JSONMember());
+                
+                //while(this.peekNext(JSONToken.STRING)) { //i guess we could've also written this as this.match(TokenKind.COMMA) instead ?
+                //    this.consume(TokenKind.COMMA, "Expected comma in JSON member list");
+                //    list.push(this.JSONMember());
+                //}
+
+                //the note i wrote in JSONObject probably in some way applied here too.
+                while(this.match(JSONToken.COMMA)) {
+                    if(this.peek(JSONToken.RIGHT_CURLY_BRACKET)) {
+                        if(this.allowTrailingCommas) {
+                            break;
+                        }else {
+                            const token = this.tokens[this.i-1];
+                            throw new ParseError(token.line, token.char, "Trailing comma.");
+                        }
+                    }
+                    list.push(this.JSONMember());
+                }
+                return list;
+            }
+
+            JSONMember() {
+                const string = this.JSONString();
+                this.consume(JSONToken.COLON, "Expected colon following string in JSON member");
+                const value = this.JSONValue();
+                return [string, value];
+            }
+
+            JSONArray() {
+                this.consume(JSONToken.BRACKET, "Expected opening bracket at beginning of JSON array");
+                let elementList = [];
+                if(!this.peek(JSONToken.RIGHT_BRACKET)) {
+                    elementList = this.JSONElementList();
+                }
+                
+                this.consume(JSONToken.RIGHT_BRACKET, "Expected closing bracket at end of JSON array (You may have forgotten a comma here.)");
+
+                //return elementList;
+
+                //Evaluate JSONArray
+                // return elementList; //lol, it's already an array!
+
+                if(this.forInterpreter) {
+                    return ECMAScript.CreateArrayFromList(elementList);
+                }else {
+                    return elementList;
+                }
+            }
+
+            JSONElementList() {
+                const list = [];
+                list.push(this.JSONValue());
+                while(this.match(JSONToken.COMMA)) {
+                    if(this.peek(JSONToken.RIGHT_BRACKET)) {
+                        if(this.allowTrailingCommas) {
+                            break;
+                        }else {
+                            const token = this.tokens[this.i-1];
+                            throw new ParseError(token.line, token.char, "Trailing comma.");
+                        }
+                    }
+                    list.push(this.JSONValue());
+                }
+                return list;
+            }
+
+            JSONNumber() {
+                const number = this.consume(JSONToken.NUMBER, "Number value expected here."); //ah :)
+                if(this.nodesOnly) {
+                    return number.value;
+                }
+                return Number(number.value);
+            }
+
+            JSONString() {
+                const string = this.consume(JSONToken.STRING, "String value expected here.");
+                //if(this.nodesOnly) {
+                //    return `"${string.value}"`;
+                //}
+                return string.value;
+            }
+
+            JSONValue() {
+                if(this.peek(JSONToken.CURLY_BRACKET)) {
+                    return this.JSONObject();
+                }else if(this.peek(JSONToken.BRACKET)) {
+                    return this.JSONArray();
+                }else if(this.peek(JSONToken.NUMBER)) {
+                    return this.JSONNumber();
+                }else if(this.peek(JSONToken.STRING)) {
+                    const result = this.JSONString();
+                    if(this.nodesOnly) {
+                        return `"${result}"`;
+                    }
+                    return result;
+                }else if(this.peek(JSONToken.BOOLEAN)) {
+                    const bool = this.consume(JSONToken.BOOLEAN, "Boolean value expected here."); //i'm just doing this just in case i turn this into its own method
+                    return bool.value;
+                }else if(this.peek(JSONToken.NULL)) {
+                    const $null = this.consume(JSONToken.NULL, "null expected here."); //i'm just doing this just in case i turn this into its own method
+                    return null;
+                }
+                throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, `Unexpected token found when parsing JSON value '${this.tokens[this.i].value}'`);
+            }
+
+            parse() /*override*/ {
+                return this.JSONValue();
+            }
+
+            //for easy testing lol
+            static staticParse(str, parserOptions) {
+                let result = (new JSONLexer).lex(str);
+                if(!result.has_value()) {
+                    // result.error.source = str;
+                    result.error.message = result.error.toString(str);
+                    throw result.error;
+                }
+                try {
+                    return new JSONParser(result.value, parserOptions).parse();
+                }catch(err) {
+                    if(err instanceof ParseError) {
+                        err.message = err.toString(str);
+                    }
+                    throw err;
+                }
+            }
         }
 
         class HostLanguage {
@@ -2394,7 +2854,24 @@
             return "[[ProxyHandler]]" in arg;
         }
 
+        class JSONParseRecord {
+            /** @type {Object} */
+            "[[ParseNode]]";
+            "[[Key]]";
+            "[[Value]]";
+            "[[Elements]]";
+            "[[Entries]]";
+            constructor(parseNode, key, value, elements, entries) {
+                this["[[ParseNode]]"] = parseNode;
+                this["[[Key]]"] = key;
+                this["[[Value]]"] = value;
+                this["[[Elements]]"] = elements;
+                this["[[Entries]]"] = entries;
+            }
+        }
+
         //important abstract operations
+        //i should've probably implemented all of them and only AFTER profiling should i have started to omit some... (if i even got to the "caring about performance" part)
         class ECMAScript {
             //https://tc39.es/ecma262/#sec-iscallable
             /** @returns {Boolean} */
@@ -3018,6 +3495,17 @@
                 if(proxy["[[ProxyTarget]]"] == null) throw TypeError(message);
                 //Assert: proxy["[[ProxyTarget]]"] != null
                 return undefined; //UNUSED
+            }
+
+            static RequireObjectCoercible(value, defaultError, prefixOrFullMsg) {
+                if(value === null || value === undefined) {
+                    if(defaultError) {
+                        throw TypeError(`${prefixOrFullMsg} called on null or undefined`);
+                    }else {
+                        //just in case lol i think there've been some random times where it (v8) showed a different message!
+                        throw TypeError(prefixOrFullMsg);
+                    }
+                }
             }
 
             static IsArray(arg) {
@@ -3948,6 +4436,17 @@
                 throw TypeError("BigInt.prototype method requires that 'this' be a BigInt"); // how the hell does v8 know what the calling object's name is lol
             }
 
+            static ThisStringValue(arg) {
+                if(typeof arg == "string") {
+                    return arg;
+                }
+                if(arg instanceof JavascriptObjectWrapper && "[[StringData]]" in arg) {
+                    //Assert: typeof arg["[[StringData]]"] == "string"
+                    return arg["[[StringData]]"];
+                }
+                throw TypeError("String.prototype method requires that 'this' be a String");
+            }
+
             static SameType(x, y) {
                 //definitely strict equals here because in IsLooselyEqual there's a case for undefined and null
                 //https://tc39.es/ecma262/multipage/abstract-operations.html#sec-islooselyequal
@@ -4118,6 +4617,34 @@
                     return 0;
                 }
                 return Math.trunc(number); // i BELIEVE Math.trunc does the same thing as truncate(R(number)))
+            }
+
+            //nonIntHandling is commented out because this function is never called with a different value for it!
+            static SnapToInteger(arg/*, nonIntHandling*/, minimum, maximum) {
+                const number = /*?*/ ECMAScript.ToNumber(arg);
+                if(!Number_isFinite(number) || Number_isNaN(number)) {
+                    //21..toString(NaN);
+                    //21n.toString(Infinity);
+                    throw RangeError("toString() radix argument must be between 2 and 36");
+                }
+                let mv = number;
+                //if(nonIntHandling == NonIntHandling.TRUNCATE) {
+                    mv = Math.trunc(mv);
+                //}
+                
+                //this won't happen
+                //if(mv % 1 != 0) {
+                    //throw RangeError
+                //}
+                if(minimum !== undefined && mv < minimum) {
+                    //21..toString(0);
+                    throw RangeError("toString() radix argument must be between 2 and 36");
+                }
+                if(maximum !== undefined && mv > maximum) {
+                    //21..toString(100);
+                    throw RangeError("toString() radix argument must be between 2 and 36");
+                }
+                return mv;
             }
 
             //this method is only used twice in the whole spec lol
@@ -4531,6 +5058,320 @@
                 return undefined;
             }
 
+            static ParseJSON(text) {
+                //hold on lol we need to make sure text isn't undefined
+                if(text == "undefined") {
+                    throw SyntaxError(`"undefined" is not valid JSON`);
+                }
+                try {
+                    /*
+                    {
+                        "test": [1, -170, 3.14159265358979323846264338327950, -2e2, 5e+200, 0.1e-3, "\"\\\/\b\f\n\r\t\uD834\uDD1E\"", true, false, null],
+                        "aliens": "bitch",
+                        "aliens": "bitch!"
+                    }
+                    */
+                    return {
+                        "[[ParseNode]]": JSONParser.staticParse(text, {nodesOnly: true}),
+                        "[[Value]]": JSONParser.staticParse(text, {forInterpreter: true})
+                    };
+                }catch(err) {
+                    if(err instanceof ParseError) {
+                        //we'll cast it to a SyntaxError lol
+                        throw SyntaxError(err.message);
+                    }
+                    throw err;
+                }
+            }
+
+            static ShallowestContainedJSONValue(root) {
+                //Assert: some bullshit because this is only ever called by CreateJSONParseRecord and that's only called by JSON.parse!
+                //const types = ["null", "boolean", "number", "string", "object"];
+                //const queue = [root];
+                //while(queue.length) {
+                //    const candidate = queue.splice(0, 1)[0]; //oh yeah!
+                //    let queuedChildren = false;
+                //    for(const type of types) {
+                //        if(typeof candidate == type) {
+                //            return candidate;
+                //        }
+                //        //when would this happen??
+                //
+                //        //if(queuedChildren == false/* && candidate is a nonterminal && candidate Contains type**/) {
+                //        //    const children = candidate;
+                //        //}
+                //    }
+                //}
+                //return EMPTY;
+
+                //i'm very confused about this method
+                return root;
+            }
+
+            static CreateJSONParseRecord(parseNode, key, value) {
+                const typedValueNode = ECMAScript.ShallowestContainedJSONValue(parseNode);
+                //Assert: typedValueNode != EMPTY
+                const elements = [];
+                const entries = [];
+                if(value instanceof JavascriptObjectWrapper) {
+                    const isArray = /*!*/ ECMAScript.IsArray(value);
+                    if(isArray) {
+                        //Assert: typedValueNode instanceof Array
+                        //Assert: ECMAScript.LengthOfArrayLike(value) == parseNode.length;
+                        for(let index = 0; index < parseNode.length; index++) {
+                            const propertyName = /*!*/ index.toString() /*ECMAScript.ToString(𝔽(index))*/;
+                            elements.push(ECMAScript.CreateJSONParseRecord(parseNode[index], propertyName, /*!*/ value["[[Get]]"](propertyName, value) /*Get*/));
+                        }
+                    }else {
+                        //Assert: typeof typedValueNode == "object"
+                        for(const propertyKey in parseNode) { //shh!
+                            //...
+                            entries.push(ECMAScript.CreateJSONParseRecord(parseNode[propertyKey], propertyKey, /*!*/ value["[[Get]]"](propertyKey, value) /*Get*/));
+                        }
+                    }
+                }else {
+                    //Assert: !(typedValueNode instanceof Array) && typeof typedValueNode != "object"
+                }
+                //return {"[[ParseNode]]": parseNode, "[[Key]]": key, "[[Value]]": value, "[[Elements]]": elements, "[[Entries]]": entries};
+                return new JSONParseRecord(parseNode, key, value, elements, entries);
+            }
+
+            static InternalizeJSONProperty(holder, name, reviver, parseRecord) {
+                const value = /*?*/ holder["[[Get]]"](name, holder); //Get
+                const context = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]);
+                let elementRecords;
+                let entryRecords;
+                if(parseRecord instanceof JSONParseRecord && ECMAScript.SameValue(parseRecord["[[Value]]"], value) == true) {
+                    if(!(value instanceof JavascriptObjectWrapper)) {
+                        const parseNode = parseRecord["[[ParseNode]]"];
+                        //Assert: !(parseNode instanceof Array) && typeof parseNode != "object"
+                        /*!*/ ECMAScript.CreateDataPropertyOrThrow(context, "source", ""+parseNode); //we use ""+parseNode to coerce parseNode into a string because i was too lazy to make the nodesOnly setting affect booleans and null (because we could just do this instead) 
+                    }
+                    elementRecords = parseRecord["[[Elements]]"];
+                    entryRecords = parseRecord["[[Entries]]"];
+                }else {
+                    elementRecords = [];
+                    entryRecords = [];
+                }
+                if(value instanceof JavascriptObjectWrapper) {
+                    const isArray = /*?*/ ECMAScript.IsArray(value);
+                    if(isArray) {
+                        const elementRecordsLength = elementRecords.length;
+                        let length = /*?*/ ECMAScript.LengthOfArrayLike(value);
+                        for(let index = 0; index < length; index++) {
+                            const propertyName = /*!*/ index.toString() /*ECMAScript.ToString(𝔽(index))*/;
+                            let elementRecord;
+                            if(index < elementRecordsLength) {
+                                elementRecord = elementRecords[index];
+                            }else {
+                                elementRecord = EMPTY;
+                            }
+                            const newElement = /*?*/ ECMAScript.InternalizeJSONProperty(value, propertyName, reviver, elementRecord);
+                            if(newElement === undefined) { //strict equals everytime the specification says "is undefined" ...
+                                /*?*/ value["[[Delete]]"](propertyName);
+                            }else {
+                                /*?*/ value["[[DefineOwnProperty]]"](propertyName, new JavascriptDataProperty(true, true, true, newElement)); //CreateDataProperty
+                            }
+                        }
+                    }else {
+                        const keys = /*?*/ ECMAScript.EnumerableOwnProperties(value, EnumerateKind.KEY);
+                        for(const propertyKey of keys) {
+                            let entryRecord = entryRecords.find(x=>x["[[Key]]"] == propertyKey) ?? EMPTY;
+                            const newElement = /*?*/ ECMAScript.InternalizeJSONProperty(value, propertyKey, reviver, entryRecord);
+                            if(newElement === undefined) { //strict equals everytime the specification says "is undefined" ...
+                                /*?*/ value["[[Delete]]"](propertyKey);
+                            }else {
+                                /*?*/ value["[[DefineOwnProperty]]"](propertyKey, new JavascriptDataProperty(true, true, true, newElement)); //CreateDataProperty
+                            }
+                        }
+                    }
+                }
+                return /*?*/ ECMAScript.Call(reviver, holder, [name, value, context]);
+            }
+
+            static UTF16EncodeCodePoint(codePoint) {
+                //Assert: codePoint >= 0 && codePoint <= 0x10FFFF
+                //if(codePoint <= 0xFFFF) {
+                //    return String.fromCodePoint(codePoint);
+                //}
+                return String.fromCodePoint(codePoint);
+            }
+
+            static SerializeJSONProperty(state, key, holder) {
+                let value = /*?*/ holder["[[Get]]"](key, holder); //Get
+                if(value instanceof JavascriptObjectWrapper || typeof value == "bigint") {
+                    const tempForGetV = /*?*/ ECMAScript.ToObject(value);
+                    const toJSON = /*?*/ tempForGetV["[[Get]]"]("toJSON", tempForGetV); //GetV
+                    if(ECMAScript.IsCallable(toJSON) == true) {
+                        // value = /*?*/ ECMAScript.Call(toJSON, value, [key]);
+                        value = /*?*/ toJSON["[[Call]]"](value, [key]); //yet again directly calling instead of using ECMAScript.Call but i'm starting to think i've been making a mistake doing this and now we've lost the ability to call real (host language) functions.
+                    }
+                }
+                if(state["[[ReplacerFunction]]"] !== undefined) { //we don't need strict equals lol this can't be null
+                    // value = /*?*/ ECMAScript.Call(state["[[ReplacerFunction]]"], holder, [key, value]);
+                    value = /*?*/ state["[[ReplacerFunction]]"]["[[Call]]"](holder, [key, value]); //we know replacer func will actually be a function if not undefined
+                }
+                if(value instanceof JavascriptObjectWrapper) { //"is an Object"
+                    if("[[IsRawJSON]]" in value) {
+                        const rawJSON = /*!*/ value["[[Get]]"]("rawJSON", value); //Get
+                        //Assert: typeof rawJSON == "string"
+                        return rawJSON;
+                    }
+                    if("[[NumberData]]" in value) {
+                        value = /*?*/ ECMAScript.ToNumber(value);
+                    }else if("[[StringData]]" in value) {
+                        value = /*?*/ ECMAScript.ToString(value);
+                    }else if("[[BooleanData]]" in value) {
+                        value = value["[[BooleanData]]"]; //it really says that
+                    }else if("[[BigIntData]]" in value) {
+                        value = value["[[BigIntData]]"];
+                    }
+                }
+                if(value === null) return "null";
+                if(value === true) return "true"; //don't be scared of the strict equals for booleans! we know that IsStrictlyEquals first makes sure the operands are the same type!
+                if(value === false) return "false";
+                // if(typeof value == "boolean") return ""+value;
+                if(typeof value == "string") return ECMAScript.QuoteJSONString(value);
+                if(typeof value == "number") {
+                    if(Number_isFinite(value)) {
+                        return /*!*/ ECMAScript.ToString(value);
+                    }else {
+                        return "null";
+                    }
+                }
+                if(typeof value == "bigint") {
+                    //JSON.stringify(0o25n);
+                    throw TypeError("Do not know how to serialize a BigInt");
+                }
+                if(value instanceof JavascriptObjectWrapper && !ECMAScript.IsCallable(value)) {
+                    const isArray = /*?*/ ECMAScript.IsArray(value);
+                    if(isArray) {
+                        //damn i thought we were done
+                        return /*?*/ ECMAScript.SerializeJSONArray(state, value);
+                    }
+                    //damn i thought we were done
+                    return /*?*/ ECMAScript.SerializeJSONObject(state, value);
+                }
+                return undefined;
+            }
+
+            static QuoteJSONString(value) {
+                let product = `"`;
+                //const codePoints = [...value].map(c=>c.codePointAt());
+                //wait what am i doing bruh, we know the array prototype methods are intentionally generic and strings have a length :eyes:
+                //aw man we could just use Array.from(value, x=>x.codePointAt())
+                const codePoints = Array.prototype.map.call(value, x=>x.codePointAt()); //hell yeah!!
+                const escapeSequences = Object.create(null);
+                escapeSequences[0x0008] = String.raw`\b`; //lowkey this is one of the few things my interpreter can't do!
+                escapeSequences[0x0009] = String.raw`\t`;
+                escapeSequences[0x000A] = String.raw`\n`;
+                escapeSequences[0x000C] = String.raw`\f`;
+                escapeSequences[0x000D] = String.raw`\r`;
+                escapeSequences[0x0022] = String.raw`\"`;
+                escapeSequences[0x005C] = String.raw`\\`;
+                //oh boy i don't really know what's going on with these code points
+                //i'm not educated on my unicode
+                for(const codePoint of codePoints) {
+                    if(codePoint in escapeSequences) {
+                        product += escapeSequences[codePoint];
+                    }else if(codePoint < 0x0020 || (codePoint >= 0xD800 && codePoint <= 0xDBFF) || (codePoint >= 0xDC00 && codePoint <= 0xDFFF)) {
+                        const unit = codePoint; //supposed to be the code unit but how the hell do we get that in javascript (allegedly charCodeAt does it)
+                        product += ECMAScript.UnicodeEscape(unit);
+                    }else {
+                        product += ECMAScript.UTF16EncodeCodePoint(codePoint);
+                    }
+                }
+                product += `"`;
+                return product;
+            }
+
+            //we don't actually have the codeUnit it's still the codePoint
+            static UnicodeEscape(codeUnit) {
+                const n = codeUnit;
+                //Assert: n <= 0xFFFF
+                const hex = n.toString(16);
+                return "\\u" + hex.padStart(4, "0");
+            }
+            
+            static SerializeJSONObject(state, value) {
+                if(state["[[Stack]]"].includes(value)) {
+                    throw TypeError("Converting circular structure to JSON");
+                }
+                state["[[Stack]]"].push(value);
+                const stepBack = state["[[Indent]]"];
+                state["[[Indent]]"] = state["[[Indent]]"] + state["[[Gap]]"];
+                let keys;
+                if(state["[[PropertyList]]"] !== undefined) { //property list won't ever be null so strict not required here
+                    keys = state["[[PropertyList]]"];
+                }else {
+                    keys = /*?*/ ECMAScript.EnumerableOwnProperties(value, EnumerateKind.KEY);
+                }
+                const partial = [];
+                for(const propertyKey of keys) {
+                    const stringP = /*?*/ ECMAScript.SerializeJSONProperty(state, propertyKey, value);
+                    if(stringP !== undefined) {
+                        let member = ECMAScript.QuoteJSONString(propertyKey);
+                        member += ":";
+                        if(state["[[Gap]]"] != "") {
+                            member += " ";
+                        }
+                        member += stringP;
+                        partial.push(member);
+                    }
+                }
+                let final;
+                if(partial.length == 0) {
+                    final = "{}";
+                }else {
+                    if(state["[[Gap]]"] == "") {
+                        const properties = partial.join(",");
+                        final = "{" + properties + "}";
+                    }else {
+                        const separator = ",\n" + state["[[Indent]]"];
+                        const properties = partial.join(separator);
+                        final = "{\n" + state["[[Indent]]"] + properties + "\n" + stepBack + "}";
+                    }
+                }
+                state["[[Stack]]"].pop();
+                state["[[Indent]]"] = stepBack;
+                return final;
+            }
+
+            static SerializeJSONArray(state, value) {
+                if(state["[[Stack]]"].includes(value)) {
+                    throw TypeError("Converting circular structure to JSON");
+                }
+                state["[[Stack]]"].push(value);
+                const stepBack = state["[[Indent]]"];
+                state["[[Indent]]"] = state["[[Indent]]"] + state["[[Gap]]"];
+                const partial = [];
+                const length = /*?*/ ECMAScript.LengthOfArrayLike(value);
+                let final;
+                for(let index = 0; index < length; index++) {
+                    const stringP = /*?*/ ECMAScript.SerializeJSONProperty(state, /*!*/ index.toString() /*ECMAScript.ToString(𝔽(index))*/, value);
+                    if(stringP === undefined) {
+                        partial.push("null");
+                    }else {
+                        partial.push(stringP);
+                    }
+                }
+                if(partial.length == 0) {
+                    final = "[]";
+                }else {
+                    if(state["[[Gap]]"] == "") {
+                        const properties = partial.join(",");
+                        final = "[" + properties + "]";
+                    }else {
+                        const separator = `,\n${state["[[Indent]]"]}`;
+                        const properties = partial.join(separator);
+                        final = "[\n" + state["[[Indent]]"] + properties + "\n" + stepBack + "]";
+                    }
+                }
+                state["[[Stack]]"].pop();
+                state["[[Indent]]"] = stepBack;
+                return final;
+            }
+
             //first time i've ever used this!
             //aw nevermind... i access JavascriptObjectWrapper before it's initialized
             //static {
@@ -4883,7 +5724,8 @@
             //helper methods lol
             SetDataProperty(key, writable, enumerable, configurable, value) {
                 holyshitlikegotobreakoutofifstatementhowdidinotknowyoucouldlabelanystatementbeforeqwq:
-                if(typeof value == "object" && "initialName" in value) {
+                // if(value && typeof value == "object" && "initialName" in value) { //we first check if value is truthy because null could sneak up and throw at the in operator!
+                if(value instanceof JavascriptObjectWrapper && "initialName" in value) { //this is what i should've had this whole time lol (i could take it one step further and use JavascriptFunctionWrapper but i'm worried there could be function instances that i forgot to create with JavascriptFunctionWrapper)
                     if(value.initialName != key.toString()) {
                         if(typeof key == "symbol" && value.initialName == `[${key.description}]`) break holyshitlikegotobreakoutofifstatementhowdidinotknowyoucouldlabelanystatementbeforeqwq;
                         //debugger;
@@ -9991,13 +10833,15 @@
                         1, "toPrecision", [], this
                     ));
                     numberProto.SetDataProperty("toString", true, false, true, ECMAScript.CreateBuiltinFunction(
-                        function(thisArg, argList, newTarget) { //toString()
+                        function(thisArg, [radix], newTarget) { //toString()
                             const number = ECMAScript.ThisNumberValue(thisArg);
-                            if(argList[0] == undefined) {
-                                argList[0] = 10;
-                            }
-                            const radixMV = ECMAScript.ToIntegerOrInfinity(argList[0]);
-                            if(radixMV < 2 || radixMV > 36) throw RangeError("toString() radix argument must be between 2 and 36");
+                            //if(argList[0] == undefined) {
+                            //    argList[0] = 10;
+                            //}
+                            //const radixMV = ECMAScript.ToIntegerOrInfinity(argList[0]);
+
+                            //wtf was i doing when i wrote this part lol, that was just not what the specification said
+                            const radixMV = (radix === undefined ? 10 : /*?*/ ECMAScript.SnapToInteger(radix/*, NonIntHandling.TRUNCATE*/, 2, 36));
                             return number.toString(radixMV);
                         },
                         1, "toString", [], this
@@ -10016,14 +10860,22 @@
                     bigIntProto.SetDataProperty("constructor", true, false, true, "BigInt() {}"); //we set this later when we create $BigInt!
                     bigIntProto.SetDataProperty("toLocaleString", true, false, true, ECMAScript.CreateBuiltinFunction(
                         function(thisArg, argList, newTarget) {
-                            const x = ECMAScript.ThisBigIntValue(thisArg);
+                            const x = /*?*/ ECMAScript.ThisBigIntValue(thisArg);
                             return x.toLocaleString(argList[0], argList[1]);
                         },
                         0, "toLocaleString", [], this
                     ));
+                    bigIntProto.SetDataProperty("toString", true, false, true, ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, [radix], newTarget) {
+                            const x = /*?*/ ECMAScript.ThisBigIntValue(thisArg);
+                            const radixMV = (radix === undefined ? 10 : /*?*/ ECMAScript.SnapToInteger(radix/*, NonIntHandling.TRUNCATE*/, 2, 36));
+                            return x.toString(radixMV);
+                        },
+                        0, "toString", [], this
+                    ));
                     bigIntProto.SetDataProperty("valueOf", true, false, true, ECMAScript.CreateBuiltinFunction(
                         function(thisArg, argList, newTarget) {
-                            return ECMAScript.ThisBigIntValue(thisArg);
+                            return /*?*/ ECMAScript.ThisBigIntValue(thisArg);
                         },
                         0, "valueOf", [], this
                     ));
@@ -10035,134 +10887,419 @@
 
                     //the string prototype is also an exotic string object
                     const stringProto = ECMAScript.StringCreate("", ECMAScript["%Object.prototype%"]);
-                    stringProto.SetDataProperty("at", true, false, true, ECMAScript.CreateBuiltinFunction(
-                        function(thisArg, argList, newTarget) {
-                            //RequireObjectCoercible(thisArg);
-                            if(thisArg == null || thisArg == undefined) {
-                                throw TypeError(`String.prototype.at called on null or undefined`);
-                            }
-                            const string = ECMAScript.ToString(thisArg);
-                            const relativeIndex = ECMAScript.ToIntegerOrInfinity(argList[0]);
-                            let k;
-                            if(relativeIndex >= 0) {
-                                k = relativeIndex;
-                            }else {
-                                k = string.length + relativeIndex;
-                            }
-                            if(k < 0 || k >= string.length) {
-                                return undefined;
-                            }
-                            return string[k];
-                        },
-                        1, "at", [], this
-                    ));
-                    stringProto.SetDataProperty("charAt", true, false, true, ECMAScript.CreateBuiltinFunction(
-                        function(thisArg, argList, newTarget) {
-                            //RequireObjectCoercible(thisArg);
-                            if(thisArg == null || thisArg == undefined) {
-                                throw TypeError(`String.prototype.charAt called on null or undefined`);
-                            }
-                            const string = ECMAScript.ToString(thisArg);
-                            const position = ECMAScript.ToIntegerOrInfinity(argList[0]);
-                            if(position < 0 || position >= string.length) {
-                                return "";
-                            }
-                            return string[position];
-                        },
-                        1, "charAt", [], this
-                    ));
-                    stringProto.SetDataProperty("charCodeAt", true, false, true, ECMAScript.CreateBuiltinFunction(
-                        function(thisArg, argList, newTarget) {
-                            //RequireObjectCoercible(thisArg);
-                            if(thisArg == null || thisArg == undefined) {
-                                throw TypeError(`String.prototype.charCodeAt called on null or undefined`);
-                            }
-                            const string = ECMAScript.ToString(thisArg);
-                            const position = ECMAScript.ToIntegerOrInfinity(argList[0]);
-                            if(position < 0 || position >= string.length) {
-                                return NaN;
-                            }
-                            return string.charCodeAt(position);
-                        },
-                        1, "charCodeAt", [], this
-                    ));
-                    stringProto.SetDataProperty("codePointAt", true, false, true, ECMAScript.CreateBuiltinFunction(
-                        function(thisArg, argList, newTarget) {
-                            //RequireObjectCoercible(thisArg);
-                            if(thisArg == null || thisArg == undefined) {
-                                throw TypeError(`String.prototype.codePointAt called on null or undefined`);
-                            }
-                            const string = ECMAScript.ToString(thisArg);
-                            const position = ECMAScript.ToIntegerOrInfinity(argList[0]);
-                            if(position < 0 || position >= string.length) {
-                                return undefined;
-                            }
-                            return string.codePointAt(position);
-                        },
-                        1, "codePointAt", [], this
-                    ));
-                    stringProto.SetDataProperty("concat", true, false, true, ECMAScript.CreateBuiltinFunction(
-                        function(thisArg, argList, newTarget) {
-                            //RequireObjectCoercible(thisArg);
-                            if(thisArg == null || thisArg == undefined) {
-                                throw TypeError(`String.prototype.concat called on null or undefined`);
-                            }
-                            const string = ECMAScript.ToString(thisArg);
-                            let result = string;
-                            for(const next of argList) {
-                                result += ECMAScript.ToString(next);
-                            }
-                            return result;
-                        },
-                        1, "concat", [], this
-                    ));
-                    stringProto.SetDataProperty("constructor", true, false, true, "String() {}"); //we set this later when we create $String!
-                    stringProto.SetDataProperty("endsWith", true, false, true, ECMAScript.CreateBuiltinFunction(
-                        function(thisArg, argList, newTarget) { //String.prototype.endsWith(searchString, endPosition = ...)
-                            //RequireObjectCoercible(thisArg);
-                            if(thisArg == null || thisArg == undefined) {
-                                throw TypeError(`String.prototype.endsWith called on null or undefined`);
-                            }
-                            const string = ECMAScript.ToString(thisArg);
-                            if(ECMAScript.IsRegExp(argList[0])) throw TypeError("First argument to String.prototype.endsWith must not be a regular expression");
-                            const searchString = ECMAScript.ToString(argList[0]);
-                            let end;
-                            if(argList[1] == undefined) {
-                                end = string.length;
-                            }else {
-                                end = Math.min(Math.max(ECMAScript.ToIntegerOrInfinity(argList[1]), 0), string.length);
-                            }
-                            if(searchString.length == 0) return true;
-                            const start = end - searchString.length;
-                            if(start < 0) return false;
-                            return string.substring(start, end) == searchString;
-                        },
-                        1, "endsWith", [], this
-                    ));
-                    //https://tc39.es/ecma262/multipage/text-processing.html#sec-string.prototype-%symbol.iterator%
-                    stringProto.SetDataProperty(ECMAScript["%Symbol.iterator%"], true, false, true, ECMAScript.CreateBuiltinFunction(
-                        function(thisArg, argList, newTarget) {
-                            //const string = thisArg;
-                            //Perform ? RequireObjectCoercible(thisArg)
-                            if(thisArg == null || thisArg == undefined) {
-                                throw TypeError(`String.prototype[Symbol.iterator] called on null or undefined`);
-                            }
-                            const string = ECMAScript.ToString(thisArg);
-                            //what's all this "generator" stuff he's talking about
-                            //i know javascript is single threaded so this async and generator stuff shouldn't be too hard but i'm lowkey scared.
-                            const closure = function*() {
-                                for(const char of string) { //lol
-                                    //this fucking cheat code man
-                                    yield ECMAScript.CreateIteratorResultObject(char, false); //how the HELL am i porting this to lua :///// (well... i know coroutines exist but do i LOOK like a nigga who has used one of those?!)
+                    {
+                        const $at = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                /*?*/ ECMAScript.RequireObjectCoercible(thisArg, true, "String.prototype.at");
+                                const string = ECMAScript.ToString(thisArg);
+                                const relativeIndex = ECMAScript.ToIntegerOrInfinity(argList[0]);
+                                let k;
+                                if(relativeIndex >= 0) {
+                                    k = relativeIndex;
+                                }else {
+                                    k = string.length + relativeIndex;
                                 }
-                                //return new CompletionRecord(CompletionKind.NORMAL, undefined /*UNUSED*/); //NormalCompletion(UNUSED)
-                                return undefined; //UNUSED
-                            };
-                            return ECMAScript.CreateIteratorFromClosure(closure, "%StringIteratorPrototype%", ECMAScript["%StringIteratorPrototype%"]);
-                        },
-                        0, "[Symbol.iterator]", [], this
-                    ));
-                    ECMAScript["%String.prototype%"] = stringProto;
+                                if(k < 0 || k >= string.length) {
+                                    return undefined;
+                                }
+                                return string[k];
+                            },
+                            1, "at", [], this
+                        );
+
+                        const $charAt = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                //RequireObjectCoercible(thisArg);
+                                if(thisArg == null || thisArg == undefined) {
+                                    throw TypeError(`String.prototype.charAt called on null or undefined`);
+                                }
+                                const string = ECMAScript.ToString(thisArg);
+                                const position = ECMAScript.ToIntegerOrInfinity(argList[0]);
+                                if(position < 0 || position >= string.length) {
+                                    return "";
+                                }
+                                return string[position];
+                            },
+                            1, "charAt", [], this
+                        );
+
+                        const $charCodeAt = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                //RequireObjectCoercible(thisArg);
+                                if(thisArg == null || thisArg == undefined) {
+                                    throw TypeError(`String.prototype.charCodeAt called on null or undefined`);
+                                }
+                                const string = ECMAScript.ToString(thisArg);
+                                const position = ECMAScript.ToIntegerOrInfinity(argList[0]);
+                                if(position < 0 || position >= string.length) {
+                                    return NaN;
+                                }
+                                return string.charCodeAt(position);
+                            },
+                            1, "charCodeAt", [], this
+                        );
+
+                        const $codePointAt = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                //RequireObjectCoercible(thisArg);
+                                if(thisArg == null || thisArg == undefined) {
+                                    throw TypeError(`String.prototype.codePointAt called on null or undefined`);
+                                }
+                                const string = ECMAScript.ToString(thisArg);
+                                const position = ECMAScript.ToIntegerOrInfinity(argList[0]);
+                                if(position < 0 || position >= string.length) {
+                                    return undefined;
+                                }
+                                return string.codePointAt(position);
+                            },
+                            1, "codePointAt", [], this
+                        );
+
+                        const $concat = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                //RequireObjectCoercible(thisArg);
+                                if(thisArg == null || thisArg == undefined) {
+                                    throw TypeError(`String.prototype.concat called on null or undefined`);
+                                }
+                                const string = ECMAScript.ToString(thisArg);
+                                let result = string;
+                                for(const next of argList) {
+                                    result += ECMAScript.ToString(next);
+                                }
+                                return result;
+                            },
+                            1, "concat", [], this
+                        );
+
+                        const $endsWith = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) { //String.prototype.endsWith(searchString, endPosition = ...)
+                                //RequireObjectCoercible(thisArg);
+                                if(thisArg == null || thisArg == undefined) {
+                                    throw TypeError(`String.prototype.endsWith called on null or undefined`);
+                                }
+                                const string = ECMAScript.ToString(thisArg);
+                                if(ECMAScript.IsRegExp(argList[0])) throw TypeError("First argument to String.prototype.endsWith must not be a regular expression");
+                                const searchString = ECMAScript.ToString(argList[0]);
+                                let end;
+                                if(argList[1] == undefined) {
+                                    end = string.length;
+                                }else {
+                                    end = Math.min(Math.max(ECMAScript.ToIntegerOrInfinity(argList[1]), 0), string.length);
+                                }
+                                if(searchString.length == 0) return true;
+                                const start = end - searchString.length;
+                                if(start < 0) return false;
+                                return string.substring(start, end) == searchString;
+                            },
+                            1, "endsWith", [], this
+                        );
+
+                        //const $includes = ECMAScript.CreateBuiltinFunction(
+                        //    function(thisArg, argList, newTarget) {
+                        //        
+                        //    },
+                        //    1, "includes", [], this
+                        //);
+
+                        //const $indexOf = ECMAScript.CreateBuiltinFunction(
+                        //    function(thisArg, argList, newTarget) {
+                        //        
+                        //    },
+                        //    1, "indexOf", [], this
+                        //);
+
+                        //const $isWellFormed = ECMAScript.CreateBuiltinFunction(
+                        //    function(thisArg, argList, newTarget) {
+                        //        
+                        //    },
+                        //    0, "isWellFormed", [], this
+                        //);
+
+                        //const $lastIndexOf = ECMAScript.CreateBuiltinFunction(
+                        //    function(thisArg, argList, newTarget) {
+                        //        
+                        //    },
+                        //    1, "lastIndexOf", [], this
+                        //);
+
+                        //const $localeCompare = ECMAScript.CreateBuiltinFunction(
+                        //    function(thisArg, argList, newTarget) {
+                        //        
+                        //    },
+                        //    1, "localeCompare", [], this
+                        //);
+
+                        //const $match = ECMAScript.CreateBuiltinFunction(
+                        //    function(thisArg, argList, newTarget) {
+                        //        
+                        //    },
+                        //    1, "match", [], this
+                        //);
+
+                        //const $matchAll = ECMAScript.CreateBuiltinFunction(
+                        //    function(thisArg, argList, newTarget) {
+                        //        
+                        //    },
+                        //    1, "matchAll", [], this
+                        //);
+
+                        //const $normalize = ECMAScript.CreateBuiltinFunction(
+                        //    function(thisArg, argList, newTarget) {
+                        //        
+                        //    },
+                        //    0, "normalize", [], this
+                        //);
+
+                        //const $padEnd = ECMAScript.CreateBuiltinFunction(
+                        //    function(thisArg, argList, newTarget) {
+                        //        
+                        //    },
+                        //    1, "padEnd", [], this
+                        //);
+
+                        //const $padStart = ECMAScript.CreateBuiltinFunction(
+                        //    function(thisArg, argList, newTarget) {
+                        //        
+                        //    },
+                        //    1, "padStart", [], this
+                        //);
+
+                        const $repeat = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, [count], newTarget) {
+                                //const thisValue = thisArg;
+                                /*?*/ ECMAScript.RequireObjectCoercible(thisArg, true, "String.prototype.repeat");
+                                const string = /*?*/ ECMAScript.ToString(thisArg);
+                                const n = /*?*/ ECMAScript.ToIntegerOrInfinity(count);
+                                if(n < 0 || n == HostLanguage.Infinity) {
+                                    throw RangeError(`Invalid count value: ${n}`);
+                                }
+                                if(n == 0) return "";
+                                //Return the String value that is made from n copies of string appended together.
+                                return string.repeat(n);
+                            },
+                            1, "repeat", [], this
+                        );
+
+                        //const $replace = ECMAScript.CreateBuiltinFunction(
+                        //    function(thisArg, argList, newTarget) {
+                        //        
+                        //    },
+                        //    2, "replace", [], this
+                        //);
+
+                        //const $replaceAll = ECMAScript.CreateBuiltinFunction(
+                        //    function(thisArg, argList, newTarget) {
+                        //        
+                        //    },
+                        //    2, "replaceAll", [], this
+                        //);
+
+                        //const $search = ECMAScript.CreateBuiltinFunction(
+                        //    function(thisArg, argList, newTarget) {
+                        //        
+                        //    },
+                        //    1, "search", [], this
+                        //);
+
+                        //const $slice = ECMAScript.CreateBuiltinFunction(
+                        //    function(thisArg, argList, newTarget) {
+                        //        
+                        //    },
+                        //    2, "slice", [], this
+                        //);
+
+                        //const $split = ECMAScript.CreateBuiltinFunction(
+                        //    function(thisArg, argList, newTarget) {
+                        //        
+                        //    },
+                        //    2, "split", [], this
+                        //);
+
+                        const $startsWith = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, [searchString, position], newTarget) {
+                                //const thisValue = thisArg;
+                                /*?*/ ECMAScript.RequireObjectCoercible(thisArg, true, "String.prototype.startsWith");
+                                const string = /*?*/ ECMAScript.ToString(thisArg);
+                                const isRegExp = /*?*/ ECMAScript.IsRegExp(searchString);
+                                if(isRegExp == true) {
+                                    //String.prototype.startsWith(/abc/);
+                                    throw TypeError("First argument to String.prototype.startsWith must not be a regular expression");
+                                }
+                                searchString = /*?*/ ECMAScript.ToString(searchString);
+                                const length = string.length;
+                                const start = Math.min(Math.max(/*?*/ ECMAScript.ToIntegerOrInfinity(position), 0), length);
+                                //Assert: if(position === undefined) start == 0
+                                const searchLength = searchString.length;
+                                if(searchLength == 0) {
+                                    return true;
+                                }
+                                const end = start + searchLength;
+                                if(end > length) {
+                                    return false;
+                                }
+                                const substring = string.substring(start, end); //lel
+                                return substring == searchString;
+                            },
+                            1, "startsWith", [], this
+                        );
+
+                        const $substring = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, [start, end], newTarget) {
+                                //const thisValue = thisArg;
+                                /*?*/ ECMAScript.RequireObjectCoercible(thisArg, true, "String.prototype.substring");
+                                const string = /*?*/ ECMAScript.ToString(thisArg);
+                                const length = string.length;
+                                const finalStart = Math.min(Math.max(/*?*/ ECMAScript.ToIntegerOrInfinity(start), 0), length);
+                                //Assert: if(start === undefined) finalStart == 0
+                                const finalEnd = end === undefined ? length : Math.min(Math.max(/*?*/ ECMAScript.ToIntegerOrInfinity(end), 0), length);
+                                const from = Math.min(finalStart, finalEnd);
+                                const to = Math.max(finalStart, finalEnd);
+                                return string.substring(from, to); //lel
+                            },
+                            2, "substring", [], this
+                        );
+
+                        //const $toLocaleLowerCase = ECMAScript.CreateBuiltinFunction(
+                        //    function(thisArg, argList, newTarget) {
+                        //        
+                        //    },
+                        //    0, "toLocaleLowerCase", [], this
+                        //);
+
+                        //const $toLocaleUpperCase = ECMAScript.CreateBuiltinFunction(
+                        //    function(thisArg, argList, newTarget) {
+                        //        
+                        //    },
+                        //    0, "toLocaleUpperCase", [], this
+                        //);
+
+                        const $toLowerCase = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                // const thisValue = thisArg;
+                                /*?*/ ECMAScript.RequireObjectCoercible(thisArg, true, "String.prototype.toLowerCase");
+                                const string = /*?*/ ECMAScript.ToString(thisArg);
+                                //...
+                                return string.toLowerCase(); //lol! i'm sure every language has something like this!
+                            },
+                            0, "toLowerCase", [], this
+                        );
+
+                        const $toString = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                return /*?*/ ECMAScript.ThisStringValue(thisArg);
+                            },
+                            0, "toString", [], this
+                        );
+
+                        const $toUpperCase = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                // const thisValue = thisArg;
+                                /*?*/ ECMAScript.RequireObjectCoercible(thisArg, true, "String.prototype.toUpperCase");
+                                const string = /*?*/ ECMAScript.ToString(thisArg);
+                                //...
+                                return string.toUpperCase(); //lol! i'm sure every language has something like this!
+                            },
+                            0, "toUpperCase", [], this
+                        );
+
+                        //const $toWellFormed = ECMAScript.CreateBuiltinFunction(
+                        //    function(thisArg, argList, newTarget) {
+                        //        
+                        //    },
+                        //    0, "toWellFormed", [], this
+                        //);
+
+                        //const $trim = ECMAScript.CreateBuiltinFunction(
+                        //    function(thisArg, argList, newTarget) {
+                        //        
+                        //    },
+                        //    0, "trim", [], this
+                        //);
+
+                        //const $trimEnd = ECMAScript.CreateBuiltinFunction(
+                        //    function(thisArg, argList, newTarget) {
+                        //        
+                        //    },
+                        //    0, "trimEnd", [], this
+                        //);
+
+                        //const $trimStart = ECMAScript.CreateBuiltinFunction(
+                        //    function(thisArg, argList, newTarget) {
+                        //        
+                        //    },
+                        //    0, "trimStart", [], this
+                        //);
+
+                        const $valueOf = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                return /*?*/ ECMAScript.ThisStringValue(thisArg);
+                            },
+                            0, "valueOf", [], this
+                        );
+
+                        const $$iterator = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                //const string = thisArg;
+                                //Perform ? RequireObjectCoercible(thisArg)
+                                if(thisArg == null || thisArg == undefined) {
+                                    throw TypeError(`String.prototype[Symbol.iterator] called on null or undefined`);
+                                }
+                                const string = ECMAScript.ToString(thisArg);
+                                //what's all this "generator" stuff he's talking about
+                                //i know javascript is single threaded so this async and generator stuff shouldn't be too hard but i'm lowkey scared.
+                                const closure = function*() {
+                                    for(const char of string) { //lol
+                                        //this fucking cheat code man
+                                        yield ECMAScript.CreateIteratorResultObject(char, false); //how the HELL am i porting this to lua :///// (well... i know coroutines exist but do i LOOK like a nigga who has used one of those?!)
+                                    }
+                                    //return new CompletionRecord(CompletionKind.NORMAL, undefined /*UNUSED*/); //NormalCompletion(UNUSED)
+                                    return undefined; //UNUSED
+                                };
+                                return ECMAScript.CreateIteratorFromClosure(closure, "%StringIteratorPrototype%", ECMAScript["%StringIteratorPrototype%"]);
+                            },
+                            0, "[Symbol.iterator]", [], this
+                        );
+
+                        //ohmygodimsofucked
+                        stringProto.SetDataProperty("at", true, false, true, $at);
+                        stringProto.SetDataProperty("charAt", true, false, true, $charAt);
+                        stringProto.SetDataProperty("charCodeAt", true, false, true, $charCodeAt);
+                        stringProto.SetDataProperty("codePointAt", true, false, true, $codePointAt);
+                        stringProto.SetDataProperty("concat", true, false, true, $concat);
+                        stringProto.SetDataProperty("constructor", true, false, true, "String() {}"); //we set this later when we create $String!
+                        stringProto.SetDataProperty("endsWith", true, false, true, $endsWith);
+                        // stringProto.SetDataProperty("includes", true, false, true, $includes);
+                        // stringProto.SetDataProperty("indexOf", true, false, true, $indexOf);
+                        // stringProto.SetDataProperty("isWellFormed", true, false, true, $isWellFormed);
+                        // stringProto.SetDataProperty("lastIndexOf", true, false, true, $lastIndexOf);
+                        // stringProto.SetDataProperty("localeCompare", true, false, true, $localeCompare);
+                        // stringProto.SetDataProperty("match", true, false, true, $match);
+                        // stringProto.SetDataProperty("matchAll", true, false, true, $matchAll);
+                        // stringProto.SetDataProperty("normalize", true, false, true, $normalize);
+                        // stringProto.SetDataProperty("padEnd", true, false, true, $padEnd);
+                        // stringProto.SetDataProperty("padStart", true, false, true, $padStart);
+                        stringProto.SetDataProperty("repeat", true, false, true, $repeat);
+                        // stringProto.SetDataProperty("replace", true, false, true, $replace);
+                        // stringProto.SetDataProperty("replaceAll", true, false, true, $replaceAll);
+                        // stringProto.SetDataProperty("search", true, false, true, $search);
+                        // stringProto.SetDataProperty("slice", true, false, true, $slice);
+                        // stringProto.SetDataProperty("split", true, false, true, $split);
+                        stringProto.SetDataProperty("startsWith", true, false, true, $startsWith);
+                        stringProto.SetDataProperty("substring", true, false, true, $substring);
+                        // stringProto.SetDataProperty("toLocaleLowerCase", true, false, true, $toLocaleLowerCase);
+                        // stringProto.SetDataProperty("toLocaleUpperCase", true, false, true, $toLocaleUpperCase);
+                        stringProto.SetDataProperty("toLowerCase", true, false, true, $toLowerCase);
+                        stringProto.SetDataProperty("toString", true, false, true, $toString);
+                        stringProto.SetDataProperty("toUpperCase", true, false, true, $toUpperCase);
+                        // stringProto.SetDataProperty("toWellFormed", true, false, true, $toWellFormed);
+                        // stringProto.SetDataProperty("trim", true, false, true, $trim);
+                        // stringProto.SetDataProperty("trimEnd", true, false, true, $trimEnd);
+                        // stringProto.SetDataProperty("trimStart", true, false, true, $trimStart);
+                        stringProto.SetDataProperty("valueOf", true, false, true, $valueOf);
+                        //https://tc39.es/ecma262/multipage/text-processing.html#sec-string.prototype-%symbol.iterator%
+                        stringProto.SetDataProperty(ECMAScript["%Symbol.iterator%"], true, false, true, $$iterator);
+                        ECMAScript["%String.prototype%"] = stringProto;
+                    }
 
                     const arrayProto = ECMAScript.ArrayCreate(0, ECMAScript["%Object.prototype%"]);
                     {
@@ -11540,7 +12677,7 @@
                         function(thisArg, argList, newTarget) {
                             if(newTarget == undefined) {
                                 throw TypeError("Constructor Iterator requires 'new'");
-                            }else if(newTarget == $Iterator) { //i guess i was right about active function object?
+                            }else if(newTarget == $Iterator) { //i guess i was right about active function object? oh we should have this now lol
                                 throw TypeError("Abstract class Iterator not directly constructable");
                             }
                             return ECMAScript.OrdinaryCreateFromConstructor(newTarget, "%Iterator.prototype%");
@@ -11940,7 +13077,9 @@
                     },
                     1, "freeze", [], this
                 ));
-                $Object.SetDataProperty("fromEntries", true, false, true, ECMAScript.CreateBuiltinFunction(
+                //this is for my own use with JSONParser lol
+                //ok nevermind this wasn't going to work lol
+                ECMAScript["%Object.fromEntries%"] = ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
                         const iterable = argList[0];
                         if(iterable === null || iterable === undefined) {
@@ -11964,7 +13103,8 @@
                         return /*?*/ ECMAScript.AddEntriesFromIterable(obj, iterable, adder);
                     },
                     1, "fromEntries", [], this
-                ));
+                );
+                $Object.SetDataProperty("fromEntries", true, false, true, ECMAScript["%Object.fromEntries%"]);
                 $Object.SetDataProperty("getOwnPropertyDescriptor", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) { //Object.getOwnPropertyDescriptor(obj, key);
                         const coerced = ECMAScript.ToObject(argList[0]);
@@ -12202,7 +13342,7 @@
                             throw TypeError("Symbol is not a constructor");
                         }
                         let descString = undefined;
-                        if(argList[0] != undefined) {
+                        if(argList[0] !== undefined) {
                             descString = ECMAScript.ToString(argList[0]);
                         }
                         
@@ -12410,6 +13550,7 @@
                 $Math.SetDataProperty("SQRT2", false, false, false, Math.SQRT2); //1.4142135623730951
                 $Math.SetDataProperty(ECMAScript["%Symbol.toStringTag%"], false, false, true, "Math"); //Math
                 //if i REALLY cared, i'd do more to make sure these are actual numbers including accessing the [[NumberData]] internal slot if the supplied "number" was an object (but holy shit this would take so much longer lol)
+                //oh i did it already lol
                 $Math.SetDataProperty("abs", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
                         const x = ECMAScript.ToNumber(argList[0]);
@@ -12581,13 +13722,17 @@
                 ));
                 $Math.SetDataProperty("max", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.max(...argList.map(v=>ECMAScript.ToNumber(v)));
+                        //we could also say Math.max.apply(Math, argList.map(v=>ECMAScript.ToNumber(v))); //to forgo the spread operator :eyes:
+                        return Math.max.apply(Math, argList.map(v=>ECMAScript.ToNumber(v)));
+                        // return Math.max(...argList.map(v=>ECMAScript.ToNumber(v)));
                     },
                     2, "max", [], this
                 ));
                 $Math.SetDataProperty("min", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Math.min(...argList.map(v=>ECMAScript.ToNumber(v)));
+                        //we could also say Math.min.apply(Math, argList.map(v=>ECMAScript.ToNumber(v))); //to forgo the spread operator :eyes:
+                        return Math.min.apply(Math, argList.map(v=>ECMAScript.ToNumber(v)));
+                        // return Math.min(...argList.map(v=>ECMAScript.ToNumber(v)));
                     },
                     2, "min", [], this
                 ));
@@ -12915,6 +14060,149 @@
                 ECMAScript["%Array.prototype%"].properties.get("constructor").value = $Array;
                 // this.state.variables[0].set("Array", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Array"}, $Array));
                 globalObj.SetDataProperty("Array", true, false, true, $Array);
+
+                //const $Atomics = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]);
+                //$Atomics.SetDataProperty(ECMAScript["%Symbol.toStringTag%"], false, false, true, "Atomics");
+
+                globalObj.SetAccessorProperty("Atomics", false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        throw Error("Atomics object not implemented!!");
+                    },
+                    0, "Atomics", [], this, undefined, "get"
+                ));
+
+                const $JSON = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]);
+                {
+                    //having their names as variables here makes these functions easier to find with Ctrl+Shift+O (go to symbol), actually
+                    const $isRawJSON = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            return argList[0] instanceof JavascriptObjectWrapper && "[[IsRawJSON]]" in argList[0];
+                        },
+                        1, "isRawJSON", [], this
+                    );
+
+                    const $parse = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, [text, reviver], newTarget) { //why only like yesterday did i remember i could use the array destructuring for args...
+                            const jsonString = /*?*/ ECMAScript.ToString(text);
+                            const parseResult = /*?*/ ECMAScript.ParseJSON(jsonString);
+                            const unfiltered = parseResult["[[Value]]"];
+                            if(reviver === undefined || reviver === null || !ECMAScript.IsCallable(reviver)) {
+                                //return parseResult;
+
+                                //aw FUCK we need to turn parseResult into a JavascriptObjectWrapper
+                                //we've remedied this one boys :sunglasses:
+                                return unfiltered;
+                            }
+
+                            const root = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]);
+                            const rootName = "";
+                            /*!*/ ECMAScript.CreateDataPropertyOrThrow(root, rootName, unfiltered);
+                            const snapshot = ECMAScript.CreateJSONParseRecord(parseResult["[[ParseNode]]"], rootName, unfiltered);
+                            return /*?*/ ECMAScript.InternalizeJSONProperty(root, rootName, reviver, snapshot);
+                        },
+                        2, "parse", [], this
+                    );
+
+                    const $rawJSON = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, [text], newTarget) {
+                            const jsonString = /*?*/ ECMAScript.ToString(text);
+                            if(jsonString.length == 0) {
+                                throw SyntaxError("Invalid value for JSON.rawJSON");
+                            }else if(text === undefined) { //actually really important we use strict equals here (as it is everywhere when the specification says "is undefined", although i'm writing this here to get the error message correct)
+                                throw SyntaxError("\"undefined\" is not valid JSON");
+                            }
+                            const parseResult = /*?*/ ECMAScript.ParseJSON(jsonString);
+                            //Assert: typeof parseResult["[[Value]]"] == "string" || typeof parseResult["[[Value]]"] == "number" || typeof parseResult["[[Value]]"] == "boolean" || parseResult["[[Value]]"] === null                        },
+                            const typecheck = typeof parseResult["[[Value]]"];
+                            if(typecheck != "string" && typecheck != "number" && typecheck != "boolean" && parseResult["[[Value]]"] !== null) {
+                                throw SyntaxError("Only strings, numbers, booleans, or null may have a raw JSON version");
+                            }
+                            const obj = ECMAScript.OrdinaryObjectCreate(null, "[[IsRawJSON]]");
+                            /*!*/ ECMAScript.CreateDataPropertyOrThrow(obj, "rawJSON", jsonString);
+                            /*!*/ ECMAScript.SetIntegrityLevel(obj, IntegrityLevel.FROZEN);
+                            return obj;
+                        },
+                        1, "rawJSON", [], this
+                    );
+
+                    const $stringify = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, [value, replacer, space], newTarget) {
+                            const stack = [];
+                            let indent = "";
+                            let propertyList = undefined;
+                            let replacerFunc = undefined;
+                            if(replacer instanceof JavascriptObjectWrapper) {
+                                if(ECMAScript.IsCallable(replacer)) {
+                                    replacerFunc = replacer;
+                                }else {
+                                    const isArray = /*?*/ ECMAScript.IsArray(replacer);
+                                    if(isArray) {
+                                        propertyList = [];
+                                        const length = /*?*/ ECMAScript.LengthOfArrayLike(replacer);
+                                        for(let k = 0; k < length; k++) {
+                                            const propertyKey = /*!*/ k.toString() /*ECMAScript.ToString(𝔽(k))*/;
+                                            const propertyValue = /*?*/ replacer["[[Get]]"](propertyKey, replacer); //Get
+                                            let item = undefined;
+                                            if(typeof propertyValue == "string") {
+                                                item = propertyValue;
+                                            }else if(typeof propertyValue == "number") {
+                                                item = /*!*/ ECMAScript.ToString(propertyValue);
+                                            }else if(propertyValue instanceof JavascriptObjectWrapper) { //"is an Object" means our wrapper! not typeof == "object"!
+                                                if("[[StringData]]" in propertyValue || "[[NumberData]]" in propertyValue) {
+                                                    item = /*?*/ ECMAScript.ToString(propertyValue);
+                                                }
+                                            }
+                                            if(item != undefined && !propertyList.includes(item)) { //probably don't need strict equals
+                                                propertyList.push(item);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if(space instanceof JavascriptObjectWrapper) {
+                                if("[[NumberData]]" in space) {
+                                    space = /*?*/ ECMAScript.ToNumber(space);
+                                }else if("[[StringData]]" in space) {
+                                    space = /*?*/ ECMAScript.ToString(space);
+                                }
+                            }
+                            let gap;
+                            if(typeof space == "number") {
+                                let spaceMV = /*!*/ ECMAScript.ToIntegerOrInfinity(space);
+                                spaceMV = Math.min(10, spaceMV);
+                                if(spaceMV < 1) {
+                                    gap = "";
+                                }else {
+                                    // gap = "".padStart(spaceMV, " "); //OH YEAH!
+                                    gap = " ".repeat(spaceMV); //oh... there's a method for this... i should really do those string prototype methods soon...
+                                }
+                            }else if(typeof space == "string") {
+                                if(space.length <= 10) {
+                                    gap = space;
+                                }else {
+                                    //https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#substring
+                                    //https://tc39.es/ecma262/multipage/text-processing.html#sec-string.prototype.substring
+                                    gap = space.substring(0, 10); //both the specification and String.prototype.substring are inclusive start exclusive end
+                                }
+                            }else {
+                                gap = "";
+                            }
+                            const wrapper = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]);
+                            /*!*/ ECMAScript.CreateDataPropertyOrThrow(wrapper, "", value);
+                            const state = {"[[ReplacerFunction]]": replacerFunc, "[[Stack]]": stack, "[[Indent]]": indent, "[[Gap]]": gap, "[[PropertyList]]": propertyList};
+                            return /*?*/ ECMAScript.SerializeJSONProperty(state, "", wrapper);
+                        },
+                        3, "stringify", [], this
+                    );
+
+                    $JSON.SetDataProperty("isRawJSON", true, false, true, $isRawJSON);
+                    $JSON.SetDataProperty("parse", true, false, true, $parse);
+                    $JSON.SetDataProperty("rawJSON", true, false, true, $rawJSON);
+                    $JSON.SetDataProperty("stringify", true, false, true, $stringify);
+                    $JSON.SetDataProperty(ECMAScript["%Symbol.toStringTag%"], false, false, true, "JSON");
+                }
+
+                globalObj.SetDataProperty("JSON", true, false, true, $JSON);
 
                 const $Map = ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) { //new Map(iterable = undefined)
@@ -13329,8 +14617,10 @@
                                     return result + `${quote}${arg}${quote}`;
                                 }
                             }
-                            if(typeof arg == "undefined" || arg == null) { //i could've also just said arg == undefined lol
+                            if(typeof arg == "undefined" || arg === null) { //i could've also just said arg == undefined lol
                                 result += ""+arg; //you can't do the ole string coersion trick with symbols so thats why we only do it here
+                            }else if(typeof arg == "bigint") {
+                                result += arg.toString() + "n";
                             }else {
                                 result += arg.toString();
                             }
@@ -13551,7 +14841,7 @@
                                     }
                                 }
                             }else {
-                                doLog(arg);
+                                doLog(Console.TurnThisIntoPrettyStringKTHXBAI(arg, 0));
                             }
                         }
                         if(result) {
