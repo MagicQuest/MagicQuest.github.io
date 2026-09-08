@@ -72,10 +72,16 @@
             <option value="consistent21">notable results from deep in specification</option>
             <option value="consistent22">symbol for and proxy consistent error</option>
             <option value="consistent23">json stringify rawJSON consistent</option>
+            <option value="consistent24">array prototype map on strings</option>
+            <option value="consistent25">all javascript string escape sequences</option>
             <option value="JSON2">JSON parse/stringify with reviver/replacer</option>
-            <option value="JSON">stringify SLIGHT inconsistent</option>
+            <option value="JSON">stringify now consistent</option>
             <option value="foundinthespec">no duplicate params in arrow</option>
+            <option value="with">with statement</option>
             <option value="while">while statement</option>
+            <option value="replaceAll">replaceAll with replacement patterns</option>
+            <option value="URI">uri handling functions</option>
+            <option value="encodeURI">encodeURI correct encoding</option>
             <option value="proxytest">simple proxy test</option>
             <option value="iterator">iterator</option>
             <option value="compvsfilter">comp vs Array.prototype.filter</option>
@@ -94,6 +100,29 @@
     </div>
     <script>
         //"use strict";
+
+        //here's an exhaustive list of everything my interpreter can't do / doesn't have:
+        //* no identifier unicode escape sequences
+        //* backtick template strings or backtick function calls
+        //* no switch, try, throw, break, or continue...
+        //* no labels
+        //* no generator or async
+        //* no Error objects
+        //* no eval and no Function
+        //* no using or await...
+        //* no Set object
+        //* not all iterator prototypes finished
+        //* no Promise objects
+        //* no regex (sorry but no)
+        //* automatic semicolon insertion (no)
+        //* no TypedArrays (unless i make a c++ ver.)
+        //* no Atomics object (unless i make a c++ ver.)
+        //* no Date object (probably not)
+        //* no modules (idk)
+        //* no WeakMap or WeakSet (probably not)
+        //
+        //oh... this list is larger than i expected...
+
         const examples = {
             "basic": "let x = 5;",
             "hashbang": "#!/usr/bin/env node",
@@ -144,8 +173,14 @@
             // "JSON": "if(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\n\nconst transformedObj = JSON.parse(`[{\"id\":0,\"money\":0,\"items\":{},\"bankmoney\":\"12000\", \"unused\": null},{\"id\":1,\"money\":0,\"items\":{\"ghost_steal\":256},\"bankmoney\":\"100\", \"unused\": null}]`, (key, value, context)=>{\n    console.larp(key, value, context);\n    if(key == \"bankmoney\") {\n        return BigInt(context.source);\n    }else if(key == \"items\") {\n        /*const temp = {};\n        for(const key of value) {\n            temp[key] = BigInt(value[key]);\n        }*/\n    }else if(key == \"unused\") {\n        return undefined;\n    }\n    return value;\n});\n\nconsole.larp(...transformedObj);\nconsole.larp(JSON.stringify(transformedObj, (key, value)=>key == \"bankmoney\" ? value.toString() : value));", //throwback!
             "JSON2": "if(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\n\nconst transformedObj = JSON.parse(`[{\"id\":0,\"money\":0,\"items\":{},\"bankmoney\":12000, \"unused\": null},{\"id\":1,\"money\":0,\"items\":{\"ghost_steal\":256},\"bankmoney\":100, \"unused\": null}]`, (key, value, context)=>{\n    console.larp(key, value, context);\n    if(key == \"bankmoney\") {\n        debugger;\n        return BigInt(context.source);\n    }else if(key == \"items\") {\n        /*const temp = {};\n        for(const key of value) {\n            temp[key] = BigInt(value[key]);\n        }*/\n    }else if(key == \"unused\") {\n        return undefined;\n    }\n    return value;\n});\n\nconsole.larp(...transformedObj);\n\n//using a replacer function with JSON.rawJSON to preserve the big int value as a number literal\n//if we didn\'t use JSON.rawJSON, it would stringify the big ints with quotes (and BigInt(\'\"12000\"\') will throw!)\nconsole.larp(JSON.stringify(transformedObj, (key, value)=>(console.larp(key, value), key == \"bankmoney\" ? JSON.rawJSON(value.toString()) : value), \"\\t\"));", //throwback!
             "JSON": "const str = `{\n    \"test\": [1, -170, 3.14159265358979323846264338327950, -2e2, 5e+200, 0.1e-3, \"\\\\\"\\\\\\\\/\\\\b\\\\f\\\\n\\\\r\\\\t\\\\uD834\\\\uDD1E\\\\\"\", true, false, null],\n    \"aliens\": \"bitch\",\n    \"aliens\": \"bitch!\"\n}`;\n\nconst obj = JSON.parse(str);\nconsole.larp(obj);\n\n//v8 JSON.stringify will unescape 𝄞\nconsole.larp(JSON.stringify(obj));",
+            "consistent24": "Array.prototype.map.call(\"bruh👀\", char=>char);",
+            "consistent25": "[\"bruh\\0\\7\\47\\000\\8\\x61\\u0020\\u{d38d}\\'\\\"\\\\\\n\\r\\v\\t\\b\\f\"];",
             "foundinthespec": "// Duplicate parameter name not allowed in this context\n((x, x, y) => {\n    /*...*/\n});",
+            "with": "const obj = {\n    length() {\n        return this.property;\n    },\n    property: \"hello world\"\n};\n\nwith(obj) {\n    console.log(length());\n}",
             "while": "class Test extends Object {\n    constructor() {\n        while(true) super();\n    }\n}\nnew Test;",
+            "replaceAll": "\"wewwew\".replaceAll(\"e\", \"bruh$`$&$$\");",
+            "URI": "const eyes = encodeURI(\"👀\");\n\nconsole.log(decodeURI(\"%40\"), decodeURI(eyes));\n\nconsole.log(decodeURIComponent(\"%40\"), decodeURIComponent(eyes));\n\nconsole.log(encodeURI(\"@$\\\\\"));\nconsole.log(encodeURIComponent(\"@$\\\\\"));",
+            "encodeURI": "console.log(encodeURI(\"\\u{7F}\"));\nconsole.log(encodeURI(\"\\u{7FF}\"));\nconsole.log(encodeURI(\"\\u{FFFF}\"));\nconsole.log(encodeURI(\"\\u{10FFFF}\"));\nconsole.log(encodeURI(\"@$\\\\\"));\nconsole.log(encodeURIComponent(\"@$\\\\\"));",
             "proxytest": "if(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\n\nconst proxy = new Proxy(function(x, y) {this.x = x; this.y = y;}, {\n    apply(target, thisArg, argList) {\n        console.larp(target, thisArg, argList);\n    }\n});\n\nproxy(\"x\", \"y\", \"z\"); //caught by trap\n\nconsole.larp(new proxy(100, 100)); //passed through onto function target",
             "iterator": "const iterator = {\n    list: [1, 2, 3],\n    i: 0,\n    next() {\n        return {value: this.list[this.i], done: ++this.i > this.list.length};\n    },\n    [Symbol.iterator]() {\n        return this;\n    },\n};\nfor(const value of iterator) {\n    console.log(value);\n}",
             "compvsfilter": "const arr = [1,2,3,4,5,6];\n\nconst comp = [for (const v of arr) if(v%2) v];\nconst filter = arr.filter(v=>v%2);\n\nconsole.larp(comp);\nconsole.larp(filter);",
@@ -445,6 +480,10 @@
                             let temp = str[i];
                             while(i < str.length && temp != '"') {
                                 i++; //consume
+                                if(temp.charCodeAt() <= 0x001F) {
+                                    //JSON.parse("\"x\ny\"");
+                                    return Unexpected(new ParseError(lineNumber, i - lineIndex, "Bad control character in string literal"));
+                                }
                                 if(temp == '\\') {
                                     const lookahead = str[i++]; //consume
                                     switch(lookahead) {
@@ -490,7 +529,7 @@
                                         }
 
                                         default:
-                                            return Unexpected(new ParseError(lineNumber, i - lineIndex, `Bad escape character '\\${lookahead}'`));
+                                            return Unexpected(new ParseError(lineNumber, (i - 1) - lineIndex, `Bad escaped character '\\${lookahead}'`)); // i - 1 to point to backslash
                                             break;
                                     }
                                 }
@@ -991,11 +1030,12 @@
                 const identifierStartRegex = /[$_\p{ID_Start}]/u;
                 const identifierRegex = /[$\p{ID_Continue}]/u;
 
-                const hexRegex = /[0-9a-f_]/i;
-                const octalRegex = /[0-7_]/;
+                const hexRegex = /[0-9a-f]/i;
+                const octalRegex = /[0-7]/;
 
                 // let startOfFunctionBlockTokenLength = [{length: -1, ref: undefined}];
                 let startOfFunctionBlockTokenLength = [0]; // this variable will be set to the length of tokens after the open curly bracket, if a "use strict" string is found, and (tokens.length - startOfFunctionBlock) == 0, this was the first thing in the function (blocks cannot be strict apparently)
+                let currentDirectives = []; //to make sure there are no octal escape sequences before "use strict" >:[
 
                 templateStopLexing:
                 while(this.i < str.length) {
@@ -1067,73 +1107,178 @@
                                     }else {
                                         escaped = false;
                                     }
-                                }else if(str[this.i] == '\\') {
+                                }else if(str[this.i] == '\\') { //EscapeSequence ::
                                     //escape!
                                     this.i++; //consume \
                                     switch(str[this.i]) {
                                         case '0':
-                                            stringToken.value += '\0';
-                                            //here is the part where i'd disallow octal escapes per https://tc39.es/ecma262/multipage/strict-mode-of-ecmascript.html#sec-strict-mode-of-ecmascript
-                                            //useStrict.at(-1)
-                                            break;
+                                            if(isNumberRegex.test(str[this.i+1])) {
+                                                //here is the part where i'd disallow octal escapes per https://tc39.es/ecma262/multipage/strict-mode-of-ecmascript.html#sec-strict-mode-of-ecmascript
+                                                if(useStrict.at(-1)) {
+                                                    return Unexpected(new ParseError(lineNumber, this.i - lineIndex, "Octal escape sequences are not allowed in strict mode."));
+                                                }
+                                                if(str[this.i+1] == '8' || str[this.i+1] == '9') {
+                                                    //8 and 9 aren't octal so process this as the '\0' escape and handle 8 or 9 normally
+                                                    stringToken.value += '\0';
+                                                    break;
+                                                }
+                                                //otherwise we let this case fallthrough to the rest of the octal numbers
+                                                //[[fallthrough]] !!
+                                            }else {
+                                                // 0 [lookahead ∉ DecimalDigit]
+                                                this.i++; //consume '0'
+                                                stringToken.value += '\0';
+                                                break;
+                                            }
                                         case '1':
                                         case '2':
                                         case '3':
                                         case '4':
                                         case '5':
                                         case '6':
-                                        case '7':
+                                        case '7': {
+                                            if(useStrict.at(-1)) {
+                                                return Unexpected(new ParseError(lineNumber, this.i - lineIndex, "Octal escape sequences are not allowed in strict mode."));
+                                            }
+                                            const escapedOctalNumber = Number(str[this.i++]);
+                                            const nextOctalDigit = str[this.i];
+                                            if(!octalRegex.test(nextOctalDigit)) {
+                                                //NonZeroOctalDigit [lookahead ∉ OctalDigit]
+                                                stringToken.value += String.fromCodePoint(escapedOctalNumber);
+                                            }else {
+                                                this.i++; //consume next octal digit
+                                                if(escapedOctalNumber < 4) {
+                                                    //ZeroToThree OctalDigit
+                                                    const nextNextOctalDigit = str[this.i];
+                                                    if(!octalRegex.test(nextNextOctalDigit)) {
+                                                        stringToken.value += String.fromCodePoint(escapedOctalNumber * 8 + Number(nextOctalDigit));
+                                                    }else {
+                                                        //ZeroToThree OctalDigit OctalDigit
+                                                        this.i++; //consume next next octal digit
+                                                        stringToken.value += String.fromCodePoint(escapedOctalNumber * 64 + Number(nextOctalDigit) * 8 + Number(nextNextOctalDigit));
+                                                    }
+                                                }else {
+                                                    //FourToSeven OctalDigit
+                                                    stringToken.value += String.fromCodePoint(escapedOctalNumber * 8 + Number(nextOctalDigit));
+                                                }
+                                            }
+                                            break;
+                                        }
                                         case '8':
                                         case '9':
-                                        case 'x':
-                                        case 'u':
-                                            return Unexpected(new ParseError(lineNumber, this.i - lineIndex, "We're not doing all that fancy escape stuff bruh"));
+                                            if(useStrict.at(-1)) {
+                                                return Unexpected(new ParseError(lineNumber, this.i - lineIndex, "\\8 and \\9 are not allowed in strict mode."));
+                                            }
+                                            stringToken.value += str[this.i++];
                                             break;
+
+                                        case 'x': {
+                                            const backslashCharForError = this.i - lineIndex;
+                                            this.i++; // consume 'x'
+                                            if(this.i + 2 < str.length) {
+                                                const digit1 = str[this.i++];
+                                                const digit2 = str[this.i++];
+                                                if(!hexRegex.test(digit1) || !hexRegex.test(digit2)) {
+                                                    return Unexpected(new ParseError(lineNumber, backslashCharForError, "Invalid hexadecimal escape sequence"));
+                                                }
+                                                stringToken.value += String.fromCodePoint(parseInt(digit1, 16) * 16 + parseInt(digit2, 16));
+                                            }else {
+                                                return Unexpected(new ParseError(lineNumber, backslashCharForError, "Invalid hexadecimal escape sequence"));
+                                            }
+                                            break;
+                                        }
+                                        case 'u': {
+                                            const backslashCharForError = this.i - lineIndex;
+                                            this.i++; //consume 'u'
+                                            if(str[this.i] == "{") {
+                                                this.i++; //consume '{'
+
+                                                let codePoint = "";
+                                                while(this.i < str.length && hexRegex.test(str[this.i])) {
+                                                    codePoint += str[this.i++];
+                                                }
+                                                if(str[this.i] != "}" || codePoint.length == 0) {
+                                                    return Unexpected(new ParseError(lineNumber, backslashCharForError, "Invalid Unicode escape sequence"));
+                                                }
+                                                this.i++; //consume '}'
+                                                const result = parseInt(codePoint, 16);
+                                                if(result > 0x10FFFF) {
+                                                    return Unexpected(new ParseError(lineNumber, backslashCharForError, "Undefined Unicode code-point"));
+                                                }
+                                                stringToken.value += ECMAScript.UTF16EncodeCodePoint(result);
+                                            }else {
+                                                if(this.i + 4 < str.length) {
+                                                    let result = 0;
+                                                    for(let j = 0; j < 4; j++) {
+                                                        const digit = str[this.i++];
+                                                        if(!hexRegex.test(digit)) {
+                                                            return Unexpected(new ParseError(lineNumber, backslashCharForError, "Invalid Unicode escape sequence"));
+                                                        }
+                                                        result += parseInt(digit, 16) * (16 ** ((4 - 1) - j));
+                                                    }
+                                                    stringToken.value += String.fromCodePoint(result);
+                                                }else {
+                                                    return Unexpected(new ParseError(lineNumber, backslashCharForError, "Invalid Unicode escape sequence"));
+                                                }
+                                            }
+                                            break;
+                                        }
+
+                                        //SingleEscapeCharacter ::
                                         case '\'':
+                                            this.i++; // consume '\''
                                             stringToken.value += '\'';
                                             break;
                                         case '"':
+                                            this.i++; //consume '"'
                                             stringToken.value += '\"';
                                             break;
                                         case '\\':
+                                            this.i++; //consume '\\'
                                             stringToken.value += '\\';
                                             break;
                                         case 'n':
+                                            this.i++; //consume 'n'
                                             stringToken.value += '\n';
                                             break;
                                         case 'r':
+                                            this.i++; //consume 'r'
                                             stringToken.value += '\r';
                                             break;
                                         case 'v':
+                                            this.i++; //consume 'v'
                                             stringToken.value += '\v';
                                             break;
                                         case 't':
+                                            this.i++; //consume 't'
                                             stringToken.value += '\t';
                                             break;
                                         case 'b':
+                                            this.i++; //consume 'b'
                                             stringToken.value += '\b';
                                             break;
                                         case 'f':
+                                            this.i++; //consume 'f'
                                             stringToken.value += '\f';
                                             break;
                                         case '\r':
                                             if(str[this.i+1] == '\n') {
                                                 //eval(`"\\\r\n"`);
-                                                this.i++; //consume \r
+                                                this.i++; //consume '\r'
                                                 //[[fallthrough]]
                                             }else {
+                                                this.i++; //consume '\r'
                                                 stringToken.value += '\r';
                                                 break;
                                             }
                                         case '\n':
                                             escaped = true;
-                                            this.i--; //don't consume the newline!
                                             break;
                                         default:
-                                            stringToken.value += str[this.i];
+                                            //NonEscapeCharacter ::
+                                            stringToken.value += str[this.i++];
                                             break;
                                     }
-                                    this.i++; //consume whatever character that was
                                 }else if(char == '`' && str[this.i] == '$') {
                                     if(str[this.i+1] == '{') {
                                         const templateCharNumber = this.i+1 - lineIndex;
@@ -1173,6 +1318,30 @@
                                         depth.inStrictFunctionOrClassBracketEndingDepth.at(-1).strict = true; // i think we can assume this
                                         useStrict.push(true);
                                     }
+
+                                    for(const [directiveToken, directiveSourceText] of currentDirectives) {
+                                        //if(Array.prototype.some.call(directiveSourceText, (char, i)=>char == "\\" && directiveSourceText.length < i+1 && isNumberRegex.test(directiveSourceText[i+1]))) {
+                                        //    //not only was this the worst piece of code ever (write dumb code)
+                                        //    //but i need the index!
+                                        //}
+                                        let i = 0;
+                                        for(i; i < directiveSourceText.length; i++) {
+                                            const char = directiveSourceText[i];
+                                            if(char == "\\" && i+1 < directiveSourceText.length) {
+                                                const next = directiveSourceText[i+1];
+                                                if(next == "0") {
+                                                    if(i+2 < directiveSourceText.length && isNumberRegex.test(directiveSourceText[i+2])) {
+                                                        return Unexpected(new ParseError(directiveToken.line, directiveToken.char, "Directive prologue cannot contain octal escape sequences in strict mode!"));
+                                                    }
+                                                }else if(isNumberRegex.test(next)) {
+                                                    return Unexpected(new ParseError(directiveToken.line, directiveToken.char, "Directive prologue cannot contain octal escape sequences, \\8, or \\9 in strict mode!"));
+                                                }
+                                            }
+                                        }
+                                    }
+                                }else {
+                                    const start = indexFromToken(stringToken, str);
+                                    currentDirectives.push([stringToken, str.substring(start+1, this.i-1)]); //+1 and -1 to get rid of quotes lol
                                 }
                             }
                             tokens.push(stringToken);
@@ -1466,7 +1635,8 @@
                                     useStrict.push(true);
                                 }else*/ if(last.kind == "function") {
                                     // startOfFunctionBlockTokenLength.push({length: tokens.length+1, ref: last}); //length+1 because we push just 3 lines later!
-                                    startOfFunctionBlockTokenLength.push(tokens.length+1); //length+1 because we push just 3 lines later!
+                                    currentDirectives = [];
+                                    startOfFunctionBlockTokenLength.push(tokens.length+1); //length+1 because we push another token just 3 lines later!
                                 }
                             }
                             depth.curly++;
@@ -1595,7 +1765,7 @@
                                         impliedOctal = char == "0";
                                         //normal
                                         while(isNumberRegex.test(str[this.i]) || str[this.i] == '_') {
-                                            if(impliedOctal && !octalRegex.test(str[this.i])) {
+                                            if(impliedOctal && !octalRegex.test(str[this.i]) && str[this.i] != "_") {
                                                 if(useStrict.at(-1)) return Unexpected(new ParseError(lineNumber, charNumber, "Decimals with leading zeros are not allowed in strict mode."));
                                                 impliedOctal = false;
                                             }
@@ -1631,13 +1801,13 @@
                                     }
                                     case 1:
                                         //hex
-                                        while(this.i < str.length && hexRegex.test(str[this.i])) { //if we test this regex with undefined, it will be true! (also that /e/i test will also be true!)
+                                        while(this.i < str.length && (hexRegex.test(str[this.i]) || str[this.i] == "_")) { //if we test this regex with undefined, it will be true! (also that /e/i test will also be true!)
                                             numberString += str[this.i++]; //consume via i++;
                                         }
                                         //numberToken.value = parseInt(numberString);
                                         break;
                                     case 2: //octal
-                                        while(octalRegex.test(str[this.i])) {
+                                        while(octalRegex.test(str[this.i]) || str[this.i] == "_") {
                                             numberString += str[this.i++]; //consume via i++
                                         }
                                         //numberToken.value = Number(numberString); //parseInt(numberString.substring(2), 8); //for some reason parseInt doesn't respect the 0o prefix
@@ -2778,6 +2948,18 @@
             static FROZEN = 2;
         }
 
+        //for StringPaddingBuiltinsImpl
+        class Placement {
+            static START = 1;
+            static END = 2;
+        }
+
+        class TrimWhere {
+            static START = 1;
+            static END = 2;
+            static START_END = 3;
+        }
+
         //helper
         function GetConstructorName(/** @type {JavascriptObjectWrapper} */ obj) {
             const ctor = obj["[[Get]]"]("constructor", obj);
@@ -2873,6 +3055,30 @@
         //important abstract operations
         //i should've probably implemented all of them and only AFTER profiling should i have started to omit some... (if i even got to the "caring about performance" part)
         class ECMAScript {
+            static StringIndexOf(string, searchValue, fromIndex) {
+                const length = string.length;
+                if(searchValue == "" && fromIndex <= length) {
+                    return fromIndex;
+                }
+                const searchLength = searchValue.length;
+                // return string.indexOf(searchValue); //in lua we'd have to make sure this returns -1 if it didn't find the index!
+                for(let i = fromIndex; i < length-searchLength + 1; i++) {
+                    if(string.substring(i, i+searchLength) == searchValue) return i;
+                }
+                return -1;     
+            }
+
+            static StringLastIndexOf(string, searchValue, fromIndex) {
+                const length = string.length;
+                const searchLength = searchValue.length;
+                //Assert: fromIndex + searchLength <= length
+                // return string.lastIndexOf(searchValue); //we might have to do this manually in lua...
+                for(let i = fromIndex; i >= 0; i--) {
+                    if(string.substring(i, i+searchLength) == searchValue) return i;
+                }
+                return -1;
+            }
+
             //https://tc39.es/ecma262/#sec-iscallable
             /** @returns {Boolean} */
             static IsCallable(arg) {
@@ -3321,7 +3527,8 @@
                 //evaluate...
                 let retval = undefined;
                 try {
-                    const temp = func.ECMAScriptCode.accept(func.interpreter); //somehow he needs to handle return statements
+                    // const temp = func.ECMAScriptCode.accept(func.interpreter); //somehow he needs to handle return statements
+                    const temp = func.interpreter.evaluate(func.ECMAScriptCode); // :/ this discrepancy only became apparent when i tried to call Array.prototype.map.call("string", (char)=>char); because anywhere else i would've used evaluate
                     
                     //not in the specification lol
                     if(func.thisMode == ThisMode.LEXICAL) {
@@ -4696,8 +4903,9 @@
             static LengthOfArrayLike(obj) {
                 //return ToLength(obj["[[Get]]"]("length", obj));
                 //return Math.min(Math.max(Math.trunc(ECMAScript.ToNumber(obj["[[Get]]"]("length", obj))), 0), 2**53-1);
-                const length = ECMAScript.ToIntegerOrInfinity(obj["[[Get]]"]("length", obj));
-                return Math.min(Math.max(length), 2**53-1);
+                //const length = ECMAScript.ToIntegerOrInfinity(obj["[[Get]]"]("length", obj));
+                //return Math.min(Math.max(length), 2**53-1);
+                return /*?*/ ECMAScript.ToLength(/*?*/ obj["[[Get]]"]("length", obj) /*Get*/);
             }
 
             static ToAbsoluteIndex(value, length) {
@@ -4795,6 +5003,11 @@
                     return key;
                 }
                 return ECMAScript.ToString(key);
+            }
+
+            static ToLength(arg) {
+                // const length = /*?*/ ECMAScript.ToIntegerOrInfinity(arg);
+                return Math.min(Math.max(/*?*/ ECMAScript.ToIntegerOrInfinity(arg), 0), 2**53 - 1);
             }
 
             static ToPropertyDescriptor(obj) {
@@ -4930,6 +5143,19 @@
                     return ECMAScript.ToBoolean(matcher);
                 }
                 return "[[RegExpMatcher]]" in arg;
+            }
+
+            static IsStringWellFormedUnicode(string) {
+                const length = string.length;
+                let k = 0;
+                while(k < length) {
+                    const codePoint = ECMAScript.CodePointAt(string, k);
+                    if(codePoint["[[IsUnpairedSurrogate]]"] == true) {
+                        return false;
+                    }
+                    k += codePoint["[[CodeUnitCount]]"];
+                }
+                return true;
             }
 
             static OrdinaryHasInstance(ctor, instance) {
@@ -5197,6 +5423,41 @@
                 return String.fromCodePoint(codePoint);
             }
 
+            static UTF16SurrogatePairToCodePoint(lead, trail) {
+                //Assert: (lead >= 0xD800 && lead <= 0xDBFF) && (trail >= 0xDC00 && trail <= 0xDFFF)
+                return (lead - 0xD800) * 0x400 + (trail - 0xDC00) + 0x10000;
+            }
+
+            static CodePointAt(string, position) {
+                const size = string.length;
+                //Assert: position >= 0 && position < size
+                const first = string.charCodeAt(position); //code unit
+                const codePoint = first;
+                if((first < 0xD800 || first > 0xDBFF) && (first < 0xDC00 || first > 0xDFFF)) { //neither a leading surrogate nor a trailing surrogate
+                    return {"[[CodePoint]]": codePoint, "[[CodeUnitCount]]": 1, "[[IsUnpairedSurrogate]]": false};
+                }
+                if((first >= 0xDC00 && first <= 0xDFFF) || position + 1 == size) {
+                    return {"[[CodePoint]]": codePoint, "[[CodeUnitCount]]": 1, "[[IsUnpairedSurrogate]]": true};
+                }
+                const second = string.charCodeAt(position+1);
+                if(second < 0xDC00 || second > 0xDFFF) { //not a trailing surrogate
+                    return {"[[CodePoint]]": codePoint, "[[CodeUnitCount]]": 1, "[[IsUnpairedSurrogate]]": true};
+                }
+                return {"[[CodePoint]]": ECMAScript.UTF16SurrogatePairToCodePoint(first, second), "[[CodeUnitCount]]": 2, "[[IsUnpairedSurrogate]]": false};
+            }
+
+            static StringToCodePoints(string) {
+                const codePoints = [];
+                const size = string.length;
+                let position = 0;
+                while(position < size) {
+                    const codePoint = ECMAScript.CodePointAt(string, position);
+                    codePoints.push(codePoint["[[CodePoint]]"]);
+                    position += codePoint["[[CodeUnitCount]]"];
+                }
+                return codePoints;
+            }
+
             static SerializeJSONProperty(state, key, holder) {
                 let value = /*?*/ holder["[[Get]]"](key, holder); //Get
                 if(value instanceof JavascriptObjectWrapper || typeof value == "bigint") {
@@ -5260,7 +5521,7 @@
                 //const codePoints = [...value].map(c=>c.codePointAt());
                 //wait what am i doing bruh, we know the array prototype methods are intentionally generic and strings have a length :eyes:
                 //aw man we could just use Array.from(value, x=>x.codePointAt())
-                const codePoints = Array.prototype.map.call(value, x=>x.codePointAt()); //hell yeah!!
+                //const codePoints = Array.prototype.map.call(value, x=>x.codePointAt()); //hell yeah!!
                 const escapeSequences = Object.create(null);
                 escapeSequences[0x0008] = String.raw`\b`; //lowkey this is one of the few things my interpreter can't do!
                 escapeSequences[0x0009] = String.raw`\t`;
@@ -5271,11 +5532,13 @@
                 escapeSequences[0x005C] = String.raw`\\`;
                 //oh boy i don't really know what's going on with these code points
                 //i'm not educated on my unicode
-                for(const codePoint of codePoints) {
+                //ok i'm Slightly more educated
+                // for(const codePoint of codePoints) {
+                for(const codePoint of ECMAScript.StringToCodePoints(value)) {
                     if(codePoint in escapeSequences) {
                         product += escapeSequences[codePoint];
                     }else if(codePoint < 0x0020 || (codePoint >= 0xD800 && codePoint <= 0xDBFF) || (codePoint >= 0xDC00 && codePoint <= 0xDFFF)) {
-                        const unit = codePoint; //supposed to be the code unit but how the hell do we get that in javascript (allegedly charCodeAt does it)
+                        const unit = codePoint; //it says "let unit be the code unit whose numeric value is the numeric value of codePoint" so... the same number?
                         product += ECMAScript.UnicodeEscape(unit);
                     }else {
                         product += ECMAScript.UTF16EncodeCodePoint(codePoint);
@@ -5285,11 +5548,11 @@
                 return product;
             }
 
-            //we don't actually have the codeUnit it's still the codePoint
+            //sure
             static UnicodeEscape(codeUnit) {
                 const n = codeUnit;
                 //Assert: n <= 0xFFFF
-                const hex = n.toString(16);
+                const hex = n.toString(16).toUpperCase(); //it might not do uppercase lol
                 return "\\u" + hex.padStart(4, "0");
             }
             
@@ -5370,6 +5633,179 @@
                 state["[[Stack]]"].pop();
                 state["[[Indent]]"] = stepBack;
                 return final;
+            }
+
+            static StringPaddingBuiltinsImpl(thisValue, maxLength, fillString, placement) {
+                const string = /*?*/ ECMAScript.ToString(thisValue);
+                const intMaxLength = /*?*/ ECMAScript.ToLength(maxLength);
+                const stringLength = string.length;
+                if(intMaxLength <= stringLength) return string;
+                if(fillString === undefined) {
+                    fillString = " ";
+                }else {
+                    fillString = /*?*/ ECMAScript.ToString(fillString);
+                }
+                return ECMAScript.StringPad(string, intMaxLength, fillString, placement); //bruh what are we doing
+            }
+            
+            static StringPad(string, maxLength, fillString, placement) {
+                const stringLength = string.length;
+                if(maxLength <= stringLength) return string; //we just did this in StringPaddingBuiltinsImpl though...
+                if(fillString == "") return string;
+                const fillLength = maxLength - stringLength;
+                let truncatedStringFiller = "";
+                for(let i = 0; i < fillLength; i++) {
+                    truncatedStringFiller += fillString[i%fillString.length];
+                }
+                if(placement == Placement.START) {
+                    return truncatedStringFiller + string;
+                }else {
+                    return string + truncatedStringFiller;
+                }
+            }
+
+            static TrimString(arg, where) {
+                /*?*/ ECMAScript.RequireObjectCoercible(arg);
+                const string = /*?*/ ECMAScript.ToString(arg);
+                //if(where == TrimWhere.START) {
+                //    return string.trimStart();
+                //}else if(where == TrimWhere.END) {
+                //    return string.trimEnd();
+                //}else {
+                //    //Assert: where == TrimWhere.START_END
+                //    return string.trim();
+                //}
+
+                //yet again we'll actually implement this one manually since lua doesn't actually have a trim method
+                //"white space" is defined as
+                //<TAB>
+                //<VT>
+                //<FF>
+                //<ZWNBSP>
+                //<USP>
+                //<LF>
+                //<CR>
+                //<LS>
+                //<PS>
+
+                const whitespace = Object.create(null);
+                whitespace["\u0009"] = true; //another thing my interpreter can't do (YET!) (ok he can do this now)
+                whitespace["\u000B"] = true;
+                whitespace["\u000C"] = true;
+                whitespace["\uFFEF"] = true;
+                whitespace[" "] = true; //uhh apparently <USP> matches probably more than this but since lua doesn't have actual regular expressions i guess we'll ignore that...
+                whitespace["\u00A0"] = true;
+                //line terminators
+                whitespace["\u000A"] = true;
+                whitespace["\u000D"] = true;
+                whitespace["\u2028"] = true;
+                whitespace["\u2029"] = true;
+
+                let trimmedString;
+                if(where == TrimWhere.START) {
+                    //wait what was i doing lol
+                    //for(let i = 0; i < string.length; i++) {
+                    //    const char = string[i];
+                    //    if(char in whitespace) {
+                    //        break;
+                    //    }
+                    //    trimmedString += char;
+                    //}
+                    let i = 0;
+                    while(i < string.length && string[i] in whitespace) i++;
+                    trimmedString = string.substring(i);
+                }else if(where == TrimWhere.END) {
+                    let i = string.length-1;
+                    while(i >= 0 && string[i] in whitespace) i--;
+                    trimmedString = string.substring(0, i+1); //oh yeah end is exclusive
+                }else {
+                    //Assert: where == TrimWhere.START_END
+                    let i = 0;
+                    while(i < string.length && string[i] in whitespace) i++;
+                    trimmedString = string.substring(i);
+                    i = trimmedString.length-1;
+                    while(i >= 0 && trimmedString[i] in whitespace) i--;
+                    trimmedString = trimmedString.substring(0, i+1); //oh yeah end is exclusive
+                }
+                return trimmedString;
+            }
+
+            //lowkey what is happening in this function
+            static GetSubstitution(matched, string, position, captures, namedCaptures, replacementTemplate) {
+                const stringLength = string.length;
+                //Assert: position <= stringLength
+                let result = "";
+                let templateRemainder = replacementTemplate;
+                while(templateRemainder != "") {
+                    //NOTE: The following steps isolate ref (a prefix of templateRemainder), determine refReplacement (its replacement), and then append that replacement to result.
+                    let ref;
+                    let refReplacement;
+                    if(templateRemainder.startsWith("$$")) {
+                        ref = "$$";
+                        refReplacement = "$";
+                    }else if(templateRemainder.startsWith("$`")) {
+                        ref = "$`";
+                        refReplacement = string.substring(0, position);
+                    }else if(templateRemainder.startsWith("$&")) {
+                        ref = "$&";
+                        refReplacement = matched;
+                    }else if(templateRemainder.startsWith("$'")) {
+                        ref = "$'";
+                        const matchLength = matched.length;
+                        const tailPosition = position + matchLength;
+                        refReplacement = string.substring(Math.min(tailPosition, stringLength));
+                        //NOTE: tailPosition can exceed stringLength only if this abstract operation was invoked by a call to the intrinsic %Symbol.replace% method of %RegExp.prototype% on an object whose "exec" property is not the intrinsic %RegExp.prototype.exec%.
+                    }else if(templateRemainder.startsWith("$") && (templateRemainder[1] == "0" || templateRemainder[1] == "1" || templateRemainder[1] == "2" || templateRemainder[1] == "3" || templateRemainder[1] == "4" || templateRemainder[1] == "5" || templateRemainder[1] == "6" || templateRemainder[1] == "7" || templateRemainder[1] == "8" || templateRemainder[1] == "9")) {
+                        let digitCount = 1;
+                        if((templateRemainder[2] == "0" || templateRemainder[2] == "1" || templateRemainder[2] == "2" || templateRemainder[2] == "3" || templateRemainder[2] == "4" || templateRemainder[2] == "5" || templateRemainder[2] == "6" || templateRemainder[2] == "7" || templateRemainder[2] == "8" || templateRemainder[2] == "9")) {
+                            digitCount = 2;
+                        }
+                        let digits = templateRemainder.substring(1, 1 + digitCount);
+                        let index = HostLanguage.parseInt(digits); //StringToNumber
+                        //Assert: index >= 0 && index <= 99
+                        const captureLength = captures.length;
+                        if(index > captureLength && digitCount == 2) {
+                            //NOTE: When a two-digit replacement pattern specifies an index exceeding the count of capturing groups, it is treated as a one-digit replacement pattern followed by a literal digit.
+                            digitCount = 1;
+                            digits = digits.substring(0, 1);
+                            index = HostLanguage.parseInt(digits); //StringToNumber
+                        }
+                        ref = templateRemainder.substring(0, 1 + digitCount);
+                        if(index >= 1 && index <= captureLength) {
+                            const capture = captures[index - 1];
+                            if(capture === undefined) {
+                                refReplacement = "";
+                            }else {
+                                refReplacement = capture;
+                            }
+                        }else {
+                            refReplacement = ref;
+                        }
+                    }else if(templateRemainder.startsWith("$<")) {
+                        const gtPosition = ECMAScript.StringIndexOf(templateRemainder, ">", 0);
+                        if(gtPosition == -1 || namedCaptures === undefined) {
+                            ref = "$<";
+                            refReplacement = ref;
+                        }else {
+                            ref = templateRemainder.substring(0, gtPosition+1);
+                            const groupName = templateRemainder.substring(2, gtPosition);
+                            //Assert: namedCaptures instanceof JavascriptObjectWrapper
+                            const capture = /*?*/ namedCaptures["[[Get]]"](groupName, namedCaputres); //Get
+                            if(capture === undefined) {
+                                refReplacement = "";
+                            }else {
+                                refReplacement = /*?*/ ECMAScript.ToString(capture);
+                            }
+                        }
+                    }else {
+                        ref = templateRemainder.substring(0, 1);
+                        refReplacement = ref;
+                    }
+                    const refLength = ref.length;
+                    templateRemainder = templateRemainder.substring(refLength);
+                    result += refReplacement;
+                }
+                return result;
             }
 
             //first time i've ever used this!
@@ -6130,8 +6566,8 @@
                 //if(numericIndex == "bad" || !Number_isInteger(numericIndex) || numericIndex < -0) return undefined;
                 
                 const numericIndex = ECMAScript.CanonicalNumericIndexString(propertyKey);
-                if(typeof numericIndex != "number") return undefined;
-                if(!Object.is(numericIndex, 0) || numericIndex < 0) return undefined;
+                if(typeof numericIndex != "number" || !Number_isFinite(numericIndex)) return undefined; //is not an integral Number
+                if((numericIndex == 0 && Object.is(numericIndex, -0)) || numericIndex < -0) return undefined;
 
                 const stringData = string["[[StringData]]"];
                 //Assert: typeof stringData == "string";
@@ -10950,7 +11386,8 @@
                                 if(position < 0 || position >= string.length) {
                                     return undefined;
                                 }
-                                return string.codePointAt(position);
+                                // return string.codePointAt(position);
+                                return ECMAScript.CodePointAt(string, position)["[[CodePoint]]"];
                             },
                             1, "codePointAt", [], this
                         );
@@ -10977,7 +11414,7 @@
                                 if(thisArg == null || thisArg == undefined) {
                                     throw TypeError(`String.prototype.endsWith called on null or undefined`);
                                 }
-                                const string = ECMAScript.ToString(thisArg);
+                                const string = /*?*/ ECMAScript.ToString(thisArg);
                                 if(ECMAScript.IsRegExp(argList[0])) throw TypeError("First argument to String.prototype.endsWith must not be a regular expression");
                                 const searchString = ECMAScript.ToString(argList[0]);
                                 let end;
@@ -10994,75 +11431,139 @@
                             1, "endsWith", [], this
                         );
 
-                        //const $includes = ECMAScript.CreateBuiltinFunction(
-                        //    function(thisArg, argList, newTarget) {
-                        //        
-                        //    },
-                        //    1, "includes", [], this
-                        //);
+                        const $includes = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, [searchString, position], newTarget) {
+                                //const thisValue = thisArg;
+                                /*?*/ ECMAScript.RequireObjectCoercible(thisArg, true, "String.prototype.includes");
+                                const string = ECMAScript.ToString(thisArg);
+                                if(/*?*/ ECMAScript.IsRegExp(searchString)) {
+                                    throw TypeError("First argument to String.prototype.includes must not be a regular expression");
+                                }
+                                searchString = /*?*/ ECMAScript.ToString(searchString);
+                                const length = string.length;
+                                const start = Math.min(Math.max(/*?*/ECMAScript.ToIntegerOrInfinity(position), 0), length);
+                                //Assert: if(position === undefined) start == 0
+                                const index = ECMAScript.StringIndexOf(string, searchString, start);
+                                return index != -1;
+                            },
+                            1, "includes", [], this
+                        );
 
-                        //const $indexOf = ECMAScript.CreateBuiltinFunction(
-                        //    function(thisArg, argList, newTarget) {
-                        //        
-                        //    },
-                        //    1, "indexOf", [], this
-                        //);
+                        const $indexOf = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, [searchString, position], newTarget) {
+                                //const thisValue = thisArg;
+                                /*?*/ ECMAScript.RequireObjectCoercible(thisArg, true, "String.prototype.indexOf");
+                                const string = ECMAScript.ToString(thisArg);
+                                searchString = /*?*/ ECMAScript.ToString(searchString);
+                                const length = string.length;
+                                const start = Math.min(Math.max(/*?*/ECMAScript.ToIntegerOrInfinity(position), 0), length);
+                                //Assert: if(position === undefined) start == 0
+                                return ECMAScript.StringIndexOf(string, searchString, start);
+                            },
+                            1, "indexOf", [], this
+                        );
 
-                        //const $isWellFormed = ECMAScript.CreateBuiltinFunction(
-                        //    function(thisArg, argList, newTarget) {
-                        //        
-                        //    },
-                        //    0, "isWellFormed", [], this
-                        //);
+                        const $isWellFormed = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                //const thisValue = thisArg;
+                                /*?*/ ECMAScript.RequireObjectCoercible(thisArg, true, "String.prototype.indexOf");
+                                const string = ECMAScript.ToString(thisArg);
+                                return ECMAScript.IsStringWellFormedUnicode(string);
+                            },
+                            0, "isWellFormed", [], this
+                        );
 
-                        //const $lastIndexOf = ECMAScript.CreateBuiltinFunction(
-                        //    function(thisArg, argList, newTarget) {
-                        //        
-                        //    },
-                        //    1, "lastIndexOf", [], this
-                        //);
+                        const $lastIndexOf = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, [searchString, position], newTarget) {
+                                //const thisValue = thisArg;
+                                /*?*/ ECMAScript.RequireObjectCoercible(thisArg, true, "String.prototype.lastIndexOf");
+                                const string = ECMAScript.ToString(thisArg);
+                                searchString = /*?*/ ECMAScript.ToString(searchString);
+                                const numberPosition = /*?*/ ECMAScript.ToNumber(position);
+                                const length = string.length;
+                                const searchLength = searchString.length;
+                                const maxStart = length - searchLength;
+                                if(maxStart < 0) return -1;
+                                const start = (Number_isNaN(numberPosition) ? maxStart : Math.min(Math.max(/*!*/ ECMAScript.ToIntegerOrInfinity(numberPosition), 0), maxStart));
+                                //Assert: if(position === undefined) start == maxStart
+                                return ECMAScript.StringLastIndexOf(string, searchString, start);
+                            },
+                            1, "lastIndexOf", [], this
+                        );
 
-                        //const $localeCompare = ECMAScript.CreateBuiltinFunction(
-                        //    function(thisArg, argList, newTarget) {
-                        //        
-                        //    },
-                        //    1, "localeCompare", [], this
-                        //);
+                        const $localeCompare = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                throw Error("We're not doing that fancy locale string stuff, but unfortunately there doesn't seem to be a good replacement for this one...");
+                            },
+                            1, "localeCompare", [], this
+                        );
 
-                        //const $match = ECMAScript.CreateBuiltinFunction(
-                        //    function(thisArg, argList, newTarget) {
-                        //        
-                        //    },
-                        //    1, "match", [], this
-                        //);
+                        const $match = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, [regexpOrPattern], newTarget) {
+                                // const thisValue = thisArg;
+                                /*?*/ ECMAScript.RequireObjectCoercible(thisArg, true, "String.prototype.match");
+                                if(regexpOrPattern instanceof JavascriptObjectWrapper) {
+                                    const matcher = /*?*/ ECMAScript.GetMethod(regexpOrPattern, ECMAScript["%Symbol.match%"]);
+                                    if(matcher !== undefined) {
+                                        return /*?*/ matcher["[[Call]]"](regexpOrPattern, [thisArg]);
+                                    }
+                                }
+                                const string = /*?*/ ECMAScript.ToString(thisArg);
+                                throw Error("Regular expressions have not been implemented!");
+                            },
+                            1, "match", [], this
+                        );
 
-                        //const $matchAll = ECMAScript.CreateBuiltinFunction(
-                        //    function(thisArg, argList, newTarget) {
-                        //        
-                        //    },
-                        //    1, "matchAll", [], this
-                        //);
+                        const $matchAll = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, [regexpOrPattern], newTarget) {
+                                // const thisValue = thisArg;
+                                /*?*/ ECMAScript.RequireObjectCoercible(thisArg, true, "String.prototype.matchAll");
+                                if(regexpOrPattern instanceof JavascriptObjectWrapper) {
+                                    const isRegExp = /*?*/ ECMAScript.IsRegExp(regexpOrPattern);
+                                    if(isRegExp == true) {
+                                        const flags = /*?*/ regexpOrPattern["[[Get]]"]("flags", regexpOrPattern); //Get
+                                        //"bruh".matchAll({[Symbol.match]() {}});
+                                        /*?*/ ECMAScript.RequireObjectCoercible(flags, false, "The .flags property of the argument to String.prototype.matchAll cannot be null or undefined");
+                                        if(/*?*/ ECMAScript.ToString(flags).includes("g") == false) {
+                                            //"bruh".matchAll({[Symbol.match]() {}, flags: ""});
+                                            throw TypeError("String.prototype.matchAll called with non-global RegExp argument");
+                                        }
+                                    }
+                                    const matcher = /*?*/ ECMAScript.GetMethod(regexpOrPattern, ECMAScript["%Symbol.matchAll%"]);
+                                    if(matcher !== undefined) {
+                                        return /*?*/ matcher["[[Call]]"](regexpOrPattern, [thisArg]);
+                                    }
+                                }
+                                const string = /*?*/ ECMAScript.ToString(thisArg);
+                                throw Error("Regular expressions have not been implemented!");
+                            },
+                            1, "matchAll", [], this
+                        );
 
-                        //const $normalize = ECMAScript.CreateBuiltinFunction(
-                        //    function(thisArg, argList, newTarget) {
-                        //        
-                        //    },
-                        //    0, "normalize", [], this
-                        //);
+                        const $normalize = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                throw Error("This unicode stuff is too complicated, as if interpreting JavaScript wasn't hard enough!");
+                            },
+                            0, "normalize", [], this
+                        );
 
-                        //const $padEnd = ECMAScript.CreateBuiltinFunction(
-                        //    function(thisArg, argList, newTarget) {
-                        //        
-                        //    },
-                        //    1, "padEnd", [], this
-                        //);
+                        const $padEnd = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, [maxLength, fillString], newTarget) {
+                                // const thisValue = thisArg;
+                                /*?*/ ECMAScript.RequireObjectCoercible(thisArg, true, "String.prototype.padEnd");
+                                return /*?*/ ECMAScript.StringPaddingBuiltinsImpl(thisArg, maxLength, fillString, Placement.END);
+                            },
+                            1, "padEnd", [], this
+                        );
 
-                        //const $padStart = ECMAScript.CreateBuiltinFunction(
-                        //    function(thisArg, argList, newTarget) {
-                        //        
-                        //    },
-                        //    1, "padStart", [], this
-                        //);
+                        const $padStart = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, [maxLength, fillString], newTarget) {
+                                // const thisValue = thisArg;
+                                /*?*/ ECMAScript.RequireObjectCoercible(thisArg, true, "String.prototype.padEnd");
+                                return /*?*/ ECMAScript.StringPaddingBuiltinsImpl(thisArg, maxLength, fillString, Placement.START);
+                            },
+                            1, "padStart", [], this
+                        );
 
                         const $repeat = ECMAScript.CreateBuiltinFunction(
                             function(thisArg, [count], newTarget) {
@@ -11080,40 +11581,178 @@
                             1, "repeat", [], this
                         );
 
-                        //const $replace = ECMAScript.CreateBuiltinFunction(
-                        //    function(thisArg, argList, newTarget) {
-                        //        
-                        //    },
-                        //    2, "replace", [], this
-                        //);
+                        const $replace = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, [searchValue, replaceValue], newTarget) {
+                                // const thisValue = thisArg;
+                                /*?*/ ECMAScript.RequireObjectCoercible(thisArg, true, "String.prototype.replace");
+                                if(searchValue instanceof JavascriptObjectWrapper) {
+                                    const replacer = /*?*/ ECMAScript.GetMethod(searchValue, ECMAScript["%Symbol.replace%"]);
+                                    if(replacer !== undefined) {
+                                        return /*?*/ replacer["[[Call]]"](searchValue, [thisArg, replaceValue]);
+                                    }
+                                }
+                                const string = /*?*/ ECMAScript.ToString(thisArg);
+                                const searchString = /*?*/ ECMAScript.ToString(searchValue);
+                                const functionalReplace = ECMAScript.IsCallable(replaceValue);
+                                if(functionalReplace == false) {
+                                    replaceValue = /*?*/ ECMAScript.ToString(replaceValue);
+                                }
+                                const searchLength = searchValue.length;
+                                const position = ECMAScript.StringIndexOf(string, searchString, 0);
+                                if(position == -1) {
+                                    return string;
+                                }
+                                const preceding = string.substring(0, position);
+                                const following = string.substring(position + searchLength);
+                                let replacement;
+                                if(functionalReplace == true) {
+                                    replacement = /*?*/ ECMAScript.ToString(/*?*/ replaceValue["[[Call]]"](undefined, [searchString, position, string]));
+                                }else {
+                                    //Assert: typeof replaceValue == "string"
+                                    const captures = [];
+                                    replacement = /*!*/ ECMAScript.GetSubstitution(searchString, string, position, captures, undefined, replaceValue);
+                                }
+                                return preceding + replacement + following;
+                            },
+                            2, "replace", [], this
+                        );
 
-                        //const $replaceAll = ECMAScript.CreateBuiltinFunction(
-                        //    function(thisArg, argList, newTarget) {
-                        //        
-                        //    },
-                        //    2, "replaceAll", [], this
-                        //);
+                        const $replaceAll = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, [searchValue, replaceValue], newTarget) {
+                                // const thisValue = thisArg;
+                                /*?*/ ECMAScript.RequireObjectCoercible(thisArg, true, "String.prototype.replaceAll");
+                                if(searchValue instanceof JavascriptObjectWrapper) {
+                                    const isRegExp = /*?*/ ECMAScript.IsRegExp(searchValue);
+                                    if(isRegExp == true) {
+                                        const flags = /*?*/ searchValue["[[Get]]"]("flags", searchValue); //Get
+                                        //this error message might've be a mistake in v8! 9/6/26
+                                        //"bruh".replaceAll({[Symbol.match]() {}}); // String.prototype.replaceAll called on null or undefined
+                                        /*?*/ ECMAScript.RequireObjectCoercible(flags, true, "String.prototype.replaceAll");
+                                        if(/*?*/ ECMAScript.ToString(flags).includes("g") == false) {
+                                            //"bruh".replaceAll({[Symbol.match]() {}, flags: ""}); // String.prototype.replaceAll called with a non-global RegExp argument
+                                            throw TypeError("String.prototype.replaceAll called with a non-global RegExp argument");
+                                        }
+                                    }
+                                    const replacer = /*?*/ ECMAScript.GetMethod(searchValue, ECMAScript["%Symbol.replace%"]);
+                                    if(replacer !== undefined) {
+                                        return /*?*/ replacer["[[Call]]"](searchValue, [thisArg, replaceValue]);
+                                    }
+                                }
+                                const string = /*?*/ ECMAScript.ToString(thisArg);
+                                const searchString = /*?*/ ECMAScript.ToString(searchValue);
+                                const functionalReplace = ECMAScript.IsCallable(replaceValue);
+                                if(functionalReplace == false) {
+                                    replaceValue = /*?*/ ECMAScript.ToString(replaceValue);
+                                }
+                                const searchLength = searchValue.length;
+                                const advanceBy = Math.max(1, searchLength);
+                                const matchPositions = [];
+                                let position = ECMAScript.StringIndexOf(string, searchString, 0);
+                                while(position != -1) {
+                                    matchPositions.push(position);
+                                    position = ECMAScript.StringIndexOf(string, searchString, position + advanceBy);
+                                }
+                                let endOfLastMatch = 0;
+                                let result = "";
+                                for(const matchPosition of matchPositions) {
+                                    const preserved = string.substring(endOfLastMatch, matchPosition);
+                                    let replacement;
+                                    if(functionalReplace == true) {
+                                        replacement = /*?*/ ECMAScript.ToString(/*?*/ replaceValue["[[Call]]"](undefined, [searchString, matchPosition, string]));
+                                    }else {
+                                        //Assert: typeof replaceValue == "string"
+                                        const captures = [];
+                                        replacement = /*!*/ ECMAScript.GetSubstitution(searchString, string, matchPosition, captures, undefined, replaceValue);
+                                    }
+                                    result += preserved + replacement;
+                                    endOfLastMatch = matchPosition + searchLength;
+                                }
+                                if(endOfLastMatch < string.length) {
+                                    result += string.substring(endOfLastMatch);
+                                }
+                                return result;
+                            },
+                            2, "replaceAll", [], this
+                        );
 
-                        //const $search = ECMAScript.CreateBuiltinFunction(
-                        //    function(thisArg, argList, newTarget) {
-                        //        
-                        //    },
-                        //    1, "search", [], this
-                        //);
+                        const $search = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, [regexpOrPattern], newTarget) {
+                                // const thisValue = thisArg;
+                                /*?*/ ECMAScript.RequireObjectCoercible(thisArg, true, "String.prototype.search");
+                                if(regexpOrPattern instanceof JavascriptObjectWrapper) {
+                                    const searcher = /*?*/ ECMAScript.GetMethod(regexpOrPattern, ECMAScript["%Symbol.search%"]);
+                                    if(searcher !== undefined) {
+                                        return /*?*/ searcher["[[Call]]"](regexpOrPattern, [thisArg]);
+                                    }
+                                }
+                                const string = /*?*/ ECMAScript.ToString(thisArg);
+                                throw Error("Regular expressions have not been implemented!");
+                            },
+                            1, "search", [], this
+                        );
 
-                        //const $slice = ECMAScript.CreateBuiltinFunction(
-                        //    function(thisArg, argList, newTarget) {
-                        //        
-                        //    },
-                        //    2, "slice", [], this
-                        //);
+                        const $slice = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, [start, end], newTarget) {
+                                //const thisValue = thisArg;
+                                /*?*/ ECMAScript.RequireObjectCoercible(thisArg, true, "String.prototype.slice");
+                                const string = /*?*/ ECMAScript.ToString(thisArg);
+                                const length = string.length;
+                                const from = /*?*/ ECMAScript.ToClampedIndex(start, length);
+                                const to = (end === undefined ? length : /*?*/ ECMAScript.ToClampedIndex(end, length));
+                                if(from >= to) return "";
+                                return string.slice(from, to);
+                            },
+                            2, "slice", [], this
+                        );
 
-                        //const $split = ECMAScript.CreateBuiltinFunction(
-                        //    function(thisArg, argList, newTarget) {
-                        //        
-                        //    },
-                        //    2, "split", [], this
-                        //);
+                        const $split = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, [separator, limit], newTarget) {
+                                //const thisValue = thisArg;
+                                /*?*/ ECMAScript.RequireObjectCoercible(thisArg, true, "String.prototype.split");
+                                if(separator instanceof JavascriptObjectWrapper) {
+
+                                }
+                                const string = /*?*/ ECMAScript.ToString(thisArg);
+                                const lim = (limit === undefined ? 2**32 - 1 : /*?*/ ECMAScript.ToUint32(limit));
+                                const separatorString = /*?*/ ECMAScript.ToString(separator);
+                                if(lim == 0) {
+                                    return ECMAScript.CreateArrayFromList([]);
+                                }
+                                if(separator === undefined) {
+                                    return ECMAScript.CreateArrayFromList([string]);
+                                }
+                                const separatorLength = separatorString.length;
+                                if(separatorLength == 0) {
+                                    const stringLength = string.length;
+                                    const outLength = Math.min(Math.max(lim, 0), stringLength);
+                                    const head = string.substring(0, outLength);
+                                    //i'd just use head.split("") or [...head]
+                                    //but in lua we'd have to do something like this i bet
+                                    const list = [];
+                                    for(let i = 0; i < head.length; i++) {
+                                        list.push(head[i]);
+                                    }
+                                    return ECMAScript.CreateArrayFromList(list);
+                                }
+                                if(string == "") {
+                                    return ECMAScript.CreateArrayFromList([string]);
+                                }
+                                const substrings = [];
+                                let searchStart = 0;
+                                let matchIndex = ECMAScript.StringIndexOf(string, separatorString, 0);
+                                while(matchIndex != -1) {
+                                    const substring = string.substring(searchStart, matchIndex);
+                                    substrings.push(substring);
+                                    if(substrings.length == lim) return ECMAScript.CreateArrayFromList(substrings);
+                                    searchStart = matchIndex + separatorLength;
+                                    matchIndex = ECMAScript.StringIndexOf(string, separatorString, searchStart);
+                                }
+                                const substring = string.substring(searchStart);
+                                substrings.push(substring);
+                                return ECMAScript.CreateArrayFromList(substrings);
+                            },
+                            2, "split", [], this
+                        );
 
                         const $startsWith = ECMAScript.CreateBuiltinFunction(
                             function(thisArg, [searchString, position], newTarget) {
@@ -11159,19 +11798,19 @@
                             2, "substring", [], this
                         );
 
-                        //const $toLocaleLowerCase = ECMAScript.CreateBuiltinFunction(
-                        //    function(thisArg, argList, newTarget) {
-                        //        
-                        //    },
-                        //    0, "toLocaleLowerCase", [], this
-                        //);
+                        const $toLocaleLowerCase = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                throw Error("We're not doing that fancy locale string stuff, use toLowerCase or (if you're lazy) write String.prototype.toLocaleLowerCase = String.prototype.toLowerCase;");
+                            },
+                            0, "toLocaleLowerCase", [], this
+                        );
 
-                        //const $toLocaleUpperCase = ECMAScript.CreateBuiltinFunction(
-                        //    function(thisArg, argList, newTarget) {
-                        //        
-                        //    },
-                        //    0, "toLocaleUpperCase", [], this
-                        //);
+                        const $toLocaleUpperCase = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                throw Error("We're not doing that fancy locale string stuff, use toUpperCase or (if you're lazy) write String.prototype.toLocaleUpperCase = String.prototype.toLocaleUpperCase;");
+                            },
+                            0, "toLocaleUpperCase", [], this
+                        );
 
                         const $toLowerCase = ECMAScript.CreateBuiltinFunction(
                             function(thisArg, argList, newTarget) {
@@ -11202,33 +11841,48 @@
                             0, "toUpperCase", [], this
                         );
 
-                        //const $toWellFormed = ECMAScript.CreateBuiltinFunction(
-                        //    function(thisArg, argList, newTarget) {
-                        //        
-                        //    },
-                        //    0, "toWellFormed", [], this
-                        //);
+                        const $toWellFormed = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                // const thisValue = thisArg;
+                                /*?*/ ECMAScript.RequireObjectCoercible(thisArg, true, "String.prototype.toWellFormed");
+                                const string = /*?*/ ECMAScript.ToString(thisArg);
+                                const stringLength = string.length;
+                                let result = "";
+                                let k = 0;
+                                while(k < stringLength) {
+                                    const codePoint = ECMAScript.CodePointAt(string, k);
+                                    if(codePoint["[[IsUnpairedSurrogate]]"] == true) {
+                                        result += "\uFFFD";
+                                    }else {
+                                        result += ECMAScript.UTF16EncodeCodePoint(codePoint["[[CodePoint]]"]);
+                                    }
+                                    k += codePoint["[[CodeUnitCount]]"];
+                                }
+                                return result;
+                            },
+                            0, "toWellFormed", [], this
+                        );
 
-                        //const $trim = ECMAScript.CreateBuiltinFunction(
-                        //    function(thisArg, argList, newTarget) {
-                        //        
-                        //    },
-                        //    0, "trim", [], this
-                        //);
+                        const $trim = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                return /*?*/ ECMAScript.TrimString(thisArg, TrimWhere.START_END);
+                            },
+                            0, "trim", [], this
+                        );
 
-                        //const $trimEnd = ECMAScript.CreateBuiltinFunction(
-                        //    function(thisArg, argList, newTarget) {
-                        //        
-                        //    },
-                        //    0, "trimEnd", [], this
-                        //);
+                        const $trimEnd = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                return /*?*/ ECMAScript.TrimString(thisArg, TrimWhere.END);
+                            },
+                            0, "trimEnd", [], this
+                        );
 
-                        //const $trimStart = ECMAScript.CreateBuiltinFunction(
-                        //    function(thisArg, argList, newTarget) {
-                        //        
-                        //    },
-                        //    0, "trimStart", [], this
-                        //);
+                        const $trimStart = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, argList, newTarget) {
+                                return /*?*/ ECMAScript.TrimString(thisArg, TrimWhere.START);
+                            },
+                            0, "trimStart", [], this
+                        );
 
                         const $valueOf = ECMAScript.CreateBuiltinFunction(
                             function(thisArg, argList, newTarget) {
@@ -11268,33 +11922,33 @@
                         stringProto.SetDataProperty("concat", true, false, true, $concat);
                         stringProto.SetDataProperty("constructor", true, false, true, "String() {}"); //we set this later when we create $String!
                         stringProto.SetDataProperty("endsWith", true, false, true, $endsWith);
-                        // stringProto.SetDataProperty("includes", true, false, true, $includes);
-                        // stringProto.SetDataProperty("indexOf", true, false, true, $indexOf);
-                        // stringProto.SetDataProperty("isWellFormed", true, false, true, $isWellFormed);
-                        // stringProto.SetDataProperty("lastIndexOf", true, false, true, $lastIndexOf);
-                        // stringProto.SetDataProperty("localeCompare", true, false, true, $localeCompare);
-                        // stringProto.SetDataProperty("match", true, false, true, $match);
-                        // stringProto.SetDataProperty("matchAll", true, false, true, $matchAll);
-                        // stringProto.SetDataProperty("normalize", true, false, true, $normalize);
-                        // stringProto.SetDataProperty("padEnd", true, false, true, $padEnd);
-                        // stringProto.SetDataProperty("padStart", true, false, true, $padStart);
+                        stringProto.SetDataProperty("includes", true, false, true, $includes);
+                        stringProto.SetDataProperty("indexOf", true, false, true, $indexOf);
+                        stringProto.SetDataProperty("isWellFormed", true, false, true, $isWellFormed);
+                        stringProto.SetDataProperty("lastIndexOf", true, false, true, $lastIndexOf);
+                        stringProto.SetDataProperty("localeCompare", true, false, true, $localeCompare);
+                        stringProto.SetDataProperty("match", true, false, true, $match);
+                        stringProto.SetDataProperty("matchAll", true, false, true, $matchAll);
+                        stringProto.SetDataProperty("normalize", true, false, true, $normalize);
+                        stringProto.SetDataProperty("padEnd", true, false, true, $padEnd);
+                        stringProto.SetDataProperty("padStart", true, false, true, $padStart);
                         stringProto.SetDataProperty("repeat", true, false, true, $repeat);
-                        // stringProto.SetDataProperty("replace", true, false, true, $replace);
-                        // stringProto.SetDataProperty("replaceAll", true, false, true, $replaceAll);
-                        // stringProto.SetDataProperty("search", true, false, true, $search);
-                        // stringProto.SetDataProperty("slice", true, false, true, $slice);
-                        // stringProto.SetDataProperty("split", true, false, true, $split);
+                        stringProto.SetDataProperty("replace", true, false, true, $replace);
+                        stringProto.SetDataProperty("replaceAll", true, false, true, $replaceAll);
+                        stringProto.SetDataProperty("search", true, false, true, $search);
+                        stringProto.SetDataProperty("slice", true, false, true, $slice);
+                        stringProto.SetDataProperty("split", true, false, true, $split);
                         stringProto.SetDataProperty("startsWith", true, false, true, $startsWith);
                         stringProto.SetDataProperty("substring", true, false, true, $substring);
-                        // stringProto.SetDataProperty("toLocaleLowerCase", true, false, true, $toLocaleLowerCase);
-                        // stringProto.SetDataProperty("toLocaleUpperCase", true, false, true, $toLocaleUpperCase);
+                        stringProto.SetDataProperty("toLocaleLowerCase", true, false, true, $toLocaleLowerCase);
+                        stringProto.SetDataProperty("toLocaleUpperCase", true, false, true, $toLocaleUpperCase);
                         stringProto.SetDataProperty("toLowerCase", true, false, true, $toLowerCase);
                         stringProto.SetDataProperty("toString", true, false, true, $toString);
                         stringProto.SetDataProperty("toUpperCase", true, false, true, $toUpperCase);
-                        // stringProto.SetDataProperty("toWellFormed", true, false, true, $toWellFormed);
-                        // stringProto.SetDataProperty("trim", true, false, true, $trim);
-                        // stringProto.SetDataProperty("trimEnd", true, false, true, $trimEnd);
-                        // stringProto.SetDataProperty("trimStart", true, false, true, $trimStart);
+                        stringProto.SetDataProperty("toWellFormed", true, false, true, $toWellFormed);
+                        stringProto.SetDataProperty("trim", true, false, true, $trim);
+                        stringProto.SetDataProperty("trimEnd", true, false, true, $trimEnd);
+                        stringProto.SetDataProperty("trimStart", true, false, true, $trimStart);
                         stringProto.SetDataProperty("valueOf", true, false, true, $valueOf);
                         //https://tc39.es/ecma262/multipage/text-processing.html#sec-string.prototype-%symbol.iterator%
                         stringProto.SetDataProperty(ECMAScript["%Symbol.iterator%"], true, false, true, $$iterator);
@@ -12871,14 +13525,13 @@
                 //do remember that by default, function properties are only writable and configurable
                 globalObj.SetDataProperty("eval", true, false, true, ECMAScript["%eval%"]);
 
-                ECMAScript["%isFinite%"] = ECMAScript.CreateBuiltinFunction(
+                globalObj.SetDataProperty("isFinite", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
-                        return Number_isFinite(ECMAScript.ToNumber(argList[0]));
+                        return Number_isFinite(/*?*/ ECMAScript.ToNumber(argList[0]));
                     },
                     1, "isFinite", [], this
-                );
-                globalObj.SetDataProperty("isFinite", true, false, true, ECMAScript["%isFinite%"]);
-                ECMAScript["%isNaN%"] = ECMAScript.CreateBuiltinFunction(
+                ));
+                globalObj.SetDataProperty("isNaN", true, false, true, ECMAScript.CreateBuiltinFunction(
                     function(thisArg, argList, newTarget) {
                         //return isNaN(ECMAScript.ToNumber(argList[0]));
 
@@ -12888,39 +13541,204 @@
                         //x.valueOf = ()=>NaN;
                         //Number.isNaN(x); // false
                         //isNaN(x); // true
-                        return Number_isNaN(ECMAScript.ToNumber(argList[0]));
+                        return Number_isNaN(/*?*/ ECMAScript.ToNumber(argList[0]));
                     },
                     1, "isNaN", [], this
-                );
-                globalObj.SetDataProperty("isNaN", true, false, true, ECMAScript["%isNaN%"]);
+                ));
 
                 globalObj.SetDataProperty("parseFloat", true, false, true, $parseFloat);
                 globalObj.SetDataProperty("parseInt", true, false, true, $parseInt);
 
+                //https://tc39.es/ecma262/multipage/global-object.html#sec-uri-handling-functions
+
+                function Encode(string, extraUnescaped) {
+                    const length = string.length;
+                    let result = "";
+                    const alwaysUnescaped = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_" + "-.!~*'()";
+                    const unescapedSet = alwaysUnescaped + extraUnescaped;
+                    let k = 0;
+                    while(k < length) {
+                        //const codeUnit = string.charCodeAt(k);
+                        const codeUnit = string[k]; //they use codeUnit here like it's the actual character (maybe i still don't understand something?)
+                        if(unescapedSet.includes(codeUnit)) {
+                            k++;
+                            result += codeUnit;
+                        }else {
+                            const codePoint = ECMAScript.CodePointAt(string, k);
+                            if(codePoint["[[IsUnpairedSurrogate]]"] == true) {
+                                throw URIError("URI malformed");
+                            }
+                            k += codePoint["[[CodeUnitCount]]"];
+                            let firstOctet;
+                            let bitCount;
+                            let n;
+                            if(codePoint["[[CodePoint]]"] > 0b1111111111111111) { // 16 ones
+                                n = 4;
+                                firstOctet = 0b11110000;
+                                bitCount = 21;
+                            }else if(codePoint["[[CodePoint]]"] > 0b11111111111) { // 11 ones
+                                n = 3;
+                                firstOctet = 0b11100000;
+                                bitCount = 16;
+                            }else if(codePoint["[[CodePoint]]"] > 0b1111111) { // 7 ones
+                                n = 2;
+                                firstOctet = 0b11000000;
+                                bitCount = 11;
+                            }else {
+                                n = 1;
+                                firstOctet = 0;
+                                bitCount = 7;
+                            }
+                            const firstOctetBits = n > 1 ? 7 - n : 7;
+                            let shift = 0;
+                            for(let i = 0; i < n; i++) {
+                                const base = i == 0 ? firstOctet : 0b10000000;
+                                const bits = i == 0 ? firstOctetBits : 6;
+                                shift += bits;
+                                const ones = (~0 >>> (31 - (bits - 1)));
+                                const hex = base | ((codePoint["[[CodePoint]]"] >> (bitCount - shift)) & ones);
+                                result += `%${hex.toString(16).toUpperCase().padStart(2, "0")}`;
+                            }
+                        }
+                    }
+                    return result;
+                }
+
+                function Decode(string, preserveEscapeSet) {
+                    const length = string.length;
+                    let result = "";
+                    let k = 0;
+                    while(k < length) {
+                        const codeUnit = string.charCodeAt(k);
+                        let segment = codeUnit;
+                        if(codeUnit == 0x25) { //percent sign
+                            if(k + 3 > length) {
+                                //decodeURI("%");
+                                throw URIError("URI malformed");
+                            }
+                            const escape = string.substring(k, k+3); //inclusive exclusive
+                            const firstOctet = ParseHexOctet(string, k+1);
+                            if(typeof firstOctet != "number" || !Number_isFinite(firstOctet) || firstOctet%1 != 0) { //"is not an integer"
+                                //decodeURI("%.1");
+                                throw URIError("URI malformed");
+                            }
+                            k += 2;
+                            //oh count leading bits for octet
+                            let n = 0;
+                            for(let i = 7; i >= 0; i--) {
+                                if(firstOctet & (1 << i)) {
+                                    n++;
+                                }else {
+                                    break;
+                                }
+                            }
+                            if(n == 0) {
+                                const asciiChar = String.fromCodePoint(firstOctet); //Let asciiChar be the code unit whose numeric value is firstOctet ?
+                                if(preserveEscapeSet.includes(asciiChar)) {
+                                    segment = escape;
+                                }else {
+                                    segment = asciiChar;
+                                }
+                            }else {
+                                if(n == 1 || n > 4) {
+                                    //decodeURI("%ff");
+                                    throw URIError("URI malformed");
+                                }
+                                const octets = [firstOctet];
+                                for(let j = 1; j < n; j++) {
+                                    k++;
+                                    if(k + 3 > length) {
+                                        //decodeURI("%C0");
+                                        throw URIError("URI malformed");
+                                    }
+                                    if(string.charCodeAt(k) != 0x25) {
+                                        //decodeURI("%C0hai");
+                                        throw URIError("URI malformed");
+                                    }
+                                    const continuationByte = ParseHexOctet(string, k + 1);
+                                    if(typeof continuationByte != "number" || !Number_isFinite(continuationByte) || continuationByte%1 != 0) { //"is not an integer"
+                                        //decodeURI("%C0%.1");
+                                        throw URIError("URI malformed");
+                                    }
+                                    octets.push(continuationByte);
+                                    k += 2;
+                                }
+                                //Assert: octets.length == n
+                                //https://www.rfc-editor.org/info/rfc3629/#section-3
+                                let codePoint = 0;
+                                {
+                                    //calculate utf8 codepoint
+                                    const firstOctetBits = 7 - n; //the amount of bits in the first octet that are used in the codePoint
+                                    //n == 2 => 110xxxxx 10xxxxxx
+                                    //n == 3 => 1110xxxx 10xxxxxx 10xxxxxx
+                                    //n == 4 => 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+                                    let shift = 0;
+                                    for(let j = octets.length-1; j >= 0; j--) {
+                                        let bits = j == 0 ? firstOctetBits : 6;
+                                        const ones = (~0 >>> (31 - (bits - 1))); //awesome!
+                                        codePoint |= (octets[j] & ones) << shift;
+                                        shift += bits;
+                                    }
+                                }
+                                if(n == 2 && (codePoint < 0x80 || codePoint > 0x7FF)) {
+                                    throw URIError("URI malformed");
+                                }else if(n == 3 && (codePoint < 0x800 || codePoint > 0xFFFF)) {
+                                    throw URIError("URI malformed");
+                                }else if(n == 4 && (codePoint < 0x10000 || codePoint > 0x10FFFF)) {
+                                    throw URIError("URI malformed");
+                                }
+                                segment = ECMAScript.UTF16EncodeCodePoint(codePoint);
+                            }
+                        }
+                        result += segment;
+                        k++;
+                    }
+                    return result;
+                }
+
+                function ParseHexOctet(string, position) {
+                    const length = string.length;
+                    //Assert: position + 2 <= length
+                    const hexDigits = string.substring(position, position + 2);
+                    for(const digit of hexDigits) {
+                        if(!/[0-9a-fA-F]/.test(digit)) {
+                            return NaN;
+                        }
+                    }
+                    return parseInt(hexDigits, 16); //basically
+                }
+
                 globalObj.SetDataProperty("decodeURI", true, false, true, ECMAScript.CreateBuiltinFunction(
-                    function(thisArg, argList, newTarget) {
-                        throw new Error("decodeURI, I'm good bro 😂😂🤦‍♂️");
+                    function(thisArg, [encodedURI], newTarget) {
+                        const uriString = /*?*/ ECMAScript.ToString(encodedURI);
+                        return /*?*/ Decode(uriString, ";/?:@&=+$,#");
                     },
                     1, "decodeURI", [], this
                 ));
 
                 globalObj.SetDataProperty("decodeURIComponent", true, false, true, ECMAScript.CreateBuiltinFunction(
-                    function(thisArg, argList, newTarget) {
-                        throw new Error("decodeURIComponent, I'm good bro 😂😂🤦‍♂️");
+                    function(thisArg, [encodedURIComponent], newTarget) {
+                        //throw new Error("decodeURIComponent, I'm good bro 😂😂🤦‍♂️");
+                        const componentString = /*?*/ ECMAScript.ToString(encodedURIComponent);
+                        return /*?*/ Decode(componentString, "");
                     },
                     1, "decodeURIComponent", [], this
                 ));
 
                 globalObj.SetDataProperty("encodeURI", true, false, true, ECMAScript.CreateBuiltinFunction(
-                    function(thisArg, argList, newTarget) {
-                        throw new Error("encodeURI, I'm good bro 😂😂🤦‍♂️");
+                    function(thisArg, [uri], newTarget) {
+                        //throw new Error("encodeURI, I'm good bro 😂😂🤦‍♂️");
+                        const uriString = /*?*/ ECMAScript.ToString(uri);
+                        return /*?*/ Encode(uriString, ";/?:@&=+$,#");
                     },
                     1, "encodeURI", [], this
                 ));
 
                 globalObj.SetDataProperty("encodeURIComponent", true, false, true, ECMAScript.CreateBuiltinFunction(
-                    function(thisArg, argList, newTarget) {
-                        throw new Error("encodeURIComponent, I'm good bro 😂😂🤦‍♂️");
+                    function(thisArg, [uriComponent], newTarget) {
+                        //throw new Error("encodeURIComponent, I'm good bro 😂😂🤦‍♂️");
+                        const componentString = /*?*/ ECMAScript.ToString(uriComponent);
+                        return /*?*/ Encode(componentString, "");
                     },
                     1, "encodeURIComponent", [], this
                 ));
@@ -14490,6 +15308,10 @@
                 //console also has the [Symbol.toStringTag] set to "console"
                 //console -> empty object -> %Object.prototype%
                 class Console {
+                    //static Console.FunctionToString;
+                    //static Console.ObjectEntries;
+                    //static Console.escapeSequences;
+
                     //i don't think i knew you could use format specifiers with console.log lol
                     static Formatter(args) {
                         if(args.length == 1 || typeof args[0] != "string") return args;
@@ -14614,6 +15436,18 @@
                                             }
                                         }
                                     }
+                                    arg = Array.prototype.map.call(arg, (char)=>{
+                                        const codePoint = char.codePointAt();
+                                        if(codePoint in Console.escapeSequences) {
+                                            return Console.escapeSequences[codePoint];
+                                        }else if(codePoint <= 0x001F) {
+                                            return `\\x${codePoint.toString(16).toUpperCase().padStart(2, "0")}`;
+                                        }else if((codePoint >= 0xD800 && codePoint <= 0xDBFF) || (codePoint >= 0xDC00 && codePoint <= 0xDFFF)) {
+                                            const unit = codePoint;
+                                            return ECMAScript.UnicodeEscape(unit);
+                                        }
+                                        return char;
+                                    }).join("");
                                     return result + `${quote}${arg}${quote}`;
                                 }
                             }
@@ -14858,6 +15692,14 @@
                         // Console.ObjectToString = ECMAScript["%Object.prototype%"].properties.get("toString").value;
                         Console.FunctionToString = ECMAScript["%Function.prototype%"].properties.get("toString").value;
                         Console.ObjectEntries = $Object.properties.get("entries").value;
+                        Console.escapeSequences = Object.create(null);
+                        this.escapeSequences[`\\`.charCodeAt(0)] = String.raw`\\`;
+                        this.escapeSequences[`\b`.charCodeAt(0)] = String.raw`\b`; //this is one of the few things my interpreter can't do!
+                        this.escapeSequences[`\f`.charCodeAt(0)] = String.raw`\f`;
+                        this.escapeSequences[`\n`.charCodeAt(0)] = String.raw`\n`;
+                        this.escapeSequences[`\r`.charCodeAt(0)] = String.raw`\r`;
+                        this.escapeSequences[`\t`.charCodeAt(0)] = String.raw`\t`;
+                        this.escapeSequences[`\v`.charCodeAt(0)] = String.raw`\v`;
                     }
                 }
                 //we're assigning "larp" to the real console object because i'd have to remake the whole console object otherwise
@@ -15400,7 +16242,7 @@
                         if(leftNumber.constructor != rightNumber.constructor) {
                             throw TypeError("Cannot mix BigInt and other types, use explicit conversions");
                         }
-                        resultingValue = leftNumber >>> rightNumber;
+                        resultingValue = leftNumber >>> rightNumber; //gulp
                         break;
                     }
                     case TokenKind.BITWISE_SHIFT_RIGHT_EQUALS: {
