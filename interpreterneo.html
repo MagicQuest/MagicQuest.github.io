@@ -74,8 +74,10 @@
             <option value="consistent23">json stringify rawJSON consistent</option>
             <option value="consistent24">array prototype map on strings</option>
             <option value="consistent25">all javascript string escape sequences</option>
+            <option value="consistent26">consistent Promise.prototype.then</option>
             <option value="JSON2">JSON parse/stringify with reviver/replacer</option>
             <option value="JSON">stringify now consistent</option>
+            <option value="promise">promises!</option>
             <option value="foundinthespec">no duplicate params in arrow</option>
             <option value="with">with statement</option>
             <option value="while">while statement</option>
@@ -112,7 +114,6 @@
         //* no using or await...
         //* no Set object
         //* not all iterator prototypes finished
-        //* no Promise objects
         //* no regex (sorry but no)
         //* automatic semicolon insertion (no)
         //* no TypedArrays (unless i make a c++ ver.)
@@ -122,6 +123,25 @@
         //* no WeakMap or WeakSet (probably not)
         //
         //oh... this list is larger than i expected...
+
+        //weird promise object inconsistencies to be fixed in the next commit
+        
+        //const parr = [
+        //    new Promise((res, rej)=>{
+        //        res("Fulfilled!");
+        //    }),
+        //    new Promise((res, rej)=>{
+        //       rej("Rejected!");
+        //    }),
+        //];
+        //Promise.all(parr);
+
+        //const p = new Promise((res, rej)=>{
+        //    console.log("Body");
+        //    res(Promise.try(x=>quit, 21));
+        //});
+        //p.then(x=>console.larp("Fulfilled:", x), y=>console.larp("Rejected:", y));
+        //p;
 
         const examples = {
             "basic": "let x = 5;",
@@ -175,6 +195,8 @@
             "JSON": "const str = `{\n    \"test\": [1, -170, 3.14159265358979323846264338327950, -2e2, 5e+200, 0.1e-3, \"\\\\\"\\\\\\\\/\\\\b\\\\f\\\\n\\\\r\\\\t\\\\uD834\\\\uDD1E\\\\\"\", true, false, null],\n    \"aliens\": \"bitch\",\n    \"aliens\": \"bitch!\"\n}`;\n\nconst obj = JSON.parse(str);\nconsole.larp(obj);\n\n//v8 JSON.stringify will unescape 𝄞\nconsole.larp(JSON.stringify(obj));",
             "consistent24": "Array.prototype.map.call(\"bruh👀\", char=>char);",
             "consistent25": "[\"bruh\\0\\7\\47\\000\\8\\x61\\u0020\\u{d38d}\\'\\\"\\\\\\n\\r\\v\\t\\b\\f\"];",
+            "consistent26": "if(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\n\nconst p = new Promise((res, rej)=>{\n    console.log(\"Promise body evaluated\");\n    res(\"Promise resolved!\");\n});\np.then((x)=>(console.log(x), 21)).then(console.larp); //console.larp required here for the time being because idk how i'll get the current realm record...\np;",
+            "promise": "if(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\n\nconst p = new Promise((res, rej)=>{\n    console.log(\"Promise body evaluated\");\n    res(\"Fulfilled!\");\n});\n\nfunction onFulfilled(value) {\n    console.log(\"Fulfilled: \" + value);\n    quit; //ReferenceError!\n}\n\nfunction onRejected(reason) {\n    console.log(\"Rejected: \" + reason);\n}\n\nconst thenPromise = p.then(onFulfilled, onRejected);\nthenPromise.catch(console.larp); //print ReferenceError\nthenPromise.finally(()=>console.log(\"Finally...\"));\n\np;",
             "foundinthespec": "// Duplicate parameter name not allowed in this context\n((x, x, y) => {\n    /*...*/\n});",
             "with": "const obj = {\n    length() {\n        return this.property;\n    },\n    property: \"hello world\"\n};\n\nwith(obj) {\n    console.log(length());\n}",
             "while": "class Test extends Object {\n    constructor() {\n        while(true) super();\n    }\n}\nnew Test;",
@@ -2959,6 +2981,25 @@
             static END = 2;
             static START_END = 3;
         }
+        
+        class PromiseState {
+            static PENDING = 1;
+            static FULFILLED = 2;
+            static REJECTED = 3;
+            static toString($enum) {
+                switch($enum) {
+                    case this.PENDING:
+                        return "pending";
+                        break;
+                    case this.FULFILLED:
+                        return "fulfilled";
+                        break;
+                    case this.REJECTED:
+                        return "rejected";
+                        break;
+                }
+            }
+        }
 
         //helper
         function GetConstructorName(/** @type {JavascriptObjectWrapper} */ obj) {
@@ -3031,9 +3072,15 @@
             }
         }
 
+        //custom helper lol
         function IsProxy(arg) {
             // return arg["[[Get]]"] == ExoticProxyObject.prototype["[[GetPrototypeOf]]"];
+            //i think this could also just be arg instanceof ExoticProxyObject
             return "[[ProxyHandler]]" in arg;
+        }
+
+        function GetCurrentRealmRecord() {
+            throw Error("lowkey we can't just get the current realm with the way i wrote it...");
         }
 
         class JSONParseRecord {
@@ -3082,10 +3129,11 @@
             //https://tc39.es/ecma262/#sec-iscallable
             /** @returns {Boolean} */
             static IsCallable(arg) {
-                if(!(arg instanceof JavascriptObjectWrapper)) {
-                    return false;
-                }
-                return "[[Call]]" in arg; //fairs
+                //if(!(arg instanceof JavascriptObjectWrapper)) {
+                //    return false;
+                //}
+                //return "[[Call]]" in arg; //fairs
+                return (arg instanceof JavascriptObjectWrapper && "[[Call]]" in arg) || (typeof arg == "function" && !(arg instanceof JavascriptObjectWrapper)); //we may try to pass a "host" function where a JavascriptFunctionWrapper is expected like ([1,2,3].forEach(window.console.log));
             }
 
             //https://tc39.es/ecma262/#sec-call
@@ -3101,6 +3149,10 @@
                         throw TypeError(func.toString() + " is not a function"); //for some reason this Function.prototype.apply.call(Reflect); isn't working! (and i need to go to bed...)
                         // throw TypeError(SpecialErrorToString(func) + " is not a function");
                     //}
+                }
+                if(!(func instanceof JavascriptObjectWrapper)) {
+                    //we may try to call a "host" function where a JavascriptFunctionWrapper is expected like ([1,2,3].forEach(window.console.log));
+                    return func.apply(thisValue, argList);
                 }
                 return func["[[Call]]"](thisValue, argList);
             }
@@ -3531,7 +3583,8 @@
                     const temp = func.interpreter.evaluate(func.ECMAScriptCode); // :/ this discrepancy only became apparent when i tried to call Array.prototype.map.call("string", (char)=>char); because anywhere else i would've used evaluate
                     
                     //not in the specification lol
-                    if(func.thisMode == ThisMode.LEXICAL) {
+                    if(func.thisMode == ThisMode.LEXICAL && !(func.ECMAScriptCode instanceof BlockStatement)) {
+                        //the !(func.ECMAScriptCode instanceof BlockStatement) stops something like (()=>{ "hello world"; })(); from returning "hello world"
                         retval = temp;
                     }
                 }catch(e) {
@@ -3738,7 +3791,7 @@
 
             //https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-arrayspeciescreate
             static ArraySpeciesCreate(originalArray, length) {
-                if(!/*?*/ ECMAScript.IsArray(originalArray)) return /*?*/ ECMAScript.ArrayCreate(length);
+                if(/*?*/ ECMAScript.IsArray(originalArray) == false) return /*?*/ ECMAScript.ArrayCreate(length);
                 let ctor = /*?*/ originalArray["[[Get]]"]("constructor", originalArray) //Get
                 const isCtor = "[[Construct]]" in ctor;
                 if(isCtor) {
@@ -3747,9 +3800,9 @@
                 }
                 if(ctor instanceof JavascriptObjectWrapper) {
                     ctor = /*?*/ ctor["[[Get]]"](ECMAScript["%Symbol.species%"], ctor); //Get
-                    if(ctor == null) ctor = undefined;
+                    if(ctor === null) ctor = undefined;
                 }
-                if(ctor == undefined) return /*?*/ ECMAScript.ArrayCreate(length);
+                if(ctor === undefined) return /*?*/ ECMAScript.ArrayCreate(length);
                 if(!isCtor) {
                     // throw TypeError("ArraySpeciesCreate ctor is not a constructor!"); //how can i make this happen?
                     //class MyArray extends Array {
@@ -4883,10 +4936,10 @@
             }
 
             static GetMethod(value, propertyKey) {
-                //const func = GetV(value, propertyKey);
-                const obj = ECMAScript.ToObject(value);
-                const func = obj["[[Get]]"](propertyKey, obj);
-                if(func == undefined || func == null) {
+                const func = ECMAScript.GetV(value, propertyKey);
+                // const obj = ECMAScript.ToObject(value);
+                // const func = obj["[[Get]]"](propertyKey, obj);
+                if(func === undefined || func === null) {
                     return undefined;
                 }
                 if(!ECMAScript.IsCallable(func)) {
@@ -5234,6 +5287,25 @@
                 return results;
             }
 
+            static GetFunctionRealm(func) {
+                if("realm" in func) {
+                    return func.realm;
+                }
+                if(func["[[Call]]"] == ExoticBoundFunction["[[Call]]"]) {
+                    const boundTargetFunc = func["[[BoundTargetFunction]]"];
+                    return /*?*/ ECMAScript.GetFunctionRealm(boundTargetFunc);
+                }
+                if(IsProxy(func)) {
+                    /*?*/ ECMAScript.ValidateNonRevokedProxy(func, ""); //what could the error here look like lol
+                    const proxyTarget = func["[[ProxyTarget]]"];
+                    //Assert: proxyTarget instanceof JavascriptFunctionWrapper
+                    return /*?*/ ECMAScript.GetFunctionRealm(proxyTarget);
+                }
+                //return JavascriptInterpreter.currentRealm;
+                //hopefully this doesn't happen lol
+                return GetCurrentRealmRecord();
+            }
+
             static CreateArrayFromList(elements) {
                 const array = ECMAScript.ArrayCreate(0); //why don't we set the length right here?
                 for(let n = 0; n < elements.length; n++) {
@@ -5275,6 +5347,20 @@
                     list.push(next);
                 }
                 return list;
+            }
+
+            //bruh i thought GetV was used a lot this shit says 8 times
+            static GetV(value, propertyKey) {
+                const obj = /*?*/ ECMAScript.ToObject(value);
+                return /*?*/ obj["[[Get]]"](propertyKey, value);
+            }
+
+            static Invoke(value, propertyKey, argList = []) {
+                //GetV
+                // const temp = ECMAScript.ToObject(value);
+                // const func = /*?*/ temp["[[Get]]"](propertyKey, value); //oh shit it's value not temp
+                const func = ECMAScript.GetV(value, propertyKey);
+                return /*?*/ ECMAScript.Call(func, value, argList);
             }
 
             static CanonicalNumericIndexString(arg) {
@@ -5461,8 +5547,9 @@
             static SerializeJSONProperty(state, key, holder) {
                 let value = /*?*/ holder["[[Get]]"](key, holder); //Get
                 if(value instanceof JavascriptObjectWrapper || typeof value == "bigint") {
-                    const tempForGetV = /*?*/ ECMAScript.ToObject(value);
-                    const toJSON = /*?*/ tempForGetV["[[Get]]"]("toJSON", tempForGetV); //GetV
+                    // const tempForGetV = /*?*/ ECMAScript.ToObject(value);
+                    // const toJSON = /*?*/ tempForGetV["[[Get]]"]("toJSON", tempForGetV); //GetV
+                    const toJSON = /*?*/ ECMAScript.GetV(value, "toJSON");
                     if(ECMAScript.IsCallable(toJSON) == true) {
                         // value = /*?*/ ECMAScript.Call(toJSON, value, [key]);
                         value = /*?*/ toJSON["[[Call]]"](value, [key]); //yet again directly calling instead of using ECMAScript.Call but i'm starting to think i've been making a mistake doing this and now we've lost the ability to call real (host language) functions.
@@ -5806,6 +5893,374 @@
                     result += refReplacement;
                 }
                 return result;
+            }
+
+            static SpeciesConstructor(obj, defaultCtor) {
+                const ctor = /*?*/ obj["[[Get]]"]("constructor", obj); //Get
+                if(ctor === undefined) {
+                    return defaultCtor;
+                }
+                if(!(ctor instanceof JavascriptObjectWrapper)) {
+                    //i don't think this can happen in the like 8 times this function is used throughout the specification
+                    // throw TypeError(`${ctor} is not a constructor`);
+                    // throw TypeError();
+
+                    //nevermind? i was trolling
+                    //Promise.prototype.finally.call({constructor: "hello,world"});
+                    throw TypeError("The .constructor property is not an object");
+                }
+                const species = /*?*/ ctor["[[Get]]"](ECMAScript["%Symbol.species%"], ctor);
+                if(species === undefined || species === null) {
+                    return defaultCtor;
+                }
+                if("[[Construct]]" in species) {
+                    return species;
+                }
+                //i can't seem to get this to happen even though i thought this would be easier than the other error!
+                //Promise.prototype.finally.call({constructor: {}, [Symbol.species]() {}, then: 1}); // throws because the .then property isn't a function, not because [Symbol.species] is not a constructor... (methods are not constructors right)
+                throw TypeError();
+            }
+
+            static GetPromiseResolve(promiseCtor) {
+                const promiseResolve = /*?*/ promiseCtor["[[Get]]"]("resolve", promiseCtor); //Get
+                if(ECMAScript.IsCallable(promiseResolve) == false) {
+                    //https://tc39.es/ecma262/multipage/control-abstraction-objects.html#sec-getpromiseresolve
+                    throw TypeError("this error will never be seen! it's caught every time this function is called!");
+                }
+                return promiseResolve;
+            }
+
+            static PerformPromiseAll(iteratorRecord, ctor, resultCapability, promiseResolve) {
+                const values = [];
+                //NOTE: remainingElementsCount starts at 1 instead of 0 to ensure resultCapability.[[Resolve]] is only called once, even in the presence of a misbehaving "then" which calls the passed callback before the input iterator is exhausted.
+                const remainingElementsCount = {"[[Value]]": 1};
+                let index = 0;
+                for(;;) {
+                    const next = /*?*/ ECMAScript.IteratorStepValue(iteratorRecord);
+                    if(next == DONE) {
+                        remainingElementsCount["[[Value]]"]--;
+                        if(remainingElementsCount["[[Value]]"] == 0) {
+                            const valuesArray = ECMAScript.CreateArrayFromList(values);
+                            /*?*/ ECMAScript.Call(resultCapability["[[Resolve]]"], undefined, [valuesArray]);
+                        }
+                        return resultCapability["[[Promise]]"];
+                    }
+                    values.push(undefined);
+                    const nextPromise = /*?*/ ECMAScript.Call(promiseResolve, ctor, [next]);
+                    function fulfilledSteps(thisArg, [value], newTarget) {
+                        const activeFunc = fulfilledSteps;
+                        if(activeFunc["[[AlreadyCalled]]"] == true) return undefined;
+                        activeFunc["[[AlreadyCalled]]"] = true;
+                        const thisIndex = activeFunc["[[Index]]"];
+                        values[thisIndex] = value;
+                        remainingElementsCount["[[Value]]"]--;
+                        if(remainingElementsCount["[[Value]]"] == 0) {
+                            const valuesArray = ECMAScript.CreateArrayFromList(values);
+                            /*?*/ ECMAScript.Call(resultCapability["[[Resolve]]"], undefined, [valuesArray]);
+                        }
+                        return undefined;
+                    }
+                    const onFulfilled = ECMAScript.CreateBuiltinFunction(fulfilledSteps, 1, "", ["[[AlreadyCalled]]", "[[Index]]"], ctor.realm);
+                    onFulfilled["[[AlreadyCalled]]"] = false;
+                    onFulfilled["[[Index]]"] = index;
+                    index++;
+                    remainingElementsCount["[[Value]]"]++;
+                    /*?*/ ECMAScript.Invoke(nextPromise, "then", [onFulfilled, resultCapability["[[Reject]]"]]);
+                }
+            }
+
+            static PerformPromiseRace(iteratorRecord, ctor, resultCapability, promiseResolve) {
+                while(true) {
+                    const next = /*?*/ ECMAScript.IteratorStepValue(iteratorRecord);
+                    if(next == DONE) {
+                        return resultCapability["[[Promise]]"];
+                    }
+                    const nextPromise = /*?*/ ECMAScript.Call(promiseResolve, ctor, [next]);
+                    /*?*/ ECMAScript.Invoke(nextPromise, "then", [resultCapability["[[Resolve]]"], resultCapability["[[Reject]]"]]);
+                }
+            }
+
+            static NewPromiseReactionJob(reaction, arg) {
+                //function job(_thisArg, _argList, _newTarget) {
+                function job() {
+                    const promiseCapability = reaction["[[Capability]]"];
+                    const type = reaction["[[Type]]"];
+                    const handler = reaction["[[Handler]]"];
+                    let handlerResult;
+                    if(handler == EMPTY) {
+                        if(type == PromiseState.FULFILLED) {
+                            handlerResult = new CompletionRecord(CompletionKind.NORMAL, arg, undefined);
+                        }else {
+                            //Assert: type == PromiseState.REJECTED
+                            handlerResult = new CompletionRecord(CompletionKind.THROW, arg, undefined);
+                        }
+                    }else {
+                        handlerResult = ECMAScript.Completion(()=>ECMAScript.HostCallJobCallback(handler, undefined, [arg]));
+                    }
+                    if(promiseCapability === undefined) {
+                        //Assert: handlerResult["[[Type]]"] == CompletionKind.NORMAL
+                        return EMPTY;
+                    }
+                    //Assert: promiseCapability instanceof PromiseCapabilityRecord
+                    if(handlerResult["[[Type]]"] != CompletionKind.NORMAL) {
+                        return /*?*/ ECMAScript.Call(promiseCapability["[[Reject]]"], undefined, [handlerResult["[[Value]]"]]);
+                    }
+                    return /*?*/ ECMAScript.Call(promiseCapability["[[Resolve]]"], undefined, [handlerResult["[[Value]]"]]);
+                }
+                let handlerRealm = null;
+                if(reaction["[[Handler]]"] != EMPTY) {
+                    const getHandlerRealmResult = ECMAScript.Completion(()=>ECMAScript.GetFunctionRealm(reaction["[[Handler]]"]["[[Callback]]"]));
+                    if(getHandlerRealmResult["[[Type]]"] == CompletionKind.NORMAL) {
+                        handlerRealm = getHandlerRealmResult["[[Value]]"];
+                    }else {
+                        handlerRealm = GetCurrentRealmRecord();
+                    }
+                    //NOTE: handlerRealm is never null unless the handler is undefined. When the handler is a revoked Proxy and no ECMAScript code runs, handlerRealm is used to create error objects.
+                }
+                return {"[[Job]]": job, "[[Realm]]": handlerRealm};
+            }
+
+            static NewPromiseResolveThenableJob(promiseToResolve, thenable, then) {
+                //function job(_thisArg, _argList, _newTarget) {
+                function job() {
+                    const resolvingFuncs = ECMAScript.CreateResolvingFunctions(promiseToResolve);
+                    const thenCallResult = ECMAScript.Completion(()=>ECMAScript.HostCallJobCallback(then, thenable, [resolvingFuncs["[[Resolve]]", resolvingFuncs["[[Reject]]"]]]));
+                    if(thenCallResult["[[Type]]"] != CompletionKind.NORMAL) {
+                        return /*?*/ ECMAScript.Call(resolvingFuncs["[[Reject]]"], undefined, [thenCallResult["[[Value]]"]]);
+                    }
+                    return /*!*/ thenCallResult["[[Value]]"];
+                }
+                const getThenRealmResult = ECMAScript.Completion(()=>ECMAScript.GetFunctionRealm(then["[[Callback]]"]));
+                let thenRealm;
+                if(getThenRealmResult["[[Type]]"] == CompletionKind.NORMAL) {
+                    thenRealm = getThenRealmResult["[[Value]]"];
+                }else {
+                    thenRealm = GetCurrentRealmRecord();
+                }
+                //NOTE: thenRealm is never null. When then.[[Callback]] is a revoked Proxy and no code runs, thenRealm is used to create error objects.
+                return {"[[Job]]": job, "[[Realm]]": thenRealm};
+            }
+
+            static CreateResolvingFunctions(toResolve) {
+                const promiseOrEmpty = {"[[Value]]": toResolve};
+                function resolveSteps(thisArg, [resolution], newTarget) { //cool
+                    if(promiseOrEmpty["[[Value]]"] == EMPTY) return undefined;
+                    const promise = promiseOrEmpty["[[Value]]"];
+                    promiseOrEmpty["[[Value]]"] = EMPTY;
+                    if(ECMAScript.SameValue(resolution, promise) == true) { 
+                        const selfResolutionError = new TypeError(); //how can i even make this happen?
+                        ECMAScript.RejectPromise(promise, selfResolutionError);
+                        return undefined;
+                    }
+                    if(!(resolution instanceof JavascriptObjectWrapper)) {
+                        ECMAScript.FulfillPromise(promise, resolution);
+                        return undefined;
+                    }
+                    const then = ECMAScript.Completion(()=>resolution["[[Get]]"]("then", resolution));
+                    if(then["[[Type]]"] != CompletionKind.NORMAL) {
+                        ECMAScript.RejectPromise(promise, then["[[Value]]"]);
+                        return undefined;
+                    }
+                    const thenAction = then["[[Value]]"];
+                    if(ECMAScript.IsCallable(thenAction) == false) {
+                        ECMAScript.FulfillPromise(promise, resolution);
+                        return undefined;
+                    }
+                    //uh oh...
+                    const thenJobCallback = ECMAScript.HostMakeJobCallback(thenAction);
+                    const job = ECMAScript.NewPromiseResolveThenableJob(promise, resolution, thenJobCallback);
+                    ECMAScript.HostEnqueuePromiseJob(job["[[Job]]"], job["[[Realm]]"]);
+                    return undefined;
+                }
+                const resolve = ECMAScript.CreateBuiltinFunction(resolveSteps, 1, "", []);
+                function rejectSteps(thisArg, [reason], newTarget) { //cool
+                    if(promiseOrEmpty["[[Value]]"] == EMPTY) return undefined;
+                    const promise = promiseOrEmpty["[[Value]]"];
+                    promiseOrEmpty["[[Value]]"] = EMPTY;
+                    ECMAScript.RejectPromise(promise, reason);
+                    return undefined;
+                }
+                const reject = ECMAScript.CreateBuiltinFunction(rejectSteps, 1, "", []);
+                return {"[[Resolve]]": resolve, "[[Reject]]": reject};
+            }
+
+            static FulfillPromise(promise, value) {
+                //Assert: promise["[[PromiseState]]"] == PENDING;
+                const reactions = promise["[[PromiseFulfillReactions]]"];
+                promise["[[PromiseResult]]"] = value;
+                promise["[[PromiseFulfillReactions]]"] = undefined;
+                promise["[[PromiseRejectReactions]]"] = undefined;
+                promise["[[PromiseState]]"] = PromiseState.FULFILLED;
+                ECMAScript.TriggerPromiseReactions(reactions, value);
+                return undefined; /*UNUSED*/
+            }
+
+            static NewPromiseCapability(ctor) {
+                if(!("[[Construct]]" in ctor)) {
+                    //Promise.all.call(); //Promise.all called on non-object (which the specification doesn't actually say to do :eyes:)
+                    //Promise.all.call({});
+                    throw TypeError(SpecialErrorToString(ctor) + " is not a constructor");
+                }
+                //NOTE: ctor is assumed to be a constructor function that supports the parameter conventions of the Promise constructor (see 27.5.3.1).
+                const resolvingFuncs = {"[[Resolve]]": undefined, "[[Reject]]": undefined};
+
+                //class MyPromise extends Promise {
+                //    constructor(func) {
+                //        func(null, null);
+                //        super(func);
+                //    }
+                //}
+                //const p = new MyPromise(()=>{});
+                //p.then();
+
+                function executorClosure(thisArg, [resolve, reject], newTarget) {
+                    if(resolvingFuncs["[[Resolve]]"] !== undefined) {
+                        throw TypeError("Promise executor has already been invoked with non-undefined arguments");
+                    }
+                    if(resolvingFuncs["[[Reject]]"] !== undefined) {
+                        throw TypeError("Promise executor has already been invoked with non-undefined arguments");
+                    }
+                    resolvingFuncs["[[Resolve]]"] = resolve;
+                    resolvingFuncs["[[Reject]]"] = reject;
+                    return /*NormalCompletion(*/undefined/*)*/;
+                }
+                const executor = ECMAScript.CreateBuiltinFunction(executorClosure, 2, "", []);
+                const promise = /*?*/ ctor["[[Construct]]"]([executor], ctor); //Construct
+                if(ECMAScript.IsCallable(resolvingFuncs["[[Resolve]]"]) == false) {
+                    throw TypeError("Promise resolve or reject function is not callable");
+                }
+                if(ECMAScript.IsCallable(resolvingFuncs["[[Reject]]"]) == false) {
+                    throw TypeError("Promise resolve or reject function is not callable");
+                }
+                return {"[[Promise]]": promise, "[[Resolve]]": resolvingFuncs["[[Resolve]]"], "[[Reject]]": resolvingFuncs["[[Reject]]"]};
+            }
+
+            static IsPromise(arg) {
+                if(!(arg instanceof JavascriptObjectWrapper)) {
+                    return false;
+                }
+                //if(!("[[PromiseState]]" in arg)) {
+                //    return false;
+                //}
+                //return true;
+                return "[[PromiseState]]" in arg;
+            }
+
+            static RejectPromise(promise, reason) {
+                //Assert: promise["[[PromiseState]]"] == PENDING;
+                const reactions = promise["[[PromiseRejectReactions]]"];
+                promise["[[PromiseResult]]"] = reason;
+                promise["[[PromiseFulfillReactions]]"] = undefined;
+                promise["[[PromiseRejectReactions]]"] = undefined;
+                promise["[[PromiseState]]"] = PromiseState.REJECTED;
+                if(promise["[[PromiseIsHandled]]"] == false) {
+                    ECMAScript.HostPromiseRejectionTracker(promise, "reject");
+                }
+                ECMAScript.TriggerPromiseReactions(reactions, reason);
+                return undefined; /*UNUSED*/
+            }
+
+            static TriggerPromiseReactions(reactions, arg) {
+                for(const reaction of reactions) {
+                    const job = ECMAScript.NewPromiseReactionJob(reaction, arg);
+                    ECMAScript.HostEnqueuePromiseJob(job["[[Job]]"], job["[[Realm]]"]);
+                }
+                return undefined; //UNUSED
+            }
+
+            static HostPromiseRejectionTracker(promise, operation) {
+                if(operation == "reject") {
+                    //Promise.try(x=>quit, 21);
+                    
+                    //hmm since we don't have the "realm" here i can't keep track of whether or not this has been caught so it's console.warn instead of console.error
+                    console.warn(`Uncaught (in promise) ${SpecialErrorToString(promise["[[PromiseResult]]"])}`);
+                }else {
+                    console.warn("Nevermind?");
+                }
+                return undefined; //UNUSED
+            }
+
+            static PromiseResolve(ctor, resolution) {
+                if(ECMAScript.IsPromise(resolution) == true) {
+                    const resolutionCtor = /*?*/ resolution["[[Get]]"]("constructor", resolution);
+                    if(ECMAScript.SameValue(resolutionCtor, ctor) == true) {
+                        return resolution;
+                    }
+                }
+                const promiseCapability = /*?*/ ECMAScript.NewPromiseCapability(ctor);
+                /*?*/ ECMAScript.Call(promiseCapability["[[Resolve]]"], undefined, [resolution]);
+                return promiseCapability["[[Promise]]"];
+            }
+
+            static PerformPromiseThen(promise, onFulfilled, onRejected, resultCapability = undefined) {
+                //Assert: ECMAScript.IsPromise(promise)
+                let onFulfilledJobCallback, onRejectedJobCallback;
+                if(ECMAScript.IsCallable(onFulfilled) == false) {
+                    onFulfilledJobCallback = EMPTY;
+                }else {
+                    onFulfilledJobCallback = ECMAScript.HostMakeJobCallback(onFulfilled);
+                }
+                if(ECMAScript.IsCallable(onRejected) == false) {
+                    onRejectedJobCallback = EMPTY;
+                }else {
+                    onRejectedJobCallback = ECMAScript.HostMakeJobCallback(onRejected);
+                }
+                const fulfillReaction = {"[[Capability]]": resultCapability, "[[Type]]": PromiseState.FULFILLED, ["[[Handler]]"]: onFulfilledJobCallback}; //technically these should use their own enum but fu
+                const rejectReaction = {"[[Capability]]": resultCapability, "[[Type]]": PromiseState.REJECTED, ["[[Handler]]"]: onRejectedJobCallback}; //technically these should use their own enum but fu
+                if(promise["[[PromiseState]]"] == PromiseState.PENDING) {
+                    promise["[[PromiseFulfillReactions]]"].push(fulfillReaction);
+                    promise["[[PromiseRejectReactions]]"].push(rejectReaction);
+                }else if(promise["[[PromiseState]]"] == PromiseState.FULFILLED) {
+                    const value = promise["[[PromiseResult]]"];
+                    const fulfillJob = ECMAScript.NewPromiseReactionJob(fulfillReaction, value);
+                    ECMAScript.HostEnqueuePromiseJob(fulfillJob["[[Job]]"], fulfillJob["[[Realm]]"]);
+                }else {
+                    //Assert: promise["[[PromiseState]]"] == PromiseState.REJECTED
+                    const reason = promise["[[PromiseResult]]"];
+                    if(promise["[[PromiseIsHandled]]"] == false) {
+                        ECMAScript.HostPromiseRejectionTracker(promise, "handle");
+                    }
+                    const rejectJob = ECMAScript.NewPromiseReactionJob(rejectReaction, reason);
+                    ECMAScript.HostEnqueuePromiseJob(rejectJob["[[Job]]"], rejectJob["[[Realm]]"]);
+                }
+                promise["[[PromiseIsHandled]]"] = true;
+                if(resultCapability === undefined) {
+                    return undefined;
+                }
+                return resultCapability["[[Promise]]"];
+            }
+
+            //default implementation
+            static HostMakeJobCallback(callback) {
+                return {"[[Callback]]": callback, "[[HostDefined]]": EMPTY};
+            }
+
+            //default implementation
+            static HostCallJobCallback(jobCallback, thisValue, argList) {
+                //Assert: ECMAScript.IsCallable(jobCallback["[[Callback]]"]) == true
+                return /*?*/ ECMAScript.Call(jobCallback["[[Callback]]"], thisValue, argList);
+            }
+
+            /** @param {JavascriptInterpreter} realm */
+            static HostEnqueueGenericJob(job, realm) {
+                if(realm === null) {
+                    //this job will not execute ECMAScript code
+                    //return?
+                    return;
+                }
+                realm.enqueueJob(job, false);
+                return undefined; //UNUSED
+            }
+
+            /** @param {JavascriptInterpreter} realm */
+            static HostEnqueuePromiseJob(job, realm) {
+                if(realm === null) {
+                    //this job will not execute ECMAScript code
+                    //return?
+                    return;
+                }
+                realm.enqueueJob(job, true);
+                return undefined; //UNUSED
             }
 
             //first time i've ever used this!
@@ -10425,6 +10880,12 @@
             /** @type {Map<String, Symbol>} */
             ["[[GlobalSymbolRegistry]]"];
 
+            //these are two different arrays because allegedly browsers et node js will give promises higher priority
+            /** @type {Array<Function>} */
+            promiseJobs;
+            /** @type {Array<Function>} */
+            regularJobs;
+
             //the following are abstract operations that reference the current exection context
             //since only the interpreter has it, i just put them as methods of it (although they could just be static methods of the ECMAScript class and just require the interpreter be passed as an argument...)
             
@@ -10707,8 +11168,9 @@
                     //    return obj;
                     //}
                     const iterator = ECMAScript.EnumerateObjectProperties(obj);
-                    const temp = ECMAScript.ToObject(iterator);
-                    const nextMethod = temp["[[Get]]"]("next", temp); //GetV
+                    // const temp = ECMAScript.ToObject(iterator);
+                    // const nextMethod = temp["[[Get]]"]("next", temp); //GetV
+                    const nextMethod = ECMAScript.GetV(iterator, "next");
                     //return {"[[Iterator]]": iterator, "[[NextMethod]]": nextMethod, "[[Done]]": false};
                     return new IteratorRecord(iterator, nextMethod, false);
                 }
@@ -12212,7 +12674,8 @@
                                     const propertyKey = /*!*/ k.toString() //ECMAScript.ToString(𝔽(k));
                                     if(/*?*/ obj["[[HasProperty]]"](propertyKey) == true) {
                                         const kValue = /*?*/ obj["[[Get]]"](propertyKey, obj); //Get
-                                        /*?*/ callback["[[Call]]"](argList[1], [kValue, k, obj]);
+                                        //*?*/ callback["[[Call]]"](argList[1], [kValue, k, obj]);
+                                        /*?*/ ECMAScript.Call(callback, argList[1], [kValue, k, obj]); //see my implementation of ECMAScript.Call for why i've used it here (instead using [[Call]] directly)
                                     }
                                 }
                                 return undefined;
@@ -13326,6 +13789,82 @@
                         mapProto.SetDataProperty(ECMAScript["%Symbol.toStringTag%"], false, false, true, "Map");
                     }
                     ECMAScript["%Map.prototype%"] = mapProto;
+
+                    const promiseProto = ECMAScript.OrdinaryObjectCreate(objProto);
+                    {
+                        const $catch = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, [onRejected], newTarget) {
+                                const promise = thisArg;
+                                return /*?*/ ECMAScript.Invoke(promise, "then", [undefined, onRejected]);
+                            },
+                            1, "catch", [], this
+                        );
+
+                        const $finally = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, [onFinally], newTarget) {
+                                const promise = thisArg;
+                                if(!(promise instanceof JavascriptObjectWrapper)) {
+                                    throw TypeError("Promise.prototype.finally called on non-object");
+                                }
+                                const ctor = /*?*/ ECMAScript.SpeciesConstructor(promise, ECMAScript["%Promise%"]);
+                                //Assert: "[[Construct]]" in ctor
+                                let thenFinally, catchFinally;
+                                if(ECMAScript.IsCallable(onFinally) == false) {
+                                    thenFinally = onFinally;
+                                    catchFinally = onFinally;
+                                }else {
+                                    function thenFinallyClosure(thisArg, [value], newTarget) {
+                                        const result = /*?*/ ECMAScript.Call(onFinally, undefined);
+                                        const p = /*?*/ ECMAScript.PromiseResolve(ctor, result);
+                                        function returnValue(thisArg, argList, newTarget) {
+                                            return /*NormalCompletion(*/value/*)*/;
+                                        }
+                                        const valueThunk = ECMAScript.CreateBuiltinFunction(returnValue, 0, "", [], this.realm);
+                                        return /*?*/ ECMAScript.Invoke(p, "then", [valueThunk]);
+                                    }
+                                    thenFinally = ECMAScript.CreateBuiltinFunction(thenFinallyClosure, 1, "", [], this.realm);
+                                    function catchFinallyClosure(thisArg, [reason], newTarget) {
+                                        const result = /*?*/ ECMAScript.Call(onFinally, undefined);
+                                        const p = /*?*/ ECMAScript.PromiseResolve(ctor, result);
+                                        function throwReason(thisArg, argList, newTarget) {
+                                            throw reason; //lol
+                                        }
+                                        const thrower = ECMAScript.CreateBuiltinFunction(throwReason, 0, "", [], this.realm);
+                                        return /*?*/ ECMAScript.Invoke(p, "then", [thrower]);
+                                    }
+                                    catchFinally = ECMAScript.CreateBuiltinFunction(catchFinallyClosure, 1, "", [], this.realm);
+                                }
+                                return /*?*/ ECMAScript.Invoke(promise, "then", [thenFinally, catchFinally]);
+                            },
+                            1, "finally", [], this
+                        );
+                        
+                        const $then = ECMAScript.CreateBuiltinFunction(
+                            function(thisArg, [onFulfilled, onRejected], newTarget) {
+                                const promise = thisArg;
+                                if(ECMAScript.IsPromise(promise) == false) {
+                                    //const obj = {};
+                                    //obj.then = Promise.prototype.then;
+                                    //Promise.prototype.finally.call(obj, function() {});
+
+                                    //or just
+                                    //Promise.prototype.then.call();
+                                    throw TypeError(`Method Promise.prototype.then called on incompatible receiver ${SpecialErrorToString(promise)}`);
+                                }
+                                const ctor = /*?*/ ECMAScript.SpeciesConstructor(promise, ECMAScript["%Promise%"]);
+                                const resultCapability = /*?*/ ECMAScript.NewPromiseCapability(ctor);
+                                return ECMAScript.PerformPromiseThen(promise, onFulfilled, onRejected, resultCapability);
+                            },
+                            2, "then", [], this
+                        );
+
+                        promiseProto.SetDataProperty("catch", true, false, true, $catch);
+                        promiseProto.SetDataProperty("constructor", true, false, true, "Promise() {}"); //lowkey we don't really have to do this but if i forget this line it will actually cause an error (because i try to set this property directly) so it kind of makes sure i'm doing it all right
+                        promiseProto.SetDataProperty("finally", true, false, true, $finally);
+                        promiseProto.SetDataProperty("then", true, false, true, $then);
+                        promiseProto.SetDataProperty(ECMAScript["%Symbol.toStringTag%"], false, false, true, "Promise");
+                    }
+                    ECMAScript["%Promise.prototype%"] = promiseProto;
 
                     const $Iterator = ECMAScript.CreateBuiltinFunction(
                         function(thisArg, argList, newTarget) {
@@ -15066,7 +15605,176 @@
 
                 ECMAScript["%Map%"] = $Map;
                 globalObj.SetDataProperty("Map", true, false, true, $Map);
+
+                const $Promise = ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, [executor], newTarget) {
+                        if(newTarget === undefined) {
+                            throw TypeError("Promise constructor cannot be invoked without 'new'");
+                        }
+                        if(ECMAScript.IsCallable(executor) == false) {
+                            throw TypeError(`Promise resolved ${SpecialErrorToString(executor)} is not a function`);
+                        }
+                        const promise = /*?*/ ECMAScript.OrdinaryCreateFromConstructor(newTarget, "%Promise.prototype%", ["[[PromiseState]]", "[[PromiseResult]]", "[[PromiseFulfillReactions]]", "[[PromiseRejectReactions]]", "[[PromiseIsHandled]]"]);
+                        promise["[[PromiseState]]"] = PromiseState.PENDING;
+                        promise["[[PromiseResult]]"] = EMPTY;
+                        promise["[[PromiseFulfillReactions]]"] = [];
+                        promise["[[PromiseRejectReactions]]"] = [];
+                        promise["[[PromiseIsHandled]]"] = false;
+                        const resolvingFuncs = ECMAScript.CreateResolvingFunctions(promise);
+                        //the promise constructor calls executor right away!
+                        //then when nothing is happening it calls then/catch listeners
+                        const completion = ECMAScript.Completion(()=>executor["[[Call]]"](undefined, [resolvingFuncs["[[Resolve]]"], resolvingFuncs["[[Reject]]"]]));
+                        if(completion["[[Type]]"] != CompletionKind.NORMAL) {
+                            /*?*/ ECMAScript.Call(resolvingFuncs["[[Reject]]"], undefined, [completion["[[Value]]"]]);
+                        }
+                        return promise;
+                    },
+                    1, "Promise", [], this, ECMAScript["%Function.prototype%"]
+                );
+                ECMAScript.MakeConstructor($Promise, false, ECMAScript["%Promise.prototype%"]);
+                ECMAScript["%Promise.prototype%"].properties.get("constructor").value = $Promise;
                 
+                {
+                    function doCommonPromiseIteratorStuff(thisArg, iterable, methodName) {
+                        const ctor = thisArg;
+                        const promiseCapability = /*?*/ ECMAScript.NewPromiseCapability(ctor);
+                        let promiseResolve = ECMAScript.Completion(()=>ECMAScript.GetPromiseResolve(ctor));
+                        //ECMAScript.IfAbruptRejectPromise(promiseResolve, promiseCapability);
+                        {
+                            //Assert: promiseResolve instanceof JavascriptObjectWrapper
+                            if(promiseResolve["[[Type]]"] != CompletionKind.NORMAL) {
+                                /*?*/ ECMAScript.Call(promiseCapability["[[Reject]]"], undefined, [promiseResolve["[[Value]]"]]);
+                            }
+                            promiseResolve = /*!*/ promiseResolve["[[Value]]"];
+                        }
+                        let iteratorRecord = ECMAScript.Completion(()=>ECMAScript.GetIterator(iterable, IteratorKind.SYNC));
+                        //ECMAScript.IfAbruptRejectPromise(iteratorRecord, promiseCapability);
+                        {
+                            //Assert: iteratorRecord instanceof JavascriptObjectWrapper
+                            if(iteratorRecord["[[Type]]"] != CompletionKind.NORMAL) {
+                                /*?*/ ECMAScript.Call(promiseCapability["[[Reject]]"], undefined, [iteratorRecord["[[Value]]"]]);
+                            }
+                            iteratorRecord = /*!*/ iteratorRecord["[[Value]]"];
+                        }
+                        let result = ECMAScript.Completion(()=>ECMAScript[methodName](iteratorRecord, ctor, promiseCapability, promiseResolve));
+                        if(result["[[Type]]"] != CompletionKind.NORMAL) {
+                            if(iteratorRecord["[[Done]]"] == false) {
+                                result = ECMAScript.Completion(()=>ECMAScript.IteratorClose(iteratorRecord, result));
+                                // ECMAScript.IfAbruptRejectPromise(result, promiseCapability);
+                                {
+                                    //Assert: result instanceof JavascriptObjectWrapper
+                                    if(result["[[Type]]"] != CompletionKind.NORMAL) {
+                                        /*?*/ ECMAScript.Call(promiseCapability["[[Reject]]"], undefined, [result["[[Value]]"]]);
+                                    }
+                                    //result = /*!*/ result["[[Value]]"];
+                                }
+                            }
+                        }
+                        return /*!*/ result["[[Value]]"];
+                    }
+                    const $all = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, [iterable], newTarget) {
+                            return doCommonPromiseIteratorStuff(thisArg, iterable, "PerformPromiseAll");
+                        },
+                        1, "all", [], this
+                    );
+
+                    const $allSettled = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, [iterable], newTarget) {
+                            return doCommonPromiseIteratorStuff(thisArg, iterable, "PerformPromiseAllSettled");
+                        },
+                        1, "allSettled", [], this
+                    );
+
+                    const $any = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, [iterable], newTarget) {
+                            return doCommonPromiseIteratorStuff(thisArg, iterable, "PerformPromiseAny");
+                        },
+                        1, "any", [], this
+                    );
+
+                    const $race = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, [iterable], newTarget) {
+                            return doCommonPromiseIteratorStuff(thisArg, iterable, "PerformPromiseRace");
+                        },
+                        1, "race", [], this
+                    );
+
+                    const $reject = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, [reason], newTarget) {
+                            const ctor = thisArg;
+                            const promiseCapability = /*?*/ ECMAScript.NewPromiseCapability(ctor);
+                            /*?*/ ECMAScript.Call(promiseCapability["[[Reject]]"], undefined, [reason]);
+                            return promiseCapability["[[Promise]]"];
+                        },
+                        1, "reject", [], this
+                    );
+
+                    const $resolve = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, [resolution], newTarget) {
+                            const ctor = thisArg;
+                            if(!(ctor instanceof JavascriptObjectWrapper)) {
+                                //Promise.resolve.call();
+                                throw TypeError("PromiseResolve called on non-object");
+                            }
+                            return /*?*/ ECMAScript.PromiseResolve(ctor, resolution);
+                        },
+                        1, "resolve", [], this
+                    );
+
+                    const $try = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, [callback, ...args], newTarget) {
+                            const ctor = thisArg;
+                            if(!(ctor instanceof JavascriptObjectWrapper)) {
+                                //Promise.try.call();
+                                throw TypeError("Promise.try called on non-object");
+                            }
+                            const status = ECMAScript.Completion(()=>ECMAScript.Call(callback, undefined, args));
+                            if(status["[[Type]]"] != CompletionKind.NORMAL) {
+                                const promiseCapability = /*?*/ ECMAScript.NewPromiseCapability(ctor);
+                                /*?*/ ECMAScript.Call(promiseCapability["[[Reject]]"], undefined, [status["[[Value]]"]]);
+                                return promiseCapability["[[Promise]]"];
+                            }else {
+                                return /*?*/ ECMAScript.PromiseResolve(ctor, /*!*/ status["[[Value]]"]);
+                            }
+                        },
+                        1, "try", [], this
+                    );
+
+                    const $withResolvers = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            const ctor = thisArg;
+                            const promiseCapability = /*?*/ ECMAScript.NewPromiseCapability(ctor);
+                            const obj = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]);
+                            /*!*/ ECMAScript.CreateDataPropertyOrThrow(obj, "promise", promiseCapability["[[Promise]]"]);
+                            /*!*/ ECMAScript.CreateDataPropertyOrThrow(obj, "resolve", promiseCapability["[[Resolve]]"]);
+                            /*!*/ ECMAScript.CreateDataPropertyOrThrow(obj, "reject", promiseCapability["[[Reject]]"]);
+                            return obj;
+                        },
+                        0, "withResolvers", [], this
+                    );
+
+                    const get_$$species = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            return thisArg;
+                        },
+                        0, "[Symbol.species]", [], this, undefined, "get",
+                    );
+
+                    $Promise.SetDataProperty("all", true, false, true, $all);
+                    $Promise.SetDataProperty("allSettled", true, false, true, $allSettled);
+                    $Promise.SetDataProperty("any", true, false, true, $any);
+                    $Promise.SetDataProperty("race", true, false, true, $race);
+                    $Promise.SetDataProperty("reject", true, false, true, $reject);
+                    $Promise.SetDataProperty("resolve", true, false, true, $resolve);
+                    $Promise.SetDataProperty("try", true, false, true, $try);
+                    $Promise.SetDataProperty("withResolvers", true, false, true, $withResolvers);
+                    $Promise.SetAccessorProperty(ECMAScript["%Symbol.species%"], false, true, get_$$species, undefined);
+                }
+
+                ECMAScript["%Promise%"] = $Promise;
+                globalObj.SetDataProperty("Promise", true, false, true, $Promise);
+
                 const $Reflect = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]);
                 
                 $Reflect.SetDataProperty("apply", true, false, true, ECMAScript.CreateBuiltinFunction(
@@ -15353,6 +16061,20 @@
                         }
                         return Console.Formatter([target, ...args.slice(2)]);
                     }
+                    static GetNameOfObject(arg, depth = 0) {
+                        const ctor = arg["[[Get]]"]("constructor", arg);
+                        let name;
+                        if(ctor instanceof JavascriptObjectWrapper) {
+                            name = ctor["[[Get]]"]("name", ctor);
+                        }else {
+                            //the bad muttonchop almost just ran through the gate
+                            name = arg["[[Get]]"](ECMAScript["%Symbol.toStringTag%"], arg);
+                        }
+                        if(typeof name != "string") {
+                            name = depth > 0 ? ECMAScript["%Object.prototype.toString%"]["[[Call]]"](arg, []) : "";
+                        }
+                        return name;
+                    }
                     static TurnThisIntoPrettyStringKTHXBAI(arg, depth = 0) {
                         if(arg == EMPTY) {
                             return "(...)"; //for accessor properties lol
@@ -15417,7 +16139,8 @@
                                     // }
 
                                     // result += Console.ObjectToString["[[Call]]"](arg, []);
-                                    result += ECMAScript["%Object.prototype.toString%"]["[[Call]]"](arg, []);
+                                    
+                                    result += Console.GetNameOfObject(arg, depth);
                                 }
                             }
                         }else {
@@ -15516,6 +16239,22 @@
                                         result += `${Console.TurnThisIntoPrettyStringKTHXBAI(key, 1)} => ${Console.TurnThisIntoPrettyStringKTHXBAI(value, 1)}`;
                                     }
                                     doLog(`%cMap(${size}) %c{${result}}`, "color: darkgrey; font-style: italic;", "font-style: italic;");
+                                }else if(ECMAScript.IsPromise(arg)){
+                                    const name = Console.GetNameOfObject(arg);
+                                    let status;
+                                    let rest;
+                                    if(arg["[[PromiseState]]"] == PromiseState.PENDING) {
+                                        status = "pending";
+                                        rest = "";
+                                    }else {
+                                        status = PromiseState.toString(arg["[[PromiseState]]"]);
+                                        rest = Console.TurnThisIntoPrettyStringKTHXBAI(arg["[[PromiseResult]]"], 1);
+                                    }
+                                    if(name) {
+                                        doLog(`%c${name} {%c<${status}>${rest.length ? ": "+rest : ""}%c}`, "color: white; font-style: italic;", "color: darkgrey; font-style: italic;", "color: white; font-style: italic;");
+                                    }else {
+                                        doLog(`%c{%c<${status}>${rest.length ? ": " + rest : ""}%c}`, "color: white; font-style: italic;", "color: darkgrey; font-style: italic;", "color: white; font-style: italic;");
+                                    }
                                 }else {
                                     // const entries = Console.ObjectEntries["[[Call]]"]($Object, [arg]); //->Call();
                                     const temp = arg["[[OwnPropertyKeys]]"]();
@@ -15634,6 +16373,8 @@
                                                 tag = "String";
                                             }else if(ECMAScript.InstanceofOperator(arg, $Symbol)) {
                                                 tag = "Symbol";
+                                            }else if(ECMAScript.InstanceofOperator(arg, $Promise)) {
+                                                tag = "Promise";
                                             }else {
                                                 const ctor = arg["[[Get]]"]("constructor", arg);
                                                 if(ctor instanceof JavascriptFunctionWrapper /*&& ctor.isClassConstructor*/) {
@@ -15729,6 +16470,9 @@
                 this.executionContext.realm = this;
                 this.executionContext.scriptOrModule = {[Symbol.toStringTag]: "ScriptRecord"}; //fucking lol
                 this["[[GlobalSymbolRegistry]]"] = new Map();
+
+                this.promiseJobs = [];
+                this.regularJobs = [];
             }
 
             parse(str) {
@@ -15775,7 +16519,18 @@
                 //console.larp["[[Call]]"](undefined, [this.evaluate(result.value.at(-1))]);
 
                 //because arrays and objects shouldn't be too hard, we'll probably use a recursive descent solution (at least for these types)
-                return this.evaluate(result.value.at(-1));
+                const returnValue = this.evaluate(result.value.at(-1));
+
+                //now, i suppose, would be the proper time to evaluate jobs
+                for(const promiseJob of this.promiseJobs) {
+                    promiseJob();
+                }
+
+                for(const job of this.regularJobs) {
+                    job();
+                }
+
+                return returnValue;
             }
 
             //used to dereference reference records
@@ -15787,6 +16542,16 @@
                     return value.get();
                 }*/
                 return this.GetValue(value);
+            }
+
+            enqueueJob(job, isPromiseJob) {
+                let queue; //how the specification would have writing it
+                if(isPromiseJob) {
+                    queue = this.promiseJobs;
+                }else {
+                    queue = this.regularJobs;
+                }
+                queue.push(job);
             }
 
             /** @param {UnaryExpression} unaryExpression */
