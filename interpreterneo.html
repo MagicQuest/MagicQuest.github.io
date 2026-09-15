@@ -75,10 +75,15 @@
             <option value="consistent24">array prototype map on strings</option>
             <option value="consistent25">all javascript string escape sequences</option>
             <option value="consistent26">consistent Promise.prototype.then</option>
+            <option value="consistent27">consistent resolve with rejected promise</option>
             <option value="JSON2">JSON parse/stringify with reviver/replacer</option>
             <option value="JSON">stringify now consistent</option>
             <option value="promise">promises!</option>
+            <option value="promisejobinpromise">queue promise job in promise</option>
+            <option value="promiseall">Promise.all</option>
+            <option value="microtasks">queueMicrotask even though not ECMAScript</option>
             <option value="foundinthespec">no duplicate params in arrow</option>
+            <option value="actuallyparsablenewwithargs">who knew this wasn't parsable before</option>
             <option value="with">with statement</option>
             <option value="while">while statement</option>
             <option value="replaceAll">replaceAll with replacement patterns</option>
@@ -108,12 +113,13 @@
         //* backtick template strings or backtick function calls
         //* no switch, try, throw, break, or continue...
         //* no labels
-        //* no generator or async
+        //* no generator, async or await
         //* no Error objects
         //* no eval and no Function
-        //* no using or await...
+        //* no using, or disposible objects
         //* no Set object
         //* not all iterator prototypes finished
+        //* no multiple variable bindings in one statement
         //* no regex (sorry but no)
         //* automatic semicolon insertion (no)
         //* no TypedArrays (unless i make a c++ ver.)
@@ -195,9 +201,14 @@
             "JSON": "const str = `{\n    \"test\": [1, -170, 3.14159265358979323846264338327950, -2e2, 5e+200, 0.1e-3, \"\\\\\"\\\\\\\\/\\\\b\\\\f\\\\n\\\\r\\\\t\\\\uD834\\\\uDD1E\\\\\"\", true, false, null],\n    \"aliens\": \"bitch\",\n    \"aliens\": \"bitch!\"\n}`;\n\nconst obj = JSON.parse(str);\nconsole.larp(obj);\n\n//v8 JSON.stringify will unescape 𝄞\nconsole.larp(JSON.stringify(obj));",
             "consistent24": "Array.prototype.map.call(\"bruh👀\", char=>char);",
             "consistent25": "[\"bruh\\0\\7\\47\\000\\8\\x61\\u0020\\u{d38d}\\'\\\"\\\\\\n\\r\\v\\t\\b\\f\"];",
-            "consistent26": "if(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\n\nconst p = new Promise((res, rej)=>{\n    console.log(\"Promise body evaluated\");\n    res(\"Promise resolved!\");\n});\np.then((x)=>(console.log(x), 21)).then(console.larp); //console.larp required here for the time being because idk how i'll get the current realm record...\np;",
+            "consistent26": "if(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\n\nconst p = new Promise((res, rej)=>{\n    console.log(\"Promise body evaluated\");\n    res(\"Promise resolved!\");\n});\np.then((x)=>(console.log(x), 21)).then(console.log);\np;",
+            "consistent27": "const p = new Promise((res, rej)=>{\n    console.log(\"Body\");\n    res(Promise.try(x=>quit, 21));\n});\np.then(x=>console.larp(\"Fulfilled:\", x), y=>console.larp(\"Rejected:\", y));\np;",
             "promise": "if(!(\"__NEO__\" in Object.prototype)) {\n    console.larp = console.log;\n}\n\nconst p = new Promise((res, rej)=>{\n    console.log(\"Promise body evaluated\");\n    res(\"Fulfilled!\");\n});\n\nfunction onFulfilled(value) {\n    console.log(\"Fulfilled: \" + value);\n    quit; //ReferenceError!\n}\n\nfunction onRejected(reason) {\n    console.log(\"Rejected: \" + reason);\n}\n\nconst thenPromise = p.then(onFulfilled, onRejected);\nthenPromise.catch(console.larp); //print ReferenceError\nthenPromise.finally(()=>console.log(\"Finally...\"));\n\np;",
+            "promisejobinpromise": "const p = new Promise((res, rej)=>{\n    console.log(\"p1 Body\");\n    res(\"p1\");\n});\np.then(function(result) {\n    console.log(result, \"then\");\n    const p2 = new Promise((res, rej)=>{\n        console.log(\"p2 Body\");\n        res(\"p2\");\n    });\n    //queuing promise job while evaluating promise jobs!\n    p2.then(function(result) {\n        console.log(result, \"then\");\n    });\n});\np;\n\n//p1 Body\n//p1 then\n//p2 Body\n//p2 then",
+            "promiseall": "const parr = [\n    new Promise((res, rej)=>{\n        res(\"Fulfilled!\");\n    }),\n    new Promise((res, rej)=>{\n        res(\"Fulfilled too!\");\n    }),\n    \n    //uncomment for reject\n    /*new Promise((res, rej)=>{\n        rej(\"Rejected!\");\n    }),*/\n];\n\nPromise.all(parr).then(x=>console.larp(\"All done!\", x), bad=>console.larp(\"Oh noes\", bad));",
+            "microtasks": "//queueMicrotask is actually from the html specification but i've included it anyways!\n\nqueueMicrotask(\n    function() {\n        console.log(\"Microtask\");\n        const p = new Promise((res, rej)=>{\n            console.log(\"Promise body\");\n            res(\"Promise\");\n        });\n        p.then(function(result) {\n            console.log(result, \"then\");\n        });\n    }\n);\nqueueMicrotask(\n    function() {\n        console.log(\"Microtask 2\");\n    }\n);\n\n//Microtask\n//Promise body\n//Microtask 2\n//Promise then",
             "foundinthespec": "// Duplicate parameter name not allowed in this context\n((x, x, y) => {\n    /*...*/\n});",
+            "actuallyparsablenewwithargs": "new Object(2).toString();",
             "with": "const obj = {\n    length() {\n        return this.property;\n    },\n    property: \"hello world\"\n};\n\nwith(obj) {\n    console.log(length());\n}",
             "while": "class Test extends Object {\n    constructor() {\n        while(true) super();\n    }\n}\nnew Test;",
             "replaceAll": "\"wewwew\".replaceAll(\"e\", \"bruh$`$&$$\");",
@@ -3080,7 +3091,8 @@
         }
 
         function GetCurrentRealmRecord() {
-            throw Error("lowkey we can't just get the current realm with the way i wrote it...");
+            // throw Error("lowkey we can't just get the current realm with the way i wrote it...");
+            return JavascriptInterpreter.current;
         }
 
         class JSONParseRecord {
@@ -3681,7 +3693,7 @@
              * @param {String} prefix
              * @param {Boolean} async
              */
-            static CreateBuiltinFunction(behavior, length, name, additionalInternalSlots, realm, proto, prefix, async = false) {
+            static CreateBuiltinFunction(behavior, length, name, additionalInternalSlots, realm = GetCurrentRealmRecord(), proto, prefix, async = false) {
                 //if not realm...
                 //if not proto set to realm %Function.prototype%
                 if(proto == undefined) {
@@ -5359,7 +5371,7 @@
                 //GetV
                 // const temp = ECMAScript.ToObject(value);
                 // const func = /*?*/ temp["[[Get]]"](propertyKey, value); //oh shit it's value not temp
-                const func = ECMAScript.GetV(value, propertyKey);
+                const func = /*?*/ ECMAScript.GetV(value, propertyKey);
                 return /*?*/ ECMAScript.Call(func, value, argList);
             }
 
@@ -5948,7 +5960,7 @@
                     values.push(undefined);
                     const nextPromise = /*?*/ ECMAScript.Call(promiseResolve, ctor, [next]);
                     function fulfilledSteps(thisArg, [value], newTarget) {
-                        const activeFunc = fulfilledSteps;
+                        const activeFunc = onFulfilled; //valid because temporal dead zone 👅👅👅👅
                         if(activeFunc["[[AlreadyCalled]]"] == true) return undefined;
                         activeFunc["[[AlreadyCalled]]"] = true;
                         const thisIndex = activeFunc["[[Index]]"];
@@ -5960,12 +5972,12 @@
                         }
                         return undefined;
                     }
-                    const onFulfilled = ECMAScript.CreateBuiltinFunction(fulfilledSteps, 1, "", ["[[AlreadyCalled]]", "[[Index]]"], ctor.realm);
+                    const onFulfilled = ECMAScript.CreateBuiltinFunction(fulfilledSteps, 1, "", ["[[AlreadyCalled]]", "[[Index]]"]);
                     onFulfilled["[[AlreadyCalled]]"] = false;
                     onFulfilled["[[Index]]"] = index;
                     index++;
                     remainingElementsCount["[[Value]]"]++;
-                    /*?*/ ECMAScript.Invoke(nextPromise, "then", [onFulfilled, resultCapability["[[Reject]]"]]);
+                    /*?*/ ECMAScript.Invoke(nextPromise, "then", [onFulfilled, resultCapability["[[Reject]]"]]); //call onFulfilled, otherwise reject promise all return value
                 }
             }
 
@@ -6024,7 +6036,14 @@
                 //function job(_thisArg, _argList, _newTarget) {
                 function job() {
                     const resolvingFuncs = ECMAScript.CreateResolvingFunctions(promiseToResolve);
-                    const thenCallResult = ECMAScript.Completion(()=>ECMAScript.HostCallJobCallback(then, thenable, [resolvingFuncs["[[Resolve]]", resolvingFuncs["[[Reject]]"]]]));
+                    
+                    //oh
+                    //my
+                    //god                                                                                             the fucking comma IN the computed key...
+                    //const thenCallResult = ECMAScript.Completion(()=>ECMAScript.HostCallJobCallback(then, thenable, [resolvingFuncs["[[Resolve]]", resolvingFuncs["[[Reject]]"]]]));
+
+                    const thenCallResult = ECMAScript.Completion(()=>ECMAScript.HostCallJobCallback(then, thenable, [resolvingFuncs["[[Resolve]]"], resolvingFuncs["[[Reject]]"]]));
+
                     if(thenCallResult["[[Type]]"] != CompletionKind.NORMAL) {
                         return /*?*/ ECMAScript.Call(resolvingFuncs["[[Reject]]"], undefined, [thenCallResult["[[Value]]"]]);
                     }
@@ -6056,7 +6075,7 @@
                         ECMAScript.FulfillPromise(promise, resolution);
                         return undefined;
                     }
-                    const then = ECMAScript.Completion(()=>resolution["[[Get]]"]("then", resolution));
+                    const then = ECMAScript.Completion(()=>resolution["[[Get]]"]("then", resolution)); //Get
                     if(then["[[Type]]"] != CompletionKind.NORMAL) {
                         ECMAScript.RejectPromise(promise, then["[[Value]]"]);
                         return undefined;
@@ -6169,6 +6188,8 @@
             }
 
             static HostPromiseRejectionTracker(promise, operation) {
+                //the html specification actually does what i suspected
+                //https://html.spec.whatwg.org/multipage/webappapis.html#the-hostpromiserejectiontracker-implementation
                 if(operation == "reject") {
                     //Promise.try(x=>quit, 21);
                     
@@ -6193,7 +6214,7 @@
             }
 
             static PerformPromiseThen(promise, onFulfilled, onRejected, resultCapability = undefined) {
-                //Assert: ECMAScript.IsPromise(promise)
+                //Assert: ECMAScript.IsPromise(promise) == true
                 let onFulfilledJobCallback, onRejectedJobCallback;
                 if(ECMAScript.IsCallable(onFulfilled) == false) {
                     onFulfilledJobCallback = EMPTY;
@@ -7986,6 +8007,8 @@
         class StaticAnalysisFunctionScope extends StaticAnalysisScope {
             /** @type {FunctionKind} */
             subkind;
+            isAsync;
+            isGenerator;
             ///** @type {Boolean} */
             //isCtor;
 
@@ -7996,10 +8019,12 @@
             ///** @type {Number} */
             //superCount;
 
-            constructor(subkind/*, isCtor*/, blockStatementArray) {
+            constructor(subkind/*, isCtor*/, blockStatementArray, isAsync, isGenerator) {
                 super("function", blockStatementArray);
                 this.subkind = subkind;
                 //this.isCtor = isCtor;
+                this.isAsync = isAsync;
+                this.isGenerator = isGenerator;
             }
         }
 
@@ -8473,7 +8498,11 @@
                 if(this.peekReserved("await") || this.peekReserved("delete") || this.peekReserved("void") || this.peekReserved("typeof") || this.peek(TokenKind.MINUS) || this.peek(TokenKind.PLUS) || this.peek(TokenKind.BITWISE_NOT) || this.peek(TokenKind.EXCLAMATION) || this.peek(TokenKind.DECREMENT) || this.peek(TokenKind.INCREMENT)) {
                     const doesAssignment = this.peek(TokenKind.DECREMENT) || this.peek(TokenKind.INCREMENT);
                     const operator = this.tokens[this.i++];
+                    const nextTokenForError = this.tokens[this.i];
                     const expr = this.unary_prefix();
+                    if(expr == undefined) {
+                        throw new ParseError(nextTokenForError.line, nextTokenForError.char, `Expected unary expression following '${operator.value}'`);
+                    }
                     if(doesAssignment && !isValidLeftHandAssignment(this.useStrict, expr)) {
                         throw new ParseError(this.tokens[this.i].line, this.tokens[this.i].char, "Invalid left-hand side expression in prefix operation");
                     }else if(operator.value == "delete") {
@@ -8488,6 +8517,15 @@
                         }
                         if(expr instanceof BinaryExpression && expr.right instanceof PrivateIdentifierExpression) {
                             throw new ParseError(operator.line, operator.char, "Private fields can not be deleted");
+                        }
+                    }else if(operator.value == "await") {
+                        let index = this.scope.length-1;
+                        let scope = this.scope[index];
+                        while(scope && scope.kind != "function") {
+                            scope = this.scope[--index];
+                        }
+                        if(!scope || !scope.isAsync) {
+                            throw new ParseError(operator.line, operator.char, "await is only valid in async functions and the top level bodies of modules");
                         }
                     }
                     return new UnaryExpression(false, operator, expr); //right associative
@@ -8566,7 +8604,7 @@
                         // const parenthesis = this.tokens[this.i]; //no consume here because we do that in $arguments
                         const args = this.$arguments();
                         expr = new FunctionCallExpression(expr, args);
-                        if($new) {
+                        if($new && !$new.operand) {
                             $new.operand = expr;
                             expr = $new;
                         }
@@ -9261,7 +9299,7 @@
                 if(isCtor && kind == FunctionKind.METHOD) {
                     kind = FunctionKind.CONSTRUCTOR;
                 }
-                const scopeRef = new StaticAnalysisFunctionScope(kind/*, isCtor*/, undefined);
+                const scopeRef = new StaticAnalysisFunctionScope(kind/*, isCtor*/, undefined, async, generator);
                 //scopeRef.superCount = 0;
                 scopeRef.superRequired = isCtor && beginningToken.superRequired; //i wrote a whole message about how this was lazy, then got rid of this line because i didn't think i needed it anymore, and now here we are again.
                 //wait nevermind checking super calls in the constructor is runtime :)))
@@ -9411,7 +9449,7 @@
             }
             
             doCommonArrowFunctionStuff(async, beginningToken, parameters) {
-                const scopeRef = new StaticAnalysisFunctionScope(FunctionKind.ARROW, false, undefined);
+                const scopeRef = new StaticAnalysisFunctionScope(FunctionKind.ARROW, false, undefined, async, false);
                 this.scope.push(scopeRef);
                 for(const {identifier, default: $default} of parameters) {
                     scopeRef.variables.set(identifier.nameToken.value, new StaticAnalysisVariable(undefined, {line: 1, char: 1, value: "var", kind: TokenKind.RESERVED}, identifier.nameToken.value));
@@ -10881,10 +10919,13 @@
             ["[[GlobalSymbolRegistry]]"];
 
             //these are two different arrays because allegedly browsers et node js will give promises higher priority
+            //also in browsers these are appended to the microtask queue
             /** @type {Array<Function>} */
             promiseJobs;
             /** @type {Array<Function>} */
             regularJobs;
+
+            static current = undefined;
 
             //the following are abstract operations that reference the current exection context
             //since only the interpreter has it, i just put them as methods of it (although they could just be static methods of the ECMAScript class and just require the interpreter be passed as an argument...)
@@ -11187,6 +11228,12 @@
             constructor() {
                 super();
                 //this.scope = {};
+                
+                if(JavascriptInterpreter.current != undefined) {
+                    console.warn("Overriding JavascriptInterpreter.current because new JavascriptInterpreter was created...");
+                }
+                JavascriptInterpreter.current = this;
+
                 debugger;
 
                 ECMAScript["%Symbol.asyncDispose%"] = Symbol.asyncDispose;
@@ -13819,20 +13866,20 @@
                                         function returnValue(thisArg, argList, newTarget) {
                                             return /*NormalCompletion(*/value/*)*/;
                                         }
-                                        const valueThunk = ECMAScript.CreateBuiltinFunction(returnValue, 0, "", [], this.realm);
+                                        const valueThunk = ECMAScript.CreateBuiltinFunction(returnValue, 0, "", []);
                                         return /*?*/ ECMAScript.Invoke(p, "then", [valueThunk]);
                                     }
-                                    thenFinally = ECMAScript.CreateBuiltinFunction(thenFinallyClosure, 1, "", [], this.realm);
+                                    thenFinally = ECMAScript.CreateBuiltinFunction(thenFinallyClosure, 1, "", []);
                                     function catchFinallyClosure(thisArg, [reason], newTarget) {
                                         const result = /*?*/ ECMAScript.Call(onFinally, undefined);
                                         const p = /*?*/ ECMAScript.PromiseResolve(ctor, result);
                                         function throwReason(thisArg, argList, newTarget) {
                                             throw reason; //lol
                                         }
-                                        const thrower = ECMAScript.CreateBuiltinFunction(throwReason, 0, "", [], this.realm);
+                                        const thrower = ECMAScript.CreateBuiltinFunction(throwReason, 0, "", []);
                                         return /*?*/ ECMAScript.Invoke(p, "then", [thrower]);
                                     }
-                                    catchFinally = ECMAScript.CreateBuiltinFunction(catchFinallyClosure, 1, "", [], this.realm);
+                                    catchFinally = ECMAScript.CreateBuiltinFunction(catchFinallyClosure, 1, "", []);
                                 }
                                 return /*?*/ ECMAScript.Invoke(promise, "then", [thenFinally, catchFinally]);
                             },
@@ -15623,7 +15670,7 @@
                         const resolvingFuncs = ECMAScript.CreateResolvingFunctions(promise);
                         //the promise constructor calls executor right away!
                         //then when nothing is happening it calls then/catch listeners
-                        const completion = ECMAScript.Completion(()=>executor["[[Call]]"](undefined, [resolvingFuncs["[[Resolve]]"], resolvingFuncs["[[Reject]]"]]));
+                        const completion = ECMAScript.Completion(()=>ECMAScript.Call(executor, undefined, [resolvingFuncs["[[Resolve]]"], resolvingFuncs["[[Reject]]"]]));
                         if(completion["[[Type]]"] != CompletionKind.NORMAL) {
                             /*?*/ ECMAScript.Call(resolvingFuncs["[[Reject]]"], undefined, [completion["[[Value]]"]]);
                         }
@@ -16462,6 +16509,24 @@
                     0, "larp", [], this
                 );
 
+                //https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#dom-queuemicrotask
+                globalObj.SetDataProperty("queueMicrotask", true, false, true, ECMAScript.CreateBuiltinFunction(
+                    function(thisArg, argList, newTarget) {
+                        //thinking about it right now, v8 might use the idl in the spec to generate error messages
+                        if(argList.length == 0) {
+                            throw TypeError("Failed to execute 'queueMicrotask' on 'globalThis': 1 argument required, but only 0 present.");
+                        }else if(ECMAScript.IsCallable(argList[0]) == false) {
+                            throw TypeError("Failed to execute 'queueMicrotask' on 'globalThis': parameter 1 is not of type 'Function'");
+                        }
+                        const callback = argList[0];
+                        function job() {
+                            return /*?*/ ECMAScript.Call(callback, undefined, []);
+                        }
+                        ECMAScript.HostEnqueueGenericJob(job, this.realm);
+                    },
+                    1, "queueMicrotask", [], this
+                ));
+
                 this["[[GlobalEnv]]"] = new GlobalEnvironmentRecord(false, globalObj, globalObj);
                 this["[[GlobalObject]]"] = globalObj;
 
@@ -16522,12 +16587,38 @@
                 const returnValue = this.evaluate(result.value.at(-1));
 
                 //now, i suppose, would be the proper time to evaluate jobs
-                for(const promiseJob of this.promiseJobs) {
-                    promiseJob();
-                }
+                //i was worried this wouldn't work if something was added to promiseJobs/regularJobs since that would be changing the array during iteration, but i should've realized it calls IteratorStepValue every time, so if something new was added, it would actually just keep going
+                while(this.promiseJobs.length || this.regularJobs.length) {
+                    //we're doing the while loop because one could use Promise.prototype.then to queue a promise job in a microtask!
+                    //queueMicrotask(
+                    //    function() {
+                    //        console.log("Microtask");
+                    //        const p = new Promise((res, rej)=>{
+                    //            console.log("p Body");
+                    //            res("Promise");
+                    //        });
+                    //        p.then(function(result) {
+                    //            console.log(result, "then");
+                    //        });
+                    //    }
+                    //);
+                    //queueMicrotask(
+                    //    function() {
+                    //        console.log("Microtask 2");
+                    //    }
+                    //);
 
-                for(const job of this.regularJobs) {
-                    job();
+                    for(const promiseJob of this.promiseJobs) {
+                        promiseJob();
+                    }
+
+                    this.promiseJobs = []; //i think we can safely reset this array because if any promise jobs were added in the for of promiseJobs loop, they would be evaluated then
+
+                    for(const job of this.regularJobs) {
+                        job();
+                    }
+
+                    this.regularJobs = [];
                 }
 
                 return returnValue;
@@ -16551,6 +16642,7 @@
                 }else {
                     queue = this.regularJobs;
                 }
+                console.log(`${isPromiseJob ? "promise job" : "job"} appended, #${queue.length+1}`);
                 queue.push(job);
             }
 
@@ -19077,6 +19169,7 @@
             let interpreter = new JavascriptInterpreter();
             // console.log("$0:", interpreter.interpret(letext.value));
             console.larp["[[Call]]"](undefined, [interpreter.interpret(letext.value)]);
+            JavascriptInterpreter.current = undefined;
         });
     </script>
 </body>
