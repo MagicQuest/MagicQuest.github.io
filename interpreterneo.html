@@ -108,12 +108,12 @@
     <script>
         //"use strict";
 
-        //here's an exhaustive list of everything my interpreter can't do / doesn't have:
+        //here's an "exhaustive" list of everything my interpreter can't do / doesn't have:
         //* no identifier unicode escape sequences
         //* backtick template strings or backtick function calls
         //* no switch, try, throw, break, or continue...
         //* no labels
-        //* no generator, async or await
+        //* no generator or await (async functions kind of work)
         //* no Error objects
         //* no eval and no Function
         //* no using, or disposible objects
@@ -130,24 +130,7 @@
         //
         //oh... this list is larger than i expected...
 
-        //weird promise object inconsistencies to be fixed in the next commit
-        
-        //const parr = [
-        //    new Promise((res, rej)=>{
-        //        res("Fulfilled!");
-        //    }),
-        //    new Promise((res, rej)=>{
-        //       rej("Rejected!");
-        //    }),
-        //];
-        //Promise.all(parr);
-
-        //const p = new Promise((res, rej)=>{
-        //    console.log("Body");
-        //    res(Promise.try(x=>quit, 21));
-        //});
-        //p.then(x=>console.larp("Fulfilled:", x), y=>console.larp("Rejected:", y));
-        //p;
+        //also for of/in is really weird and i should fix that!
 
         const examples = {
             "basic": "let x = 5;",
@@ -3201,6 +3184,18 @@
                 return obj;
             }
 
+            static GetOwnPropertyKeys(value, trueForStringFalseForSymbol) { //i can't be bothered to make another enum lol
+                const obj = /*?*/ ECMAScript.ToObject(value);
+                const keys = /*?*/ obj["[[OwnPropertyKeys]]"]();
+                const nameList = [];
+                for(const nextKey of keys) {
+                    if((typeof nextKey == "symbol" && trueForStringFalseForSymbol == false) || (typeof nextKey == "string" && trueForStringFalseForSymbol == true)) {
+                        nameList.push(nextKey);
+                    }
+                }
+                return nameList;
+            }
+
             /**
              * @param {JavascriptInterpreter} interpreter
              * @param {JavascriptObjectWrapper} proto
@@ -3601,6 +3596,10 @@
                     }
                 }catch(e) {
                     if(e instanceof Error) {
+                        //don't forget...
+                        if(!func.strict && argumentsObjNeeded) {
+                            func.properties.get("arguments").value = null;
+                        }
                         throw e;
                     }
                     retval = e; //the return expression is evaluated as soon as we reach it in the function (i honestly wasn't sure if that was the right move, but with scopes you could try to return a local var!)
@@ -6709,6 +6708,7 @@
             //definitely not in the specification!
             //isActuallyAnExpressionThoughBecauseImLazyAndTheyBasicallyAreTheSameBesidesOneSmallDetailCommaThisIsActuallyTheNameOfThisFunctionForTheScopeLol;
             //functionNameForScopeOfFunctionExpressions;
+            isAsync;
 
             //https://tc39.es/ecma262/#sec-ecmascript-function-objects-call-thisargument-argumentslist
             ["[[Call]]"](thisArg, argList = []) {
@@ -6750,8 +6750,21 @@
                 //if(this.functionNameForScopeOfFunctionExpressions) {
                 //    scope.set(this.functionNameForScopeOfFunctionExpressions, new Variable({qualifier: {line: 1, char: 1, value: "var", kind: TokenKind.RESERVED}, name: this.functionNameForScopeOfFunctionExpressions, gender: undefined}, this));
                 //}
-
-                const result = ECMAScript.OrdinaryCallEvaluateBody(this, argList);
+                let result;
+                if(this.isAsync) {
+                    //technically https://tc39.es/ecma262/multipage/ecmascript-language-functions-and-classes.html#sec-runtime-semantics-evaluateasyncfunctionbody
+                    const promiseCapability = /*!*/ ECMAScript.NewPromiseCapability(ECMAScript["%Promise%"]);
+                    const completion = ECMAScript.Completion(()=>ECMAScript.OrdinaryCallEvaluateBody(this, argList));
+                    if(completion["[[Type]]"] != CompletionKind.NORMAL) {
+                        /*!*/ ECMAScript.Call(promiseCapability["[[Reject]]"], undefined, [completion["[[Value]]"]]); //probably don't need to use ECMAScript.Call here lol
+                    }else {
+                        //the following actually comes from AsyncBlockStart's closure lol, we're larping
+                        /*!*/ ECMAScript.Call(promiseCapability["[[Resolve]]"], undefined, [completion["[[Value]]"]]);
+                    }
+                    result = promiseCapability["[[Promise]]"];
+                }else {
+                    result = ECMAScript.OrdinaryCallEvaluateBody(this, argList);
+                }
 
                 //this.environment.pop();
                 //this.interpreter.state.variables = old;
@@ -8519,6 +8532,8 @@
                             throw new ParseError(operator.line, operator.char, "Private fields can not be deleted");
                         }
                     }else if(operator.value == "await") {
+                        throw new ParseError(operator.line, operator.char, "await not implemented because how the hell will i suspend execution in an interpreted language?!"); //am i supposed to make every visit method a generator?! (i think there's actually a real, different solution wherein we remember what the last parse node we saw was (so we can get back to it) and in BlockStatement (and basically all statements that can have a body) we'll have a special parameter or something that lets us get back to where we were (without re evaluating shit because with getters and proxies that would be observable!!))
+
                         let index = this.scope.length-1;
                         let scope = this.scope[index];
                         while(scope && scope.kind != "function") {
@@ -11093,6 +11108,30 @@
                     envRecord = envRecord["[[OuterEnv]]"];
                 }
             }
+
+            //yo is Await actually doable?
+            //Await(arg) {
+            //    let result;
+            //    //PromiseResolve should call fulfilledClosure/rejectedClosure immediately so uhhh we'll just put the return value in result
+            //    //oh... i lied just then... i was thinking about the body of a promise... us calling PerformPromiseThen at the bottom means they will be called when jobs are ran
+            //    //that's why i was questioning whether or not this was possible...
+            //    const promise = /*?*/ ECMAScript.PromiseResolve(ECMAScript["%Promise%"], arg);
+            //    function fulfilledClosure(thisArg, [value], newTarget) {
+            //        //RunSuspendedContext...
+            //        result = value;
+            //        return /*NormalCompletion(*/undefined/*)*/;
+            //    }
+            //    const onFulfilled = ECMAScript.CreateBuiltinFunction(fulfilledClosure, 1, "", []);
+            //    function rejectedClosure(thisArg, [reason], newTarget) {
+            //        //RunSuspendedContext...
+            //        result = reason;
+            //        return /*NormalCompletion(*/undefined/*)*/;
+            //    }
+            //    const onRejected = ECMAScript.CreateBuiltinFunction(rejectedClosure, 1, "", []);
+            //    ECMAScript.PerformPromiseThen(promise, onFulfilled, onRejected);
+            //    //return /*?*/ RunCallerContext(EMPTY);
+            //    return result;
+            //}
 
             DisposeResources(disposableResourceStack, completion) {
                 let needsAwait = false;
@@ -14346,10 +14385,7 @@
                     },
                     1, "Object", [], this, ECMAScript["%Function.prototype%"]
                 );
-                ECMAScript.MakeConstructor($Object, false);
-
-                $Object.SetDataProperty("prototype", false, false, false, ECMAScript["%Object.prototype%"]);
-
+                ECMAScript.MakeConstructor($Object, false, ECMAScript["%Object.prototype%"]);
                 ECMAScript["%Object.prototype%"].properties.get("constructor").value = $Object;
                 
                 //$Object["[[Call]]"] = function(value) {
@@ -14362,330 +14398,384 @@
                 //    }
                 //    return ECMAScript.ToObject(value);
                 //}
-                $Object.SetDataProperty("assign", true, false, true, ECMAScript.CreateBuiltinFunction(
-                    function(thisArg, argList, newTarget) { //Object.assign(target, ...sources);
-                        const targetObj = ECMAScript.ToObject(argList[0]);
-                        //if(argList.length == 1) return targetObj; //we don't even need this check lol (i'm sure there are quite a few optimizations that can be made from my direct translation of the specification lol)
-                        for(let i = 1; i < argList.length; i++) {
-                            const nextSource = argList[i];
-                            if(nextSource != null && nextSource != undefined) {
-                                const from = ECMAScript.ToObject(nextSource);
-                                const keys = from["[[OwnPropertyKeys]]"]();
-                                for(const nextKey of keys) {
-                                    const propertyDesc = from["[[GetOwnProperty]]"](nextKey);
-                                    if(propertyDesc?.enumerable == true) {
-                                        //Set
-                                        if(!targetObj["[[Set]]"](nextKey, from["[[Get]]"](nextKey, from), targetObj)) {
-                                            //let target = {};
-                                            //let source = {};
-                                            //Object.defineProperty(source, "malicious", {enumerable: true, configurable: false, get: function() {Object.defineProperty(target, "malicious", {enumerable: true, configurable: false, writable: false, value: "gotcha!"})}, set: undefined});
-                                            //Object.assign(target, source); // Cannot assign to read only property 'malicious' of object '#<Object>'
 
-                                            //how the hell does v8 do that error checking shit lol my messages aren't that good
+                {
+                    const $assign = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) { //Object.assign(target, ...sources);
+                            const targetObj = ECMAScript.ToObject(argList[0]);
+                            //if(argList.length == 1) return targetObj; //we don't even need this check lol (i'm sure there are quite a few optimizations that can be made from my direct translation of the specification lol)
+                            for(let i = 1; i < argList.length; i++) {
+                                const nextSource = argList[i];
+                                if(nextSource != null && nextSource != undefined) {
+                                    const from = ECMAScript.ToObject(nextSource);
+                                    const keys = from["[[OwnPropertyKeys]]"]();
+                                    for(const nextKey of keys) {
+                                        const propertyDesc = from["[[GetOwnProperty]]"](nextKey);
+                                        if(propertyDesc?.enumerable == true) {
+                                            //Set
+                                            if(!targetObj["[[Set]]"](nextKey, from["[[Get]]"](nextKey, from), targetObj)) {
+                                                //let target = {};
+                                                //let source = {};
+                                                //Object.defineProperty(source, "malicious", {enumerable: true, configurable: false, get: function() {Object.defineProperty(target, "malicious", {enumerable: true, configurable: false, writable: false, value: "gotcha!"})}, set: undefined});
+                                                //Object.assign(target, source); // Cannot assign to read only property 'malicious' of object '#<Object>'
 
-                                            throw TypeError(`Failed to set property '${nextKey}' on object!`);                                            
+                                                //how the hell does v8 do that error checking shit lol my messages aren't that good
+
+                                                throw TypeError(`Failed to set property '${nextKey}' on object!`);                                            
+                                            }
                                         }
                                     }
                                 }
                             }
+                            return targetObj;
+                        },
+                        2, "assign", [], this
+                    );
+
+                    function defineProperties(argList) {
+                        if(!(argList[0] instanceof JavascriptObjectWrapper)) throw TypeError("Object.defineProperties called on non-object");
+                        //return ObjectDefineProperties(argList[0], argList[1]);
+                        const properties = ECMAScript.ToObject(argList[1]);
+                        const keys = properties["[[OwnPropertyKeys]]"]();
+                        const propertyDescs = [];
+                        for(const nextKey of keys) {
+                            const currentPropertyDesc = properties["[[GetOwnProperty]]"](nextKey);
+                            if(currentPropertyDesc?.enumerable == true) {
+                                const propertyDescObj = properties["[[Get]]"](nextKey, properties);
+                                const propertyDesc = ECMAScript.ToPropertyDescriptor(propertyDescObj);
+                                propertyDescs.push({["[[Key]]"]: nextKey, ["[[Descriptor]]"]: propertyDesc});
+                            }
                         }
-                        return targetObj;
-                    },
-                    2, "assign", [], this
-                ));
-                function $defineProperties(argList) {
-                    if(!(argList[0] instanceof JavascriptObjectWrapper)) throw TypeError("Object.defineProperties called on non-object");
-                    //return ObjectDefineProperties(argList[0], argList[1]);
-                    const properties = ECMAScript.ToObject(argList[1]);
-                    const keys = properties["[[OwnPropertyKeys]]"]();
-                    const propertyDescs = [];
-                    for(const nextKey of keys) {
-                        const currentPropertyDesc = properties["[[GetOwnProperty]]"](nextKey);
-                        if(currentPropertyDesc?.enumerable == true) {
-                            const propertyDescObj = properties["[[Get]]"](nextKey, properties);
-                            const propertyDesc = ECMAScript.ToPropertyDescriptor(propertyDescObj);
-                            propertyDescs.push({["[[Key]]"]: nextKey, ["[[Descriptor]]"]: propertyDesc});
-                        }
-                    }
-                    for(const property of propertyDescs) {
-                        if(!argList[0]["[[DefineOwnProperty]]"](property["[[Key]]"], property["[[Descriptor]]"])) {
-                            throw TypeError(`Failed to set property '${property["[[Key]]"]}' on object`);
-                        }
-                    }
-                    return argList[0];
-                }
-                $Object.SetDataProperty("create", true, false, true, ECMAScript.CreateBuiltinFunction(
-                    function(thisArg, argList, newTarget) { //Object.create(proto, properties)
-                        const proto = argList[0];
-                        if(!(proto instanceof JavascriptObjectWrapper) && proto != null) throw TypeError(`Object prototype may only be an Object or null: ${proto}`);
-                        const obj = ECMAScript.OrdinaryObjectCreate(proto);
-                        if(argList[1] != undefined) {
-                            //i'm not writing ObjectDefineProperties into its own function so i'm directly calling Object.defineProperties lol!!
-                            //this is DANGEROUS and LAZY, defineProperties is writable and can be changed!!
-                            //return $Object.properties.get("defineProperties")["[[Call]]"](thisArg, [obj, argList[1]]);
-                            return $defineProperties([obj, argList[1]]);
-                        }
-                        return obj;
-                    },
-                    2, "create", [], this
-                ));
-                $Object.SetDataProperty("defineProperties", true, false, true, ECMAScript.CreateBuiltinFunction(
-                    function(thisArg, argList, newTarget) { //Object.defineProperties(obj, properties)
-                        return $defineProperties(argList);
-                    },
-                    2, "defineProperties", [], this
-                ));
-                $Object.SetDataProperty("defineProperty", true, false, true, ECMAScript.CreateBuiltinFunction(
-                    function(thisArg, argList, newTarget) { //Object.defineProperty(obj, key, attrs)
-                        if(!(argList[0] instanceof JavascriptObjectWrapper)) throw TypeError("Object.defineProperty called on non-object");
-                        const propertyKey = ECMAScript.ToPropertyKey(argList[1]);
-                        const propertyDesc = ECMAScript.ToPropertyDescriptor(argList[2]);
-                        if(!argList[0]["[[DefineOwnProperty]]"](propertyKey, propertyDesc)) {
-                            // const obj = {};
-                            // Object.defineProperty(obj, "property", {value: "don't configure me", configurable: false, enumerable: false, writable: false});
-                            // Object.defineProperty(obj, "property", {get: function() {}, configurable: true, enumerable: true});
-                            //throw TypeError(`Failed to set property '${propertyKey}' on object`);
-                            throw TypeError(`Cannot redefine property: ${propertyKey}`);
+                        for(const property of propertyDescs) {
+                            if(!argList[0]["[[DefineOwnProperty]]"](property["[[Key]]"], property["[[Descriptor]]"])) {
+                                throw TypeError(`Failed to set property '${property["[[Key]]"]}' on object`);
+                            }
                         }
                         return argList[0];
-                    },
-                    3, "defineProperty", [], this
-                ));
-                $Object.SetDataProperty("entries", true, false, true, ECMAScript.CreateBuiltinFunction(
-                    function(thisArg, argList, newTarget) {
-                        const coerced = ECMAScript.ToObject(argList[0]);
-                        const entryList = ECMAScript.EnumerableOwnProperties(coerced, EnumerateKind.KEY_VALUE);
-                        return ECMAScript.CreateArrayFromList(entryList);
-                    },
-                    1, "entries", [], this
-                ));
-                $Object.SetDataProperty("freeze", true, false, true, ECMAScript.CreateBuiltinFunction(
-                    function(thisArg, argList, newTarget) {
-                        const obj = argList[0];
-                        if(!(obj instanceof JavascriptObjectWrapper)) return obj;
-                        if(/*?*/ ECMAScript.SetIntegrityLevel(obj, IntegrityLevel.FROZEN) == false) {
-                            if(IsProxy(obj)) {
-                                //const proxy = new Proxy({}, {
-                                //    preventExtensions() {return false;}
-                                //});
-                                //Object.freeze(proxy);
-                                throw TypeError(`'preventExtensions' on proxy: trap returned falsish`);
-                            }else {
+                    }
+
+                    const $create = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) { //Object.create(proto, properties)
+                            const proto = argList[0];
+                            if(!(proto instanceof JavascriptObjectWrapper) && proto != null) throw TypeError(`Object prototype may only be an Object or null: ${proto}`);
+                            const obj = ECMAScript.OrdinaryObjectCreate(proto);
+                            if(argList[1] != undefined) {
+                                //i'm not writing ObjectDefineProperties into its own function so i'm directly calling Object.defineProperties lol!!
+                                //this is DANGEROUS and LAZY, defineProperties is writable and can be changed!!
+                                //return $Object.properties.get("defineProperties")["[[Call]]"](thisArg, [obj, argList[1]]);
+                                return defineProperties([obj, argList[1]]);
+                            }
+                            return obj;
+                        },
+                        2, "create", [], this
+                    );
+
+                    const $defineProperties = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) { //Object.defineProperties(obj, properties)
+                            return defineProperties(argList);
+                        },
+                        2, "defineProperties", [], this
+                    );
+
+                    const $defineProperty = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) { //Object.defineProperty(obj, key, attrs)
+                            if(!(argList[0] instanceof JavascriptObjectWrapper)) throw TypeError("Object.defineProperty called on non-object");
+                            const propertyKey = ECMAScript.ToPropertyKey(argList[1]);
+                            const propertyDesc = ECMAScript.ToPropertyDescriptor(argList[2]);
+                            if(!argList[0]["[[DefineOwnProperty]]"](propertyKey, propertyDesc)) {
+                                // const obj = {};
+                                // Object.defineProperty(obj, "property", {value: "don't configure me", configurable: false, enumerable: false, writable: false});
+                                // Object.defineProperty(obj, "property", {get: function() {}, configurable: true, enumerable: true});
+                                //throw TypeError(`Failed to set property '${propertyKey}' on object`);
+                                throw TypeError(`Cannot redefine property: ${propertyKey}`);
+                            }
+                            return argList[0];
+                        },
+                        3, "defineProperty", [], this
+                    );
+
+                    const $entries = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            const coerced = ECMAScript.ToObject(argList[0]);
+                            const entryList = ECMAScript.EnumerableOwnProperties(coerced, EnumerateKind.KEY_VALUE);
+                            return ECMAScript.CreateArrayFromList(entryList);
+                        },
+                        1, "entries", [], this
+                    );
+
+                    const $freeze = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            const obj = argList[0];
+                            if(!(obj instanceof JavascriptObjectWrapper)) return obj;
+                            if(/*?*/ ECMAScript.SetIntegrityLevel(obj, IntegrityLevel.FROZEN) == false) {
+                                if(IsProxy(obj)) {
+                                    //const proxy = new Proxy({}, {
+                                    //    preventExtensions() {return false;}
+                                    //});
+                                    //Object.freeze(proxy);
+                                    throw TypeError(`'preventExtensions' on proxy: trap returned falsish`);
+                                }else {
+                                    //const buf = new ArrayBuffer(10, {maxByteLength: 20});
+                                    //const typedArr = new Uint8Array(buf);
+                                    //Object.freeze(typedArr);
+                                    throw TypeError("Cannot freeze");
+                                }
+                            }
+                            return obj;
+                        },
+                        1, "freeze", [], this
+                    );
+
+                    const $fromEntries = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            const iterable = argList[0];
+                            if(iterable === null || iterable === undefined) {
+                                let err;
+                                if(typeof iterable == "object" || typeof iterable == "undefined") {
+                                    err = `${typeof iterable} is not iterable (cannot read property Symbol(Symbol.iterator))`;
+                                }else {
+                                    err = `${typeof iterable} ${iterable} is not iterable (cannot read property Symbol(Symbol.iterator))`;
+                                }
+                                throw TypeError(err);
+                            }
+                            const obj = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]);
+                            //Assert: obj.properties.size == 0
+                            const closure = function(thisArg, [key, value], newTarget) {
+                                const propertyKey = /*?*/ ECMAScript.ToPropertyKey(key);
+                                /*!*/ ECMAScript.CreateDataPropertyOrThrow(obj, propertyKey, value);
+                                //return new CompletionRecord(CompletionKind.NORMAL, undefined /*UNUSED*/); //NormalCompletion(UNUSED)
+                                return undefined; //UNUSED
+                            }
+                            const adder = ECMAScript.CreateBuiltinFunction(closure, 2, "", [], this);
+                            return /*?*/ ECMAScript.AddEntriesFromIterable(obj, iterable, adder);
+                        },
+                        1, "fromEntries", [], this
+                    );
+
+                    const $getOwnPropertyDescriptor = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) { //Object.getOwnPropertyDescriptor(obj, key);
+                            const coerced = ECMAScript.ToObject(argList[0]);
+                            const propertyKey = ECMAScript.ToPropertyKey(argList[1]);
+                            return ECMAScript.FromPropertyDescriptor(coerced["[[GetOwnProperty]]"](propertyKey));
+                        },
+                        2, "getOwnPropertyDescriptor", [], this
+                    );
+
+                    const $getOwnPropertyDescriptors = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) { //Object.getOwnPropertyDescriptor(obj);
+                            const coerced = ECMAScript.ToObject(argList[0]);
+                            const ownKeys = coerced["[[OwnPropertyKeys]]"]();
+                            const descs = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]);
+                            for(const key of ownKeys) {
+                                const propertyDescObj = ECMAScript.FromPropertyDescriptor(coerced["[[GetOwnProperty]]"](key));
+                                if(propertyDescObj != undefined) {
+                                    ECMAScript.CreateDataPropertyOrThrow(descs, key, propertyDescObj);
+                                }
+                            }
+                            return descs;
+                        },
+                        1, "getOwnPropertyDescriptors", [], this
+                    );
+
+                    const $getOwnPropertyNames = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, [obj], newTarget) {
+                            return ECMAScript.CreateArrayFromList(/*?*/ ECMAScript.GetOwnPropertyKeys(obj, true));
+                        },
+                        1, "getOwnPropertyNames", [], this
+                    );
+
+                    const $getOwnPropertySymbols = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, [obj], newTarget) {
+                            return ECMAScript.CreateArrayFromList(/*?*/ ECMAScript.GetOwnPropertyKeys(obj, false));
+                        },
+                        1, "getOwnPropertySymbols", [], this
+                    );
+
+                    const $getPrototypeOf = ECMAScript.CreateBuiltinFunction(
+                        function lmaonamedfunctionexpressionfornoreason(thisArg, argList, newTarget) {
+                            return ECMAScript.ToObject(argList[0])["[[GetPrototypeOf]]"]();
+                        },
+                        1, "getPrototypeOf", [], this
+                    );
+
+                    const $groupBy = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            const groups = /*?*/ ECMAScript.GroupBy(argList[0], argList[1], KeyCoercion.PROPERTY);
+                            const obj = ECMAScript.OrdinaryObjectCreate(null);
+                            for(const group of groups) {
+                                const elements = ECMAScript.CreateArrayFromList(group["[[Elements]]"]);
+                                /*!*/ ECMAScript.CreateDataPropertyOrThrow(obj, group["[[Key]]"], elements);
+                            }
+                            return obj;
+                        },
+                        2, "groupBy", [], this
+                    );
+
+                    const $hasOwn = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            const coerced = /*?*/ ECMAScript.ToObject(argList[0]);
+                            const propertyKey = /*?*/ ECMAScript.ToPropertyKey(argList[1]);
+                            return /*?*/ coerced["[[GetOwnProperty]]"](propertyKey) != undefined; //HasOwnProperty
+                        },
+                        2, "hasOwn", [], this
+                    );
+
+                    const $is = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            return ECMAScript.SameValue(argList[0], argList[1]);
+                        },
+                        2, "is", [], this
+                    );
+
+                    const $isExtensible = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            if(!(argList[0] instanceof JavascriptObjectWrapper)) return false;
+                            return argList[0]["[[IsExtensible]]"]();
+                        },
+                        1, "isExtensible", [], this
+                    );
+
+                    const $isFrozen = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            const obj = argList[0];
+                            if(!(obj instanceof JavascriptObjectWrapper)) return true;
+                            return /*?*/ ECMAScript.TestIntegrityLevel(obj, IntegrityLevel.FROZEN);
+                        },
+                        1, "isFrozen", [], this
+                    );
+
+                    const $isSealed = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            const obj = argList[0];
+                            if(!(obj instanceof JavascriptObjectWrapper)) return true;
+                            return /*?*/ ECMAScript.TestIntegrityLevel(obj, IntegrityLevel.SEALED);
+                        },
+                        1, "isSealed", [], this
+                    );
+
+                    const $keys = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            const coerced = ECMAScript.ToObject(argList[0]);
+                            const keyList = ECMAScript.EnumerableOwnProperties(coerced, EnumerateKind.KEY);
+                            return ECMAScript.CreateArrayFromList(keyList);
+                        },
+                        1, "keys", [], this
+                    );
+
+                    const $preventExtensions = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            const obj = argList[0];
+                            if(!(obj instanceof JavascriptObjectWrapper)) return obj;
+                            if(! /*?*/ obj["[[PreventExtensions]]"]()) {
+                                //damn this is a hard error to find...
                                 //const buf = new ArrayBuffer(10, {maxByteLength: 20});
-                                //const typedArr = new Uint8Array(buf);
-                                //Object.freeze(typedArr);
-                                throw TypeError("Cannot freeze");
+                                //const typedArr = new Uint8Array(buf); //TypedArray with resizable array buffer must be extensible
+                                //Object.preventExtensions(typedArr);
+                                //bruv, i did all that for "Cannot prevent extensions"
+                                if(IsProxy(obj)) {
+                                    throw TypeError("'preventExtensions' on proxy: trap returned falsish");
+                                }
+                                throw TypeError("Cannot prevent extensions");
                             }
-                        }
-                        return obj;
-                    },
-                    1, "freeze", [], this
-                ));
-                //this is for my own use with JSONParser lol
-                //ok nevermind this wasn't going to work lol
-                ECMAScript["%Object.fromEntries%"] = ECMAScript.CreateBuiltinFunction(
-                    function(thisArg, argList, newTarget) {
-                        const iterable = argList[0];
-                        if(iterable === null || iterable === undefined) {
-                            let err;
-                            if(typeof iterable == "object" || typeof iterable == "undefined") {
-                                err = `${typeof iterable} is not iterable (cannot read property Symbol(Symbol.iterator))`;
-                            }else {
-                                err = `${typeof iterable} ${iterable} is not iterable (cannot read property Symbol(Symbol.iterator))`;
+                            return obj;
+                        },
+                        1, "preventExtensions", [], this
+                    );
+
+                    const $seal = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            const obj = argList[0];
+                            if(!(obj instanceof JavascriptObjectWrapper)) return obj;
+                            if(/*?*/ ECMAScript.SetIntegrityLevel(obj, IntegrityLevel.SEALED) == false) {
+                                if(IsProxy(obj)) {
+                                    //const proxy = new Proxy({}, {
+                                    //    preventExtensions() {return false;}
+                                    //});
+                                    //Object.seal(proxy);
+                                    throw TypeError(`'preventExtensions' on proxy: trap returned falsish`);
+                                }else {
+                                    //const buf = new ArrayBuffer(10, {maxByteLength: 20});
+                                    //const typedArr = new Uint8Array(buf);
+                                    //Object.seal(typedArr);
+                                    throw TypeError("Cannot seal");
+                                }
                             }
-                            throw TypeError(err);
-                        }
-                        const obj = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]);
-                        //Assert: obj.properties.size == 0
-                        const closure = function(thisArg, [key, value], newTarget) {
-                            const propertyKey = /*?*/ ECMAScript.ToPropertyKey(key);
-                            /*!*/ ECMAScript.CreateDataPropertyOrThrow(obj, propertyKey, value);
-                            //return new CompletionRecord(CompletionKind.NORMAL, undefined /*UNUSED*/); //NormalCompletion(UNUSED)
-                            return undefined; //UNUSED
-                        }
-                        const adder = ECMAScript.CreateBuiltinFunction(closure, 2, "", [], this);
-                        return /*?*/ ECMAScript.AddEntriesFromIterable(obj, iterable, adder);
-                    },
-                    1, "fromEntries", [], this
-                );
-                $Object.SetDataProperty("fromEntries", true, false, true, ECMAScript["%Object.fromEntries%"]);
-                $Object.SetDataProperty("getOwnPropertyDescriptor", true, false, true, ECMAScript.CreateBuiltinFunction(
-                    function(thisArg, argList, newTarget) { //Object.getOwnPropertyDescriptor(obj, key);
-                        const coerced = ECMAScript.ToObject(argList[0]);
-                        const propertyKey = ECMAScript.ToPropertyKey(argList[1]);
-                        return ECMAScript.FromPropertyDescriptor(coerced["[[GetOwnProperty]]"](propertyKey));
-                    },
-                    2, "getOwnPropertyDescriptor", [], this
-                ));
+                            return obj;
+                        },
+                        1, "seal", [], this
+                    );
 
-                $Object.SetDataProperty("getOwnPropertyDescriptors", true, false, true, ECMAScript.CreateBuiltinFunction(
-                    function(thisArg, argList, newTarget) { //Object.getOwnPropertyDescriptor(obj);
-                        const coerced = ECMAScript.ToObject(argList[0]);
-                        const ownKeys = coerced["[[OwnPropertyKeys]]"]();
-                        const descs = ECMAScript.OrdinaryObjectCreate(ECMAScript["%Object.prototype%"]);
-                        for(const key of ownKeys) {
-                            const propertyDescObj = ECMAScript.FromPropertyDescriptor(coerced["[[GetOwnProperty]]"](key));
-                            if(propertyDescObj != undefined) {
-                                ECMAScript.CreateDataPropertyOrThrow(descs, key, propertyDescObj);
+                    const $setPrototypeOf = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) { //Object.setPrototypeOf(obj, proto)
+                            const obj = argList[0];
+                            //? RequireObjectCoercible(obj)
+                            if(obj == null || obj == undefined) {
+                                throw TypeError("Object.setPrototypeOf called on null or undefined");
                             }
-                        }
-                        return descs;
-                    },
-                    1, "getOwnPropertyDescriptors", [], this
-                ));
-                $Object.SetDataProperty("getPrototypeOf", true, false, true, ECMAScript.CreateBuiltinFunction(
-                    function lmaonamedfunctionexpressionfornoreason(thisArg, argList, newTarget) {
-                        return ECMAScript.ToObject(argList[0])["[[GetPrototypeOf]]"]();
-                    },
-                    1, "getPrototypeOf", [], this
-                ));
-                $Object.SetDataProperty("groupBy", true, false, true, ECMAScript.CreateBuiltinFunction(
-                    function(thisArg, argList, newTarget) {
-                        const groups = /*?*/ ECMAScript.GroupBy(argList[0], argList[1], KeyCoercion.PROPERTY);
-                        const obj = ECMAScript.OrdinaryObjectCreate(null);
-                        for(const group of groups) {
-                            const elements = ECMAScript.CreateArrayFromList(group["[[Elements]]"]);
-                            /*!*/ ECMAScript.CreateDataPropertyOrThrow(obj, group["[[Key]]"], elements);
-                        }
-                        return obj;
-                    },
-                    2, "groupBy", [], this
-                ));
-                $Object.SetDataProperty("hasOwn", true, false, true, ECMAScript.CreateBuiltinFunction(
-                    function(thisArg, argList, newTarget) {
-                        const coerced = /*?*/ ECMAScript.ToObject(argList[0]);
-                        const propertyKey = /*?*/ ECMAScript.ToPropertyKey(argList[1]);
-                        return /*?*/ coerced["[[GetOwnProperty]]"](propertyKey) != undefined; //HasOwnProperty
-                    },
-                    2, "hasOwn", [], this
-                ));
-                $Object.SetDataProperty("is", true, false, true, ECMAScript.CreateBuiltinFunction(
-                    function(thisArg, argList, newTarget) {
-                        return ECMAScript.SameValue(argList[0], argList[1]);
-                    },
-                    2, "is", [], this
-                ));
-
-                $Object.SetDataProperty("isExtensible", true, false, true, ECMAScript.CreateBuiltinFunction(
-                    function(thisArg, argList, newTarget) {
-                        if(!(argList[0] instanceof JavascriptObjectWrapper)) return false;
-                        return argList[0]["[[IsExtensible]]"]();
-                    },
-                    1, "isExtensible", [], this
-                ));
-                $Object.SetDataProperty("isFrozen", true, false, true, ECMAScript.CreateBuiltinFunction(
-                    function(thisArg, argList, newTarget) {
-                        const obj = argList[0];
-                        if(!(obj instanceof JavascriptObjectWrapper)) return true;
-                        return /*?*/ ECMAScript.TestIntegrityLevel(obj, IntegrityLevel.FROZEN);
-                    },
-                    1, "isFrozen", [], this
-                ));
-                $Object.SetDataProperty("isSealed", true, false, true, ECMAScript.CreateBuiltinFunction(
-                    function(thisArg, argList, newTarget) {
-                        const obj = argList[0];
-                        if(!(obj instanceof JavascriptObjectWrapper)) return true;
-                        return /*?*/ ECMAScript.TestIntegrityLevel(obj, IntegrityLevel.SEALED);
-                    },
-                    1, "isSealed", [], this
-                ));
-                $Object.SetDataProperty("keys", true, false, true, ECMAScript.CreateBuiltinFunction(
-                    function(thisArg, argList, newTarget) {
-                        const coerced = ECMAScript.ToObject(argList[0]);
-                        const keyList = ECMAScript.EnumerableOwnProperties(coerced, EnumerateKind.KEY);
-                        return ECMAScript.CreateArrayFromList(keyList);
-                    },
-                    1, "keys", [], this
-                ));
-
-                $Object.SetDataProperty("preventExtensions", true, false, true, ECMAScript.CreateBuiltinFunction(
-                    function(thisArg, argList, newTarget) {
-                        const obj = argList[0];
-                        if(!(obj instanceof JavascriptObjectWrapper)) return obj;
-                        if(! /*?*/ obj["[[PreventExtensions]]"]()) {
-                            //damn this is a hard error to find...
-                            //const buf = new ArrayBuffer(10, {maxByteLength: 20});
-                            //const typedArr = new Uint8Array(buf); //TypedArray with resizable array buffer must be extensible
-                            //Object.preventExtensions(typedArr);
-                            //bruv, i did all that for "Cannot prevent extensions"
-                            if(IsProxy(obj)) {
-                                throw TypeError("'preventExtensions' on proxy: trap returned falsish");
+                            const proto = argList[1];
+                            if(!(proto instanceof JavascriptObjectWrapper) && proto !== null) { //strict!!
+                                throw TypeError(`Object prototype may only be an Object or null: ${SpecialErrorToString(proto)}`); //we're only using SpecialErrorToString so we can get le symbols right lol
                             }
-                            throw TypeError("Cannot prevent extensions");
-                        }
-                        return obj;
-                    },
-                    1, "preventExtensions", [], this
-                ));
-
-                $Object.SetDataProperty("seal", true, false, true, ECMAScript.CreateBuiltinFunction(
-                    function(thisArg, argList, newTarget) {
-                        const obj = argList[0];
-                        if(!(obj instanceof JavascriptObjectWrapper)) return obj;
-                        if(/*?*/ ECMAScript.SetIntegrityLevel(obj, IntegrityLevel.SEALED) == false) {
-                            if(IsProxy(obj)) {
-                                //const proxy = new Proxy({}, {
-                                //    preventExtensions() {return false;}
-                                //});
-                                //Object.seal(proxy);
-                                throw TypeError(`'preventExtensions' on proxy: trap returned falsish`);
-                            }else {
-                                //const buf = new ArrayBuffer(10, {maxByteLength: 20});
-                                //const typedArr = new Uint8Array(buf);
-                                //Object.seal(typedArr);
-                                throw TypeError("Cannot seal");
+                            if(!(obj instanceof JavascriptObjectWrapper)) return obj;
+                            if(! /*?*/ obj["[[SetPrototypeOf]]"](proto)) {
+                                //maybe this error?
+                                //Object.setPrototypeOf(Object.prototype, {});
+                                //Immutable prototype object 'Object.prototype' cannot have their prototype set
+                                if(IsProxy(obj)) {
+                                    //const target = {};
+                                    //Object.preventExtensions(target);
+                                    //
+                                    //const handler = {
+                                    //    setPrototypeOf() {
+                                    //        return false;
+                                    //    }
+                                    //};
+                                    //
+                                    //const proxy = new Proxy(target, handler);
+                                    //Object.setPrototypeOf(proxy, Object); // 'setPrototypeOf' on proxy: trap returned falsish for property 'undefined'
+                                    throw TypeError("'setPrototypeOf' on proxy: trap returned falsish for property 'undefined'");
+                                }
+                                throw TypeError("Immutable prototype object 'Object.prototype' cannot have their prototype set");
                             }
-                        }
-                        return obj;
-                    },
-                    1, "seal", [], this
-                ));
+                            return obj;
+                        },
+                        2, "setPrototypeOf", [], this
+                    );
 
-                $Object.SetDataProperty("setPrototypeOf", true, false, true, ECMAScript.CreateBuiltinFunction(
-                    function(thisArg, argList, newTarget) { //Object.setPrototypeOf(obj, proto)
-                        const obj = argList[0];
-                        //? RequireObjectCoercible(obj)
-                        if(obj == null || obj == undefined) {
-                            throw TypeError("Object.setPrototypeOf called on null or undefined");
-                        }
-                        const proto = argList[1];
-                        if(!(proto instanceof JavascriptObjectWrapper) && proto !== null) { //strict!!
-                            throw TypeError(`Object prototype may only be an Object or null: ${SpecialErrorToString(proto)}`); //we're only using SpecialErrorToString so we can get le symbols right lol
-                        }
-                        if(!(obj instanceof JavascriptObjectWrapper)) return obj;
-                        if(! /*?*/ obj["[[SetPrototypeOf]]"](proto)) {
-                            //maybe this error?
-                            //Object.setPrototypeOf(Object.prototype, {});
-                            //Immutable prototype object 'Object.prototype' cannot have their prototype set
-                            if(IsProxy(obj)) {
-                                //const target = {};
-                                //Object.preventExtensions(target);
-                                //
-                                //const handler = {
-                                //    setPrototypeOf() {
-                                //        return false;
-                                //    }
-                                //};
-                                //
-                                //const proxy = new Proxy(target, handler);
-                                //Object.setPrototypeOf(proxy, Object); // 'setPrototypeOf' on proxy: trap returned falsish for property 'undefined'
-                                throw TypeError("'setPrototypeOf' on proxy: trap returned falsish for property 'undefined'");
-                            }
-                            throw TypeError("Immutable prototype object 'Object.prototype' cannot have their prototype set");
-                        }
-                        return obj;
-                    },
-                    2, "setPrototypeOf", [], this
-                ));
+                    const $values = ECMAScript.CreateBuiltinFunction(
+                        function(thisArg, argList, newTarget) {
+                            const obj = /*?*/ ECMAScript.ToObject(argList[0]);
+                            const valueList = /*?*/ ECMAScript.EnumerableOwnProperties(coerced, EnumerateKind.VALUE);
+                            return ECMAScript.CreateArrayFromList(valueList);
+                        },
+                        1, "values", [], this
+                    );
 
-                $Object.SetDataProperty("values", true, false, true, ECMAScript.CreateBuiltinFunction(
-                    function(thisArg, argList, newTarget) {
-                        const obj = /*?*/ ECMAScript.ToObject(argList[0]);
-                        const valueList = /*?*/ ECMAScript.EnumerableOwnProperties(coerced, EnumerateKind.VALUE);
-                        return ECMAScript.CreateArrayFromList(valueList);
-                    },
-                    1, "values", [], this
-                ));
+                    $Object.SetDataProperty("assign", true, false, true, $assign);
+                    $Object.SetDataProperty("create", true, false, true, $create);
+                    $Object.SetDataProperty("defineProperties", true, false, true, $defineProperties);
+                    $Object.SetDataProperty("defineProperty", true, false, true, $defineProperty);
+                    $Object.SetDataProperty("entries", true, false, true, $entries);
+                    $Object.SetDataProperty("freeze", true, false, true, $freeze);
+                    //this is for my own use with JSONParser lol
+                    //ok nevermind this wasn't going to work lol
+                    //ECMAScript["%Object.fromEntries%"] = $fromEntries;
+                    $Object.SetDataProperty("fromEntries", true, false, true, $fromEntries);
+                    $Object.SetDataProperty("getOwnPropertyDescriptor", true, false, true, $getOwnPropertyDescriptor);
+                    $Object.SetDataProperty("getOwnPropertyDescriptors", true, false, true, $getOwnPropertyDescriptors);
+                    $Object.SetDataProperty("getPrototypeOf", true, false, true, $getPrototypeOf);
+                    $Object.SetDataProperty("groupBy", true, false, true, $groupBy);
+                    $Object.SetDataProperty("hasOwn", true, false, true, $hasOwn);
+                    $Object.SetDataProperty("is", true, false, true, $is);
+                    $Object.SetDataProperty("isExtensible", true, false, true, $isExtensible);
+                    $Object.SetDataProperty("isFrozen", true, false, true, $isFrozen);
+                    $Object.SetDataProperty("isSealed", true, false, true, $isSealed);
+                    $Object.SetDataProperty("keys", true, false, true, $keys);
+                    $Object.SetDataProperty("preventExtensions", true, false, true, $preventExtensions);
+                    $Object.SetDataProperty("seal", true, false, true, $seal);
+                    $Object.SetDataProperty("setPrototypeOf", true, false, true, $setPrototypeOf);
+                    $Object.SetDataProperty("values", true, false, true, $values);
+                }
 
                 // this.state.variables[0].set("Object", new Variable({qualifier: {line: 1, char: 1, kind: TokenKind.RESERVED, value: "var"}, gender: undefined, name: "Object"}, $Object));
                 globalObj.SetDataProperty("Object", true, false, true, $Object);
@@ -16792,6 +16882,7 @@
 
                                 //unary_prefix
                                 case "await":
+                                    return /*?*/ this.Await(value);
                                     break;
                                 case "void":
                                     return undefined; // we already evaluated value earlier lol
@@ -18197,6 +18288,7 @@
                 return array;
             }
 
+            /** @param {FunctionStatement} functionStatement */
             CreateFunction(functionStatement, proto = ECMAScript["%Function.prototype%"]) {
                 // const scope = this.state.variables.at(-1);
                 //const scope = this.state;
@@ -18220,6 +18312,9 @@
                 //https://tc39.es/ecma262/#sec-runtime-semantics-instantiateordinaryfunctionobject
                 const privateEnv = this.executionContext.privateEnvironment;
                 const wrapper = ECMAScript.OrdinaryFunctionCreate(this, proto, functionStatement.sourceText, functionStatement.parameters, functionStatement.body, functionStatement.kindSoThatICanDoThisStuffCorrectly != FunctionKind.ARROW ? ThisMode.NON_LEXICAL_THIS : ThisMode.LEXICAL, closure, privateEnv);
+                if(functionStatement.isAsync) {
+                    wrapper.isAsync = true;
+                }
                 //for some reason SetFunctionName is actually special
                 //https://tc39.es/ecma262/#sec-setfunctionname
                 //const success = wrapper["[[DefineOwnProperty]]"]("name", new JavascriptDataProperty(false, false, true, functionStatement.nameToken.value)); //simplified!
